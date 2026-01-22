@@ -1,5 +1,5 @@
 ## LANCE-2026
-This repo houses all client and robot code used for running LANCE-2 (2026) as well as backwards compatibility for LANCE-1. If setting up from scratch, you will want to read this entire document. For instructions on building/running, see the relevant sections: [BUILDING](#building) | [RUNNING](#running).
+This repo houses all client and robot code used for running LANCE-2 (2026) as well as backwards compatibility for LANCE-1. If setting up from scratch, you will want to read this entire document.
 
 ## Setup
 1. Install [ROS2](https://docs.ros.org/en/jazzy/Installation.html) if not already done (we are using Jazzy for 2025-2026).
