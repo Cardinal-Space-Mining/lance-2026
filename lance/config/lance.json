@@ -4,67 +4,6 @@
     "preset":
     {
         "pragma:default": null,
-        "client":
-        {
-            "pragma:action_overrides":
-            {
-                "joy_node": "xbox",
-                "robot_status": "enabled",
-                "foxglove_bridge": "test",
-                "foxglove_gui": "local",
-                "bag_record": "telemetry"
-            }
-        },
-        "mocha":
-        {
-            "pragma:action_overrides":
-            {
-                "robot_control": "enabled",
-                "phoenix6_driver": "enabled",
-                "robot_tf": "lance",
-                "bag_record": "telemetry"
-            }
-        },
-        "mocha_perception":
-        {
-            "pragma:derived": "mocha",
-            "pragma:action_overrides":
-            {
-                "perception": "live",
-                "multiscan_driver": "robot",
-                "bag_record": "sensor_data"
-            }
-        },
-        "frappe":
-        {
-            "pragma:action_overrides":
-            {
-                "phoenix5_driver": "enabled",
-                "bag_record": "telemetry"
-            }
-        },
-        "robot":
-        {
-            "pragma:action_overrides":
-            {
-                "robot_control": "enabled",
-                "phoenix5_driver": "enabled",
-                "phoenix6_driver": "enabled",
-                "robot_tf": "lance",
-                "bag_record": "telemetry"
-            }
-        },
-        "system_test":
-        {
-            "pragma:derived": "robot",
-            "pragma:action_overrides":
-            {
-                "bag_record": null,
-                "joy_node": "xbox",
-                "robot_status": "enabled",
-                "foxglove_bridge": "test"
-            }
-        },
         "motor_dev":
         {
             "pragma:action_overrides":
