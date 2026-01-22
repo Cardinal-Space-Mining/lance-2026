@@ -23,16 +23,14 @@ COPY . ./src
 RUN rosdep install --from-paths . --ignore-src -r -y
 
 # Add pheonix6
-RUN sudo curl -s --compressed -o /usr/share/keyrings/ctr-pubkey.gpg "https://deb.ctr-electronics.com/ctr-pubkey.gpg" && \
-    YEAR=2026 \
-    sudo curl -s --compressed -o /etc/apt/sources.list.d/ctr${YEAR}.list "https://deb.ctr-electronics.com/ctr${YEAR}.list"
+RUN curl -s --compressed -o /usr/share/keyrings/ctr-pubkey.gpg "https://deb.ctr-electronics.com/ctr-pubkey.gpg" && \
+    curl -s --compressed -o /etc/apt/sources.list.d/ctr2026.list "https://deb.ctr-electronics.com/ctr2026.list"
 
 # Install additional stuff
-RUN sudo apt update && \
-    sudo apt install \
-        python3-netifaces \
-        phoenix6 \
-        patchelf
+RUN apt-get update && apt-get install -y \
+    python3-netifaces \
+    phoenix6 \
+    patchelf
 
 # Default command
 CMD ["bash"]
