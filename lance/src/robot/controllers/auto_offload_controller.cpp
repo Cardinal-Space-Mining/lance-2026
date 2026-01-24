@@ -81,12 +81,26 @@ void AutoOffloadController::iterate(
         }
         case Stage::PLANNING:
         {
-            if (false)  // *if not finished planning*
-            {
-                // planning algo here
+            //this is where I divide up the offload zone into points to cycle through
 
-                break;  // break if more work is required
-            }
+            /** in-progress code
+             * 
+             * float spotWidth, spotHeight; // area of a single dump 
+             * // ^ASK HOPPER TEAM FOR VALUES, THEY WILL BE CONSTANTS
+             * float areaWidth, areaHeight; // area of whole offload zone (from mining_zome_bounds)
+             * int numXSpots = round(areaWidth / spotWidth)
+             * int numYSpots = round(areaHeight / spotHeight)
+             * int numsSpots = numXSpots* numYSpots;
+             * float startPointX = spotWidth / 2;
+             * float startPointY = spotHeight / 2;
+             * float xSpotDifference = areaWidth / numXSpots;
+             * float ySpotDifference = areaHeight / numYSpots;
+             * // then, depending on how many x spots there are and how many
+             * // sorties mechanical expects to be able to do, decide whether
+             * // to do just one row, or to actually cycle through multiple rows
+             * // to avoid crushing previous drop-offs
+             * 
+             */
 
             // init with planned destination
             this->traversal_controller.initializePoint(Eigen::Vector2f::Zero());
