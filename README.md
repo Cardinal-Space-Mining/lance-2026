@@ -42,6 +42,11 @@ This repo houses all client and robot code used for running LANCE-2 (2026) as we
         sudo apt install libpcl-dev libopencv-dev python3-netifaces phoenix6 patchelf
         ```
 
+5. Install `zenoh-cpp` using the provided script (installs Rust, then clones, builds and installs):
+    ```bash
+    ./src/zenoh_install.sh
+    ```
+
 5. Build the project using the included script.
     ```bash
     ./src/build.sh

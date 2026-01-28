@@ -89,7 +89,16 @@
             "udp_receive_timeout": 1.0,
             "sopas_read_timeout": 3.0,
             "error_restart_timeout": 3.0,
-            "max_segment_buffers": 3
+            "max_segment_buffers": 3,
+            "echo_selection": 3
+        },
+        "debug":
+        {
+            "pragma:derived": "robot",
+            "pragma:node_options":
+            {
+                "prefix": ["xterm -e gdb -ex run --args"]
+            }
         }
     },
 
