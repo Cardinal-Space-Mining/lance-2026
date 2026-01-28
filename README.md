@@ -36,16 +36,22 @@ This repo houses all client and robot code used for running LANCE-2 (2026) as we
         sudo curl -s --compressed -o /usr/share/keyrings/ctr-pubkey.gpg "https://deb.ctr-electronics.com/ctr-pubkey.gpg"
         sudo curl -s --compressed -o /etc/apt/sources.list.d/ctr${YEAR}.list "https://deb.ctr-electronics.com/ctr${YEAR}.list"
         ```
+    - Add gazebo apt sources (hacky way to install zenohc and zenohcpp as apt packages):
+        ```bash
+        sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+        ```
     - Install apt packages:
         ```bash
         sudo apt update
-        sudo apt install libpcl-dev libopencv-dev python3-netifaces phoenix6 patchelf
+        sudo apt install libpcl-dev libopencv-dev python3-netifaces phoenix6 patchelf libzenohc-dev libzenohcpp-dev
         ```
 
-5. Install `zenoh-cpp` using the provided script (installs Rust, then clones, builds and installs):
-    ```bash
-    ./src/zenoh_install.sh
-    ```
+    > [!TIP]
+    > Installing `zenohc` and `zenohcpp` using the gazebo apt repository is a hacky workaround to avoid building and installing locally, which takes a while and requires the Rust toolchain. If this method fails in the future or manual install is deemed beneficial, the included script automatically builds and installs zenoh locally:
+    > ```bash
+    > ./src/zenoh_install.sh
+    > ```
 
 5. Build the project using the included script.
     ```bash
