@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y \
     phoenix6 \
     patchelf \
     libzenohc-dev \
-    libzenohcpp-dev \
+    libzenohcpp-dev
 
 # Default command
 CMD ["bash"]
