@@ -33,12 +33,12 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # --- Executables --------------------------------------------------------------
-add_executable(robot_adapter_node
+add_executable(robot_adapter
     src/robot_adapter.cpp)
-target_link_libraries(robot_adapter_node
+target_link_libraries(robot_adapter
     csm_metrics::profiling
     zenohcxx::zenohc)
-ament_target_dependencies(robot_adapter_node
+ament_target_dependencies(robot_adapter
     rclcpp
     std_msgs
     sensor_msgs
@@ -49,12 +49,12 @@ ament_target_dependencies(robot_adapter_node
     multiscan_driver
     csm_metrics)
 
-add_executable(client_adapter_node
+add_executable(client_adapter
     src/client_adapter.cpp)
-target_link_libraries(client_adapter_node
+target_link_libraries(client_adapter
     csm_metrics::profiling
     zenohcxx::zenohc)
-ament_target_dependencies(client_adapter_node
+ament_target_dependencies(client_adapter
     rclcpp
     std_msgs
     sensor_msgs
@@ -79,6 +79,6 @@ ament_export_dependencies(
 ament_package()
 
 install(TARGETS
-    robot_adapter_node
-    client_adapter_node
+    robot_adapter
+    client_adapter
     DESTINATION lib/${PROJECT_NAME})

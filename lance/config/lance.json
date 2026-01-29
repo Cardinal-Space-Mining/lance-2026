@@ -238,6 +238,29 @@
 
 
 
+    "redux":
+    {
+        "pragma:default": null,
+        "robot":
+        {
+            "target": "robot",
+            "client_hostname": "10.11.11.8"
+        },
+        "client":
+        {
+            "target": "client",
+            "robot_hostname": "10.11.11.10",
+            "lidar_frame_id": "lidar_link",
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "redux_lidar_imu": "/multiscan/imu",
+                    "redux_lidar_scan": "/multiscan/lidar_scan"
+                }
+            }
+        }
+    },
     "robot_redux":
     {
         "pragma:default": null,

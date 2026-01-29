@@ -1,3 +1,44 @@
+/*******************************************************************************
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*                                                                              *
+*                                 ;xxxxxxx:                                    *
+*                                ;$$$$$$$$$       ...::..                      *
+*                                $$$$$$$$$$x   .:::::::::::..                  *
+*                             x$$$$$$$$$$$$$$::::::::::::::::.                 *
+*                         :$$$$$&X;      .xX:::::::::::::.::...                *
+*                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :               *
+*                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.              *
+*               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.              *
+*              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::               *
+*               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.               *
+*                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.                *
+*                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                  *
+*                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                    *
+*                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                    *
+*                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
+*                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
+*                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
+*               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
+*                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
+*                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                     *
+*               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                            *
+*               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                               *
+*               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                   *
+*                .;;;;;;;;:;;    +$$$$$$$$$                                    *
+*                  .;;;;;;.       X$$$$$$$:                                    *
+*                                                                              *
+*   Unless required by applicable law or agreed to in writing, software        *
+*   distributed under the License is distributed on an "AS IS" BASIS,          *
+*   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   *
+*   See the License for the specific language governing permissions and        *
+*   limitations under the License.                                             *
+*                                                                              *
+*******************************************************************************/
+
+#include <string>
+
 #include <zenoh.hxx>
 
 #include <rclcpp/rclcpp.hpp>
@@ -12,7 +53,7 @@
 #include "mem_helpers.hpp"
 
 
-#define ROBOT_IP_ADDRESS "10.11.11.10"
+#define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
 
 using namespace zenoh;
 using namespace util;
@@ -41,18 +82,24 @@ private:
 
     ZenohSub imu_sub;
     ZenohSub scan_sub;
+
+    std::string lidar_frame_id;
 };
 
 
 // ---
 
 ClientAdapterNode::ClientAdapterNode() :
-    Node{"client_adapter_node"},
-    zsh{Session::open(configDirectConnectTo(ROBOT_IP_ADDRESS))},
+    Node{"client_adapter"},
+    zsh{Session::open(configDirectConnectTo(
+        declare_and_get_param<std::string>(
+            *this,
+            "robot_hostname",
+            DEFAULT_ROBOT_IP_ADDRESS)))},
     imu_pub{
-        this->create_publisher<ImuMsg>("/redux/imu", rclcpp::SensorDataQoS{})},
+        this->create_publisher<ImuMsg>("redux_lidar_imu", rclcpp::SensorDataQoS{})},
     scan_pub{this->create_publisher<PointCloudMsg>(
-        "/redux/lidar_scan",
+        "redux_lidar_scan",
         rclcpp::SensorDataQoS{})},
     imu_sub{zsh.declare_subscriber(
         "multiscan/imu",
@@ -63,6 +110,7 @@ ClientAdapterNode::ClientAdapterNode() :
         [this](const Sample& sample) { this->scanCallback(sample); },
         []() {})}
 {
+    declare_param(this, "lidar_frame_id", this->lidar_frame_id, "lidar_link");
 }
 
 void ClientAdapterNode::imuCallback(const Sample& sample)
@@ -88,7 +136,7 @@ void ClientAdapterNode::imuCallback(const Sample& sample)
     extractAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
     extractAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
 
-    msg.header.frame_id = "lidar_link";
+    msg.header.frame_id = this->lidar_frame_id;
 
     this->imu_pub->publish(msg);
 }
@@ -100,7 +148,7 @@ void ClientAdapterNode::scanCallback(const Sample& sample)
 
     PointCloudMsg msg;
 
-    msg.header.frame_id = "lidar_link";
+    msg.header.frame_id = this->lidar_frame_id;
     extractAndIncrement(ptr, msg.header.stamp.sec);
     extractAndIncrement(ptr, msg.header.stamp.nanosec);
 
