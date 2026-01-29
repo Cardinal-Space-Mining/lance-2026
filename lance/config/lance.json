@@ -238,6 +238,25 @@
 
 
 
+    "robot_redux":
+    {
+        "pragma:default": null,
+        "enabled":
+        {
+
+        }
+    },
+    "client_redux":
+    {
+        "pragma:default": null,
+        "enabled":
+        {
+
+        }
+    },
+
+
+
     "gz_sim":
     {
         "pragma:default": null,

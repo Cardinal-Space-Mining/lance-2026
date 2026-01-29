@@ -78,6 +78,20 @@ def get_watchdog_action(config):
         output = 'screen'
     )
 
+def get_robot_redux_action(config):
+    return NodeAction(config).format_node(
+        package = 'net_adapter',
+        executable = 'robot_adapter_node',
+        output = 'screen'
+    )
+
+def get_client_redux_action(config):
+    return NodeAction(config).format_node(
+        package = 'net_adapter',
+        executable = 'client_adapter_node',
+        output = 'screen'
+    )
+
 def get_robot_actions(config, launch_args = {}):
     a = []
     if 'multiscan_driver' in config:
@@ -92,6 +106,10 @@ def get_robot_actions(config, launch_args = {}):
         a.append(get_robot_control_action(config['robot_control']))
     if 'robot_status' in config:
         a.append(get_watchdog_action(config['robot_status']))
+    if 'robot_redux' in config:
+        a.append(get_robot_redux_action(config['robot_redux']))
+    if 'client_redux' in config:
+        a.append(get_client_redux_action(config['client_redux']))
     return a
 
 

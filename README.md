@@ -50,7 +50,7 @@ This repo houses all client and robot code used for running LANCE-2 (2026) as we
 > [!TIP]
 > Installing `zenohc` and `zenohcpp` using the gazebo apt repository is a hacky workaround to avoid building and installing locally, which takes a while and requires the Rust toolchain. If this method fails in the future or manual install is deemed beneficial, the included script automatically builds and installs zenoh locally:
 > ```bash
-> ./src/zenoh_install.sh
+> ./src/net-adapter/zenoh_install.sh
 > ```
 
 5. Build the project using the included script.
