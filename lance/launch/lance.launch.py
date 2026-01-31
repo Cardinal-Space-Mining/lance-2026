@@ -83,13 +83,13 @@ def get_redux_action(config):
     if target == "robot":
         return NodeAction(config).format_node(
             package = 'net_adapter',
-            executable = 'robot_adapter',
+            executable = 'robot_endpoint',
             output = 'screen'
         )
     elif target == "client":
         return NodeAction(config).format_node(
             package = 'net_adapter',
-            executable = 'client_adapter',
+            executable = 'client_endpoint',
             output = 'screen'
         )
     print(f'Invalid redux value for target key : {target}')

@@ -37,101 +37,60 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
-
 #include <string>
-#include <type_traits>
+
+#include <zenoh.hxx>
 
 #include <rclcpp/rclcpp.hpp>
 
+#include "ros_utils.hpp"
+#include "zenoh_utils.hpp"
 
-namespace util
+#include "adapters/ms136_imu_adapter.hpp"
+#include "adapters/ms136_scan_adapter.hpp"
+
+
+#define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
+
+using namespace zenoh;
+using namespace util;
+
+
+class ClientEndpointNode : public rclcpp::Node
 {
+public:
+    ClientEndpointNode() :
+        Node{"client_redux_endpoint"},
+        zsh{Session::open(configDirectConnectTo(
+            declare_and_get_param<std::string>(
+                *this,
+                "robot_hostname",
+                DEFAULT_ROBOT_IP_ADDRESS)))},
+        imu_pub{MS136ImuAdapter::createPublisher(*this, zsh, "multiscan/imu")},
+        scan_pub{MS136ScanAdapter::createPublisher(
+            *this,
+            zsh,
+            "multiscan/lidar_scan")}
+    {
+    }
+    ~ClientEndpointNode()
+    {
+        this->zsh.close();
+    }
 
-namespace ros_aliases
-{
+private:
+    Session zsh;
 
-using RclNode = rclcpp::Node;
-using RclTimer = rclcpp::TimerBase::SharedPtr;
-
-template<typename T>
-using SharedPub = typename rclcpp::Publisher<T>::SharedPtr;
-template<typename T>
-using SharedSub = typename rclcpp::Subscription<T>::SharedPtr;
-template<typename T>
-using SharedSrv = typename rclcpp::Service<T>::SharedPtr;
-
-#define BUILD_MSG_ALIAS(pkg, name)    using name##Msg = pkg::msg::name;
-#define BUILD_SRV_ALIAS(pkg, name)    using name##Srv = pkg::srv::name;
-#define BUILD_STD_MSG_ALIAS(name)     BUILD_MSG_ALIAS(std_msgs, name)
-#define BUILD_SENSORS_MSG_ALIAS(name) BUILD_MSG_ALIAS(sensor_msgs, name)
-#define BUILD_GEOM_MSG_ALIAS(name)    BUILD_MSG_ALIAS(geometry_msgs, name)
-#define BUILD_BUILTIN_MSG_ALIAS(name) BUILD_MSG_ALIAS(builtin_interfaces, name)
-
-};  // namespace ros_aliases
-
-
-template<typename T>
-struct identity
-{
-    typedef T type;
+    MS136ImuAdapter::Publisher imu_pub;
+    MS136ScanAdapter::Publisher scan_pub;
 };
 
-template<typename T>
-inline void declare_param(
-    rclcpp::Node* node,
-    const std::string param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
-{
-    try
-    {
-        node->declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node->get_parameter(param_name, param);
-}
-template<typename T>
-inline void declare_param(
-    rclcpp::Node& node,
-    const std::string param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
-{
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node.get_parameter(param_name, param);
-}
-template<typename T>
-inline T declare_and_get_param(
-    rclcpp::Node& node,
-    const std::string param_name,
-    const T& default_value)
-{
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    return node.get_parameter_or(param_name, default_value);
-}
 
-
-template<typename ros_T, typename primitive_T>
-inline ros_T to_ros_val(primitive_T v)
+int main(int argc, char** argv)
 {
-    static_assert(std::is_same<typename ros_T::_data_type, primitive_T>::value);
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<ClientEndpointNode>());
+    rclcpp::shutdown();
 
-    return ros_T{}.set__data(v);
+    return 0;
 }
-
-};  // namespace util

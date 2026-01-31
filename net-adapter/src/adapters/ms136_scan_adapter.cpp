@@ -37,118 +37,125 @@
 *                                                                              *
 *******************************************************************************/
 
+#include "ms136_scan_adapter.hpp"
+
+#include <memory>
 #include <string>
+#include <cstdint>
+#include <utility>
+#include <unordered_map>
 
-#include <zenoh.hxx>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <sensor_msgs/msg/imu.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/point_field.hpp>
 
 #include <multiscan_driver/multiscan_spec.hpp>
 
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
 #include "mem_helpers.hpp"
+#include "../ros_utils.hpp"
 
 
-#define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
-
-using namespace zenoh;
 using namespace util;
-using namespace util::ros_aliases;
-using namespace util::zenoh_aliases;
 
 
-class ClientAdapterNode : public rclcpp::Node
+MS136ScanAdapter::MS136ScanAdapter(rclcpp::Node& node) : BaseT{node}
 {
-    using ImuMsg = sensor_msgs::msg::Imu;
-    using PointField = sensor_msgs::msg::PointField;
-    using PointCloudMsg = sensor_msgs::msg::PointCloud2;
-
-public:
-    ClientAdapterNode();
-
-private:
-    void imuCallback(const Sample& sample);
-    void scanCallback(const Sample& sample);
-
-private:
-    Session zsh;
-
-    SharedPub<ImuMsg> imu_pub;
-    SharedPub<PointCloudMsg> scan_pub;
-
-    ZenohSub imu_sub;
-    ZenohSub scan_sub;
-
-    std::string lidar_frame_id;
-};
-
-
-// ---
-
-ClientAdapterNode::ClientAdapterNode() :
-    Node{"client_adapter"},
-    zsh{Session::open(configDirectConnectTo(
-        declare_and_get_param<std::string>(
-            *this,
-            "robot_hostname",
-            DEFAULT_ROBOT_IP_ADDRESS)))},
-    imu_pub{
-        this->create_publisher<ImuMsg>("redux_lidar_imu", rclcpp::SensorDataQoS{})},
-    scan_pub{this->create_publisher<PointCloudMsg>(
-        "redux_lidar_scan",
-        rclcpp::SensorDataQoS{})},
-    imu_sub{zsh.declare_subscriber(
-        "multiscan/imu",
-        [this](const Sample& sample) { this->imuCallback(sample); },
-        []() {})},
-    scan_sub{zsh.declare_subscriber(
-        "multiscan/lidar_scan",
-        [this](const Sample& sample) { this->scanCallback(sample); },
-        []() {})}
-{
-    declare_param(this, "lidar_frame_id", this->lidar_frame_id, "lidar_link");
+    declare_param(node, "lidar_frame_id", this->lidar_frame_id, "lidar_link");
 }
 
-void ClientAdapterNode::imuCallback(const Sample& sample)
+bool MS136ScanAdapter::serializeMsg(
+    ByteBuffer& bytes,
+    const MsgT& msg,
+    const SubStateT& state)
 {
-    std::vector<uint8_t> bytes = sample.get_payload().as_vector();
+    (void)state;
 
-    constexpr size_t TARGET_BUFF_SIZE = 36;
-    if (bytes.size() < TARGET_BUFF_SIZE)
+    if (msg.data.size() !=
+        static_cast<size_t>(msg.height * msg.width * msg.point_step))
     {
-        return;
+        return false;
     }
 
-    ImuMsg msg;
+    uint32_t layer_off = 0;
+    uint32_t index_off = 0;
+    uint32_t range_off = 0;
+    uint32_t reflector_off = 0;
+
+    using ReqElems = std::pair<uint32_t*, uint8_t>;
+    std::unordered_map<std::string, ReqElems> required_fields;
+    required_fields.emplace("layer", ReqElems{&layer_off, PointField::UINT32});
+    required_fields.emplace("index", ReqElems{&index_off, PointField::UINT32});
+    required_fields.emplace("range", ReqElems{&range_off, PointField::FLOAT32});
+    required_fields.emplace(
+        "reflective",
+        ReqElems{&reflector_off, PointField::FLOAT32});
+
+    for (const PointField& field : msg.fields)
+    {
+        const auto iter = required_fields.find(field.name);
+        if (iter != required_fields.end())
+        {
+            if (iter->second.second != field.datatype)
+            {
+                break;
+            }
+            *iter->second.first = field.offset;
+            required_fields.erase(field.name);
+        }
+    }
+    if (!required_fields.empty())
+    {
+        return false;
+    }
+
+    ms136::redux::DenseBuffer dense_buff;
+    for (auto p = msg.data.begin(); p < msg.data.end(); p += msg.point_step)
+    {
+        const uint8_t* pt_base = p.base();
+        const size_t layer_i = static_cast<size_t>(
+            *reinterpret_cast<const uint32_t*>(pt_base + layer_off));
+
+        if (ms136::isHdLayer(layer_i))
+        {
+            continue;
+        }
+
+        const size_t index_i = static_cast<size_t>(
+            *reinterpret_cast<const uint32_t*>(pt_base + index_off));
+        const float range =
+            *reinterpret_cast<const float*>(pt_base + range_off);
+        const uint8_t reflector = static_cast<uint8_t>(
+            *reinterpret_cast<const float*>(pt_base + reflector_off));
+
+        ms136::redux::addPointToBuffer(
+            dense_buff,
+            layer_i,
+            index_i,
+            range,
+            reflector);
+    }
+
+    ms136::redux::PackedBuffer packed_buff;
+    ms136::redux::packBuffer(packed_buff, dense_buff);
+
+    bytes.resize(
+        sizeof(decltype(msg.header.stamp.sec)) +
+        sizeof(decltype(msg.header.stamp.nanosec)) + packed_buff.size() * 2);
     uint8_t* ptr = bytes.data();
 
-    extractAndIncrement(ptr, msg.header.stamp.sec);
-    extractAndIncrement(ptr, msg.header.stamp.nanosec);
-    extractAndIncrementAs<float>(ptr, msg.orientation.w);
-    extractAndIncrementAs<float>(ptr, msg.orientation.x);
-    extractAndIncrementAs<float>(ptr, msg.orientation.y);
-    extractAndIncrementAs<float>(ptr, msg.orientation.z);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.x);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
+    assignAndIncrement(ptr, msg.header.stamp.sec);
+    assignAndIncrement(ptr, msg.header.stamp.nanosec);
+    memcpy(ptr, packed_buff.data(), packed_buff.size() * 2);
 
-    msg.header.frame_id = this->lidar_frame_id;
-
-    this->imu_pub->publish(msg);
+    return true;
 }
 
-void ClientAdapterNode::scanCallback(const Sample& sample)
+bool MS136ScanAdapter::deserializeMsg(
+    MsgT& msg,
+    const ByteBuffer& bytes,
+    const PubStateT& state)
 {
-    std::vector<uint8_t> bytes = sample.get_payload().as_vector();
-    uint8_t* ptr = bytes.data();
+    const uint8_t* ptr = bytes.data();
 
-    PointCloudMsg msg;
-
-    msg.header.frame_id = this->lidar_frame_id;
+    msg.header.frame_id = state.lidar_frame_id;
     extractAndIncrement(ptr, msg.header.stamp.sec);
     extractAndIncrement(ptr, msg.header.stamp.nanosec);
 
@@ -211,15 +218,5 @@ void ClientAdapterNode::scanCallback(const Sample& sample)
     msg.width = (msg.data.size() / POINT_BYTE_LEN);
     msg.is_dense = true;
 
-    this->scan_pub->publish(msg);
-}
-
-
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ClientAdapterNode>());
-    rclcpp::shutdown();
-
-    return 0;
+    return true;
 }

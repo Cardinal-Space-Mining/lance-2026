@@ -39,99 +39,36 @@
 
 #pragma once
 
-#include <string>
-#include <type_traits>
-
-#include <rclcpp/rclcpp.hpp>
+#include <cstdint>
 
 
 namespace util
 {
 
-namespace ros_aliases
+template<typename T>
+inline constexpr void assignAndIncrement(uint8_t*& ptr, const T& val)
 {
-
-using RclNode = rclcpp::Node;
-using RclTimer = rclcpp::TimerBase::SharedPtr;
-
-template<typename T>
-using SharedPub = typename rclcpp::Publisher<T>::SharedPtr;
-template<typename T>
-using SharedSub = typename rclcpp::Subscription<T>::SharedPtr;
-template<typename T>
-using SharedSrv = typename rclcpp::Service<T>::SharedPtr;
-
-#define BUILD_MSG_ALIAS(pkg, name)    using name##Msg = pkg::msg::name;
-#define BUILD_SRV_ALIAS(pkg, name)    using name##Srv = pkg::srv::name;
-#define BUILD_STD_MSG_ALIAS(name)     BUILD_MSG_ALIAS(std_msgs, name)
-#define BUILD_SENSORS_MSG_ALIAS(name) BUILD_MSG_ALIAS(sensor_msgs, name)
-#define BUILD_GEOM_MSG_ALIAS(name)    BUILD_MSG_ALIAS(geometry_msgs, name)
-#define BUILD_BUILTIN_MSG_ALIAS(name) BUILD_MSG_ALIAS(builtin_interfaces, name)
-
-};  // namespace ros_aliases
-
-
-template<typename T>
-struct identity
-{
-    typedef T type;
-};
-
-template<typename T>
-inline void declare_param(
-    rclcpp::Node* node,
-    const std::string param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
-{
-    try
-    {
-        node->declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node->get_parameter(param_name, param);
+    reinterpret_cast<T*>(ptr)[0] = val;
+    ptr += sizeof(T);
 }
-template<typename T>
-inline void declare_param(
-    rclcpp::Node& node,
-    const std::string param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
+template<typename S, typename T>
+inline constexpr void assignAndIncrementAs(uint8_t*& ptr, const T& val)
 {
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node.get_parameter(param_name, param);
-}
-template<typename T>
-inline T declare_and_get_param(
-    rclcpp::Node& node,
-    const std::string param_name,
-    const T& default_value)
-{
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    return node.get_parameter_or(param_name, default_value);
+    reinterpret_cast<S*>(ptr)[0] = static_cast<S>(val);
+    ptr += sizeof(S);
 }
 
-
-template<typename ros_T, typename primitive_T>
-inline ros_T to_ros_val(primitive_T v)
+template<typename T>
+inline constexpr void extractAndIncrement(const uint8_t*& ptr, T& var)
 {
-    static_assert(std::is_same<typename ros_T::_data_type, primitive_T>::value);
-
-    return ros_T{}.set__data(v);
+    var = reinterpret_cast<const T*>(ptr)[0];
+    ptr += sizeof(T);
+}
+template<typename R, typename T>
+inline constexpr void extractAndIncrementAs(const uint8_t*& ptr, T& var)
+{
+    var = static_cast<const T>(reinterpret_cast<const R*>(ptr)[0]);
+    ptr += sizeof(R);
 }
 
 };  // namespace util

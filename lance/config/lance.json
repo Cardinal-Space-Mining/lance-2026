@@ -5,6 +5,20 @@
         "perception.json",
         "tf.json"
     ],
+    "pragma:constants":
+    {
+        "ARENA_FRAME_ID": "map",
+        "ODOM_FRAME_ID": "odom",
+        "ROBOT_FRAME_ID": "base_link",
+        "LIDAR_FRAME_ID": "lidar_link",
+
+        "LIDAR_HOSTNAME": "10.11.11.3",
+        "ROBOT_HOSTNAME": "10.11.11.10",
+        "CLIENT_HOSTNAME": "10.11.11.8",
+
+        "LIDAR_SCAN_TOPIC": "/multiscan/lidar_scan",
+        "LIDAR_IMU_TOPIC": "/multiscan/imu"
+    },
 
     "preset":
     {
@@ -74,13 +88,13 @@
             {
                 "remappings":
                 {
-                    "lidar_scan": "/multiscan/lidar_scan",
-                    "lidar_imu": "/multiscan/imu"
+                    "lidar_scan": "${ LIDAR_SCAN_TOPIC }",
+                    "lidar_imu": "${ LIDAR_IMU_TOPIC }"
                 }
             },
 
-            "lidar_frame": "lidar_link",
-            "lidar_hostname": "10.11.11.3",
+            "lidar_frame": "${ LIDAR_FRAME_ID }",
+            "lidar_hostname": "${ LIDAR_HOSTNAME }",
             "lidar_udp_port": 2115,
             "sopas_tcp_port": 2111,
             "use_msgpack": false,
@@ -162,8 +176,8 @@
             "preset_offload_backup_dist_meters": 0.25,
 
             "iteration_period_seconds": 0.05,
-            "odom_frame_id": "odom",
-            "arena_frame_id": "map",
+            "odom_frame_id": "${ ODOM_FRAME_ID }",
+            "arena_frame_id": "${ ARENA_FRAME_ID }",
 
             "auto_traversal":
             {
@@ -244,19 +258,19 @@
         "robot":
         {
             "target": "robot",
-            "client_hostname": "10.11.11.8"
+            "client_hostname": "${ CLIENT_HOSTNAME }"
         },
         "client":
         {
             "target": "client",
-            "robot_hostname": "10.11.11.10",
-            "lidar_frame_id": "lidar_link",
+            "robot_hostname": "${ ROBOT_HOSTNAME }",
+            "lidar_frame_id": "${ LIDAR_FRAME_ID }",
             "pragma:node_options":
             {
                 "remappings":
                 {
-                    "redux_lidar_imu": "/multiscan/imu",
-                    "redux_lidar_scan": "/multiscan/lidar_scan"
+                    "multiscan/imu": "redux/imu",
+                    "multiscan/lidar_scan": "redux/lidar_scan"
                 }
             }
         }

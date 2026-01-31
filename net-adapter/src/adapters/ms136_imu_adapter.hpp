@@ -39,99 +39,25 @@
 
 #pragma once
 
-#include <string>
-#include <type_traits>
+#include <sensor_msgs/msg/imu.hpp>
 
-#include <rclcpp/rclcpp.hpp>
+#include "base_adapter.hpp"
 
 
-namespace util
+class MS136ImuAdapter :
+    public BaseAdapter<sensor_msgs::msg::Imu, MS136ImuAdapter>
 {
+    friend BaseT;
 
-namespace ros_aliases
-{
+    using ImuMsg = sensor_msgs::msg::Imu;
 
-using RclNode = rclcpp::Node;
-using RclTimer = rclcpp::TimerBase::SharedPtr;
+protected:
+    MS136ImuAdapter(rclcpp::Node&);
 
-template<typename T>
-using SharedPub = typename rclcpp::Publisher<T>::SharedPtr;
-template<typename T>
-using SharedSub = typename rclcpp::Subscription<T>::SharedPtr;
-template<typename T>
-using SharedSrv = typename rclcpp::Service<T>::SharedPtr;
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, const SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, const PubStateT&);
 
-#define BUILD_MSG_ALIAS(pkg, name)    using name##Msg = pkg::msg::name;
-#define BUILD_SRV_ALIAS(pkg, name)    using name##Srv = pkg::srv::name;
-#define BUILD_STD_MSG_ALIAS(name)     BUILD_MSG_ALIAS(std_msgs, name)
-#define BUILD_SENSORS_MSG_ALIAS(name) BUILD_MSG_ALIAS(sensor_msgs, name)
-#define BUILD_GEOM_MSG_ALIAS(name)    BUILD_MSG_ALIAS(geometry_msgs, name)
-#define BUILD_BUILTIN_MSG_ALIAS(name) BUILD_MSG_ALIAS(builtin_interfaces, name)
-
-};  // namespace ros_aliases
-
-
-template<typename T>
-struct identity
-{
-    typedef T type;
+protected:
+    std::string lidar_frame_id;
 };
-
-template<typename T>
-inline void declare_param(
-    rclcpp::Node* node,
-    const std::string param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
-{
-    try
-    {
-        node->declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node->get_parameter(param_name, param);
-}
-template<typename T>
-inline void declare_param(
-    rclcpp::Node& node,
-    const std::string param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
-{
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node.get_parameter(param_name, param);
-}
-template<typename T>
-inline T declare_and_get_param(
-    rclcpp::Node& node,
-    const std::string param_name,
-    const T& default_value)
-{
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    return node.get_parameter_or(param_name, default_value);
-}
-
-
-template<typename ros_T, typename primitive_T>
-inline ros_T to_ros_val(primitive_T v)
-{
-    static_assert(std::is_same<typename ros_T::_data_type, primitive_T>::value);
-
-    return ros_T{}.set__data(v);
-}
-
-};  // namespace util

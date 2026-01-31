@@ -37,38 +37,70 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "ms136_imu_adapter.hpp"
 
 #include <cstdint>
 
+#include "mem_helpers.hpp"
+#include "../ros_utils.hpp"
 
-namespace util
-{
 
-template<typename T>
-inline constexpr void assignAndIncrement(uint8_t*& ptr, const T& val)
+using namespace util;
+
+
+MS136ImuAdapter::MS136ImuAdapter(rclcpp::Node& node) : BaseT{node}
 {
-    reinterpret_cast<T*>(ptr)[0] = val;
-    ptr += sizeof(T);
-}
-template<typename S, typename T>
-inline constexpr void assignAndIncrementAs(uint8_t*& ptr, const T& val)
-{
-    reinterpret_cast<S*>(ptr)[0] = static_cast<S>(val);
-    ptr += sizeof(S);
+    declare_param(node, "lidar_frame_id", this->lidar_frame_id, "lidar_link");
 }
 
-template<typename T>
-inline constexpr void extractAndIncrement(uint8_t*& ptr, T& var)
+bool MS136ImuAdapter::serializeMsg(
+    ByteBuffer& bytes,
+    const MsgT& msg,
+    const SubStateT& state)
 {
-    var = reinterpret_cast<T*>(ptr)[0];
-    ptr += sizeof(T);
-}
-template<typename R, typename T>
-inline constexpr void extractAndIncrementAs(uint8_t*& ptr, T& var)
-{
-    var = static_cast<T>(reinterpret_cast<R*>(ptr)[0]);
-    ptr += sizeof(R);
+    (void)state;
+
+    bytes.resize(
+        sizeof(decltype(msg.header.stamp.sec)) +
+        sizeof(decltype(msg.header.stamp.nanosec)) + sizeof(float) * 7);
+
+    uint8_t* ptr = bytes.data();
+    assignAndIncrement(ptr, msg.header.stamp.sec);
+    assignAndIncrement(ptr, msg.header.stamp.nanosec);
+    assignAndIncrementAs<float>(ptr, msg.orientation.w);
+    assignAndIncrementAs<float>(ptr, msg.orientation.x);
+    assignAndIncrementAs<float>(ptr, msg.orientation.y);
+    assignAndIncrementAs<float>(ptr, msg.orientation.z);
+    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.x);
+    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
+    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
+
+    return true;
 }
 
-};  // namespace util
+bool MS136ImuAdapter::deserializeMsg(
+    MsgT& msg,
+    const ByteBuffer& bytes,
+    const PubStateT& state)
+{
+    constexpr size_t TARGET_BUFF_SIZE = 36;
+    if (bytes.size() < TARGET_BUFF_SIZE)
+    {
+        return false;
+    }
+
+    const uint8_t* ptr = bytes.data();
+    extractAndIncrement(ptr, msg.header.stamp.sec);
+    extractAndIncrement(ptr, msg.header.stamp.nanosec);
+    extractAndIncrementAs<float>(ptr, msg.orientation.w);
+    extractAndIncrementAs<float>(ptr, msg.orientation.x);
+    extractAndIncrementAs<float>(ptr, msg.orientation.y);
+    extractAndIncrementAs<float>(ptr, msg.orientation.z);
+    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.x);
+    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
+    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
+
+    msg.header.frame_id = state.lidar_frame_id;
+
+    return true;
+}
