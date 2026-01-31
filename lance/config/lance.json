@@ -206,7 +206,7 @@
         "enabled":
         {
             "diagnostics_port": 1250,
-            "canbus": "can_phx5"
+            "canbus": "canable_B"
         }
     },
     "phoenix6_driver":
@@ -215,7 +215,7 @@
         "enabled":
         {
             "diagnostics_port": 0,
-            "canbus": "can_phx6",
+            "canbus": "canable_A",
             "arduino_device": "",
             "power_cycle_fault_thresh_s": 1.5,
             "common":
