@@ -143,7 +143,7 @@ bool MS136ScanAdapter::serializeMsg(
 
     util::writeAndIncrement(ptr, msg.header.stamp.sec);
     util::writeAndIncrement(ptr, msg.header.stamp.nanosec);
-    memcpy(ptr, packed_buff.data(), packed_buff.size() * 2);
+    util::writeManyAndIncrement(ptr, packed_buff);
 
     return true;
 }
@@ -162,8 +162,7 @@ bool MS136ScanAdapter::deserializeMsg(
     const size_t n_packed_bytes = (bytes.end().base() - ptr);
 
     ms136::redux::PackedBuffer packed_buff;
-    packed_buff.resize(n_packed_bytes / 2);
-    memcpy(packed_buff.data(), ptr, n_packed_bytes);
+    util::readManyAndIncrement(ptr, packed_buff, n_packed_bytes / 2);
 
     ms136::redux::DenseBuffer dense_buff;
     ms136::redux::unpackBuffer(dense_buff, packed_buff);
