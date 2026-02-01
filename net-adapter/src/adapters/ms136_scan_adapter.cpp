@@ -141,8 +141,8 @@ bool MS136ScanAdapter::serializeMsg(
         sizeof(decltype(msg.header.stamp.nanosec)) + packed_buff.size() * 2);
     uint8_t* ptr = bytes.data();
 
-    assignAndIncrement(ptr, msg.header.stamp.sec);
-    assignAndIncrement(ptr, msg.header.stamp.nanosec);
+    write(ptr, msg.header.stamp.sec);
+    write(ptr, msg.header.stamp.nanosec);
     memcpy(ptr, packed_buff.data(), packed_buff.size() * 2);
 
     return true;
@@ -156,8 +156,8 @@ bool MS136ScanAdapter::deserializeMsg(
     const uint8_t* ptr = bytes.data();
 
     msg.header.frame_id = state.lidar_frame_id;
-    extractAndIncrement(ptr, msg.header.stamp.sec);
-    extractAndIncrement(ptr, msg.header.stamp.nanosec);
+    read(ptr, msg.header.stamp.sec);
+    read(ptr, msg.header.stamp.nanosec);
 
     const size_t n_packed_bytes = (bytes.end().base() - ptr);
 
@@ -183,10 +183,10 @@ bool MS136ScanAdapter::deserializeMsg(
             const auto proj = ms136::redux::projectPoint(i, pt);
             const bool reflector = ms136::redux::getReflector(pt);
 
-            assignAndIncrement(ptr, proj.x());
-            assignAndIncrement(ptr, proj.y());
-            assignAndIncrement(ptr, proj.z());
-            assignAndIncrement(ptr, reflector ? 1.f : 0.f);
+            write(ptr, proj.x());
+            write(ptr, proj.y());
+            write(ptr, proj.z());
+            write(ptr, reflector ? 1.f : 0.f);
         }
     }
 

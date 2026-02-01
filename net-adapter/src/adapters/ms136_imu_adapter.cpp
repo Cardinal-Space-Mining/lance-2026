@@ -65,15 +65,15 @@ bool MS136ImuAdapter::serializeMsg(
         sizeof(decltype(msg.header.stamp.nanosec)) + sizeof(float) * 7);
 
     uint8_t* ptr = bytes.data();
-    assignAndIncrement(ptr, msg.header.stamp.sec);
-    assignAndIncrement(ptr, msg.header.stamp.nanosec);
-    assignAndIncrementAs<float>(ptr, msg.orientation.w);
-    assignAndIncrementAs<float>(ptr, msg.orientation.x);
-    assignAndIncrementAs<float>(ptr, msg.orientation.y);
-    assignAndIncrementAs<float>(ptr, msg.orientation.z);
-    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.x);
-    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
-    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
+    write(ptr, msg.header.stamp.sec);
+    write(ptr, msg.header.stamp.nanosec);
+    write_as<float>(ptr, msg.orientation.w);
+    write_as<float>(ptr, msg.orientation.x);
+    write_as<float>(ptr, msg.orientation.y);
+    write_as<float>(ptr, msg.orientation.z);
+    write_as<float>(ptr, msg.linear_acceleration.x);
+    write_as<float>(ptr, msg.linear_acceleration.y);
+    write_as<float>(ptr, msg.linear_acceleration.z);
 
     return true;
 }
@@ -90,15 +90,15 @@ bool MS136ImuAdapter::deserializeMsg(
     }
 
     const uint8_t* ptr = bytes.data();
-    extractAndIncrement(ptr, msg.header.stamp.sec);
-    extractAndIncrement(ptr, msg.header.stamp.nanosec);
-    extractAndIncrementAs<float>(ptr, msg.orientation.w);
-    extractAndIncrementAs<float>(ptr, msg.orientation.x);
-    extractAndIncrementAs<float>(ptr, msg.orientation.y);
-    extractAndIncrementAs<float>(ptr, msg.orientation.z);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.x);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
+    read(ptr, msg.header.stamp.sec);
+    read(ptr, msg.header.stamp.nanosec);
+    read_as<float>(ptr, msg.orientation.w);
+    read_as<float>(ptr, msg.orientation.x);
+    read_as<float>(ptr, msg.orientation.y);
+    read_as<float>(ptr, msg.orientation.z);
+    read_as<float>(ptr, msg.linear_acceleration.x);
+    read_as<float>(ptr, msg.linear_acceleration.y);
+    read_as<float>(ptr, msg.linear_acceleration.z);
 
     msg.header.frame_id = state.lidar_frame_id;
 
