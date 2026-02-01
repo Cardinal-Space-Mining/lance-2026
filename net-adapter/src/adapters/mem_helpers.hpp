@@ -46,10 +46,8 @@
 namespace util
 {
 
-constexpr bool host_is_little_endian()
-{
-    return std::endian::native == std::endian::little;
-}
+constexpr bool HOST_IS_LITTLE_ENDIAN =
+    static_cast<bool>(std::endian::native == std::endian::little);
 
 // byteswapable = integral OR floating point OR enum
 template<typename T>
@@ -62,10 +60,10 @@ struct is_byteswapable : std::bool_constant<is_byteswapable_v<T>>
 };
 
 // You can specialize any struct by opting it in as byteswapable
-// and implementing a byteswap overload for the struct
+// and implementing a byteSwap overload for the struct
 
 template<typename T>
-inline constexpr std::enable_if_t<std::is_integral_v<T>, T> byteswap(T v)
+inline constexpr std::enable_if_t<std::is_integral_v<T>, T> byteSwap(T v)
 {
 #if defined(__clang__) || defined(__GNUC__)
     if constexpr (sizeof(T) == 1)
@@ -115,20 +113,20 @@ inline constexpr std::enable_if_t<std::is_integral_v<T>, T> byteswap(T v)
 }
 
 template<typename T>
-inline constexpr std::enable_if_t<std::is_enum_v<T>, T> byteswap(T v)
+inline constexpr std::enable_if_t<std::is_enum_v<T>, T> byteSwap(T v)
 {
     using U = std::underlying_type_t<T>;
-    return static_cast<T>(byteswap(static_cast<U>(v)));
+    return static_cast<T>(byteSwap(static_cast<U>(v)));
 }
 
 template<typename T>
-inline constexpr std::enable_if_t<std::is_floating_point_v<T>, T> byteswap(T v)
+inline constexpr std::enable_if_t<std::is_floating_point_v<T>, T> byteSwap(T v)
 {
     if constexpr (sizeof(T) == 4)
     {
         uint32_t tmp;
         std::memcpy(&tmp, &v, sizeof(T));
-        tmp = byteswap(tmp);
+        tmp = byteSwap(tmp);
         std::memcpy(&v, &tmp, sizeof(T));
         return v;
     }
@@ -136,7 +134,7 @@ inline constexpr std::enable_if_t<std::is_floating_point_v<T>, T> byteswap(T v)
     {
         uint64_t tmp;
         std::memcpy(&tmp, &v, sizeof(T));
-        tmp = byteswap(tmp);
+        tmp = byteSwap(tmp);
         std::memcpy(&v, &tmp, sizeof(T));
         return v;
     }
@@ -144,74 +142,85 @@ inline constexpr std::enable_if_t<std::is_floating_point_v<T>, T> byteswap(T v)
     {
         static_assert(
             sizeof(T) == 4 || sizeof(T) == 8,
-            "Unsupported floating point size for byteswap");
+            "Unsupported floating point size for byteSwap");
     }
 }
 
 template<typename T>
-inline constexpr std::enable_if_t<is_byteswapable_v<T>, T> little_endian(T v)
+inline constexpr std::enable_if_t<is_byteswapable_v<T>, T> asLittleEndian(T v)
 {
-    if constexpr (sizeof(T) == 1 || host_is_little_endian())
+    if constexpr (sizeof(T) == 1 || HOST_IS_LITTLE_ENDIAN)
     {
         return v;
     }
     else
     {
-        return byteswap(v);
+        return byteSwap(v);
     }
 }
 
 template<typename T>
-inline void write(uint8_t*& ptr, const T& value)
+inline void write(uint8_t* ptr, const T& value)
 {
     static_assert(
-        is_byteswapable_v<T>,
-        "write<T>: T must be a byteswapable type: integral, floating-point, enum, "
-        "or a user-defined type specializing util::is_byteswapable<T>");
+        HOST_IS_LITTLE_ENDIAN || is_byteswapable_v<T>,
+        "write<T>: T must be a byte-swapable type: integral, floating-point, "
+        "enum, or a user-defined type specializing util::is_byteswapable<T>");
 
-    if constexpr (sizeof(T) == 1 || host_is_little_endian())
+    if constexpr (HOST_IS_LITTLE_ENDIAN || sizeof(T) == 1)
     {
         std::memcpy(ptr, &value, sizeof(T));
     }
     else
     {
-        T tmp = byteswap(value);
+        T tmp = byteSwap(value);
         std::memcpy(ptr, &tmp, sizeof(T));
     }
+}
+template<typename T>
+inline void writeAndIncrement(uint8_t*& ptr, const T& value)
+{
+    write(ptr, value);
 
     ptr += sizeof(T);
 }
 
 template<typename StorageT, typename T>
-inline void write_as(uint8_t*& ptr, const T& value)
+inline void writeAs(uint8_t* ptr, const T& value)
 {
     static_assert(
-        is_byteswapable_v<StorageT>,
-        "write_as<StorageT>: StorageT must be a byteswapable type: integral, floating-point, enum, "
-        "or a user-defined type specializing util::is_byteswapable<StorageT>");
+        HOST_IS_LITTLE_ENDIAN || is_byteswapable_v<StorageT>,
+        "writeAs<StorageT>: StorageT must be a byteswapable type: integral, "
+        "floating-point, enum, or a user-defined type specializing "
+        "util::is_byteswapable<StorageT>");
 
-    if constexpr (std::is_same_v<T, StorageT> && host_is_little_endian())
+    if constexpr (HOST_IS_LITTLE_ENDIAN && std::is_same_v<T, StorageT>)
     {
         std::memcpy(ptr, &value, sizeof(StorageT));
     }
     else
     {
-        StorageT tmp = little_endian(static_cast<StorageT>(value));
+        StorageT tmp = asLittleEndian(static_cast<StorageT>(value));
         std::memcpy(ptr, &tmp, sizeof(StorageT));
     }
+}
+template<typename StorageT, typename T>
+inline void writeAsAndIncrement(uint8_t*& ptr, const T& value)
+{
+    writeAs<StorageT>(ptr, value);
 
     ptr += sizeof(StorageT);
 }
 
 template<typename T>
-inline void read(const uint8_t*& ptr, T& out)
+inline void read(const uint8_t* ptr, T& out)
 {
     static_assert(
-        is_byteswapable_v<T>,
-        "read<T>: T must be a byteswapable type: integral, floating-point, enum, "
-        "or a user-defined type specializing util::is_byteswapable<T>");
+        HOST_IS_LITTLE_ENDIAN || is_byteswapable_v<T>,
+        "read<T>: T must be a byteswapable type: integral, floating-point, "
+        "enum, or a user-defined type specializing util::is_byteswapable<T>");
 
-    if constexpr (sizeof(T) == 1 || host_is_little_endian())
+    if constexpr (HOST_IS_LITTLE_ENDIAN || sizeof(T) == 1)
     {
         std::memcpy(&out, ptr, sizeof(T));
     }
@@ -219,22 +228,28 @@ inline void read(const uint8_t*& ptr, T& out)
     {
         T tmp;
         std::memcpy(&tmp, ptr, sizeof(T));
-        out = byteswap(tmp);
+        out = byteSwap(tmp);
     }
+}
+template<typename T>
+inline void readAndIncrement(const uint8_t*& ptr, T& out)
+{
+    read(ptr, out);
 
     ptr += sizeof(T);
 }
 
 template<typename StorageT, typename T>
-inline void read_as(const uint8_t*& ptr, T& out)
+inline void readAs(const uint8_t* ptr, T& out)
 {
     static_assert(
-        util::is_byteswapable_v<StorageT>,
-        "read_as<StorageT>: T must be a byteswapable type: integral, floating-point, enum, "
-        "or a user-defined type specializing util::is_byteswapable<StorageT>");
+        HOST_IS_LITTLE_ENDIAN || util::is_byteswapable_v<StorageT>,
+        "readAs<StorageT>: T must be a byteswapable type: integral, "
+        "floating-point, enum, or a user-defined type specializing "
+        "util::is_byteswapable<StorageT>");
 
 
-    if constexpr (std::is_same_v<T, StorageT> && host_is_little_endian())
+    if constexpr (HOST_IS_LITTLE_ENDIAN && std::is_same_v<T, StorageT>)
     {
         std::memcpy(&out, ptr, sizeof(StorageT));
     }
@@ -242,8 +257,13 @@ inline void read_as(const uint8_t*& ptr, T& out)
     {
         StorageT tmp{};
         std::memcpy(&tmp, ptr, sizeof(StorageT));
-        out = static_cast<T>(little_endian(tmp));
+        out = static_cast<T>(asLittleEndian(tmp));
     }
+}
+template<typename StorageT, typename T>
+inline void readAsAndIncrement(const uint8_t*& ptr, T& out)
+{
+    readAs<StorageT>(ptr, out);
 
     ptr += sizeof(StorageT);
 }
