@@ -65,15 +65,15 @@ bool MS136ImuAdapter::serializeMsg(
         sizeof(decltype(msg.header.stamp.nanosec)) + sizeof(float) * 7);
 
     uint8_t* ptr = bytes.data();
-    assignAndIncrement(ptr, msg.header.stamp.sec);
-    assignAndIncrement(ptr, msg.header.stamp.nanosec);
-    assignAndIncrementAs<float>(ptr, msg.orientation.w);
-    assignAndIncrementAs<float>(ptr, msg.orientation.x);
-    assignAndIncrementAs<float>(ptr, msg.orientation.y);
-    assignAndIncrementAs<float>(ptr, msg.orientation.z);
-    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.x);
-    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
-    assignAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
+    util::writeAndIncrement(ptr, msg.header.stamp.sec);
+    util::writeAndIncrement(ptr, msg.header.stamp.nanosec);
+    util::writeAsAndIncrement<float>(ptr, msg.orientation.w);
+    util::writeAsAndIncrement<float>(ptr, msg.orientation.x);
+    util::writeAsAndIncrement<float>(ptr, msg.orientation.y);
+    util::writeAsAndIncrement<float>(ptr, msg.orientation.z);
+    util::writeAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
+    util::writeAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
+    util::writeAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
 
     return true;
 }
@@ -90,15 +90,15 @@ bool MS136ImuAdapter::deserializeMsg(
     }
 
     const uint8_t* ptr = bytes.data();
-    extractAndIncrement(ptr, msg.header.stamp.sec);
-    extractAndIncrement(ptr, msg.header.stamp.nanosec);
-    extractAndIncrementAs<float>(ptr, msg.orientation.w);
-    extractAndIncrementAs<float>(ptr, msg.orientation.x);
-    extractAndIncrementAs<float>(ptr, msg.orientation.y);
-    extractAndIncrementAs<float>(ptr, msg.orientation.z);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.x);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.y);
-    extractAndIncrementAs<float>(ptr, msg.linear_acceleration.z);
+    util::readAndIncrement(ptr, msg.header.stamp.sec);
+    util::readAndIncrement(ptr, msg.header.stamp.nanosec);
+    util::readAsAndIncrement<float>(ptr, msg.orientation.w);
+    util::readAsAndIncrement<float>(ptr, msg.orientation.x);
+    util::readAsAndIncrement<float>(ptr, msg.orientation.y);
+    util::readAsAndIncrement<float>(ptr, msg.orientation.z);
+    util::readAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
+    util::readAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
+    util::readAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
 
     msg.header.frame_id = state.lidar_frame_id;
 
