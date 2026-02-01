@@ -5,6 +5,20 @@
         "perception.json",
         "tf.json"
     ],
+    "pragma:constants":
+    {
+        "ARENA_FRAME_ID": "map",
+        "ODOM_FRAME_ID": "odom",
+        "ROBOT_FRAME_ID": "base_link",
+        "LIDAR_FRAME_ID": "lidar_link",
+
+        "LIDAR_HOSTNAME": "10.11.11.3",
+        "ROBOT_HOSTNAME": "10.11.11.10",
+        "CLIENT_HOSTNAME": "10.11.11.8",
+
+        "LIDAR_SCAN_TOPIC": "/multiscan/lidar_scan",
+        "LIDAR_IMU_TOPIC": "/multiscan/imu"
+    },
 
     "preset":
     {
@@ -74,13 +88,13 @@
             {
                 "remappings":
                 {
-                    "lidar_scan": "/multiscan/lidar_scan",
-                    "lidar_imu": "/multiscan/imu"
+                    "lidar_scan": "${ LIDAR_SCAN_TOPIC }",
+                    "lidar_imu": "${ LIDAR_IMU_TOPIC }"
                 }
             },
 
-            "lidar_frame": "lidar_link",
-            "lidar_hostname": "10.11.11.3",
+            "lidar_frame": "${ LIDAR_FRAME_ID }",
+            "lidar_hostname": "${ LIDAR_HOSTNAME }",
             "lidar_udp_port": 2115,
             "sopas_tcp_port": 2111,
             "use_msgpack": false,
@@ -89,7 +103,16 @@
             "udp_receive_timeout": 1.0,
             "sopas_read_timeout": 3.0,
             "error_restart_timeout": 3.0,
-            "max_segment_buffers": 3
+            "max_segment_buffers": 3,
+            "echo_selection": 3
+        },
+        "debug":
+        {
+            "pragma:derived": "robot",
+            "pragma:node_options":
+            {
+                "prefix": ["xterm -e gdb -ex run --args"]
+            }
         }
     },
 
@@ -153,8 +176,8 @@
             "preset_offload_backup_dist_meters": 0.25,
 
             "iteration_period_seconds": 0.05,
-            "odom_frame_id": "odom",
-            "arena_frame_id": "map",
+            "odom_frame_id": "${ ODOM_FRAME_ID }",
+            "arena_frame_id": "${ ARENA_FRAME_ID }",
 
             "auto_traversal":
             {
@@ -183,7 +206,7 @@
         "enabled":
         {
             "diagnostics_port": 1250,
-            "canbus": "can_phx5"
+            "canbus": "canable_B"
         }
     },
     "phoenix6_driver":
@@ -192,7 +215,7 @@
         "enabled":
         {
             "diagnostics_port": 0,
-            "canbus": "can_phx6",
+            "canbus": "canable_A",
             "arduino_device": "",
             "power_cycle_fault_thresh_s": 1.5,
             "common":
@@ -225,6 +248,48 @@
     {
         "pragma:default": null,
         "enabled": {}
+    },
+
+
+
+    "redux":
+    {
+        "pragma:default": null,
+        "robot":
+        {
+            "target": "robot",
+            "client_hostname": "${ CLIENT_HOSTNAME }"
+        },
+        "client":
+        {
+            "target": "client",
+            "robot_hostname": "${ ROBOT_HOSTNAME }",
+            "lidar_frame_id": "${ LIDAR_FRAME_ID }",
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "multiscan/imu": "redux/imu",
+                    "multiscan/lidar_scan": "redux/lidar_scan"
+                }
+            }
+        }
+    },
+    "robot_redux":
+    {
+        "pragma:default": null,
+        "enabled":
+        {
+
+        }
+    },
+    "client_redux":
+    {
+        "pragma:default": null,
+        "enabled":
+        {
+
+        }
     },
 
 

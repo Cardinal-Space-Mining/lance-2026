@@ -78,6 +78,23 @@ def get_watchdog_action(config):
         output = 'screen'
     )
 
+def get_redux_action(config):
+    target = config.pop("target", None)
+    if target == "robot":
+        return NodeAction(config).format_node(
+            package = 'net_adapter',
+            executable = 'robot_endpoint',
+            output = 'screen'
+        )
+    elif target == "client":
+        return NodeAction(config).format_node(
+            package = 'net_adapter',
+            executable = 'client_endpoint',
+            output = 'screen'
+        )
+    print(f'Invalid redux value for target key : {target}')
+    return None
+
 def get_robot_actions(config, launch_args = {}):
     a = []
     if 'multiscan_driver' in config:
@@ -92,6 +109,8 @@ def get_robot_actions(config, launch_args = {}):
         a.append(get_robot_control_action(config['robot_control']))
     if 'robot_status' in config:
         a.append(get_watchdog_action(config['robot_status']))
+    if 'redux' in config:
+        a.append(get_redux_action(config['redux']))
     return a
 
 
