@@ -42,177 +42,249 @@
 #include <cmath>
 #include <numbers>
 
-static constexpr double TRACK_GEARING = 64.;
-static constexpr double TRACK_EFFECTIVE_OUTPUT_RADIUS_M = 0.07032851;
-static constexpr double TRACK_SEPARATION_M = 0.636;
 
-static constexpr double TRENCHER_WIDTH_M = 0.254;
-static constexpr double TRENCHER_GEARING = 32.;
-static constexpr double TRENCHER_LITERS_PER_OUTPUT_ROTATION = (0.04096766 * 6.);
-static constexpr double TRENCHER_IMPACT_EFFECTIVE_RADIUS = 0.09270911;
+namespace lance
+{
+#define TWO_PI             (std::numbers::pi * 2)
+#define RADIANS_PER_DEGREE (std::numbers::pi / 180)
+#define LITERS_PER_M_CUBED (1000)
 
-static constexpr double HOPPER_BELT_GEARING = 100.;
-static constexpr double HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M = 0.0508;
-static constexpr double HOPPER_BELT_CONTAINER_LENGTH_M = 0.6;
-static constexpr double HOPPER_BELT_SAFE_OFFLOAD_DIST_M = 0.7;
-static constexpr double CONSERVATIVE_HOPPER_CAPACITY = 30.;
+#define CONSTEXPR_VAL_TEMPLATE(name, val)             \
+    template<typename T>                              \
+    inline constexpr T name##_ = static_cast<T>(val); \
+    inline constexpr double name = name##_<double>;
 
-static constexpr double MINING_DEPTH_FX_OFFSET = 0.112918;
-static constexpr double MINING_DEPTH_FX_SLOPE = -0.315855;
-static constexpr double MINING_DEPTH_MAX_M = 0.1016;
+#ifndef LANCE
+    #define LANCE 2
+#endif
+
+#if LANCE <= 1
+CONSTEXPR_VAL_TEMPLATE(TRACK_GEARING, 64)
+CONSTEXPR_VAL_TEMPLATE(TRACK_EFFECTIVE_OUTPUT_RADIUS_M, 0.07032851)
+CONSTEXPR_VAL_TEMPLATE(TRACK_SEPARATION_M, 0.636)
+
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_WIDTH_M, 0.254)
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_GEARING, 32)
+// bucket separation (CAD): 0.05107 m, actuation radius (CAD): 0.04890 m, struct bucket volume (CAD): 0.04309 L
+CONSTEXPR_VAL_TEMPLATE(
+    TRENCHER_LITERS_PER_OUTPUT_ROTATION,
+    (0.04309 * ((0.04826 * TWO_PI) / 0.05107)))
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_IMPACT_EFFECTIVE_RADIUS_M, 0.09270911)
+
+CONSTEXPR_VAL_TEMPLATE(ACTUATOR_LOWEST_ANGLE_DEG, 15)
+CONSTEXPR_VAL_TEMPLATE(ACTUATOR_HIGHEST_ANGLE_DEG, -15)
+
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_GEARING, 100)
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M, 0.0508)
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_CONTAINER_LENGTH_M, 0.6)
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_SAFE_OFFLOAD_DIST_M, 0.7)
+CONSTEXPR_VAL_TEMPLATE(CONSERVATIVE_HOPPER_CAPACITY_L, 30)
+
+// (mining depth) ~ -0.3159 * (normalized actuator pos) + 0.1129
+CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_OFFSET, 0.1129)
+CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_SLOPE, -0.3159)
+CONSTEXPR_VAL_TEMPLATE(MINING_MAX_DEPTH_M, 0.1016)
+#elif LANCE >= 2
+CONSTEXPR_VAL_TEMPLATE(TRACK_GEARING, 64)
+CONSTEXPR_VAL_TEMPLATE(TRACK_EFFECTIVE_OUTPUT_RADIUS_M, 0.045)
+CONSTEXPR_VAL_TEMPLATE(TRACK_SEPARATION_M, 0.648)
+
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_WIDTH_M, 0.260)
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_GEARING, 32)
+// bucket separation (CAD): 0.03228 m, actuation radius (CAD): 0.04826 m, strict bucket volume (CAD): 0.04309 L
+CONSTEXPR_VAL_TEMPLATE(
+    TRENCHER_LITERS_PER_OUTPUT_ROTATION,
+    (0.04309 * ((0.04826 * TWO_PI) / 0.03228)))
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_IMPACT_EFFECTIVE_RADIUS_M, 0.092)
+
+CONSTEXPR_VAL_TEMPLATE(ACTUATOR_LOWEST_ANGLE_DEG, 10)
+CONSTEXPR_VAL_TEMPLATE(ACTUATOR_HIGHEST_ANGLE_DEG, -10)
+
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_GEARING, 100)
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M, 0.028)
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_CONTAINER_LENGTH_M, 0.7)
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_SAFE_OFFLOAD_DIST_M, 0.8)
+CONSTEXPR_VAL_TEMPLATE(CONSERVATIVE_HOPPER_CAPACITY_L, 50)
+
+// (mining depth) ~ -0.3376 * (normalized actuator pos) + 0.1539
+CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_OFFSET, 0.1539)
+CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_SLOPE, -0.3376)
+CONSTEXPR_VAL_TEMPLATE(MINING_MAX_DEPTH_M, 0.1524)
+#endif
+
+#undef CONSTEXPR_VAL_TEMPLATE
 
 
 template<typename T>
-constexpr inline T track_motor_rps_to_ground_mps(const T& rps)
+constexpr inline T trackMotorRpsToGroundMps(const T& rps)
 {
-    return rps * ((1. / TRACK_GEARING) * TRACK_EFFECTIVE_OUTPUT_RADIUS_M * 2 *
-                  std::numbers::pi);
+    return static_cast<T>(
+        rps * ((1 / TRACK_GEARING) * TRACK_EFFECTIVE_OUTPUT_RADIUS_M * TWO_PI));
 }
 template<typename T>
-constexpr inline T ground_mps_to_track_motor_rps(const T& mps)
+constexpr inline T groundMpsToTrackMotorRps(const T& mps)
 {
-    return mps *
-           (1. / (TRACK_EFFECTIVE_OUTPUT_RADIUS_M * 2 * std::numbers::pi) *
-            TRACK_GEARING);
+    return static_cast<T>(
+        mps * (1 / (TRACK_EFFECTIVE_OUTPUT_RADIUS_M * TWO_PI) * TRACK_GEARING));
 }
 
 template<typename T>
-constexpr inline T linear_actuator_to_mining_depth_unclamped(
+constexpr inline T linearActuatorToMiningDepthUnclamped(
     const T& actuator_normalized_pos)
 {
-    return MINING_DEPTH_FX_OFFSET +
-           MINING_DEPTH_FX_SLOPE * actuator_normalized_pos;
+    return static_cast<T>(
+        MINING_DEPTH_FX_OFFSET +
+        MINING_DEPTH_FX_SLOPE * actuator_normalized_pos);
 }
 template<typename T>
-constexpr inline T mining_depth_to_linear_actuator_unclamped(const T& depth_m)
+constexpr inline T miningDepthToLinearActuatorUnclamped(const T& depth_m)
 {
-    return (depth_m - MINING_DEPTH_FX_OFFSET) * (1. / MINING_DEPTH_FX_SLOPE);
+    return static_cast<T>(
+        (depth_m - MINING_DEPTH_FX_OFFSET) * (1 / MINING_DEPTH_FX_SLOPE));
 }
-// Domain/range: [0.03, ~0.35] -> [0m, 0.1016m (4in)]
+// Domain/range: [0.03, ~0.35] -> [0m, 0.1016m (4in)] (lance-1)
 template<typename T>
-constexpr inline T linear_actuator_to_mining_depth_clamped(
+constexpr inline T linearActuatorToMiningDepthClamped(
     const T& actuator_normalized_pos)
 {
-    return std::clamp(
-        linear_actuator_to_mining_depth_unclamped(actuator_normalized_pos),
+    return static_cast<T>(std::clamp<double>(
+        linearActuatorToMiningDepthUnclamped<double>(
+            static_cast<double>(actuator_normalized_pos)),
         0.,
-        MINING_DEPTH_MAX_M);
+        MINING_MAX_DEPTH_M));
 }
-// Domain/range: [0m, 0.1016m (4in)] -> [0.03, ~0.35]
+// Domain/range: [0m, 0.1016m (4in)] -> [0.03, ~0.35] (lance-1)
 template<typename T>
-constexpr inline T mining_depth_to_linear_actuator_clamped(const T& depth_m)
+constexpr inline T miningDepthToLinearActuatorClamped(const T& depth_m)
 {
-    return mining_depth_to_linear_actuator_unclamped(
-        std::clamp(depth_m, 0., MINING_DEPTH_MAX_M));
-}
-
-// Domain/range: [0, 1] -> [-0.262, 0.262] (+/-15 deg)
-template<typename T>
-constexpr inline T linear_actuator_to_joint_angle(
-    const T& actuator_normalized_pos)
-{
-    constexpr double ACUTATION_RANGE_DEGREES = 30.;
-    constexpr double ACTUATION_RANGE_OFFSET_DEGREES = 15.;
-
-    return (std::numbers::pi / 180.) *
-           (ACTUATION_RANGE_OFFSET_DEGREES +
-            actuator_normalized_pos * -ACUTATION_RANGE_DEGREES);
+    return static_cast<T>(miningDepthToLinearActuatorUnclamped(
+        std::clamp<double>(
+            static_cast<double>(depth_m),
+            0.,
+            MINING_MAX_DEPTH_M)));
 }
 
+// Domain/range: [0, 1] -> [-0.262, 0.262] (+/-15 deg - lance-1)
 template<typename T>
-constexpr inline T mining_depth_to_trencher_impact_volume(const T& depth_m)
+constexpr inline T linearActuatorToJointAngle(const T& actuator_normalized_pos)
 {
-    constexpr double R = TRENCHER_IMPACT_EFFECTIVE_RADIUS;
+    constexpr double ACUTATION_RANGE_DEGREES =
+        (ACTUATOR_HIGHEST_ANGLE_DEG - ACTUATOR_LOWEST_ANGLE_DEG);
+
+    return static_cast<T>(
+        RADIANS_PER_DEGREE *
+        (ACTUATOR_LOWEST_ANGLE_DEG +
+         actuator_normalized_pos * ACUTATION_RANGE_DEGREES));
+}
+
+template<typename T>
+constexpr inline T miningDepthToTrencherImpactVolume(const T& depth_m)
+{
+    constexpr double R = TRENCHER_IMPACT_EFFECTIVE_RADIUS_M;
     constexpr double R2 = (R * R);
+    const double d = static_cast<double>(depth_m);
 
-    if (depth_m <= 0.)
+    if (d <= 0)
     {
-        return 0.;
+        return static_cast<T>(0);
     }
-    else if (depth_m < R)
+    else if (d < R)
     {
-        double x = (R - depth_m);
+        double x = (R - d);
         double cross_section_area =
             (R2 * acos(x / R) - x * std::sqrt(R2 - x * x));
         // cross-section * width * 1000 liters/m^3
-        return cross_section_area * TRENCHER_WIDTH_M * 1000.;
+        return static_cast<T>(
+            cross_section_area * TRENCHER_WIDTH_M * LITERS_PER_M_CUBED);
     }
     else
     {
         // (full semi-circle cross-section + additional depth rect) * width * 1000 liters/m^3
-        return ((std::numbers::pi * R2) +
-                ((depth_m - R) * TRENCHER_WIDTH_M * R)) *
-               1000.;
+        return static_cast<T>(
+            ((std::numbers::pi * R2) + ((depth_m - R) * TRENCHER_WIDTH_M * R)) *
+            LITERS_PER_M_CUBED);
     }
 }
 
 template<typename T>
-constexpr inline T track_motor_rps_to_volume_rate(
+constexpr inline T trackMotorRpsToVolumeRate(
     const T& motor_rps,
     const T& depth_m)
 {
     // dist * depth * width * 1000 liters/m^3
-    return track_motor_rps_to_ground_mps(motor_rps) * depth_m *
-           (TRENCHER_WIDTH_M * 1000.);
+    return static_cast<T>(
+        trackMotorRpsToGroundMps<double>(static_cast<double>(motor_rps)) *
+        depth_m * (TRENCHER_WIDTH_M * LITERS_PER_M_CUBED));
 }
 template<typename T>
-constexpr inline T volume_rate_to_track_motor_rps(
+constexpr inline T volumeRateToTrackMotorRps(
     const T& vol_rate_lps,
     const T& depth_m)
 {
     // (vol rate * 0.001 m^3/liter) / (depth * width)
-    return ground_mps_to_track_motor_rps(
-        (vol_rate_lps / depth_m) * ((1. / TRENCHER_WIDTH_M) / 1000.));
+    return static_cast<T>(groundMpsToTrackMotorRps<double>(
+        (static_cast<double>(vol_rate_lps) / static_cast<double>(depth_m)) *
+        ((1 / TRENCHER_WIDTH_M) / LITERS_PER_M_CUBED)));
 }
 
 template<typename T>
-constexpr inline T trencher_motor_rps_to_max_volume_rate(const T& rps)
+constexpr inline T trencherMotorRpsToMaxVolumeRate(const T& rps)
 {
-    return rps *
-           ((1. / TRENCHER_GEARING) * TRENCHER_LITERS_PER_OUTPUT_ROTATION);
+    return static_cast<T>(
+        rps * ((1 / TRENCHER_GEARING) * TRENCHER_LITERS_PER_OUTPUT_ROTATION));
 }
 template<typename T>
-constexpr inline T target_vol_rate_to_trencher_motor_rps(const T& vol_rate_lps)
+constexpr inline T targetVolRateToTrencherMotorRps(const T& vol_rate_lps)
 {
-    return vol_rate_lps *
-           ((1. / TRENCHER_LITERS_PER_OUTPUT_ROTATION) * TRENCHER_GEARING);
+    return static_cast<T>(
+        vol_rate_lps *
+        ((1 / TRENCHER_LITERS_PER_OUTPUT_ROTATION) * TRENCHER_GEARING));
 }
 
 template<typename T>
-constexpr inline T trencher_motor_rps_to_max_track_motor_rps(
+constexpr inline T trencherMotorRpsToMaxTrackMotorRps(
     const T& trencher_rps,
     const T& depth_m)
 {
-    return volume_rate_to_track_motor_rps(
-        trencher_motor_rps_to_max_volume_rate(trencher_rps),
-        depth_m);
+    return static_cast<T>(volumeRateToTrackMotorRps<double>(
+        trencherMotorRpsToMaxVolumeRate<double>(
+            static_cast<double>(trencher_rps)),
+        static_cast<double>(depth_m)));
 }
 template<typename T>
-constexpr inline T track_motor_rps_to_trencher_motor_rps(
+constexpr inline T trackMotorRpsToTrencherMotorRps(
     const T& track_rps,
     const T& depth_m)
 {
-    return target_vol_rate_to_trencher_motor_rps(
-        track_motor_rps_to_volume_rate(track_rps, depth_m));
+    return static_cast<T>(targetVolRateToTrencherMotorRps(
+        trackMotorRpsToVolumeRate<double>(
+            static_cast<double>(track_rps),
+            static_cast<double>(depth_m))));
 }
 
 template<typename T>
-constexpr inline T volume_rate_to_hopper_full_time(const T& vol_rate_lps)
+constexpr inline T volumeRateToHopperFullTime(const T& vol_rate_lps)
 {
-    return CONSERVATIVE_HOPPER_CAPACITY / vol_rate_lps;
+    return static_cast<T>(CONSERVATIVE_HOPPER_CAPACITY_L / vol_rate_lps);
 }
 
 template<typename T>
-constexpr inline T hopper_belt_motor_rps_to_belt_mps(const T& motor_rps)
+constexpr inline T hopperBeltMotorRpsToBeltMps(const T& motor_rps)
 {
-    return motor_rps *
-           ((1. / HOPPER_BELT_GEARING) *
-            (HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M * 2 * std::numbers::pi));
+    return static_cast<T>(
+        motor_rps * ((1 / HOPPER_BELT_GEARING) *
+                     (HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M * TWO_PI)));
 }
 template<typename T>
-constexpr inline T hopper_belt_mps_to_motor_rps(const T& belt_mps)
+constexpr inline T hopperBeltMpsToMotorRps(const T& belt_mps)
 {
-    return belt_mps * ((1. / (HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M * 2 *
-                              std::numbers::pi)) *
-                       HOPPER_BELT_GEARING);
+    return static_cast<T>(
+        belt_mps * ((1 / (HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M * TWO_PI)) *
+                    HOPPER_BELT_GEARING));
 }
+
+#undef TWO_PI
+#undef RADIANS_PER_DEGREE
+#undef LITERS_PER_M_CUBED
+
+};  // namespace lance

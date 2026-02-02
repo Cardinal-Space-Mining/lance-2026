@@ -58,8 +58,9 @@ using namespace util;
 using namespace util::ros_aliases;
 using namespace std::chrono_literals;
 
-#define ROBOT_TOPIC(subtopic) "/lance/" subtopic
-#define TALON_CTRL_SUB_QOS    10
+#define ROBOT_TOPIC(subtopic) "lance/" subtopic
+#define TALON_CTRL_SUB_QOS                                               \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
 #define DEFAULT_CAN_INTERFACE    "can_phx5"
 #define DEFAULT_MOTOR_CAN_ID     4
@@ -106,7 +107,9 @@ private:
 
 
 Phoenix5Driver::Phoenix5Driver() :
-    Node{ "phoenix5_driver" },
+    Node{
+        "phoenix5_driver"
+},
     hopper_act{
         .motor{
             DEFAULT_MOTOR_CAN_ID,
