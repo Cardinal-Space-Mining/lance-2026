@@ -40,6 +40,7 @@
 #include <chrono>
 
 #include <rclcpp/rclcpp.hpp>
+
 #include <std_msgs/msg/int32.hpp>
 
 #include "lance/srv/set_robot_mode.hpp"
@@ -56,7 +57,7 @@ using namespace util::ros_aliases;
 #define WATCHDOG_TELEOP_FEED_TIME 250ms
 #define WATCHDOG_AUTO_FEED_TIME   10000ms
 
-#define ROBOT_TOPIC(subtopic) "/lance/" subtopic
+#define ROBOT_TOPIC(subtopic) "lance/" subtopic
 
 
 class RobotStatusServer : public rclcpp::Node
@@ -78,7 +79,7 @@ public:
                 SetRobotModeSrv::Response::SharedPtr resp)
             {
                 this->robot_mode = req->mode;
-                RCLCPP_INFO(
+                RCLCPP_DEBUG(
                     this->get_logger(),
                     "SET ROBOT MODE : %d",
                     this->robot_mode);

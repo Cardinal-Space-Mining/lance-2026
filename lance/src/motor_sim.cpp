@@ -4,27 +4,33 @@
 // Modes: PERCENT_OUTPUT, VOLTAGE, VELOCITY, DISABLED
 // Shared battery with sag across all motors
 
+#include <cmath>
 #include <chrono>
 #include <memory>
-#include <unordered_map>
 #include <string>
 #include <vector>
-#include <cmath>
-#include <algorithm>
 #include <numbers>
+#include <algorithm>
+#include <unordered_map>
 
-#include "rclcpp/rclcpp.hpp"
-#include "nav_msgs/msg/odometry.hpp"
-#include "std_msgs/msg/int32.hpp"
-#include "std_msgs/msg/float64.hpp"
-#include "sensor_msgs/msg/joint_state.hpp"
-#include "geometry_msgs/msg/twist.hpp"
+#include <rclcpp/rclcpp.hpp>
 
-#include "phoenix_ros_driver/msg/talon_ctrl.hpp"
-#include "phoenix_ros_driver/msg/talon_info.hpp"
-#include "phoenix_ros_driver/msg/talon_faults.hpp"
+#include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/float64.hpp>
 
-#include "ros_utils.hpp"
+#include <sensor_msgs/msg/joint_state.hpp>
+
+#include <geometry_msgs/msg/twist.hpp>
+
+#include <nav_msgs/msg/odometry.hpp>
+
+#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
+#include <phoenix_ros_driver/msg/talon_info.hpp>
+#include <phoenix_ros_driver/msg/talon_faults.hpp>
+
+#include "util/ros_utils.hpp"
+#include "robot/robot_math.hpp"
+
 
 using namespace util::ros_aliases;
 using namespace std::chrono_literals;
@@ -39,35 +45,18 @@ using Float64Msg = std_msgs::msg::Float64;
 using JointStateMsg = sensor_msgs::msg::JointState;
 using TwistMsg = geometry_msgs::msg::Twist;
 
-static constexpr double TRACK_WIDTH_M = 0.636;
-static constexpr double TRACK_EFFECTIVE_OUTPUT_RADIUS_M = 0.07032851;
-static constexpr double TRACK_GEARING = 64.;
 
 // velocities in radians per second
-static void motor_vels_to_robot_twist(double l, double r, TwistMsg& twist)
+static void motorVelsToRobotTwist(double l, double r, TwistMsg& twist)
 {
     constexpr double RATIO =
-        (1. / TRACK_GEARING) * (TRACK_EFFECTIVE_OUTPUT_RADIUS_M);
+        (1. / lance::TRACK_GEARING) * (lance::TRACK_EFFECTIVE_OUTPUT_RADIUS_M);
 
     double v_l = l * RATIO;
     double v_r = r * RATIO;
 
     twist.linear.x = (v_r + v_l) / 2.0;
-    twist.angular.z = (v_r - v_l) / TRACK_WIDTH_M;
-}
-static double track_m_to_motor_rot(double track_mps)
-{
-    return track_mps *
-           (1. / (TRACK_EFFECTIVE_OUTPUT_RADIUS_M * 2 * std::numbers::pi) * TRACK_GEARING);
-}
-
-static double act_val_to_gz_joint_target(double act_val)
-{
-    double angle = (std::numbers::pi / 180.) * (15. + (act_val / 1000.) * -30.);
-    return angle > 0.1 ? 0.1 : angle;
-
-    // L2:
-    // return (std::numbers::pi / 180.) * (10. + (act_val / 1000.) * -20.);
+    twist.angular.z = (v_r - v_l) / lance::TRACK_SEPARATION_M;
 }
 
 #define SIM_STEP_DT_MS 1
@@ -181,7 +170,8 @@ public:
         }
 
         // Back-EMF
-        double kv_rad_s_per_volt = kv_rpm_per_volt_ * (2.0 * std::numbers::pi / 60.0);
+        double kv_rad_s_per_volt =
+            kv_rpm_per_volt_ * (2.0 * std::numbers::pi / 60.0);
         double back_emf = velocity_ / kv_rad_s_per_volt;
         double voltage_diff = applied_voltage - back_emf;
 
@@ -208,9 +198,10 @@ public:
 
     void fill_talon_info(TalonInfoMsg& info, double bus_voltage)
     {
-        info.position = position_ / (2.0 * std::numbers::pi);          // turns
-        info.velocity = velocity_ / (2.0 * std::numbers::pi);          // turns/s
-        info.acceleration = acceleration_ / (2.0 * std::numbers::pi);  // turns/s^2
+        info.position = position_ / (2.0 * std::numbers::pi);  // turns
+        info.velocity = velocity_ / (2.0 * std::numbers::pi);  // turns/s
+        info.acceleration =
+            acceleration_ / (2.0 * std::numbers::pi);  // turns/s^2
         info.device_temp = 30.0f;
         info.processor_temp = 30.0f;
         info.bus_voltage = static_cast<float>(bus_voltage);
@@ -329,11 +320,16 @@ class PhoenixPhysicalSimulator : public RclNode
 {
 public:
     PhoenixPhysicalSimulator() :
-        RclNode("phoenix_physical_simulator"),
+        RclNode("lance_motor_sim"),
         battery_(16.0, 0.01),  // 10mΩ internal resistance
-        use_gz_track_feedback(util::declare_and_get_param(*this, "use_gz_track_feedback", false))
+        use_gz_track_feedback(
+            util::declare_and_get_param(*this, "use_gz_track_feedback", false))
     {
-        std::array<std::string,4> motor_names_{"track_right", "track_left", "trencher", "hopper_belt"};
+        std::array<std::string, 4> motor_names_{
+            "track_right",
+            "track_left",
+            "trencher",
+            "hopper_belt"};
         for (const auto& name : motor_names_)
         {
             motors_[name] = std::make_shared<FalconMotorSim>(name);
@@ -343,13 +339,9 @@ public:
         setup_io("hopper_act");
 
         watchdog_sub_ = this->create_subscription<Int32Msg>(
-            "/lance/watchdog_status",
+            "lance/watchdog_status",
             rclcpp::SystemDefaultsQoS(),
             [this](const Int32Msg::SharedPtr msg) { on_watchdog(msg->data); });
-
-        // joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(
-        //     "joint_states",
-        //     rclcpp::SystemDefaultsQoS());
 
         sim_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(SIM_STEP_DT_MS),
@@ -366,10 +358,10 @@ public:
                 // std::cout << "Received GZ Joint State Msg" << std::endl;
                 for (size_t i = 0; i < msg.name.size(); i++)
                 {
-                    if (msg.name[i] == "dump_joint")    // L2: "hopper_joint"
+                    if (msg.name[i] == "hopper_joint")
                     {
-                        double target = act_val_to_gz_joint_target(
-                            this->linear_act_->position_);
+                        double target = lance::linearActuatorToJointAngle(
+                            this->linear_act_->position_ / 1000.);
                         double error = target - msg.position[i];
                         // std::cout << "Actuator target: " << target
                         //           << ", GZ pos: " << msg.position[i]
@@ -395,9 +387,9 @@ public:
             [this](const OdometryMsg& msg)
             {
                 this->gz_left_track_pos =
-                    track_m_to_motor_rot(msg.pose.pose.position.x);
+                    lance::groundMpsToTrackMotorRps(msg.pose.pose.position.x);
                 this->gz_left_track_vel =
-                    track_m_to_motor_rot(msg.twist.twist.linear.x);
+                    lance::groundMpsToTrackMotorRps(msg.twist.twist.linear.x);
             });
         right_track_odom_sub = this->create_subscription<OdometryMsg>(
             "/right_track_odom",
@@ -405,27 +397,31 @@ public:
             [this](const OdometryMsg& msg)
             {
                 this->gz_right_track_pos =
-                    track_m_to_motor_rot(msg.pose.pose.position.x);
+                    lance::groundMpsToTrackMotorRps(msg.pose.pose.position.x);
                 this->gz_right_track_vel =
-                    track_m_to_motor_rot(msg.twist.twist.linear.x);
+                    lance::groundMpsToTrackMotorRps(msg.twist.twist.linear.x);
             });
-        act_vel_pub = this->create_publisher<Float64Msg>("/dump_cmd_vel", rclcpp::SystemDefaultsQoS());
-        track_twist_pub = this->create_publisher<TwistMsg>("/cmd_vel", rclcpp::SystemDefaultsQoS());
+        act_vel_pub = this->create_publisher<Float64Msg>(
+            "/dump_cmd_vel",
+            rclcpp::SystemDefaultsQoS());
+        track_twist_pub = this->create_publisher<TwistMsg>(
+            "/cmd_vel",
+            rclcpp::SystemDefaultsQoS());
 
-        RCLCPP_INFO(this->get_logger(), "Motor sim started!");
+        RCLCPP_DEBUG(this->get_logger(), "Motor sim started!");
     }
 
 private:
     void setup_io(const std::string& name)
     {
         publisher_info_[name] = this->create_publisher<TalonInfoMsg>(
-            "/lance/" + name + "/info",
+            "lance/" + name + "/info",
             rclcpp::SystemDefaultsQoS());
         publisher_faults_[name] = this->create_publisher<TalonFaultsMsg>(
-            "/lance/" + name + "/faults",
+            "lance/" + name + "/faults",
             rclcpp::SystemDefaultsQoS());
         subscription_ctrl_[name] = this->create_subscription<TalonCtrlMsg>(
-            "/lance/" + name + "/ctrl",
+            "lance/" + name + "/ctrl",
             rclcpp::SystemDefaultsQoS(),
             [this, name](const TalonCtrlMsg::SharedPtr msg)
             { on_ctrl(name, *msg); });
@@ -475,7 +471,7 @@ private:
     void io_callback()
     {
         TwistMsg twist_msg;
-        motor_vels_to_robot_twist(
+        motorVelsToRobotTwist(
             motors_["track_left"]->velocity_,
             motors_["track_right"]->velocity_,
             twist_msg);
@@ -489,7 +485,7 @@ private:
         faults_msg.header.stamp = now;
 
         motors_["track_right"]->fill_talon_info(info_msg, last_bus_voltage_);
-        if(this->use_gz_track_feedback)
+        if (this->use_gz_track_feedback)
         {
             info_msg.position = gz_right_track_pos;
             info_msg.velocity = gz_right_track_vel;
@@ -498,7 +494,7 @@ private:
         publisher_faults_["track_right"]->publish(faults_msg);
 
         motors_["track_left"]->fill_talon_info(info_msg, last_bus_voltage_);
-        if(this->use_gz_track_feedback)
+        if (this->use_gz_track_feedback)
         {
             info_msg.position = gz_left_track_pos;
             info_msg.velocity = gz_left_track_vel;

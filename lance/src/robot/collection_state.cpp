@@ -58,7 +58,7 @@ void HopperState::setParams(
 
 void HopperState::update(double delta_volume_l, double belt_rotations)
 {
-    this->belt_pos_m = hopper_belt_motor_rps_to_belt_mps(belt_rotations);
+    this->belt_pos_m = lance::hopperBeltMotorRpsToBeltMps(belt_rotations);
 
     // add new material
     if (delta_volume_l > 0.)
@@ -116,11 +116,11 @@ double HopperState::miningTargetMotorPosition() const
     if (this->total_vol_l < this->initial_vol_l &&
         this->occupied_delta_m() <= this->initial_footprint_m)
     {
-        return hopper_belt_mps_to_motor_rps(this->belt_pos_m);
+        return lance::hopperBeltMpsToMotorRps(this->belt_pos_m);
     }
     else
     {
-        return hopper_belt_mps_to_motor_rps(
+        return lance::hopperBeltMpsToMotorRps(
             std::max(
                 (this->low_pos_m +
                  (std::min(this->total_vol_l / this->cap_vol_l, 1.) *
@@ -131,21 +131,22 @@ double HopperState::miningTargetMotorPosition() const
 
 double HopperState::offloadTargetMotorPosition() const
 {
-    if(this->occupied_delta_m() > 0.)
+    if (this->occupied_delta_m() > 0.)
     {
-        return hopper_belt_mps_to_motor_rps(
+        return lance::hopperBeltMpsToMotorRps(
             std::max(this->high_pos_m + this->offload_len_m, this->belt_pos_m));
     }
     else
     {
-        return hopper_belt_mps_to_motor_rps(this->belt_pos_m);
+        return lance::hopperBeltMpsToMotorRps(this->belt_pos_m);
     }
 }
 
 double HopperState::calcOffloadTargetMotorPosition(double beg_motor_pos) const
 {
-    return hopper_belt_mps_to_motor_rps(
-        hopper_belt_motor_rps_to_belt_mps(beg_motor_pos) + this->offload_len_m);
+    return lance::hopperBeltMpsToMotorRps(
+        lance::hopperBeltMotorRpsToBeltMps(beg_motor_pos) +
+        this->offload_len_m);
 }
 
 
@@ -172,10 +173,10 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     const double ltrack_rotations = motors_status.track_left.position;
     const double rtrack_rotations = motors_status.track_right.position;
 
-    double curr_mining_depth_m = linear_actuator_to_mining_depth_clamped(
+    double curr_mining_depth_m = lance::linearActuatorToMiningDepthClamped(
         motors_status.hopper_actuator.position / 1000.);
     double curr_impact_volume =
-        mining_depth_to_trencher_impact_volume(curr_mining_depth_m);
+        lance::miningDepthToTrencherImpactVolume(curr_mining_depth_m);
 
     this->handleInit(motors_status, curr_mining_depth_m, curr_impact_volume);
 
@@ -183,7 +184,7 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     double delta_trencher_rotations =
         trencher_rotations - this->prev_trencher_rotations;
     double trencher_max_delta_volume =
-        trencher_motor_rps_to_max_volume_rate(delta_trencher_rotations);
+        lance::trencherMotorRpsToMaxVolumeRate(delta_trencher_rotations);
     // ^ f(r/s) -> L/s <=> f(r) -> L
 
     // calculate maximum possible volume material 'swept' given change in track rotations (linear distance)
@@ -193,7 +194,7 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
         ((ltrack_rotations - this->prev_ltrack_rotations) +
          (rtrack_rotations - this->prev_rtrack_rotations)) *
         0.5;
-    double delta_sweep_volume = track_motor_rps_to_volume_rate(
+    double delta_sweep_volume = lance::trackMotorRpsToVolumeRate(
         avg_track_delta_rotations,
         avg_mining_depth_m);
     // ^ f(m/s) -> L/s <=> f(m) -> L

@@ -151,7 +151,7 @@ void MiningController::iterate(
     }
 
     this->traversal_state.updateOdom(
-        static_cast<float>(track_motor_rps_to_ground_mps(
+        static_cast<float>(lance::trackMotorRpsToGroundMps(
             0.5 * (motor_status.track_left.position +
                    motor_status.track_right.position))));
 

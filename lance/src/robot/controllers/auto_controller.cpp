@@ -214,6 +214,6 @@ void AutoController::publishState()
         "Auto [unknown]"};
 
     this->pub_map.publish<std_msgs::msg::String, std::string>(
-        "/lance/op_status",
+        "lance/op_status",
         STAGE_STRINGS[static_cast<size_t>(this->stage)]);
 }
