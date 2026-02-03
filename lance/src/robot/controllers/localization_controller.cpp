@@ -92,8 +92,11 @@ void LocalizationController::iterate(
 {
     // if at any point the full localization transform is established,
     // the command is finished
+    // TODO: TF lookup timestamps are wildly inconsistent when using gazebo -
+    //      the workaround for now is to just query the alignment tf and not the full tf,
+    //      although we should really be checking to make sure we have full localization
     if (this->tf_buffer.canTransform(
-            this->params.robot_frame_id,
+            this->params.odom_frame_id,
             this->params.arena_frame_id,
             tf2::TimePointZero))
     {

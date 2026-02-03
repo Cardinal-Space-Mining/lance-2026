@@ -244,7 +244,7 @@ public:
         double max_speed = 150.0)  // counts/s
         :
         name_(name),
-        position_(500.0),
+        position_(750.0),
         velocity_(0.0),
         output_percent_(0.0),
         setpoint_(0.0),

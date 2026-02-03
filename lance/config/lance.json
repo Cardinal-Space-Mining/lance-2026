@@ -41,9 +41,9 @@
             {
                 "joy_node": "xbox",
                 "robot_status": "enabled",
-                "robot_control": "lance2",
+                "robot_control": "lance2_sim",
                 "motor_sim": "gz_sim_l2",
-                "perception": "lance2",
+                "perception": "sim",
                 "pplan_client": "enabled",
                 "gz_sim": "motor_sim_l2",
                 "robot_tf": "lance2",
@@ -227,6 +227,16 @@
         {
             "pragma:derived": "lance2",
             "controller": 1
+        },
+        "lance2_sim":
+        {
+            "pragma:derived": "lance2",
+            "use_sim_time": true
+        },
+        "lance1_sim":
+        {
+            "pragma:derived": "lance1",
+            "use_sim_time": true
         }
     },
     "robot_status":
