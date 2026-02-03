@@ -92,8 +92,10 @@ void LocalizationController::iterate(
 {
     // if at any point the full localization transform is established,
     // the command is finished
-    // TODO: parameterize frame ids
-    if (this->tf_buffer.canTransform("base_link", "map", rclcpp::Time{}))
+    if (this->tf_buffer.canTransform(
+            this->params.robot_frame_id,
+            this->params.arena_frame_id,
+            tf2::TimePointZero))
     {
         this->stage = Stage::FINISHED;
     }

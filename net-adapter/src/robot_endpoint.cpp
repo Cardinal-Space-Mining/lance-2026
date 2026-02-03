@@ -46,6 +46,7 @@
 #include "ros_utils.hpp"
 #include "zenoh_utils.hpp"
 
+#include "adapters/joy_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
 
@@ -66,6 +67,7 @@ public:
                 *this,
                 "client_hostname",
                 DEFAULT_CLIENT_IP_ADDRESS)))},
+        joy_pub{JoyAdapter::createPublisher(*this, zsh, "/joy")},
         imu_sub{MS136ImuAdapter::createSubscriber(*this, zsh, "multiscan/imu")},
         scan_sub{MS136ScanAdapter::createSubscriber(
             *this,
@@ -77,6 +79,7 @@ public:
 private:
     Session zsh;
 
+    JoyAdapter::Publisher joy_pub;
     MS136ImuAdapter::Subscriber imu_sub;
     MS136ScanAdapter::Subscriber scan_sub;
 };

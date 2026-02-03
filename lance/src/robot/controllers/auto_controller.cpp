@@ -49,7 +49,7 @@ AutoController::AutoController(
     const HopperState& hopper_state) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{std::make_shared<rclcpp::Clock>(RCL_ROS_TIME)},
+    tf_buffer{node.get_clock()},
     tf_listener{tf_buffer, &node},
     localization_controller{node, pub_map, params, tf_buffer},
     traversal_controller{node, pub_map, params, tf_buffer},
@@ -74,6 +74,17 @@ void AutoController::initialize()
     // again, then we don't know what the robot state is!
     if (this->stage != Stage::LOCALIZATION)
     {
+        std::string s;
+        std::cout
+            << "[AUTO CONTROLLER]: Initialized in unknown state. Has arena<->robot tf ?: "
+            << this->tf_buffer.canTransform(
+                   this->params.arena_frame_id,
+                   this->params.robot_frame_id,
+                   tf2::TimePointZero,
+                   tf2::durationFromSec(0.1),
+                   &s)
+            << " - reason : " << s << std::endl;
+
         this->stage = Stage::UNKNOWN;
     }
     else
@@ -122,7 +133,9 @@ void AutoController::iterate(
     {
         case Stage::UNKNOWN:
         {
-            // algo to determine what stage we should be in...
+            // for now, just rerun localization as a check since it should exit
+            // immediately as long as a global alignment transform was
+            // previously published
             this->localization_controller.initialize();
             this->stage = Stage::LOCALIZATION;
             [[fallthrough]];

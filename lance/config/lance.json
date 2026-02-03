@@ -306,6 +306,7 @@
             "target": "client",
             "robot_hostname": "${ ROBOT_HOSTNAME }",
             "lidar_frame_id": "${ LIDAR_FRAME_ID }",
+            "max_joy_pub_freq": 100.0,
             "pragma:node_options":
             {
                 "remappings":

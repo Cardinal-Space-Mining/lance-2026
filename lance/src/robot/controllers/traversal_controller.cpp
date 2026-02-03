@@ -202,11 +202,6 @@ void TraversalController::iterate(
             this->stopPlanningService();
         }
     }
-
-    // if (joy)
-    // {
-    //     debugTracksControl(*joy, this->params, commands);
-    // }
 }
 
 void TraversalController::initPlanningService(const Vec3f& dest)
@@ -381,8 +376,9 @@ bool TraversalController::computeTraversal(
         const float decell_dist_m =
             1.5f * max_iter_vel * max_iter_vel /
             this->params.auto_traversal_max_track_acceleration_mpss;
-        const float target_dist_m =
-            max_iter_vel * this->params.iteration_period_seconds;
+        const float target_dist_m = std::max(
+            max_iter_vel * this->params.iteration_period_seconds,
+            0.05f);
 
         // os <<
         //     "\ncontrol mode : \"follow path\""

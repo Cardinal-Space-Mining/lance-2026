@@ -9,12 +9,12 @@ void loop() {
 
     if (command == '1') {
       digitalWrite(13, HIGH);         // Turn LED on
-      Serial.println("LED ON");
+      // Serial.println("LED ON");
     } else if (command == '0') {
       digitalWrite(13, LOW);          // Turn LED off
-      Serial.println("LED OFF");
+      // Serial.println("LED OFF");
     } else {
-      Serial.println("Unknown command");
+      // Serial.println("Unknown command");
     }
   }
 }

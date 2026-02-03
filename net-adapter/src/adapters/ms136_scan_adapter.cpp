@@ -55,16 +55,24 @@
 
 using namespace util;
 
+using PointField = sensor_msgs::msg::PointField;
 
-MS136ScanAdapter::MS136ScanAdapter(rclcpp::Node& node) : BaseT{node}
+
+MS136ScanAdapterPubState::MS136ScanAdapterPubState(rclcpp::Node& node) :
+    lidar_frame_id{declare_and_get_param<std::string>(
+        node,
+        "lidar_frame_id",
+        "lidar_link")}
 {
-    declare_param(node, "lidar_frame_id", this->lidar_frame_id, "lidar_link");
 }
+
+
+MS136ScanAdapter::MS136ScanAdapter(rclcpp::Node& node) : BaseT{node} {}
 
 bool MS136ScanAdapter::serializeMsg(
     ByteBuffer& bytes,
     const MsgT& msg,
-    const SubStateT& state)
+    SubStateT& state)
 {
     (void)state;
 
@@ -137,13 +145,14 @@ bool MS136ScanAdapter::serializeMsg(
     ms136::redux::packBuffer(packed_buff, dense_buff);
 
     bytes.resize(
-        sizeof(decltype(msg.header.stamp.sec)) +
-        sizeof(decltype(msg.header.stamp.nanosec)) + packed_buff.size() * 2);
+        sizeof(decltype(msg.header.stamp.sec)) +      //
+        sizeof(decltype(msg.header.stamp.nanosec)) +  //
+        packed_buff.size() * 2);
     uint8_t* ptr = bytes.data();
 
-    util::writeAndIncrement(ptr, msg.header.stamp.sec);
-    util::writeAndIncrement(ptr, msg.header.stamp.nanosec);
-    util::writeManyAndIncrement(ptr, packed_buff);
+    writeAndIncrement(ptr, msg.header.stamp.sec);
+    writeAndIncrement(ptr, msg.header.stamp.nanosec);
+    writeManyAndIncrement(ptr, packed_buff);
 
     return true;
 }
@@ -151,18 +160,18 @@ bool MS136ScanAdapter::serializeMsg(
 bool MS136ScanAdapter::deserializeMsg(
     MsgT& msg,
     const ByteBuffer& bytes,
-    const PubStateT& state)
+    PubStateT& state)
 {
     const uint8_t* ptr = bytes.data();
 
     msg.header.frame_id = state.lidar_frame_id;
-    util::readAndIncrement(ptr, msg.header.stamp.sec);
-    util::readAndIncrement(ptr, msg.header.stamp.nanosec);
+    readAndIncrement(ptr, msg.header.stamp.sec);
+    readAndIncrement(ptr, msg.header.stamp.nanosec);
 
     const size_t n_packed_bytes = (bytes.end().base() - ptr);
 
     ms136::redux::PackedBuffer packed_buff;
-    util::readManyAndIncrement(ptr, packed_buff, n_packed_bytes / 2);
+    readManyAndIncrement(ptr, packed_buff, n_packed_bytes / 2);
 
     ms136::redux::DenseBuffer dense_buff;
     ms136::redux::unpackBuffer(dense_buff, packed_buff);
@@ -182,10 +191,10 @@ bool MS136ScanAdapter::deserializeMsg(
             const auto proj = ms136::redux::projectPoint(i, pt);
             const bool reflector = ms136::redux::getReflector(pt);
 
-            util::writeAndIncrement(ptr, proj.x());
-            util::writeAndIncrement(ptr, proj.y());
-            util::writeAndIncrement(ptr, proj.z());
-            util::writeAndIncrement(ptr, reflector ? 1.f : 0.f);
+            writeAndIncrement(ptr, proj.x());
+            writeAndIncrement(ptr, proj.y());
+            writeAndIncrement(ptr, proj.z());
+            writeAndIncrement(ptr, reflector ? 1.f : 0.f);
         }
     }
 

@@ -39,36 +39,43 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <chrono>
+
+#include <sensor_msgs/msg/joy.hpp>
 
 #include "base_adapter.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+class JoyAdapterSubState
 {
-    friend class MS136ImuAdapter;
+    friend class JoyAdapter;
+
+    using system_clock = std::chrono::system_clock;
+    using system_time = system_clock::time_point;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node& n);
+    JoyAdapterSubState(rclcpp::Node& n);
 
 protected:
-    const std::string lidar_frame_id;
+    bool freqFilterStatus();
+
+protected:
+    float max_pub_freq{0.f};
+
+    system_time prev_msg_time{};
 };
 
-class MS136ImuAdapter :
+class JoyAdapter :
     public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        MS136ImuAdapterPubState,
-        void>
+        sensor_msgs::msg::Joy,
+        JoyAdapter,
+        void,
+        JoyAdapterSubState>
 {
     friend BaseT;
 
 protected:
-    MS136ImuAdapter(rclcpp::Node&);
+    JoyAdapter(rclcpp::Node&);
 
 protected:
     static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);

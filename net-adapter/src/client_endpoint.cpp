@@ -46,6 +46,7 @@
 #include "ros_utils.hpp"
 #include "zenoh_utils.hpp"
 
+#include "adapters/joy_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
 
@@ -66,6 +67,7 @@ public:
                 *this,
                 "robot_hostname",
                 DEFAULT_ROBOT_IP_ADDRESS)))},
+        joy_sub{JoyAdapter::createSubscriber(*this, zsh, "/joy")},
         imu_pub{MS136ImuAdapter::createPublisher(*this, zsh, "multiscan/imu")},
         scan_pub{MS136ScanAdapter::createPublisher(
             *this,
@@ -73,14 +75,11 @@ public:
             "multiscan/lidar_scan")}
     {
     }
-    ~ClientEndpointNode()
-    {
-        this->zsh.close();
-    }
 
 private:
     Session zsh;
 
+    JoyAdapter::Subscriber joy_sub;
     MS136ImuAdapter::Publisher imu_pub;
     MS136ScanAdapter::Publisher scan_pub;
 };
