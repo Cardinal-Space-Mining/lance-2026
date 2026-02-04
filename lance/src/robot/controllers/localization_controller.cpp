@@ -109,6 +109,14 @@ void LocalizationController::iterate(
     {
         case Stage::INITIALIZATION:
         {
+            if (motor_status.getHopperActNormalizedValue() <
+                this->params.hopper_actuator_traversal_target)
+            {
+                commands.setHopperActPercent(
+                    this->params.hopper_actuator_max_speed);
+                break;
+            }
+
             this->setLfdControl(true);
             this->stage = Stage::SEARCHING;
             [[fallthrough]];
@@ -165,9 +173,6 @@ void LocalizationController::iterate(
             this->setLfdControl(false);
         }
     }
-
-    // constexpr char const* STRS[] = {"init", "searching", "targetting", "finished"};
-    // std::cout << STRS[static_cast<size_t>(this->stage)] << std::endl;
 }
 
 void LocalizationController::setLfdControl(bool enabled)

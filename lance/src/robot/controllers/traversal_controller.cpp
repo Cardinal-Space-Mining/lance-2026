@@ -173,10 +173,19 @@ void TraversalController::iterate(
     RobotMotorCommands& commands,
     const JoyState* joy)
 {
+    commands.disableAll();
+
     switch (this->state)
     {
         case State::INITIALIZATION:
         {
+            if (motor_status.getHopperActNormalizedValue() <
+                this->params.hopper_actuator_traversal_target)
+            {
+                commands.setHopperActPercent(
+                    this->params.hopper_actuator_max_speed);
+                break;
+            }
             if (!this->last_path)
             {
                 break;
