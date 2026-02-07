@@ -37,94 +37,97 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
+#include <chrono>
 #include <string>
 
-#include <zenoh.hxx>
+#include "base_adapter.hpp"
 
-#include <rclcpp/rclcpp.hpp>
-
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
-
-#include "adapters/joy_adapter.hpp"
-#include "adapters/ms136_imu_adapter.hpp"
-#include "adapters/ms136_scan_adapter.hpp"
-#include "adapters/talon_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
+#include "phoenix_ros_driver/msg/talon_ctrl.hpp"
+#include "phoenix_ros_driver/msg/talon_info.hpp"
+#include "phoenix_ros_driver/msg/talon_faults.hpp"
 
 
-#define DEFAULT_CLIENT_IP_ADDRESS "10.11.11.8"
-
-using namespace zenoh;
-using namespace util;
-
-
-class RobotEndpointNode : public rclcpp::Node
+class TalonAdapterSubState
 {
+    friend class TalonCtrlAdapter;
+    friend class TalonInfoAdapter;
+    friend class TalonFaultsAdapter;
+
+    using system_clock = std::chrono::system_clock;
+    using system_time = system_clock::time_point;
+
 public:
-    RobotEndpointNode() :
-        Node{"robot_redux_endpoint"},
-        zsh{Session::open(configDirectConnectTo(
-            declare_and_get_param<std::string>(
-                *this,
-                "client_hostname",
-                DEFAULT_CLIENT_IP_ADDRESS)))},
-        joy_pub{JoyAdapter::createPublisher(*this, zsh, "/joy")},
-        imu_sub{MS136ImuAdapter::createSubscriber(*this, zsh, "multiscan/imu")},
-        scan_sub{MS136ScanAdapter::createSubscriber(
-            *this,
-            zsh,
-            "multiscan/lidar_scan")},
-        watchdog_pub{WatchdogAdapter::createPublisher(
-            *this,
-            zsh,
-            "lance/watchdog_status")},
-        track_left(*this, zsh, "track_left"),
-        track_right(*this, zsh, "track_right"),
-        trencher(*this, zsh, "trencher"),
-        hopper_belt(*this, zsh, "hopper_belt"),
-        hopper_actuator(*this, zsh, "hopper_actuator")
-    {
-    }
+    TalonAdapterSubState(rclcpp::Node& n, float max_pub_freq = 100.f);
 
-private:
-    Session zsh;
+protected:
+    bool freqFilterStatus();
 
-    JoyAdapter::Publisher joy_pub;
-    MS136ImuAdapter::Subscriber imu_sub;
-    MS136ScanAdapter::Subscriber scan_sub;
-    WatchdogAdapter::Publisher watchdog_pub;
-
-    struct MotorEndpoint
-    {
-        // TalonCtrlAdapter::Subscriber ctrl_pub;
-        TalonInfoAdapter::Subscriber info_pub;
-        TalonFaultsAdapter::Subscriber faults_pub;
-
-        MotorEndpoint(
-            rclcpp::Node& node,
-            Session& zsh,
-            const std::string& name) :
-            // ctrl_pub{TalonCtrlAdapter::createSubscriber(node, zsh, name)},
-            info_pub{TalonInfoAdapter::createSubscriber(node, zsh, name)},
-            faults_pub{TalonFaultsAdapter::createSubscriber(node, zsh, name)}
-        {
-        }
-    };
-
-    MotorEndpoint track_left;
-    MotorEndpoint track_right;
-    MotorEndpoint trencher;
-    MotorEndpoint hopper_belt;
-    MotorEndpoint hopper_actuator;
+protected:
+    float max_pub_freq{100.f};
+    system_time prev_msg_time{};
 };
 
 
-int main(int argc, char** argv)
+class TalonCtrlAdapter :
+    public BaseAdapter<
+        phoenix_ros_driver::msg::TalonCtrl,
+        TalonCtrlAdapter,
+        void,
+        TalonAdapterSubState>
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotEndpointNode>());
-    rclcpp::shutdown();
+    friend BaseT;
 
-    return 0;
-}
+public:
+    TalonCtrlAdapter(rclcpp::Node& node, const std::string& motor_name);
+
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+
+private:
+    std::string topic_name;
+};
+
+
+class TalonInfoAdapter :
+    public BaseAdapter<
+        phoenix_ros_driver::msg::TalonInfo,
+        TalonInfoAdapter,
+        void,
+        TalonAdapterSubState>
+{
+    friend BaseT;
+
+public:
+    TalonInfoAdapter(rclcpp::Node& node, const std::string& motor_name);
+
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+
+private:
+    std::string topic_name;
+};
+
+
+class TalonFaultsAdapter :
+    public BaseAdapter<
+        phoenix_ros_driver::msg::TalonFaults,
+        TalonFaultsAdapter,
+        void,
+        TalonAdapterSubState>
+{
+    friend BaseT;
+
+public:
+    TalonFaultsAdapter(rclcpp::Node& node, const std::string& motor_name);
+
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+
+private:
+    std::string topic_name;
+};

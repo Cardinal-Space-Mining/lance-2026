@@ -49,6 +49,8 @@
 #include "adapters/joy_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
+#include "adapters/talon_adapter.hpp"
+#include "adapters/watchdog_adapter.hpp"
 
 
 #define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
@@ -72,7 +74,16 @@ public:
         scan_pub{MS136ScanAdapter::createPublisher(
             *this,
             zsh,
-            "multiscan/lidar_scan")}
+            "multiscan/lidar_scan")},
+        watchdog_sub{WatchdogAdapter::createSubscriber(
+            *this,
+            zsh,
+            "lance/watchdog_status")},
+        track_left(*this, zsh, "track_left"),
+        track_right(*this, zsh, "track_right"),
+        trencher(*this, zsh, "trencher"),
+        hopper_belt(*this, zsh, "hopper_belt"),
+        hopper_actuator(*this, zsh, "hopper_actuator")
     {
     }
 
@@ -82,6 +93,30 @@ private:
     JoyAdapter::Subscriber joy_sub;
     MS136ImuAdapter::Publisher imu_pub;
     MS136ScanAdapter::Publisher scan_pub;
+    WatchdogAdapter::Subscriber watchdog_sub;
+
+    struct MotorEndpoint
+    {
+        // TalonCtrlAdapter::Publisher ctrl_pub;
+        TalonInfoAdapter::Publisher info_pub;
+        TalonFaultsAdapter::Publisher faults_pub;
+
+        MotorEndpoint(
+            rclcpp::Node& node,
+            Session& zsh,
+            const std::string& name) :
+            // ctrl_pub{TalonCtrlAdapter::createPublisher(node, zsh, name)},
+            info_pub{TalonInfoAdapter::createPublisher(node, zsh, name)},
+            faults_pub{TalonFaultsAdapter::createPublisher(node, zsh, name)}
+        {
+        }
+    };
+
+    MotorEndpoint track_left;
+    MotorEndpoint track_right;
+    MotorEndpoint trencher;
+    MotorEndpoint hopper_belt;
+    MotorEndpoint hopper_actuator;
 };
 
 
