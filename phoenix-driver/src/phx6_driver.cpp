@@ -94,8 +94,9 @@ using namespace std::chrono_literals;
 #define TFX_DEFAULT_SUPPLY_CURRENT_LIMIT 20.
 #define TFX_DEFAULT_PEAK_VOLTAGE         12.
 
-#define ROBOT_TOPIC(subtopic) "/lance/" subtopic
-#define TALON_CTRL_SUB_QOS    1
+#define ROBOT_TOPIC(subtopic) "lance/" subtopic
+#define TALON_CTRL_SUB_QOS                                               \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
 #define MOTOR_INFO_PUB_FREQ               20.
 #define MOTOR_FAULT_PUB_FREQ              4.

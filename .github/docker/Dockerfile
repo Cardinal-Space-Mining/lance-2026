@@ -24,13 +24,18 @@ RUN rosdep install --from-paths . --ignore-src -r -y
 
 # Add pheonix6
 RUN curl -s --compressed -o /usr/share/keyrings/ctr-pubkey.gpg "https://deb.ctr-electronics.com/ctr-pubkey.gpg" && \
-    curl -s --compressed -o /etc/apt/sources.list.d/ctr2026.list "https://deb.ctr-electronics.com/ctr2026.list"
+    curl -s --compressed -o /etc/apt/sources.list.d/ctr2026.list "https://deb.ctr-electronics.com/ctr2026.list" && \
+    curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+        | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
 
 # Install additional stuff
 RUN apt-get update && apt-get install -y \
     python3-netifaces \
     phoenix6 \
-    patchelf
+    patchelf \
+    libzenohc-dev \
+    libzenohcpp-dev
 
 # Default command
 CMD ["bash"]

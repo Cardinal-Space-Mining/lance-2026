@@ -92,8 +92,13 @@ void LocalizationController::iterate(
 {
     // if at any point the full localization transform is established,
     // the command is finished
-    // TODO: parameterize frame ids
-    if (this->tf_buffer.canTransform("base_link", "map", rclcpp::Time{}))
+    // TODO: TF lookup timestamps are wildly inconsistent when using gazebo -
+    //      the workaround for now is to just query the alignment tf and not the full tf,
+    //      although we should really be checking to make sure we have full localization
+    if (this->tf_buffer.canTransform(
+            this->params.odom_frame_id,
+            this->params.arena_frame_id,
+            tf2::TimePointZero))
     {
         this->stage = Stage::FINISHED;
     }
@@ -104,6 +109,14 @@ void LocalizationController::iterate(
     {
         case Stage::INITIALIZATION:
         {
+            if (motor_status.getHopperActNormalizedValue() <
+                this->params.hopper_actuator_traversal_target)
+            {
+                commands.setHopperActPercent(
+                    this->params.hopper_actuator_max_speed);
+                break;
+            }
+
             this->setLfdControl(true);
             this->stage = Stage::SEARCHING;
             [[fallthrough]];
@@ -160,9 +173,6 @@ void LocalizationController::iterate(
             this->setLfdControl(false);
         }
     }
-
-    // constexpr char const* STRS[] = {"init", "searching", "targetting", "finished"};
-    // std::cout << STRS[static_cast<size_t>(this->stage)] << std::endl;
 }
 
 void LocalizationController::setLfdControl(bool enabled)

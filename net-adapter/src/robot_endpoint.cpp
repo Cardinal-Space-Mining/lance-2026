@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,90 +37,58 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
+#include <string>
+
+#include <zenoh.hxx>
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <std_msgs/msg/int32.hpp>
+#include "ros_utils.hpp"
+#include "zenoh_utils.hpp"
 
-#include "lance/srv/set_robot_mode.hpp"
-
-#include "util/ros_utils.hpp"
-
-
-using namespace std::chrono;
-using namespace std::chrono_literals;
-using namespace util::ros_aliases;
+#include "adapters/joy_adapter.hpp"
+#include "adapters/ms136_imu_adapter.hpp"
+#include "adapters/ms136_scan_adapter.hpp"
 
 
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
+#define DEFAULT_CLIENT_IP_ADDRESS "10.11.11.8"
 
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
+using namespace zenoh;
+using namespace util;
 
 
-class RobotStatusServer : public rclcpp::Node
+class RobotEndpointNode : public rclcpp::Node
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetRobotModeSrv = lance::srv::SetRobotMode;
-
 public:
-    RobotStatusServer() :
-        Node("robot_status"),
-
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        robot_state_service{this->create_service<SetRobotModeSrv>(
-            ROBOT_TOPIC("set_robot_mode"),
-            [this](
-                SetRobotModeSrv::Request::SharedPtr req,
-                SetRobotModeSrv::Response::SharedPtr resp)
-            {
-                this->robot_mode = req->mode;
-                RCLCPP_DEBUG(
-                    this->get_logger(),
-                    "SET ROBOT MODE : %d",
-                    this->robot_mode);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
+    RobotEndpointNode() :
+        Node{"robot_redux_endpoint"},
+        zsh{Session::open(configDirectConnectTo(
+            declare_and_get_param<std::string>(
+                *this,
+                "client_hostname",
+                DEFAULT_CLIENT_IP_ADDRESS)))},
+        joy_pub{JoyAdapter::createPublisher(*this, zsh, "/joy")},
+        imu_sub{MS136ImuAdapter::createSubscriber(*this, zsh, "multiscan/imu")},
+        scan_sub{MS136ScanAdapter::createSubscriber(
+            *this,
+            zsh,
+            "multiscan/lidar_scan")}
     {
     }
 
-protected:
-    inline int32_t getFeedTime()
-    {
-        return (
-            this->robot_mode > 0
-                ? (duration_cast<milliseconds>(WATCHDOG_TELEOP_FEED_TIME)
-                       .count())
-                : (this->robot_mode < 0
-                       ? -duration_cast<milliseconds>(WATCHDOG_AUTO_FEED_TIME)
-                              .count()
-                       : 0));
-    }
+private:
+    Session zsh;
 
-protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetRobotModeSrv> robot_state_service;
-    RclTimer watchdog_timer;
-
-    int robot_mode{0};
+    JoyAdapter::Publisher joy_pub;
+    MS136ImuAdapter::Subscriber imu_sub;
+    MS136ScanAdapter::Subscriber scan_sub;
 };
 
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
+    rclcpp::spin(std::make_shared<RobotEndpointNode>());
     rclcpp::shutdown();
 
     return 0;

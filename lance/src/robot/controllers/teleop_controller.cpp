@@ -295,6 +295,6 @@ void TeleopController::publishState()
         "Teleop Preset Offload"};
 
     this->pub_map.publish<std_msgs::msg::String, std::string>(
-        "/lance/op_status",
+        "lance/op_status",
         OP_STRINGS[static_cast<size_t>(this->op_mode)]);
 }

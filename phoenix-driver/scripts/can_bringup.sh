@@ -9,9 +9,9 @@ CANABLE_PID="117e"
 
 # Each record: "serial:interface:bitrate"
 CAN_DEVICES=(
-    # TODO: replace or identify robot phx5 canable uid
-    "206531765230:can_phx5:1000000"     # testing only - this is actually the phx6 canable on the robot
-    "207B338D3630:can_phx6:1000000"
+    "206E31745230:canable_A:1000000"
+    "206531765230:canable_B:1000000"
+    "207B338D3630:canable_C:1000000"
 )
 
 FOUND=0

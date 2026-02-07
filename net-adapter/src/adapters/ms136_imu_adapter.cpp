@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,91 +37,77 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
+#include "ms136_imu_adapter.hpp"
 
-#include <rclcpp/rclcpp.hpp>
+#include <cstdint>
 
-#include <std_msgs/msg/int32.hpp>
-
-#include "lance/srv/set_robot_mode.hpp"
-
-#include "util/ros_utils.hpp"
+#include "mem_helpers.hpp"
+#include "../ros_utils.hpp"
 
 
-using namespace std::chrono;
-using namespace std::chrono_literals;
-using namespace util::ros_aliases;
+using namespace util;
 
 
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+MS136ImuAdapterPubState::MS136ImuAdapterPubState(rclcpp::Node& node) :
+    lidar_frame_id{declare_and_get_param<std::string>(
+        node,
+        "lidar_frame_id",
+        "lidar_link")}
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetRobotModeSrv = lance::srv::SetRobotMode;
+}
 
-public:
-    RobotStatusServer() :
-        Node("robot_status"),
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        robot_state_service{this->create_service<SetRobotModeSrv>(
-            ROBOT_TOPIC("set_robot_mode"),
-            [this](
-                SetRobotModeSrv::Request::SharedPtr req,
-                SetRobotModeSrv::Response::SharedPtr resp)
-            {
-                this->robot_mode = req->mode;
-                RCLCPP_DEBUG(
-                    this->get_logger(),
-                    "SET ROBOT MODE : %d",
-                    this->robot_mode);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
+MS136ImuAdapter::MS136ImuAdapter(rclcpp::Node& node) : BaseT{node} {}
+
+bool MS136ImuAdapter::serializeMsg(
+    ByteBuffer& bytes,
+    const MsgT& msg,
+    SubStateT& state)
+{
+    (void)state;
+
+    bytes.resize(
+        sizeof(decltype(msg.header.stamp.sec)) +      //
+        sizeof(decltype(msg.header.stamp.nanosec)) +  //
+        sizeof(float) * 7);
+
+    uint8_t* ptr = bytes.data();
+    writeAndIncrement(ptr, msg.header.stamp.sec);
+    writeAndIncrement(ptr, msg.header.stamp.nanosec);
+    writeAsAndIncrement<float>(ptr, msg.orientation.w);
+    writeAsAndIncrement<float>(ptr, msg.orientation.x);
+    writeAsAndIncrement<float>(ptr, msg.orientation.y);
+    writeAsAndIncrement<float>(ptr, msg.orientation.z);
+    writeAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
+    writeAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
+    writeAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
+
+    return true;
+}
+
+bool MS136ImuAdapter::deserializeMsg(
+    MsgT& msg,
+    const ByteBuffer& bytes,
+    PubStateT& state)
+{
+    constexpr size_t TARGET_BUFF_SIZE = 36;
+    if (bytes.size() < TARGET_BUFF_SIZE)
     {
+        return false;
     }
 
-protected:
-    inline int32_t getFeedTime()
-    {
-        return (
-            this->robot_mode > 0
-                ? (duration_cast<milliseconds>(WATCHDOG_TELEOP_FEED_TIME)
-                       .count())
-                : (this->robot_mode < 0
-                       ? -duration_cast<milliseconds>(WATCHDOG_AUTO_FEED_TIME)
-                              .count()
-                       : 0));
-    }
+    const uint8_t* ptr = bytes.data();
+    readAndIncrement(ptr, msg.header.stamp.sec);
+    readAndIncrement(ptr, msg.header.stamp.nanosec);
+    readAsAndIncrement<float>(ptr, msg.orientation.w);
+    readAsAndIncrement<float>(ptr, msg.orientation.x);
+    readAsAndIncrement<float>(ptr, msg.orientation.y);
+    readAsAndIncrement<float>(ptr, msg.orientation.z);
+    readAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
+    readAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
+    readAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
 
-protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetRobotModeSrv> robot_state_service;
-    RclTimer watchdog_timer;
+    msg.header.frame_id = state.lidar_frame_id;
 
-    int robot_mode{0};
-};
-
-
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
-
-    return 0;
+    return true;
 }

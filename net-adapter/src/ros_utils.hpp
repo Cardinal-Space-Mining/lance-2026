@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,91 +37,101 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
+#pragma once
+
+#include <string>
+#include <type_traits>
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <std_msgs/msg/int32.hpp>
 
-#include "lance/srv/set_robot_mode.hpp"
-
-#include "util/ros_utils.hpp"
-
-
-using namespace std::chrono;
-using namespace std::chrono_literals;
-using namespace util::ros_aliases;
-
-
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+namespace util
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetRobotModeSrv = lance::srv::SetRobotMode;
 
-public:
-    RobotStatusServer() :
-        Node("robot_status"),
+namespace ros_aliases
+{
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        robot_state_service{this->create_service<SetRobotModeSrv>(
-            ROBOT_TOPIC("set_robot_mode"),
-            [this](
-                SetRobotModeSrv::Request::SharedPtr req,
-                SetRobotModeSrv::Response::SharedPtr resp)
-            {
-                this->robot_mode = req->mode;
-                RCLCPP_DEBUG(
-                    this->get_logger(),
-                    "SET ROBOT MODE : %d",
-                    this->robot_mode);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
-    {
-    }
+using RclNode = rclcpp::Node;
+using RclTimer = rclcpp::TimerBase::SharedPtr;
 
-protected:
-    inline int32_t getFeedTime()
-    {
-        return (
-            this->robot_mode > 0
-                ? (duration_cast<milliseconds>(WATCHDOG_TELEOP_FEED_TIME)
-                       .count())
-                : (this->robot_mode < 0
-                       ? -duration_cast<milliseconds>(WATCHDOG_AUTO_FEED_TIME)
-                              .count()
-                       : 0));
-    }
+template<typename T>
+using SharedPub = typename rclcpp::Publisher<T>::SharedPtr;
+template<typename T>
+using SharedSub = typename rclcpp::Subscription<T>::SharedPtr;
+template<typename T>
+using SharedSrv = typename rclcpp::Service<T>::SharedPtr;
 
-protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetRobotModeSrv> robot_state_service;
-    RclTimer watchdog_timer;
+#define BUILD_MSG_ALIAS(pkg, name)    using name##Msg = pkg::msg::name;
+#define BUILD_SRV_ALIAS(pkg, name)    using name##Srv = pkg::srv::name;
+#define BUILD_STD_MSG_ALIAS(name)     BUILD_MSG_ALIAS(std_msgs, name)
+#define BUILD_SENSORS_MSG_ALIAS(name) BUILD_MSG_ALIAS(sensor_msgs, name)
+#define BUILD_GEOM_MSG_ALIAS(name)    BUILD_MSG_ALIAS(geometry_msgs, name)
+#define BUILD_BUILTIN_MSG_ALIAS(name) BUILD_MSG_ALIAS(builtin_interfaces, name)
 
-    int robot_mode{0};
+};  // namespace ros_aliases
+
+
+template<typename T>
+struct identity
+{
+    typedef T type;
 };
 
-
-int main(int argc, char** argv)
+template<typename T>
+inline void declare_param(
+    rclcpp::Node* node,
+    const std::string param_name,
+    T& param,
+    const typename identity<T>::type& default_value)
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
-
-    return 0;
+    try
+    {
+        node->declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
+    node->get_parameter(param_name, param);
 }
+template<typename T>
+inline void declare_param(
+    rclcpp::Node& node,
+    const std::string param_name,
+    T& param,
+    const typename identity<T>::type& default_value)
+{
+    try
+    {
+        node.declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
+    node.get_parameter(param_name, param);
+}
+template<typename T>
+inline T declare_and_get_param(
+    rclcpp::Node& node,
+    const std::string param_name,
+    const T& default_value)
+{
+    try
+    {
+        node.declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
+    return node.get_parameter_or(param_name, default_value);
+}
+
+
+template<typename ros_T, typename primitive_T>
+inline ros_T to_ros_val(primitive_T v)
+{
+    static_assert(std::is_same<typename ros_T::_data_type, primitive_T>::value);
+
+    return ros_T{}.set__data(v);
+}
+
+};  // namespace util

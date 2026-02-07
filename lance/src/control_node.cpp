@@ -58,25 +58,26 @@
 #include "robot/robot_controller.hpp"
 
 
-#define ROBOT_TOPIC(subtopic) "/lance/" subtopic
-#define TALON_CTRL_PUB_QOS    10
-#define HOPPER_JOINT_NAME     "dump_joint"  // L2: "hopper_joint"
+#define ROBOT_TOPIC(subtopic) "lance/" subtopic
+#define TALON_CTRL_PUB_QOS                                               \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
+#define HOPPER_JOINT_NAME "hopper_joint"
 
 using namespace std::chrono_literals;
 using namespace util::ros_aliases;
 
-using util::JoyState;
-using util::GenericPubMap;
-
-using BoolMsg = std_msgs::msg::Bool;
-using Int32Msg = std_msgs::msg::Int32;
-using Float64Msg = std_msgs::msg::Float64;
-using JoyMsg = sensor_msgs::msg::Joy;
-using JointStateMsg = sensor_msgs::msg::JointState;
-
 
 class RobotControlNode : public rclcpp::Node
 {
+    using JoyState = util::JoyState;
+    using GenericPubMap = util::GenericPubMap;
+
+    using BoolMsg = std_msgs::msg::Bool;
+    using Int32Msg = std_msgs::msg::Int32;
+    using Float64Msg = std_msgs::msg::Float64;
+    using JoyMsg = sensor_msgs::msg::Joy;
+    using JointStateMsg = sensor_msgs::msg::JointState;
+
 protected:
     struct TalonPubSub
     {
@@ -85,120 +86,11 @@ protected:
     };
 
 public:
-#define INIT_TALON_PUB_SUB(device_topic, device_var)         \
-    device_var##_pub_sub{                                    \
-        this->create_publisher<TalonCtrlMsg>(                \
-            ROBOT_TOPIC(#device_topic "/ctrl"),              \
-            TALON_CTRL_PUB_QOS),                             \
-        this->create_subscription<TalonInfoMsg>(             \
-            ROBOT_TOPIC(#device_topic "/info"),              \
-            rclcpp::SensorDataQoS{},                         \
-            [this](const TalonInfoMsg& msg)                  \
-            { this->robot_motor_status.device_var = msg; })}
-
-    RobotControlNode() :
-        Node{"robot_control"},
-        pub_map{*this, "", rclcpp::SensorDataQoS{}},
-        robot_controller{*this, this->pub_map},
-
-        INIT_TALON_PUB_SUB(track_right, track_right),
-        INIT_TALON_PUB_SUB(track_left, track_left),
-        INIT_TALON_PUB_SUB(trencher, trencher),
-        INIT_TALON_PUB_SUB(hopper_belt, hopper_belt),
-        INIT_TALON_PUB_SUB(hopper_act, hopper_actuator),
-
-        joy_sub{this->create_subscription<JoyMsg>(
-            "/joy",
-            rclcpp::SensorDataQoS{},
-            [this](const JoyMsg::ConstSharedPtr& msg)
-            { this->last_joy_msg = msg; })},
-        watchdog_sub{this->create_subscription<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{},
-            [this](const Int32Msg& status)
-            { this->watchdog_status = status.data; })},
-
-        control_iteration_timer{this->create_wall_timer(
-            std::chrono::duration<float>(
-                this->robot_controller.getParams().iteration_period_seconds),
-            [this]()
-            {
-                PROFILING_SYNC();
-                PROFILING_NOTIFY_ALWAYS(iterate_control);
-
-                if (this->last_joy_msg)
-                {
-                    this->joy_state.update(*this->last_joy_msg);
-                    this->last_joy_msg = nullptr;
-                }
-
-                RobotMotorCommands commands;
-                this->robot_controller.iterate(
-                    this->watchdog_status,
-                    this->joy_state,
-                    this->robot_motor_status,
-                    commands);
-
-                this->track_right_pub_sub.ctrl_pub->publish(
-                    commands.track_right);
-                this->track_left_pub_sub.ctrl_pub->publish(commands.track_left);
-                this->trencher_pub_sub.ctrl_pub->publish(commands.trencher);
-                this->hopper_belt_pub_sub.ctrl_pub->publish(
-                    commands.hopper_belt);
-                this->hopper_actuator_pub_sub.ctrl_pub->publish(
-                    commands.hopper_actuator);
-
-                this->publishHopperJoint();
-                this->publishCollectionState();
-
-                PROFILING_NOTIFY_ALWAYS(iterate_control);
-                PROFILING_FLUSH();
-            })}
-    {
-    }
+    RobotControlNode();
 
 private:
-    void publishHopperJoint()
-    {
-        JointStateMsg joint_msg;
-        joint_msg.header = this->robot_motor_status.hopper_actuator.header;
-        joint_msg.name.push_back(HOPPER_JOINT_NAME);
-        joint_msg.position.push_back(linear_actuator_to_joint_angle(
-            this->robot_motor_status.getHopperActNormalizedValue()));
-        this->pub_map.publish("joint_states", joint_msg);
-    }
-    void publishCollectionState()
-    {
-        const HopperState& hopper_state = this->robot_controller.hopperState();
-
-        this->pub_map.publish(
-            "/collection_state/is_full_volume",
-            BoolMsg{}.set__data(hopper_state.isVolCapacity()));
-        this->pub_map.publish(
-            "/collection_state/is_full_occ",
-            BoolMsg{}.set__data(hopper_state.isBeltCapacity()));
-        this->pub_map.publish(
-            "/collection_state/volume",
-            Float64Msg{}.set__data(hopper_state.volume()));
-        this->pub_map.publish(
-            "/collection_state/mining_target",
-            Float64Msg{}.set__data(hopper_state.miningTargetMotorPosition()));
-        this->pub_map.publish(
-            "/collection_state/offload_target",
-            Float64Msg{}.set__data(hopper_state.offloadTargetMotorPosition()));
-        this->pub_map.publish(
-            "/collection_state/belt_pos_m",
-            Float64Msg{}.set__data(hopper_state.beltPosMeters()));
-        this->pub_map.publish(
-            "/collection_state/high_pos_m",
-            Float64Msg{}.set__data(hopper_state.startPosMeters()));
-        this->pub_map.publish(
-            "/collection_state/low_pos_m",
-            Float64Msg{}.set__data(hopper_state.endPosMeters()));
-        this->pub_map.publish(
-            "/collection_state/belt_usage_m",
-            Float64Msg{}.set__data(hopper_state.beltUsageMeters()));
-    }
+    void publishHopperJoint();
+    void publishCollectionState();
 
 private:
     GenericPubMap pub_map;
@@ -221,12 +113,134 @@ private:
 };
 
 
+
+// ---
+
+#define INIT_TALON_PUB_SUB(device_topic, device_var)            \
+    device_var##_pub_sub                                        \
+    {                                                           \
+        this->create_publisher<TalonCtrlMsg>(                   \
+            ROBOT_TOPIC(#device_topic "/ctrl"),                 \
+            TALON_CTRL_PUB_QOS),                                \
+            this->create_subscription<TalonInfoMsg>(            \
+                ROBOT_TOPIC(#device_topic "/info"),             \
+                rclcpp::SensorDataQoS{},                        \
+                [this](const TalonInfoMsg& msg)                 \
+                { this->robot_motor_status.device_var = msg; }) \
+    }
+
+RobotControlNode::RobotControlNode() :
+    Node{"robot_control"},
+    pub_map{*this, "", rclcpp::SensorDataQoS{}},
+    robot_controller{*this, this->pub_map},
+
+    INIT_TALON_PUB_SUB(track_right, track_right),
+    INIT_TALON_PUB_SUB(track_left, track_left),
+    INIT_TALON_PUB_SUB(trencher, trencher),
+    INIT_TALON_PUB_SUB(hopper_belt, hopper_belt),
+    INIT_TALON_PUB_SUB(hopper_act, hopper_actuator),
+
+    joy_sub{this->create_subscription<JoyMsg>(
+        "/joy",
+        rclcpp::SensorDataQoS{},
+        [this](const JoyMsg::ConstSharedPtr& msg)
+        { this->last_joy_msg = msg; })},
+    watchdog_sub{this->create_subscription<Int32Msg>(
+        ROBOT_TOPIC("watchdog_status"),
+        rclcpp::SensorDataQoS{},
+        [this](const Int32Msg& status)
+        { this->watchdog_status = status.data; })},
+
+    control_iteration_timer{this->create_wall_timer(
+        std::chrono::duration<float>(
+            this->robot_controller.getParams().iteration_period_seconds),
+        [this]()
+        {
+            PROFILING_SYNC();
+            PROFILING_NOTIFY_ALWAYS(iterate_control);
+
+            if (this->last_joy_msg)
+            {
+                this->joy_state.update(*this->last_joy_msg);
+                this->last_joy_msg = nullptr;
+            }
+
+            RobotMotorCommands commands;
+            this->robot_controller.iterate(
+                this->watchdog_status,
+                this->joy_state,
+                this->robot_motor_status,
+                commands);
+
+            this->track_right_pub_sub.ctrl_pub->publish(commands.track_right);
+            this->track_left_pub_sub.ctrl_pub->publish(commands.track_left);
+            this->trencher_pub_sub.ctrl_pub->publish(commands.trencher);
+            this->hopper_belt_pub_sub.ctrl_pub->publish(commands.hopper_belt);
+            this->hopper_actuator_pub_sub.ctrl_pub->publish(
+                commands.hopper_actuator);
+
+            this->publishHopperJoint();
+            this->publishCollectionState();
+
+            PROFILING_NOTIFY_ALWAYS(iterate_control);
+            PROFILING_FLUSH();
+        })}
+{
+    std::cout << "LANCE-" << LANCE << " controller initialized!" << std::endl;
+}
+
+void RobotControlNode::publishHopperJoint()
+{
+    JointStateMsg joint_msg;
+    joint_msg.header = this->robot_motor_status.hopper_actuator.header;
+    joint_msg.name.push_back(HOPPER_JOINT_NAME);
+    joint_msg.position.push_back(
+        lance::linearActuatorToJointAngle(
+            this->robot_motor_status.getHopperActNormalizedValue()));
+    this->pub_map.publish("joint_states", joint_msg);
+}
+void RobotControlNode::publishCollectionState()
+{
+    const HopperState& hopper_state = this->robot_controller.hopperState();
+
+    this->pub_map.publish(
+        "collection_state/is_full_volume",
+        BoolMsg{}.set__data(hopper_state.isVolCapacity()));
+    this->pub_map.publish(
+        "collection_state/is_full_occ",
+        BoolMsg{}.set__data(hopper_state.isBeltCapacity()));
+    this->pub_map.publish(
+        "collection_state/volume",
+        Float64Msg{}.set__data(hopper_state.volume()));
+    this->pub_map.publish(
+        "collection_state/mining_target",
+        Float64Msg{}.set__data(hopper_state.miningTargetMotorPosition()));
+    this->pub_map.publish(
+        "collection_state/offload_target",
+        Float64Msg{}.set__data(hopper_state.offloadTargetMotorPosition()));
+    this->pub_map.publish(
+        "collection_state/belt_pos_m",
+        Float64Msg{}.set__data(hopper_state.beltPosMeters()));
+    this->pub_map.publish(
+        "collection_state/high_pos_m",
+        Float64Msg{}.set__data(hopper_state.startPosMeters()));
+    this->pub_map.publish(
+        "collection_state/low_pos_m",
+        Float64Msg{}.set__data(hopper_state.endPosMeters()));
+    this->pub_map.publish(
+        "collection_state/belt_usage_m",
+        Float64Msg{}.set__data(hopper_state.beltUsageMeters()));
+}
+
+
+
 int main(int argc, char* argv[])
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<RobotControlNode>();
     PROFILING_INIT(*node, PROFILING_DEFAULT_TOPIC, PROFILING_DEFAULT_QOS);
     rclcpp::spin(node);
+    PROFILING_DEINIT();
     rclcpp::shutdown();
 
     return 0;

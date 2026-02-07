@@ -79,17 +79,6 @@ ament_target_dependencies(phx6_driver
     phoenix6)
 target_compile_features(phx6_driver PUBLIC c_std_99 cxx_std_20)     # not necessary but silences a lot of warnings
 
-# --- Motor Sim Node -----------------------------------------------------------
-add_executable(motor_sim src/motor_sim.cpp)
-target_link_libraries(motor_sim
-    ${phoenix_ros_driver_custom_types})
-ament_target_dependencies(motor_sim
-    rclcpp
-    nav_msgs
-    std_msgs
-    sensor_msgs
-    geometry_msgs)
-
 # --- Export -------------------------------------------------------------------
 ament_export_dependencies(
     rclcpp
@@ -103,7 +92,6 @@ ament_package()
 install(TARGETS
     phx5_driver
     phx6_driver
-    motor_sim
     DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
     launch

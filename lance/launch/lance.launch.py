@@ -57,19 +57,39 @@ def get_phx6_action(config, launch_args):
         output = 'screen'
     )
 
-def get_phx_sim_action(config):
-    return NodeAction(config).format_node(
-        package = 'phoenix_ros_driver',
-        executable = 'motor_sim',
-        output = 'screen'
-    )
+def get_motor_sim_action(config):
+    target = config.pop("model", 0)
+    if target == 1:
+        return NodeAction(config).format_node(
+            package = 'lance',
+            executable = 'lance1_motor_sim',
+            output = 'screen'
+        )
+    if target == 2:
+        return NodeAction(config).format_node(
+            package = 'lance',
+            executable = 'lance2_motor_sim',
+            output = 'screen'
+        )
+    print(f'Invalid motor_sim model : {target} (1 for lance-1, 2 for lance-2)')
+    return None
 
 def get_robot_control_action(config):
-    return NodeAction(config).format_node(
-        package = 'lance',
-        executable = 'robot_control',
-        output = 'screen'
-    )
+    target = config.pop("controller", 0)
+    if target == 1:
+        return NodeAction(config).format_node(
+            package = 'lance',
+            executable = 'lance1_controller',
+            output = 'screen'
+        )
+    if target == 2:
+        return NodeAction(config).format_node(
+            package = 'lance',
+            executable = 'lance2_controller',
+            output = 'screen'
+        )
+    print(f'Invalid robot_controller target : {target} (1 for lance-1, 2 for lance-2)')
+    return None
 
 def get_watchdog_action(config):
     return NodeAction(config).format_node(
@@ -77,6 +97,23 @@ def get_watchdog_action(config):
         executable = 'robot_status',
         output = 'screen'
     )
+
+def get_redux_action(config):
+    target = config.pop("target", None)
+    if target == "robot":
+        return NodeAction(config).format_node(
+            package = 'net_adapter',
+            executable = 'robot_endpoint',
+            output = 'screen'
+        )
+    elif target == "client":
+        return NodeAction(config).format_node(
+            package = 'net_adapter',
+            executable = 'client_endpoint',
+            output = 'screen'
+        )
+    print(f'Invalid redux value for target key : {target}')
+    return None
 
 def get_robot_actions(config, launch_args = {}):
     a = []
@@ -86,12 +123,14 @@ def get_robot_actions(config, launch_args = {}):
         a.append(get_phx5_action(config['phoenix5_driver']))
     if 'phoenix6_driver' in config:
         a.append(get_phx6_action(config['phoenix6_driver'], launch_args))
-    if 'phoenix_motor_sim' in config:
-        a.append(get_phx_sim_action(config['phoenix_motor_sim']))
+    if 'motor_sim' in config:
+        a.append(get_motor_sim_action(config['motor_sim']))
     if 'robot_control' in config:
         a.append(get_robot_control_action(config['robot_control']))
     if 'robot_status' in config:
         a.append(get_watchdog_action(config['robot_status']))
+    if 'redux' in config:
+        a.append(get_redux_action(config['redux']))
     return a
 
 

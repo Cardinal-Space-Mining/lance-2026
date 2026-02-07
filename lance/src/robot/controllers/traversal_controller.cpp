@@ -91,8 +91,7 @@ void debugTracksControl(
 // compute the coefficient representing the ratio of radius-to-corner-
 // deviation-width when turning at a path junction
 template<typename FloatT>
-inline FloatT computeJunctionRadiusCoeff(
-    FloatT cos_theta)  // sqrt is not constexpr until C++26 :(
+inline FloatT computeJunctionRadiusCoeff(FloatT cos_theta)
 {
     const FloatT cos_half_theta =
         std::sqrt((FloatT)0.5 + cos_theta * (FloatT)0.5);
@@ -174,10 +173,19 @@ void TraversalController::iterate(
     RobotMotorCommands& commands,
     const JoyState* joy)
 {
+    commands.disableAll();
+
     switch (this->state)
     {
         case State::INITIALIZATION:
         {
+            if (motor_status.getHopperActNormalizedValue() <
+                this->params.hopper_actuator_traversal_target)
+            {
+                commands.setHopperActPercent(
+                    this->params.hopper_actuator_max_speed);
+                break;
+            }
             if (!this->last_path)
             {
                 break;
@@ -203,11 +211,6 @@ void TraversalController::iterate(
             this->stopPlanningService();
         }
     }
-
-    // if (joy)
-    // {
-    //     debugTracksControl(*joy, this->params, commands);
-    // }
 }
 
 void TraversalController::initPlanningService(const Vec3f& dest)
@@ -370,9 +373,9 @@ bool TraversalController::computeTraversal(
     else
     {
         const double fb_l_vel_mps =
-            track_motor_rps_to_ground_mps(motor_status.track_left.velocity);
+            lance::trackMotorRpsToGroundMps(motor_status.track_left.velocity);
         const double fb_r_vel_mps =
-            track_motor_rps_to_ground_mps(motor_status.track_right.velocity);
+            lance::trackMotorRpsToGroundMps(motor_status.track_right.velocity);
         const double avg_vel_mps = (fb_l_vel_mps + fb_r_vel_mps) * 0.5f;
 
         const float max_iter_vel =
@@ -382,8 +385,9 @@ bool TraversalController::computeTraversal(
         const float decell_dist_m =
             1.5f * max_iter_vel * max_iter_vel /
             this->params.auto_traversal_max_track_acceleration_mpss;
-        const float target_dist_m =
-            max_iter_vel * this->params.iteration_period_seconds;
+        const float target_dist_m = std::max(
+            max_iter_vel * this->params.iteration_period_seconds,
+            0.05f);
 
         // os <<
         //     "\ncontrol mode : \"follow path\""
@@ -471,12 +475,12 @@ bool TraversalController::computeTraversal(
         1.f,
         std::abs(
             (r2 - l2) /
-            (static_cast<float>(TRACK_SEPARATION_M) *
+            (lance::TRACK_SEPARATION_M_<float> *
              this->params.auto_traversal_max_angular_velocity_rps)));
     // apply results
     commands.setTracksVelocity(
-        ground_mps_to_track_motor_rps(l2 / a),
-        ground_mps_to_track_motor_rps(r2 / a));
+        lance::groundMpsToTrackMotorRps(l2 / a),
+        lance::groundMpsToTrackMotorRps(r2 / a));
 
     // os <<
     //     "\ntarget pt : (x: " << target_pt.x() << ", y: " << target_pt.y() << ")"

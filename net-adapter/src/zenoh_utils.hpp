@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,91 +37,30 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
+#pragma once
 
-#include <rclcpp/rclcpp.hpp>
+#include <string>
 
-#include <std_msgs/msg/int32.hpp>
-
-#include "lance/srv/set_robot_mode.hpp"
-
-#include "util/ros_utils.hpp"
+#include <zenoh.hxx>
 
 
-using namespace std::chrono;
-using namespace std::chrono_literals;
-using namespace util::ros_aliases;
-
-
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+namespace util
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetRobotModeSrv = lance::srv::SetRobotMode;
 
-public:
-    RobotStatusServer() :
-        Node("robot_status"),
-
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        robot_state_service{this->create_service<SetRobotModeSrv>(
-            ROBOT_TOPIC("set_robot_mode"),
-            [this](
-                SetRobotModeSrv::Request::SharedPtr req,
-                SetRobotModeSrv::Response::SharedPtr resp)
-            {
-                this->robot_mode = req->mode;
-                RCLCPP_DEBUG(
-                    this->get_logger(),
-                    "SET ROBOT MODE : %d",
-                    this->robot_mode);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
-    {
-    }
-
-protected:
-    inline int32_t getFeedTime()
-    {
-        return (
-            this->robot_mode > 0
-                ? (duration_cast<milliseconds>(WATCHDOG_TELEOP_FEED_TIME)
-                       .count())
-                : (this->robot_mode < 0
-                       ? -duration_cast<milliseconds>(WATCHDOG_AUTO_FEED_TIME)
-                              .count()
-                       : 0));
-    }
-
-protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetRobotModeSrv> robot_state_service;
-    RclTimer watchdog_timer;
-
-    int robot_mode{0};
+namespace zenoh_aliases
+{
+    using ZenohPub = ::zenoh::Publisher;
+    using ZenohSub = ::zenoh::Subscriber<void>;
 };
 
-
-int main(int argc, char** argv)
+inline zenoh::Config configDirectConnectTo(const std::string& hostname)
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
-
-    return 0;
+    zenoh::Config config = zenoh::Config::create_default();
+    config.insert_json5("mode", "\"peer\"");
+    config.insert_json5("scouting/multicast/enabled", "false");
+    config.insert_json5("listen/endpoints", "[\"tcp/0.0.0.0:7447\"]");
+    config.insert_json5("connect/endpoints", "[\"tcp/" + hostname + ":7447\"]");
+    return config;
 }
+
+};  // namespace util
