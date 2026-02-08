@@ -96,8 +96,7 @@ public:
 
     void iterate(
         const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands,
-        const JoyState* joy = nullptr);
+        RobotMotorCommands& commands);
 
 protected:
     enum class State

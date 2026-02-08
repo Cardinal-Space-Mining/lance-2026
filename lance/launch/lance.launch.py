@@ -1,5 +1,6 @@
 import os
 import sys
+import glob
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -30,6 +31,13 @@ PKG_PATH = get_package_share_directory('lance')
 DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'lance.json')
 
 
+def find_arduino():
+    matches = glob.glob("/dev/serial/by-id/*Arduino*")
+    if not matches:
+        return None
+    return matches[0]
+
+
 def get_multiscan_driver_action(config):
     if 'driver_hostname' not in config and 'lidar_hostname' in config:
         config['driver_hostname'] = get_matched_local_ip(
@@ -48,9 +56,11 @@ def get_phx5_action(config):
         output = 'screen'
     )
 
-def get_phx6_action(config, launch_args):
-    if 'arduino_device' in launch_args:
-        config['arduino_device'] = launch_args['arduino_device']
+def get_phx6_action(config):
+    arduino_device = find_arduino()
+    print(f'ARDUINO DEVICE IS {arduino_device}')
+    if arduino_device:
+        config['arduino_device'] = arduino_device
     return NodeAction(config).format_node(
         package = 'phoenix_ros_driver',
         executable = 'phx6_driver',
@@ -122,7 +132,7 @@ def get_robot_actions(config, launch_args = {}):
     if 'phoenix5_driver' in config:
         a.append(get_phx5_action(config['phoenix5_driver']))
     if 'phoenix6_driver' in config:
-        a.append(get_phx6_action(config['phoenix6_driver'], launch_args))
+        a.append(get_phx6_action(config['phoenix6_driver']))
     if 'motor_sim' in config:
         a.append(get_motor_sim_action(config['motor_sim']))
     if 'robot_control' in config:

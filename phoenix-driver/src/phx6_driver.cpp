@@ -760,13 +760,13 @@ void Phoenix6Driver::getParams(ParamConfig& params)
     auto& track_right_config = params.motor_configs[0];
     track_right_config.topic_prefix = ROBOT_TOPIC("track_right");
     track_right_config.can_id = RIGHT_TRACK_CANID;
-    track_right_config.invert_mode_val =
-        InvertedValue::CounterClockwise_Positive;
+    track_right_config.invert_mode_val = InvertedValue::Clockwise_Positive;
 
     auto& track_left_config = params.motor_configs[1];
     track_left_config.topic_prefix = ROBOT_TOPIC("track_left");
     track_left_config.can_id = LEFT_TRACK_CANID;
-    track_left_config.invert_mode_val = InvertedValue::Clockwise_Positive;
+    track_left_config.invert_mode_val =
+        InvertedValue::CounterClockwise_Positive;
 
     auto& trencher_config = params.motor_configs[2];
     trencher_config.topic_prefix = ROBOT_TOPIC("trencher");
