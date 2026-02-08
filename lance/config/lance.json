@@ -270,9 +270,9 @@
                 "kV": 0.12,
                 "neutral_deadband": 0.05,
                 "neutral_brake": false,
-                "stator_current_limit": 10.0,
+                "stator_current_limit": 50.0,
                 "supply_current_limit": 10.0,
-                "voltage_limit": 16.0
+                "voltage_limit": 0.0
             }
         }
     },

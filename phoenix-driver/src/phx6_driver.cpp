@@ -81,9 +81,9 @@ using namespace std::chrono_literals;
 #define HOPPER_BELT_CANID      3
 
 #define TFX_DEFAULT_KP 0.2
-// ^ 0.5 volts added for every turn per second error
+// ^ 0.2 volts added for every turn per second error
 #define TFX_DEFAULT_KI 0.05
-// ^ 0.2 volts added for every rotation integrated error
+// ^ 0.05 volts added for every rotation integrated error
 #define TFX_DEFAULT_KD 0.0001
 // ^ 0.0001 volts added for every rotation per second^2 change in error [per second]
 #define TFX_DEFAULT_KV 0.12
@@ -298,7 +298,7 @@ Phoenix6Driver::RclTalonFX::RclTalonFX(
     const ParamConfig::RclMotorConfig& config,
     RclNode& node,
     std::function<void(const TalonCtrlMsg&)> ctrl_cb) :
-    motor{config.can_id, std::string{config.canbus}},
+    motor{config.can_id, CANBus{config.canbus}},
     config{config.buildFXConfig()},
     info_pub{node.create_publisher<TalonInfoMsg>(
         config.topic_prefix + "/info",
