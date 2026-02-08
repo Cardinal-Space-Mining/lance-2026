@@ -47,10 +47,10 @@
 #include "zenoh_utils.hpp"
 
 #include "adapters/joy_adapter.hpp"
-#include "adapters/ms136_imu_adapter.hpp"
-#include "adapters/ms136_scan_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
 #include "adapters/watchdog_adapter.hpp"
+#include "adapters/ms136_imu_adapter.hpp"
+#include "adapters/ms136_scan_adapter.hpp"
 
 
 #define DEFAULT_CLIENT_IP_ADDRESS "10.11.11.8"
@@ -63,27 +63,35 @@ class RobotEndpointNode : public rclcpp::Node
 {
 public:
     RobotEndpointNode() :
-        Node{"robot_redux_endpoint"},
+        Node{
+            "robot_redux_endpoint"
+    },
         zsh{Session::open(configDirectConnectTo(
             declare_and_get_param<std::string>(
                 *this,
                 "client_hostname",
                 DEFAULT_CLIENT_IP_ADDRESS)))},
+
         joy_pub{JoyAdapter::createPublisher(*this, zsh, "/joy")},
+        watchdog_pub{WatchdogAdapter::createPublisher(
+            *this,
+            zsh,
+            "lance/watchdog_status")},
+
         imu_sub{MS136ImuAdapter::createSubscriber(*this, zsh, "multiscan/imu")},
         scan_sub{MS136ScanAdapter::createSubscriber(
             *this,
             zsh,
             "multiscan/lidar_scan")},
-        watchdog_pub{WatchdogAdapter::createPublisher(
+
+        talon_subs{
             *this,
             zsh,
-            "lance/watchdog_status")},
-        track_left(*this, zsh, "track_left"),
-        track_right(*this, zsh, "track_right"),
-        trencher(*this, zsh, "trencher"),
-        hopper_belt(*this, zsh, "hopper_belt"),
-        hopper_actuator(*this, zsh, "hopper_actuator")
+            {"lance/track_left",
+             "lance/track_right",
+             "lance/trencher",
+             "lance/hopper_belt",
+             "lance/hopper_actuator"}}
     {
     }
 
@@ -91,32 +99,11 @@ private:
     Session zsh;
 
     JoyAdapter::Publisher joy_pub;
-    MS136ImuAdapter::Subscriber imu_sub;
-    MS136ScanAdapter::Subscriber scan_sub;
     WatchdogAdapter::Publisher watchdog_pub;
 
-    struct MotorEndpoint
-    {
-        // TalonCtrlAdapter::Subscriber ctrl_pub;
-        TalonInfoAdapter::Subscriber info_pub;
-        TalonFaultsAdapter::Subscriber faults_pub;
-
-        MotorEndpoint(
-            rclcpp::Node& node,
-            Session& zsh,
-            const std::string& name) :
-            // ctrl_pub{TalonCtrlAdapter::createSubscriber(node, zsh, name)},
-            info_pub{TalonInfoAdapter::createSubscriber(node, zsh, name)},
-            faults_pub{TalonFaultsAdapter::createSubscriber(node, zsh, name)}
-        {
-        }
-    };
-
-    MotorEndpoint track_left;
-    MotorEndpoint track_right;
-    MotorEndpoint trencher;
-    MotorEndpoint hopper_belt;
-    MotorEndpoint hopper_actuator;
+    MS136ImuAdapter::Subscriber imu_sub;
+    MS136ScanAdapter::Subscriber scan_sub;
+    TalonFeedback::SubscriberGroup talon_subs;
 };
 
 

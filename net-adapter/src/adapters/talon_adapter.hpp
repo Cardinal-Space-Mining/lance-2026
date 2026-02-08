@@ -39,95 +39,103 @@
 
 #pragma once
 
-#include <chrono>
-#include <string>
+#include <vector>
+
+#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
+#include <phoenix_ros_driver/msg/talon_info.hpp>
+#include <phoenix_ros_driver/msg/talon_faults.hpp>
 
 #include "base_adapter.hpp"
 
-#include "phoenix_ros_driver/msg/talon_ctrl.hpp"
-#include "phoenix_ros_driver/msg/talon_info.hpp"
-#include "phoenix_ros_driver/msg/talon_faults.hpp"
-
-
-class TalonAdapterSubState
-{
-    friend class TalonCtrlAdapter;
-    friend class TalonInfoAdapter;
-    friend class TalonFaultsAdapter;
-
-    using system_clock = std::chrono::system_clock;
-    using system_time = system_clock::time_point;
-
-public:
-    TalonAdapterSubState(rclcpp::Node& n, float max_pub_freq = 100.f);
-
-protected:
-    bool freqFilterStatus();
-
-protected:
-    float max_pub_freq{100.f};
-    system_time prev_msg_time{};
-};
-
 
 class TalonCtrlAdapter :
-    public BaseAdapter<
-        phoenix_ros_driver::msg::TalonCtrl,
-        TalonCtrlAdapter,
-        void,
-        TalonAdapterSubState>
+    public BaseAdapter<phoenix_ros_driver::msg::TalonCtrl, TalonCtrlAdapter>
 {
     friend BaseT;
 
 public:
-    TalonCtrlAdapter(rclcpp::Node& node, const std::string& motor_name);
+    TalonCtrlAdapter(rclcpp::Node& node);
 
 protected:
     static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
     static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-
-private:
-    std::string topic_name;
 };
 
 
 class TalonInfoAdapter :
-    public BaseAdapter<
-        phoenix_ros_driver::msg::TalonInfo,
-        TalonInfoAdapter,
-        void,
-        TalonAdapterSubState>
+    public BaseAdapter<phoenix_ros_driver::msg::TalonInfo, TalonInfoAdapter>
 {
     friend BaseT;
 
 public:
-    TalonInfoAdapter(rclcpp::Node& node, const std::string& motor_name);
+    TalonInfoAdapter(rclcpp::Node& node);
 
 protected:
     static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
     static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-
-private:
-    std::string topic_name;
 };
 
 
 class TalonFaultsAdapter :
-    public BaseAdapter<
-        phoenix_ros_driver::msg::TalonFaults,
-        TalonFaultsAdapter,
-        void,
-        TalonAdapterSubState>
+    public BaseAdapter<phoenix_ros_driver::msg::TalonFaults, TalonFaultsAdapter>
 {
     friend BaseT;
 
 public:
-    TalonFaultsAdapter(rclcpp::Node& node, const std::string& motor_name);
+    TalonFaultsAdapter(rclcpp::Node& node);
 
 protected:
     static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
     static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+};
 
-private:
-    std::string topic_name;
+
+
+struct TalonFeedback
+{
+    struct Subscriber
+    {
+        Subscriber(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::string&,
+            const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+
+        TalonInfoAdapter::Subscriber info_sub;
+        TalonFaultsAdapter::Subscriber faults_sub;
+    };
+
+    struct Publisher
+    {
+        Publisher(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::string&,
+            const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+
+        TalonInfoAdapter::Publisher info_pub;
+        TalonFaultsAdapter::Publisher faults_pub;
+    };
+
+    struct SubscriberGroup
+    {
+        SubscriberGroup(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::vector<std::string>&,
+            const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+
+        std::vector<Subscriber> subs;
+    };
+
+    struct PublisherGroup
+    {
+        PublisherGroup(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::vector<std::string>&,
+            const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+
+        std::vector<Publisher> pubs;
+    };
 };

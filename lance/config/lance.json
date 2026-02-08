@@ -12,8 +12,8 @@
         "ROBOT_FRAME_ID": "base_link",
         "LIDAR_FRAME_ID": "lidar_link",
 
-        "LIDAR_HOSTNAME": "10.11.11.3",
-        "ROBOT_HOSTNAME": "10.11.11.10",
+        "LIDAR_HOSTNAME": "10.11.10.3",
+        "ROBOT_HOSTNAME": "10.11.11.11",
         "CLIENT_HOSTNAME": "10.11.11.8",
 
         "LIDAR_SCAN_TOPIC": "/multiscan/lidar_scan",
@@ -316,7 +316,11 @@
             "target": "client",
             "robot_hostname": "${ ROBOT_HOSTNAME }",
             "lidar_frame_id": "${ LIDAR_FRAME_ID }",
-            "max_joy_pub_freq": 100.0,
+            "max_joy_pub_freq": 100.0
+        },
+        "client-remapped":
+        {
+            "pragma:derived": "client",
             "pragma:node_options":
             {
                 "remappings":

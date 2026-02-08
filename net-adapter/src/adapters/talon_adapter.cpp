@@ -38,59 +38,30 @@
 *******************************************************************************/
 
 #include "talon_adapter.hpp"
-#include <cstring>
-#include <algorithm>
 
 #include "mem_helpers.hpp"
 
+
 using namespace util;
 
-// ------------------ TalonAdapterSubState ------------------
-TalonAdapterSubState::TalonAdapterSubState(rclcpp::Node&, float max_pub_freq) :
-    max_pub_freq(max_pub_freq)
-{
-}
 
-bool TalonAdapterSubState::freqFilterStatus()
-{
-    const auto t = system_clock::now();
-    const auto d = std::chrono::duration_cast<std::chrono::milliseconds>(
-        t - prev_msg_time);
-    const auto f =
-        std::chrono::milliseconds(static_cast<int64_t>(1000.f / max_pub_freq));
+// --- TalonCtrlAdapter --------------------------------------------------------
 
-    if (d >= f)
-    {
-        prev_msg_time = t;
-        return true;
-    }
-    return false;
-}
+TalonCtrlAdapter::TalonCtrlAdapter(rclcpp::Node& node) : BaseT{node} {}
 
-// ------------------ TalonCtrlAdapter ------------------
-TalonCtrlAdapter::TalonCtrlAdapter(
-    rclcpp::Node& node,
-    const std::string& motor_name) :
-    BaseT{node},
-    topic_name("/" + motor_name + "/ctrl")
-{
-}
+constexpr size_t CTRL_PACKED_SIZE =
+    (sizeof(uint8_t) + sizeof(float));  // mode + value as float32
 
 bool TalonCtrlAdapter::serializeMsg(
     ByteBuffer& bytes,
     const MsgT& msg,
-    SubStateT& state)
+    SubStateT&)
 {
-    if (!state.freqFilterStatus())
-    {
-        return false;
-    }
-
-    bytes.resize(sizeof(uint8_t) + sizeof(float));  // mode + value as float32
+    bytes.resize(CTRL_PACKED_SIZE);
     uint8_t* ptr = bytes.data();
 
     writeAndIncrement(ptr, msg.mode);
-    writeAsAndIncrement<float>(ptr, static_cast<float>(msg.value));
+    writeAsAndIncrement<float>(ptr, msg.value);
 
     return true;
 }
@@ -100,7 +71,7 @@ bool TalonCtrlAdapter::deserializeMsg(
     const ByteBuffer& bytes,
     PubStateT&)
 {
-    if (bytes.size() < sizeof(uint8_t) + sizeof(float))
+    if (bytes.size() < CTRL_PACKED_SIZE)
     {
         return false;
     }
@@ -113,30 +84,23 @@ bool TalonCtrlAdapter::deserializeMsg(
 }
 
 
-// ------------------ TalonInfoAdapter ------------------
-TalonInfoAdapter::TalonInfoAdapter(
-    rclcpp::Node& node,
-    const std::string& motor_name) :
-    BaseT{node},
-    topic_name("/" + motor_name + "/info")
-{
-}
+
+// --- TalonInfoAdapter --------------------------------------------------------
+
+TalonInfoAdapter::TalonInfoAdapter(rclcpp::Node& node) : BaseT{node} {}
+
+constexpr size_t INFO_PACKED_SIZE =
+    (sizeof(uint32_t) * 2 +  // header: sec + nanosec
+     sizeof(float) * 12 +    // position/velocity/acc + temps/voltages/currents
+     sizeof(uint8_t) * 4     // motor_state, bridge_mode, control_mode, status
+    );
 
 bool TalonInfoAdapter::serializeMsg(
     ByteBuffer& bytes,
     const MsgT& msg,
-    SubStateT& state)
+    SubStateT&)
 {
-    if (!state.freqFilterStatus())
-    {
-        return false;
-    }
-
-    bytes.resize(
-        sizeof(uint32_t) * 2 +  // header: sec + nanosec
-        sizeof(float) * 12 +  // position/velocity/acc + temps/voltages/currents
-        sizeof(uint8_t) * 4   // motor_state, bridge_mode, control_mode, status
-    );
+    bytes.resize(INFO_PACKED_SIZE);
 
     uint8_t* ptr = bytes.data();
 
@@ -145,9 +109,9 @@ bool TalonInfoAdapter::serializeMsg(
     writeAndIncrement(ptr, msg.header.stamp.nanosec);
 
     // position/velocity/acceleration as float32
-    writeAsAndIncrement<float>(ptr, static_cast<float>(msg.position));
-    writeAsAndIncrement<float>(ptr, static_cast<float>(msg.velocity));
-    writeAsAndIncrement<float>(ptr, static_cast<float>(msg.acceleration));
+    writeAsAndIncrement<float>(ptr, msg.position);
+    writeAsAndIncrement<float>(ptr, msg.velocity);
+    writeAsAndIncrement<float>(ptr, msg.acceleration);
 
     // device/processor temps, voltages, currents
     writeAndIncrement(ptr, msg.device_temp);
@@ -173,10 +137,7 @@ bool TalonInfoAdapter::deserializeMsg(
     const ByteBuffer& bytes,
     PubStateT&)
 {
-    constexpr size_t EXPECTED_SIZE =
-        sizeof(uint32_t) * 2 + sizeof(float) * 12 + sizeof(uint8_t) * 4;
-
-    if (bytes.size() < EXPECTED_SIZE)
+    if (bytes.size() < INFO_PACKED_SIZE)
     {
         return false;
     }
@@ -208,30 +169,23 @@ bool TalonInfoAdapter::deserializeMsg(
 }
 
 
-// ------------------ TalonFaultsAdapter ------------------
-TalonFaultsAdapter::TalonFaultsAdapter(
-    rclcpp::Node& node,
-    const std::string& motor_name) :
-    BaseT{node},
-    topic_name("/" + motor_name + "/faults")
-{
-}
+
+// --- TalonFaultsAdapter ------------------------------------------------------
+
+TalonFaultsAdapter::TalonFaultsAdapter(rclcpp::Node& node) : BaseT{node} {}
+
+constexpr size_t FAULTS_PACKED_SIZE =
+    (sizeof(uint32_t) * 2 +  // header: sec + nanosec
+     sizeof(uint32_t) * 2 +  // packed faults + sticky_faults
+     sizeof(uint8_t) * 3     // packed booleans + sticky booleans
+    );
 
 bool TalonFaultsAdapter::serializeMsg(
     ByteBuffer& bytes,
     const MsgT& msg,
-    SubStateT& state)
+    SubStateT&)
 {
-    if (!state.freqFilterStatus())
-    {
-        return false;
-    }
-
-    bytes.resize(
-        sizeof(uint32_t) * 2 +  // header: sec + nanosec
-        sizeof(uint32_t) * 2 +  // packed faults + sticky_faults
-        sizeof(uint32_t) * 2    // packed booleans + sticky booleans
-    );
+    bytes.resize(FAULTS_PACKED_SIZE);
 
     uint8_t* ptr = bytes.data();
 
@@ -243,37 +197,36 @@ bool TalonFaultsAdapter::serializeMsg(
     writeAndIncrement(ptr, msg.faults);
     writeAndIncrement(ptr, msg.sticky_faults);
 
-    // pack 12 booleans into a uint32
-    uint32_t fault_bits = 0;
-    fault_bits |= (msg.hardware_fault << 0);
-    fault_bits |= (msg.proc_temp_fault << 1);
-    fault_bits |= (msg.device_temp_fault << 2);
-    fault_bits |= (msg.undervoltage_fault << 3);
-    fault_bits |= (msg.boot_fault << 4);
-    fault_bits |= (msg.unliscensed_fault << 5);
-    fault_bits |= (msg.bridge_brownout_fault << 6);
-    fault_bits |= (msg.overvoltage_fault << 7);
-    fault_bits |= (msg.unstable_voltage_fault << 8);
-    fault_bits |= (msg.stator_current_limit_fault << 9);
-    fault_bits |= (msg.supply_current_limit_fault << 10);
-    fault_bits |= (msg.static_brake_disabled_fault << 11);
-    writeAndIncrement(ptr, fault_bits);
-
-    // pack sticky booleans into a uint32
-    uint32_t sticky_bits = 0;
-    sticky_bits |= (msg.sticky_hardware_fault << 0);
-    sticky_bits |= (msg.sticky_proc_temp_fault << 1);
-    sticky_bits |= (msg.sticky_device_temp_fault << 2);
-    sticky_bits |= (msg.sticky_undervoltage_fault << 3);
-    sticky_bits |= (msg.sticky_boot_fault << 4);
-    sticky_bits |= (msg.sticky_unliscensed_fault << 5);
-    sticky_bits |= (msg.sticky_bridge_brownout_fault << 6);
-    sticky_bits |= (msg.sticky_overvoltage_fault << 7);
-    sticky_bits |= (msg.sticky_unstable_voltage_fault << 8);
-    sticky_bits |= (msg.sticky_stator_current_limit_fault << 9);
-    sticky_bits |= (msg.sticky_supply_current_limit_fault << 10);
-    sticky_bits |= (msg.sticky_static_brake_disabled_fault << 11);
-    writeAndIncrement(ptr, sticky_bits);
+    uint8_t bits = 0;
+    bits |= (msg.hardware_fault << 0);
+    bits |= (msg.proc_temp_fault << 1);
+    bits |= (msg.device_temp_fault << 2);
+    bits |= (msg.undervoltage_fault << 3);
+    bits |= (msg.boot_fault << 4);
+    bits |= (msg.unliscensed_fault << 5);
+    bits |= (msg.bridge_brownout_fault << 6);
+    bits |= (msg.overvoltage_fault << 7);
+    writeAndIncrement(ptr, bits);
+    bits = 0;
+    bits |= (msg.unstable_voltage_fault << 0);
+    bits |= (msg.stator_current_limit_fault << 1);
+    bits |= (msg.supply_current_limit_fault << 2);
+    bits |= (msg.static_brake_disabled_fault << 3);
+    bits |= (msg.sticky_hardware_fault << 4);
+    bits |= (msg.sticky_proc_temp_fault << 5);
+    bits |= (msg.sticky_device_temp_fault << 6);
+    bits |= (msg.sticky_undervoltage_fault << 7);
+    writeAndIncrement(ptr, bits);
+    bits = 0;
+    bits |= (msg.sticky_boot_fault << 0);
+    bits |= (msg.sticky_unliscensed_fault << 1);
+    bits |= (msg.sticky_bridge_brownout_fault << 2);
+    bits |= (msg.sticky_overvoltage_fault << 3);
+    bits |= (msg.sticky_unstable_voltage_fault << 4);
+    bits |= (msg.sticky_stator_current_limit_fault << 5);
+    bits |= (msg.sticky_supply_current_limit_fault << 6);
+    bits |= (msg.sticky_static_brake_disabled_fault << 7);
+    writeAndIncrement(ptr, bits);
 
     return true;
 }
@@ -283,7 +236,7 @@ bool TalonFaultsAdapter::deserializeMsg(
     const ByteBuffer& bytes,
     PubStateT&)
 {
-    if (bytes.size() < sizeof(uint32_t) * 6)
+    if (bytes.size() < FAULTS_PACKED_SIZE)
     {
         return false;
     }
@@ -296,35 +249,88 @@ bool TalonFaultsAdapter::deserializeMsg(
     readAndIncrement(ptr, msg.faults);
     readAndIncrement(ptr, msg.sticky_faults);
 
-    uint32_t fault_bits = 0;
-    readAndIncrement(ptr, fault_bits);
-    msg.hardware_fault = (fault_bits >> 0) & 1;
-    msg.proc_temp_fault = (fault_bits >> 1) & 1;
-    msg.device_temp_fault = (fault_bits >> 2) & 1;
-    msg.undervoltage_fault = (fault_bits >> 3) & 1;
-    msg.boot_fault = (fault_bits >> 4) & 1;
-    msg.unliscensed_fault = (fault_bits >> 5) & 1;
-    msg.bridge_brownout_fault = (fault_bits >> 6) & 1;
-    msg.overvoltage_fault = (fault_bits >> 7) & 1;
-    msg.unstable_voltage_fault = (fault_bits >> 8) & 1;
-    msg.stator_current_limit_fault = (fault_bits >> 9) & 1;
-    msg.supply_current_limit_fault = (fault_bits >> 10) & 1;
-    msg.static_brake_disabled_fault = (fault_bits >> 11) & 1;
-
-    uint32_t sticky_bits = 0;
-    readAndIncrement(ptr, sticky_bits);
-    msg.sticky_hardware_fault = (sticky_bits >> 0) & 1;
-    msg.sticky_proc_temp_fault = (sticky_bits >> 1) & 1;
-    msg.sticky_device_temp_fault = (sticky_bits >> 2) & 1;
-    msg.sticky_undervoltage_fault = (sticky_bits >> 3) & 1;
-    msg.sticky_boot_fault = (sticky_bits >> 4) & 1;
-    msg.sticky_unliscensed_fault = (sticky_bits >> 5) & 1;
-    msg.sticky_bridge_brownout_fault = (sticky_bits >> 6) & 1;
-    msg.sticky_overvoltage_fault = (sticky_bits >> 7) & 1;
-    msg.sticky_unstable_voltage_fault = (sticky_bits >> 8) & 1;
-    msg.sticky_stator_current_limit_fault = (sticky_bits >> 9) & 1;
-    msg.sticky_supply_current_limit_fault = (sticky_bits >> 10) & 1;
-    msg.sticky_static_brake_disabled_fault = (sticky_bits >> 11) & 1;
+    uint8_t bits = 0;
+    readAndIncrement(ptr, bits);
+    msg.hardware_fault = (bits >> 0) & 1;
+    msg.proc_temp_fault = (bits >> 1) & 1;
+    msg.device_temp_fault = (bits >> 2) & 1;
+    msg.undervoltage_fault = (bits >> 3) & 1;
+    msg.boot_fault = (bits >> 4) & 1;
+    msg.unliscensed_fault = (bits >> 5) & 1;
+    msg.bridge_brownout_fault = (bits >> 6) & 1;
+    msg.overvoltage_fault = (bits >> 7) & 1;
+    readAndIncrement(ptr, bits);
+    msg.unstable_voltage_fault = (bits >> 0) & 1;
+    msg.stator_current_limit_fault = (bits >> 1) & 1;
+    msg.supply_current_limit_fault = (bits >> 2) & 1;
+    msg.static_brake_disabled_fault = (bits >> 3) & 1;
+    msg.sticky_hardware_fault = (bits >> 4) & 1;
+    msg.sticky_proc_temp_fault = (bits >> 5) & 1;
+    msg.sticky_device_temp_fault = (bits >> 6) & 1;
+    msg.sticky_undervoltage_fault = (bits >> 7) & 1;
+    readAndIncrement(ptr, bits);
+    msg.sticky_boot_fault = (bits >> 0) & 1;
+    msg.sticky_unliscensed_fault = (bits >> 1) & 1;
+    msg.sticky_bridge_brownout_fault = (bits >> 2) & 1;
+    msg.sticky_overvoltage_fault = (bits >> 3) & 1;
+    msg.sticky_unstable_voltage_fault = (bits >> 4) & 1;
+    msg.sticky_stator_current_limit_fault = (bits >> 5) & 1;
+    msg.sticky_supply_current_limit_fault = (bits >> 6) & 1;
+    msg.sticky_static_brake_disabled_fault = (bits >> 7) & 1;
 
     return true;
+}
+
+
+
+// ---
+
+TalonFeedback::Subscriber::Subscriber(
+    rclcpp::Node& n,
+    zenoh::Session& z,
+    const std::string& base_topic,
+    const rclcpp::QoS& qos) :
+    info_sub{
+        TalonInfoAdapter::createSubscriber(n, z, base_topic + "/info", qos)},
+    faults_sub{
+        TalonFaultsAdapter::createSubscriber(n, z, base_topic + "/faults", qos)}
+{
+}
+
+TalonFeedback::Publisher::Publisher(
+    rclcpp::Node& n,
+    zenoh::Session& z,
+    const std::string& base_topic,
+    const rclcpp::QoS& qos) :
+    info_pub{
+        TalonInfoAdapter::createPublisher(n, z, base_topic + "/info", qos)},
+    faults_pub{
+        TalonFaultsAdapter::createPublisher(n, z, base_topic + "/faults", qos)}
+{
+}
+
+TalonFeedback::SubscriberGroup::SubscriberGroup(
+    rclcpp::Node& n,
+    zenoh::Session& z,
+    const std::vector<std::string>& base_topics,
+    const rclcpp::QoS& qos)
+{
+    this->subs.reserve(base_topics.size());
+    for(const std::string& base_topic : base_topics)
+    {
+        this->subs.emplace_back(n, z, base_topic, qos);
+    }
+}
+
+TalonFeedback::PublisherGroup::PublisherGroup(
+    rclcpp::Node& n,
+    zenoh::Session& z,
+    const std::vector<std::string>& base_topics,
+    const rclcpp::QoS& qos)
+{
+    this->pubs.reserve(base_topics.size());
+    for(const std::string& base_topic : base_topics)
+    {
+        this->pubs.emplace_back(n, z, base_topic, qos);
+    }
 }
