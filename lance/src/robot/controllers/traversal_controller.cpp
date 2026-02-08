@@ -170,8 +170,7 @@ void TraversalController::setCancelled()
 
 void TraversalController::iterate(
     const RobotMotorStatus& motor_status,
-    RobotMotorCommands& commands,
-    const JoyState* joy)
+    RobotMotorCommands& commands)
 {
     commands.disableAll();
 
