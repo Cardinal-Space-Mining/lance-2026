@@ -24,7 +24,6 @@ def flatten_motors(config):
     if 'motors' in config:
         motors_list = config['motors']
         flattened = {
-            'num_motors': 0,
             'names': []
         }
 
@@ -38,13 +37,13 @@ def flatten_motors(config):
             for k, v in m.items():
                 if k == 'name':
                     continue
-                flattened[f'motor.{name}.{k}'] = v     
+                flattened[f'motors.{name}.{k}'] = v     
 
-        flattened['num_motors'] = len(flattened['names'])
-        config['motors'] = flattened
+        del config['motors'] 
+        config.update(flattened)
     else:
         if 'motors' not in config:
-            config['motors'] = {'num_motors': 0, 'names': []}
+            config['motors'] = {'names': []}
 
 
 def preproc_phoenix6_config(profile_cfg: dict):
@@ -60,8 +59,20 @@ def get_driver_actions(config):
         # No special preproc needed
         actions.append(
             NodeAction(p5_cfg).format_node(
-                package='phoenix5_driver',
-                executable='phoenix5_driver',
+                package='phoenix_ros_driver',
+                executable='phx5_driver',
+                output='screen'
+            )
+        )
+
+    # ---- phoenix6_driver_old ----
+    if 'phoenix6_driver_old' in config:
+        p6o_cfg = config['phoenix6_driver_old']
+        # No special preproc needed
+        actions.append(
+            NodeAction(p6o_cfg).format_node(
+                package='phoenix_ros_driver',
+                executable='phx6_driver',
                 output='screen'
             )
         )
@@ -72,8 +83,8 @@ def get_driver_actions(config):
         preproc_phoenix6_config(p6_cfg)
         actions.append(
             NodeAction(p6_cfg).format_node(
-                package='phoenix6_driver',
-                executable='phoenix6_driver',
+                package='phoenix_ros_driver',
+                executable='',
                 output='screen'
             )
         )

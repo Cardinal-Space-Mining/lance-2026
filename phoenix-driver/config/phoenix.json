@@ -10,6 +10,30 @@
             "canbus": "canable_B"
         }
     },
+    
+    "phoenix6_driver_old":
+    {
+        "pragma:default": null,
+        "enabled":
+        {
+            "diagnostics_port": 0,
+            "canbus": "canable_A",
+            "arduino_device": "",
+            "power_cycle_fault_thresh_s": 1.5,
+            "common":
+            {
+                "kP": 0.4,
+                "kI": 0.05,
+                "kD": 0.0001,
+                "kV": 0.12,
+                "neutral_deadband": 0.05,
+                "neutral_brake": false,
+                "stator_current_limit": 10.0,
+                "supply_current_limit": 2.0,
+                "voltage_limit": 12.0
+            }
+        }
+    },
 
     "phoenix6_driver":
     {

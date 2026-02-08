@@ -94,6 +94,7 @@ install(TARGETS
     phx6_driver
     DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
+    config
     launch
     scripts
     DESTINATION share/${PROJECT_NAME} )
