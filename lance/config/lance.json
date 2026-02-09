@@ -23,6 +23,32 @@
     "preset":
     {
         "pragma:default": null,
+        "robot_dev":
+        {
+            "pragma:action_overrides":
+            {
+                "robot_tf": "lance2",
+                "multiscan_driver": "robot",
+                "robot_control": "lance2",
+                "motor_sim": "lance2",
+                "perception": "lidar_only",
+                "redux": "robot",
+                "foxglove_bridge": "all"
+            }
+        },
+        "client_dev":
+        {
+            "pragma:action_overrides":
+            {
+                "joy_node": "xbox",
+                "robot_status": "enabled",
+                "redux": "client",
+                "robot_control": "lance2",
+                "perception": "lidar_only",
+                "foxglove_bridge": "all"
+            }
+        },
+
         "motor_dev":
         {
             "pragma:action_overrides":

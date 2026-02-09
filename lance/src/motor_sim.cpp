@@ -87,6 +87,8 @@ using TalonFaultsMsg = phoenix_ros_driver::msg::TalonFaults;
 
 #define ROBOT_TOPIC(topic) "lance/" topic
 #define WATCHDOG_TOPIC     ROBOT_TOPIC("watchdog_status")
+#define TALON_CTRL_SUB_QOS                                               \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
 #define GZ_LEFT_TRACK_ODOM_TOPIC  "/left_track_odom"
 #define GZ_RIGHT_TRACK_ODOM_TOPIC "/right_track_odom"
@@ -501,7 +503,7 @@ MotorSimNode::MotorSimNode() :
 
         m.ctrl_sub = this->create_subscription<TalonCtrlMsg>(
             (ROBOT_TOPIC() + std::string(n) + "/ctrl"),
-            rclcpp::SystemDefaultsQoS{},
+            TALON_CTRL_SUB_QOS,
             [this, i](const TalonCtrlMsg& msg)
             { this->motors[i].motor.setControl(msg); });
         m.info_pub = this->create_publisher<TalonInfoMsg>(
@@ -519,7 +521,7 @@ MotorSimNode::MotorSimNode() :
 
         a.ctrl_sub = this->create_subscription<TalonCtrlMsg>(
             (ROBOT_TOPIC() + std::string(n) + "/ctrl"),
-            rclcpp::SystemDefaultsQoS{},
+            TALON_CTRL_SUB_QOS,
             [this, i](const TalonCtrlMsg& msg)
             { this->actuators[i].actuator.setControl(msg); });
         a.info_pub = this->create_publisher<TalonInfoMsg>(

@@ -85,7 +85,7 @@ public:
              "lance/track_right",
              "lance/trencher",
              "lance/hopper_belt",
-             "lance/hopper_actuator"}},
+             "lance/hopper_act"}},
 
         joy_sub{JoyAdapter::createSubscriber(*this, zsh, "/joy")},
         watchdog_sub{WatchdogAdapter::createSubscriber(
