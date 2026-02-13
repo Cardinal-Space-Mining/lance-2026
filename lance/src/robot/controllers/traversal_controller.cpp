@@ -334,9 +334,7 @@ bool TraversalController::computeTraversal(
 #define Dt    (this->params.iteration_period_seconds)
 #define V_max (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
-#define W_max                                               \
-    (this->params.auto_traversal_max_angular_velocity_rps * \
-     std::numbers::pi_v<float> * 2.f)
+#define W_max (this->params.auto_traversal_max_angular_velocity_rps)
 
     constexpr float T = lance::TRACK_SEPARATION_M_<float>;
 
@@ -351,6 +349,8 @@ bool TraversalController::computeTraversal(
         lance::trackMotorRpsToGroundMps(motor_status.track_right.velocity));
     const float V_prev = (Vl_prev + Vr_prev) * 0.5f;
     // const float W_prev = (Vl_prev - Vr_prev) / T;
+
+    std::ostringstream dbg;
 
     // c. Get track targets ---
     float Vl_target = 0.f, Vr_target = 0.f;
@@ -372,6 +372,31 @@ bool TraversalController::computeTraversal(
         // differential drive kinematics to get left and right velocities
         Vl_target = Vc + W * (T * 0.5f);
         Vr_target = Vc - W * (T * 0.5f);
+
+        dbg << "MODE: final pt\n"
+               "S: "
+            << S
+            << "\n"
+               "theta: "
+            << theta
+            << "\n"
+               "W: "
+            << W
+            << "\n"
+               "Va: "
+            << Va
+            << "\n"
+               "Vb: "
+            << Vb
+            << "\n"
+               "Vc: "
+            << Vc
+            << "\n"
+               "Vl_target: "
+            << Vl_target
+            << "\n"
+               "Vr_target: "
+            << Vr_target << "\n";
     }
     // target current segment
     else
@@ -456,6 +481,70 @@ bool TraversalController::computeTraversal(
         // apply kinematics
         Vl_target = Vc + Wd * (T * 0.5f);
         Vr_target = Vc - Wd * (T * 0.5f);
+
+        dbg << "MODE: segment\n"
+               "S1: "
+            << S1
+            << "\n"
+               "S2: "
+            << S2
+            << "\n"
+               "Sd: "
+            << Sd
+            << "\n"
+               "t: "
+            << t
+            << "\n"
+               "u: "
+            << u
+            << "\n"
+               "M: "
+            << M
+            << "\n"
+               "L: "
+            << L
+            << "\n"
+               "theta_L: "
+            << theta_L
+            << "\n"
+               "theta_R: "
+            << theta_R
+            << "\n"
+               "Va: "
+            << Va
+            << "\n"
+               "Vb: "
+            << Vb
+            << "\n"
+               "Vc: "
+            << Vc
+            << "\n"
+               "Vd: "
+            << Vd
+            << "\n"
+               "theta_S: "
+            << theta_S
+            << "\n"
+               "theta_E: "
+            << theta_E
+            << "\n"
+               "Wa: "
+            << Wa
+            << "\n"
+               "Wb: "
+            << Wb
+            << "\n"
+               "Wc: "
+            << Wc
+            << "\n"
+               "Wd: "
+            << Wd
+            << "\n"
+               "Vl_target: "
+            << Vl_target
+            << "\n"
+               "Vr_target: "
+            << Vr_target << "\n";
     }
 
     // d. Apply per-track V, A limits
@@ -490,6 +579,9 @@ bool TraversalController::computeTraversal(
     commands.setTracksVelocity(
         lance::groundMpsToTrackMotorRps(Vl_out),
         lance::groundMpsToTrackMotorRps(Vr_out));
+
+    dbg << "Vl_out: " << Vl_out << "\nVr_out: " << Vr_out << "\n";
+    this->pub_map.publish<std_msgs::msg::String>("/dbg", dbg.str());
 
     return false;
 }
