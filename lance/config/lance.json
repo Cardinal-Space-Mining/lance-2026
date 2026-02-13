@@ -231,7 +231,7 @@
 
             "auto_traversal":
             {
-                "max_track_velocity_mps": 0.25,
+                "max_track_velocity_mps": 0.5,
                 "max_angular_velocity_rps": 1.0,
                 "max_acceleration_mpss": 0.5,
                 "keypoint_thresh_m": 0.03,
