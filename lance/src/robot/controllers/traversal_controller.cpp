@@ -359,7 +359,7 @@ bool TraversalController::computeTraversal(
     {
         const Vec2f& S = keypoints[seg_end_idx];
         // angular error
-        const float theta = std::atan2(S.y(), S.x());
+        const float theta = -std::atan2(S.y(), S.x());  // INVERTED!
         // angular velocity proportional to error, clamped to parmertarized max
         const float W = std::clamp(K3 * theta, -W_max, W_max);
         // accelerate to full velocity if roughly pointed straight at target
@@ -454,7 +454,7 @@ bool TraversalController::computeTraversal(
         // closest point actually on segment
         const Vec2f L = S1 + (Sd * u);
         // heading error from direction to closest point on segment
-        const float theta_L = std::atan2(L.y(), L.x());
+        const float theta_L = -std::atan2(L.y(), L.x());    // INVERTED!
         // stanley validity angular range as a function of distance form segment
         const float theta_R =
             std::numbers::pi_v<float> * std::exp(-L.norm() * KR_inv);
@@ -466,18 +466,18 @@ bool TraversalController::computeTraversal(
         // clamp forward velocity by max acceleration
         const float Vd = std::clamp(Vc, V_prev - Vd_max, V_prev + Vd_max);
         // angular error from the segment forward direction
-        const float theta_S = std::atan2(Sd.y(), Sd.x());
+        const float theta_S = -std::atan2(Sd.y(), Sd.x());  // INVERTED!
         // stanley crosstrack error angular coeff (angular velocity)
         const float theta_E =
-            std::atan(K1 * M.norm() / Vd) * (std::signbit(M.y()) ? -1.f : 1.f);
+            std::atan(K1 * M.norm() / Vd) * (std::signbit(M.y()) ? 1.f : -1.f); // SIGN IS INVERTED!
         // stanley controller output angular velocity
         const float Wa = (theta_S + theta_E);
         // proportional controller output angular velocity
-        const float Wb = (K3 * theta_L);
+        // const float Wb = (K3 * theta_L);
         // use stanley if eq pt is within window, otherwise proportional control
-        const float Wc = (std::fabs(theta_E) < theta_R) ? Wa : Wb;
+        // const float Wc = (std::fabs(theta_E) < theta_R) ? Wa : Wb;
         // ensure target angular velocity is not larger than max
-        const float Wd = std::clamp(Wc, -W_max, W_max);
+        const float Wd = std::clamp(Wa, -W_max, W_max); // IGNORE PROPORTIONAL CONTROLLER
         // apply kinematics
         Vl_target = Vc + Wd * (T * 0.5f);
         Vr_target = Vc - Wd * (T * 0.5f);
@@ -555,7 +555,7 @@ bool TraversalController::computeTraversal(
     float s = 1.f;
     if (Vl_diff_abs > 1e-6f)
     {
-        s = std::min(s, Vd_max / Vl_diff_abs);
+        // s = std::min(s, Vd_max / Vl_diff_abs);   // DOESN'T WORK
         // don't quote me on the correctness of this, chadjippity wrote it
         s = std::min(
             s,
@@ -564,7 +564,7 @@ bool TraversalController::computeTraversal(
     }
     if (Vr_diff_abs > 1e-6f)
     {
-        s = std::min(s, Vd_max / Vr_diff_abs);
+        // s = std::min(s, Vd_max / Vr_diff_abs);   // DOESN'T WORK
         // ...or this
         s = std::min(
             s,
