@@ -98,10 +98,13 @@ public:
     Box2f offload_zone_bounds;
 
     const float auto_traversal_max_track_velocity_mps;
-    const float auto_traversal_max_angular_velocity_rps;
     const float auto_traversal_max_track_acceleration_mpss;
+    const float auto_traversal_max_angular_velocity_rps;
     const float auto_traversal_keypoint_thresh_m;
     const float auto_traversal_max_path_deviation_m;
+    const float auto_traversal_stanley_k_coeff;
+    const float auto_traversal_angular_kp;
+    const float auto_traversal_min_theta_window;
 
 public:
     RobotParams(rclcpp::Node&);

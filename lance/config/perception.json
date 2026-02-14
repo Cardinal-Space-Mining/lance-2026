@@ -125,7 +125,7 @@
             },
             "fiducial_detection":
             {
-                "max_range": 1.0,
+                "max_range": 1.75,
                 "plane_seg_thickness": 0.01,
                 "ground_seg_thickness": 0.02,
                 "up_vec_max_angular_dev": 1.0,
