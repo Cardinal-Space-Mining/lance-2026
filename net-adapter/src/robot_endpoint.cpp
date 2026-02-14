@@ -43,11 +43,15 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/string.hpp>
+
 #include "ros_utils.hpp"
 #include "zenoh_utils.hpp"
 
 #include "adapters/joy_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
+#include "adapters/generic_adapter.hpp"
 #include "adapters/watchdog_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
@@ -61,6 +65,9 @@ using namespace util;
 
 class RobotEndpointNode : public rclcpp::Node
 {
+    using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
+    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
+
 public:
     RobotEndpointNode() :
         Node{
@@ -91,7 +98,12 @@ public:
              "lance/track_right",
              "lance/trencher",
              "lance/hopper_belt",
-             "lance/hopper_act"}}
+             "lance/hopper_act"}},
+
+        relay_status_sub{
+            StdInt8Adapter::createSubscriber(*this, zsh, "lance/relay_status")},
+        op_status_sub{
+            StdStringAdapter::createSubscriber(*this, zsh, "lance/op_status")}
     {
     }
 
@@ -104,6 +116,9 @@ private:
     MS136ImuAdapter::Subscriber imu_sub;
     MS136ScanAdapter::Subscriber scan_sub;
     TalonFeedback::SubscriberGroup talon_subs;
+
+    StdInt8Adapter::Subscriber relay_status_sub;
+    StdStringAdapter::Subscriber op_status_sub;
 };
 
 

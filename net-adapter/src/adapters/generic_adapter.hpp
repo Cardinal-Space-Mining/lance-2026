@@ -113,6 +113,8 @@ bool GenericAdapter<M>::deserializeMsg(
         bytes.data(),
         bytes.size());
 
+    serialized_msg.get_rcl_serialized_message().buffer_length = bytes.size();
+
     try
     {
         state.serializer.deserialize_message(&serialized_msg, &msg);

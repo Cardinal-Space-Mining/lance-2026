@@ -43,14 +43,18 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/string.hpp>
+
 #include "ros_utils.hpp"
 #include "zenoh_utils.hpp"
 
 #include "adapters/joy_adapter.hpp"
+#include "adapters/talon_adapter.hpp"
+#include "adapters/generic_adapter.hpp"
+#include "adapters/watchdog_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
-#include "adapters/talon_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
 
 
 #define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
@@ -61,6 +65,9 @@ using namespace util;
 
 class ClientEndpointNode : public rclcpp::Node
 {
+    using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
+    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
+
 public:
     ClientEndpointNode() :
         Node{
@@ -91,7 +98,12 @@ public:
         watchdog_sub{WatchdogAdapter::createSubscriber(
             *this,
             zsh,
-            "lance/watchdog_status")}
+            "lance/watchdog_status")},
+
+        relay_status_pub{
+            StdInt8Adapter::createPublisher(*this, zsh, "lance/relay_status")},
+        op_status_pub{
+            StdStringAdapter::createPublisher(*this, zsh, "lance/op_status")}
     {
     }
 
@@ -104,6 +116,9 @@ private:
 
     JoyAdapter::Subscriber joy_sub;
     WatchdogAdapter::Subscriber watchdog_sub;
+
+    StdInt8Adapter::Publisher relay_status_pub;
+    StdStringAdapter::Publisher op_status_pub;
 };
 
 
