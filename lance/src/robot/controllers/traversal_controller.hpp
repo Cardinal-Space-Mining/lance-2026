@@ -96,8 +96,7 @@ public:
 
     void iterate(
         const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands,
-        const JoyState* joy = nullptr);
+        RobotMotorCommands& commands);
 
 protected:
     enum class State
@@ -118,7 +117,10 @@ protected:
     void initPlanningService(const Vec3f&);
     void stopPlanningService();
 
-    bool computeTraversal(
+    bool iterateTraversal(
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+    bool iterateReorient(
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 

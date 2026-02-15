@@ -49,7 +49,7 @@ AutoController::AutoController(
     const HopperState& hopper_state) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{std::make_shared<rclcpp::Clock>(RCL_ROS_TIME)},
+    tf_buffer{node.get_clock()},
     tf_listener{tf_buffer, &node},
     localization_controller{node, pub_map, params, tf_buffer},
     traversal_controller{node, pub_map, params, tf_buffer},
@@ -122,7 +122,9 @@ void AutoController::iterate(
     {
         case Stage::UNKNOWN:
         {
-            // algo to determine what stage we should be in...
+            // for now, just rerun localization as a check since it should exit
+            // immediately as long as a global alignment transform was
+            // previously published
             this->localization_controller.initialize();
             this->stage = Stage::LOCALIZATION;
             [[fallthrough]];
@@ -144,7 +146,7 @@ void AutoController::iterate(
         TRAVERSE_TO_MINING_L:
         case Stage::TRAVERSE_TO_MINING:
         {
-            this->traversal_controller.iterate(motor_status, commands, &joy);
+            this->traversal_controller.iterate(motor_status, commands);
             if (!this->traversal_controller.isFinished())
             {
                 break;
@@ -170,7 +172,7 @@ void AutoController::iterate(
         }
         case Stage::TRAVERSE_TO_OFFLOAD:
         {
-            this->traversal_controller.iterate(motor_status, commands, &joy);
+            this->traversal_controller.iterate(motor_status, commands);
             if (!this->traversal_controller.isFinished())
             {
                 break;

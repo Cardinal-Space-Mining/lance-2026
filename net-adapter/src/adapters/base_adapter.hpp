@@ -126,12 +126,12 @@ public:
 
 protected:
     /* Override in derivee class to implement serialization to bytes! */
-    static bool serializeMsg(ByteBuffer&, const MsgT&, const SubStateT&)
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&)
     {
         return false;
     }
     /* Override in derivee class to implement deserialization from bytes! */
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, const PubStateT&)
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&)
     {
         return false;
     }
@@ -151,7 +151,7 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
     const std::string& topic,
     const rclcpp::QoS& qos) :
     state{node},
-    zpub{zsh.declare_publisher(topic)},
+    zpub{zsh.declare_publisher(topic.front() == '/' ? topic.substr(1) : topic)},
     rsub{node.create_subscription<MsgT>(
         topic,
         qos,
@@ -175,7 +175,7 @@ BaseAdapter<M, D, P, S>::Publisher::Publisher(
     state{node},
     rpub{node.create_publisher<MsgT>(topic, qos)},
     zsub{zsh.declare_subscriber(
-        topic,
+        topic.front() == '/' ? topic.substr(1) : topic,
         [this](const zenoh::Sample& sample)
         {
             ByteBuffer bytes = sample.get_payload().as_vector();

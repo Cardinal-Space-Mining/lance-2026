@@ -13,7 +13,8 @@
         "LIDAR_FRAME_ID": "lidar_link",
 
         "LIDAR_HOSTNAME": "10.11.11.3",
-        "ROBOT_HOSTNAME": "10.11.11.10",
+        "MAC_LIDAR_HOSTNAME": "10.11.10.3",
+        "ROBOT_HOSTNAME": "10.11.11.13",
         "CLIENT_HOSTNAME": "10.11.11.8",
 
         "LIDAR_SCAN_TOPIC": "/multiscan/lidar_scan",
@@ -23,6 +24,62 @@
     "preset":
     {
         "pragma:default": null,
+
+        "robot_l1":
+        {
+            "pragma:action_overrides":
+            {
+                "robot_tf": "lance",
+                "multiscan_driver": "robot",
+                "robot_control": "lance1",
+                "perception": "lance1",
+                "redux": "robot",
+                "phoenix5_driver": "enabled",
+                "phoenix6_driver": "enabled",
+                "bag_record": "telemetry"
+            }
+        },
+        "client_l1":
+        {
+            "pragma:action_overrides":
+            {
+                "robot_tf": "lance",
+                "robot_control": "lance1",
+                "perception": "lance1",
+                "redux": "client",
+                "bag_record": "all",
+                "robot_status": "enabled",
+                "joy_node": "xbox",
+                "foxglove_bridge": "all"
+            }
+        },
+
+        "robot_dev":
+        {
+            "pragma:action_overrides":
+            {
+                "robot_tf": "lance2",
+                "multiscan_driver": "mac",
+                "robot_control": "lance2",
+                "motor_sim": "lance2",
+                "perception": "lidar_only",
+                "redux": "robot",
+                "foxglove_bridge": "all"
+            }
+        },
+        "client_dev":
+        {
+            "pragma:action_overrides":
+            {
+                "joy_node": "xbox",
+                "robot_status": "enabled",
+                "redux": "client",
+                "robot_control": "lance2",
+                "perception": "lidar_only",
+                "foxglove_bridge": "all"
+            }
+        },
+
         "motor_dev":
         {
             "pragma:action_overrides":
@@ -41,9 +98,9 @@
             {
                 "joy_node": "xbox",
                 "robot_status": "enabled",
-                "robot_control": "lance2",
+                "robot_control": "lance2_sim",
                 "motor_sim": "gz_sim_l2",
-                "perception": "lance2",
+                "perception": "sim",
                 "pplan_client": "enabled",
                 "gz_sim": "motor_sim_l2",
                 "robot_tf": "lance2",
@@ -128,6 +185,11 @@
             "max_segment_buffers": 3,
             "echo_selection": 3
         },
+        "mac":
+        {
+            "pragma:derived": "robot",
+            "lidar_hostname": "${ MAC_LIDAR_HOSTNAME }"
+        },
         "debug":
         {
             "pragma:derived": "robot",
@@ -205,11 +267,14 @@
 
             "auto_traversal":
             {
-                "max_track_velocity_mps": 0.25,
-                "max_angular_velocity_rps": 1.0,
-                "max_acceleration_mpss": 0.5,
+                "max_track_velocity_mps": 0.5,
+                "max_track_acceleration_mpss": 1.0,
+                "max_angular_velocity_radps": 0.5,
                 "keypoint_thresh_m": 0.03,
-                "max_path_deviation_m": 0.05
+                "max_path_deviation_m": 0.05,
+                "stanley_k_coeff": 1.0,
+                "angular_kp": 1.0,
+                "min_theta_window_deg": 2.0
             },
 
             "mining_zone_bounds":
@@ -227,6 +292,16 @@
         {
             "pragma:derived": "lance2",
             "controller": 1
+        },
+        "lance2_sim":
+        {
+            "pragma:derived": "lance2",
+            "use_sim_time": true
+        },
+        "lance1_sim":
+        {
+            "pragma:derived": "lance1",
+            "use_sim_time": true
         }
     },
     "robot_status":
@@ -260,9 +335,9 @@
                 "kV": 0.12,
                 "neutral_deadband": 0.05,
                 "neutral_brake": false,
-                "stator_current_limit": 10.0,
-                "supply_current_limit": 2.0,
-                "voltage_limit": 12.0
+                "stator_current_limit": 50.0,
+                "supply_current_limit": 10.0,
+                "voltage_limit": 0.0
             }
         }
     },
@@ -306,6 +381,18 @@
             "target": "client",
             "robot_hostname": "${ ROBOT_HOSTNAME }",
             "lidar_frame_id": "${ LIDAR_FRAME_ID }",
+            "max_joy_pub_freq": 100.0,
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "lance/op_status": "lance/robot_op_status"
+                }
+            }
+        },
+        "client-remapped":
+        {
+            "pragma:derived": "client",
             "pragma:node_options":
             {
                 "remappings":
@@ -457,10 +544,6 @@
     "bag_record":
     {
         "pragma:default": null,
-        "all":
-        {
-            "output_prefix": "bag_recordings/lance_raw_data"
-        },
         "sensor_data":
         {
             "output_prefix": "bag_recordings/lance_sensor_data",
@@ -477,9 +560,7 @@
             "topics": [
                 "/joy",
                 "/lance/watchdog_status",
-                "/lance/control_level",
-                "/lance/mining_status",
-                "/lance/offload_status",
+                "/lance/op_status",
                 "/lance/relay_status",
 
                 "/lance/track_left/ctrl",
@@ -514,6 +595,59 @@
 
                 "/rosout"
             ]
+        },
+        "all":
+        {
+            "output_prefix": "bag_recordings/lance_all_data",
+            "topics": [
+                "/multiscan/lidar_scan",
+                "/multiscan/imu",
+                "/tf",
+                "/tf_static",
+
+                "/joy",
+                "/lance/watchdog_status",
+                "/lance/op_status",
+                "/lance/relay_status",
+
+                "/lance/track_left/ctrl",
+                "/lance/track_left/faults",
+                "/lance/track_left/info",
+
+                "/lance/track_right/ctrl",
+                "/lance/track_right/faults",
+                "/lance/track_right/info",
+
+                "/lance/trencher/ctrl",
+                "/lance/trencher/faults",
+                "/lance/trencher/info",
+
+                "/lance/hopper_belt/ctrl",
+                "/lance/hopper_belt/faults",
+                "/lance/hopper_belt/info",
+
+                "/lance/hopper_act/ctrl",
+                "/lance/hopper_act/faults",
+                "/lance/hopper_act/info",
+
+                "/collection_state/is_full_volume",
+                "/collection_state/is_full_occ",
+                "/collection_state/volume",
+                "/collection_state/mining_target",
+                "/collection_state/offload_target",
+                "/collection_state/belt_pos_m",
+                "/collection_state/high_pos_m",
+                "/collection_state/low_pos_m",
+                "/collection_state/belt_usage_m",
+
+                "/rosout"
+            ],
+            "services": true
+        },
+        "raw":
+        {
+            "output_prefix": "bag_recordings/lance_raw_data",
+            "services": true
         }
     }
 }

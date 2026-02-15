@@ -37,96 +37,47 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <string>
+#pragma once
 
-#include <zenoh.hxx>
+#include <chrono>
 
-#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/joy.hpp>
 
-#include <std_msgs/msg/int8.hpp>
-#include <std_msgs/msg/string.hpp>
-
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
-
-#include "adapters/joy_adapter.hpp"
-#include "adapters/talon_adapter.hpp"
-#include "adapters/generic_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
-#include "adapters/ms136_imu_adapter.hpp"
-#include "adapters/ms136_scan_adapter.hpp"
+#include "base_adapter.hpp"
 
 
-#define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
-
-using namespace zenoh;
-using namespace util;
-
-
-class ClientEndpointNode : public rclcpp::Node
+class JoyAdapterSubState
 {
-    using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
-    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
+    friend class JoyAdapter;
+
+    using system_clock = std::chrono::system_clock;
+    using system_time = system_clock::time_point;
 
 public:
-    ClientEndpointNode() :
-        Node{
-            "client_redux_endpoint"
-    },
-        zsh{Session::open(configDirectConnectTo(
-            declare_and_get_param<std::string>(
-                *this,
-                "robot_hostname",
-                DEFAULT_ROBOT_IP_ADDRESS)))},
+    JoyAdapterSubState(rclcpp::Node& n);
 
-        imu_pub{MS136ImuAdapter::createPublisher(*this, zsh, "multiscan/imu")},
-        scan_pub{MS136ScanAdapter::createPublisher(
-            *this,
-            zsh,
-            "multiscan/lidar_scan")},
+protected:
+    bool freqFilterStatus();
 
-        talon_pubs{
-            *this,
-            zsh,
-            {"lance/track_left",
-             "lance/track_right",
-             "lance/trencher",
-             "lance/hopper_belt",
-             "lance/hopper_act"}},
+protected:
+    float max_pub_freq{0.f};
 
-        joy_sub{JoyAdapter::createSubscriber(*this, zsh, "/joy")},
-        watchdog_sub{WatchdogAdapter::createSubscriber(
-            *this,
-            zsh,
-            "lance/watchdog_status")},
-
-        relay_status_pub{
-            StdInt8Adapter::createPublisher(*this, zsh, "lance/relay_status")},
-        op_status_pub{
-            StdStringAdapter::createPublisher(*this, zsh, "lance/op_status")}
-    {
-    }
-
-private:
-    Session zsh;
-
-    MS136ImuAdapter::Publisher imu_pub;
-    MS136ScanAdapter::Publisher scan_pub;
-    TalonFeedback::PublisherGroup talon_pubs;
-
-    JoyAdapter::Subscriber joy_sub;
-    WatchdogAdapter::Subscriber watchdog_sub;
-
-    StdInt8Adapter::Publisher relay_status_pub;
-    StdStringAdapter::Publisher op_status_pub;
+    system_time prev_msg_time{};
 };
 
-
-int main(int argc, char** argv)
+class JoyAdapter :
+    public BaseAdapter<
+        sensor_msgs::msg::Joy,
+        JoyAdapter,
+        void,
+        JoyAdapterSubState>
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ClientEndpointNode>());
-    rclcpp::shutdown();
+    friend BaseT;
 
-    return 0;
-}
+protected:
+    JoyAdapter(rclcpp::Node&);
+
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+};

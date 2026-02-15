@@ -44,6 +44,8 @@
 
 #include <Eigen/Core>
 
+#include "../robot_math.hpp"
+
 
 #define PERCEPTION_REFLECTOR_HINT_TOPIC "/cardinal_perception/reflector_hint"
 #define PERCEPTION_LFD_CONTROL_TOPIC    "/cardinal_perception/set_global_alignment"
@@ -90,10 +92,27 @@ void LocalizationController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+#define V_max (this->params.auto_traversal_max_track_velocity_mps)
+#define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
+
+    // TODO: parameters
+    constexpr uint32_t MIN_SEARCH_SAMPLES = 100U;
+    constexpr double SEARCHING_ANGULAR_VEL = 0.5;
+    constexpr double ALIGNING_ANGULAR_VEL = 0.25;
+    constexpr float ALIGNMENT_ANGULAR_THRESH =
+        2.f * (std::numbers::pi_v<float> / 180.f);
+    constexpr float RANGE_TARGET = 1.05f;
+    constexpr float RANGE_THRESH = 0.05f;
+
     // if at any point the full localization transform is established,
     // the command is finished
-    // TODO: parameterize frame ids
-    if (this->tf_buffer.canTransform("base_link", "map", rclcpp::Time{}))
+    // TODO: TF lookup timestamps are wildly inconsistent when using gazebo -
+    //      the workaround for now is to just query the alignment tf and not the full tf,
+    //      although we should really be checking to make sure we have full localization
+    if (this->tf_buffer.canTransform(
+            this->params.odom_frame_id,
+            this->params.arena_frame_id,
+            tf2::TimePointZero))
     {
         this->stage = Stage::FINISHED;
     }
@@ -104,53 +123,85 @@ void LocalizationController::iterate(
     {
         case Stage::INITIALIZATION:
         {
+            if (motor_status.getHopperActNormalizedValue() <
+                this->params.hopper_actuator_traversal_target)
+            {
+                commands.setHopperActPercent(
+                    this->params.hopper_actuator_max_speed);
+                break;
+            }
+
             this->setLfdControl(true);
             this->stage = Stage::SEARCHING;
             [[fallthrough]];
         }
         case Stage::SEARCHING:
         {
-            constexpr double SEARCHING_TRACKS_VEL = 20.;
-
-            if (!this->last_hint || this->last_hint->samples < 100U)
+            if (!this->last_hint ||
+                this->last_hint->samples < MIN_SEARCH_SAMPLES)
             {
                 commands.setTracksVelocity(
-                    -SEARCHING_TRACKS_VEL,
-                    SEARCHING_TRACKS_VEL);
+                    lance::groundMpsToTrackMotorRps(
+                        lance::bodyDynamicsToLeftTrackVelocityMps(
+                            0.,
+                            SEARCHING_ANGULAR_VEL)),
+                    lance::groundMpsToTrackMotorRps(
+                        lance::bodyDynamicsToRightTrackVelocityMps(
+                            0.,
+                            SEARCHING_ANGULAR_VEL)));
                 break;
             }
 
-            this->stage = Stage::TARGETTING;
+            this->stage = Stage::ALIGN_HEADING;
             [[fallthrough]];
         }
-        case Stage::TARGETTING:
+        case Stage::ALIGN_HEADING:
         {
-            constexpr double TARGETTING_TRACKS_VEL = 10.;
-            constexpr float TARGETTING_HEADING_THRESH_DEG = 2.f;
-
+            // centroid in robot reference frame
             const auto& pt = this->last_hint->centroid;
             const Vec2f rel{
                 static_cast<float>(pt.point.x),
                 static_cast<float>(pt.point.y)};
-            const Vec2f ref{0.f, 1.f};
 
-            const float sin_heading = rel.dot(ref.normalized());
-            if (std::abs(sin_heading) > std::sin(
-                                            std::numbers::pi_v<float> / 180.f *
-                                            TARGETTING_HEADING_THRESH_DEG))
+            const float sin_heading = rel.normalized().y();
+            if (std::abs(sin_heading) > std::sin(ALIGNMENT_ANGULAR_THRESH))
             {
-                if (sin_heading > 0.f)
-                {
-                    commands.setTracksVelocity(
-                        -TARGETTING_TRACKS_VEL,
-                        TARGETTING_TRACKS_VEL);
-                }
-                else
-                {
-                    commands.setTracksVelocity(
-                        TARGETTING_TRACKS_VEL,
-                        -TARGETTING_TRACKS_VEL);
-                }
+                const float s = sin_heading > 0.f ? 1.f : 0.f;
+
+                commands.setTracksVelocity(
+                    lance::groundMpsToTrackMotorRps(
+                        lance::bodyDynamicsToLeftTrackVelocityMps(
+                            0.,
+                            ALIGNING_ANGULAR_VEL * s)),
+                    lance::groundMpsToTrackMotorRps(
+                        lance::bodyDynamicsToRightTrackVelocityMps(
+                            0.,
+                            ALIGNING_ANGULAR_VEL * s)));
+
+                break;
+            }
+
+            this->stage = Stage::ADJUST_RANGE;
+            [[fallthrough]];
+        }
+        case Stage::ADJUST_RANGE:
+        {
+            // centroid in robot reference frame
+            const auto& pt = this->last_hint->centroid;
+
+            const float range =
+                static_cast<float>(std::hypot(pt.point.x, pt.point.y));
+            const float range_error = (range - RANGE_TARGET);
+            const float abs_range_error = std::abs(range_error);
+            if (abs_range_error > RANGE_THRESH)
+            {
+                const float V =
+                    std::min(kmx::maxStartVel(0.f, range_error, A_max), V_max) *
+                    (std::signbit(range_error) ? -1.f : 1.f);
+
+                commands.setTracksVelocity(
+                    lance::groundMpsToTrackMotorRps(V),
+                    lance::groundMpsToTrackMotorRps(V));
             }
 
             break;
@@ -161,8 +212,8 @@ void LocalizationController::iterate(
         }
     }
 
-    // constexpr char const* STRS[] = {"init", "searching", "targetting", "finished"};
-    // std::cout << STRS[static_cast<size_t>(this->stage)] << std::endl;
+#undef V_max
+#undef A_max
 }
 
 void LocalizationController::setLfdControl(bool enabled)

@@ -87,7 +87,8 @@ protected:
     {
         INITIALIZATION,
         SEARCHING,
-        TARGETTING,
+        ALIGN_HEADING,
+        ADJUST_RANGE,
         FINISHED
     };
 

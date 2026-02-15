@@ -36,8 +36,11 @@ endif()
 
 # --- Common -------------------------------------------------------------------
 add_library(msg_adapters STATIC
+    "src/adapters/joy_adapter.cpp"
     "src/adapters/ms136_imu_adapter.cpp"
-    "src/adapters/ms136_scan_adapter.cpp")
+    "src/adapters/ms136_scan_adapter.cpp"
+    "src/adapters/talon_adapter.cpp"
+    "src/adapters/watchdog_adapter.cpp")
 target_link_libraries(msg_adapters
     Eigen3::Eigen
     zenohcxx::zenohc)

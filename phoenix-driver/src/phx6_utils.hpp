@@ -40,6 +40,7 @@
 #pragma once
 
 #define Phoenix_No_WPI
+#include <ctre/phoenix6/CANBus.hpp>
 #include <ctre/phoenix6/Pigeon2.hpp>
 #include <ctre/phoenix6/TalonFX.hpp>
 #include <ctre/phoenix6/TalonFXS.hpp>
@@ -56,6 +57,7 @@ using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
 using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
 using TalonFaultsMsg = phoenix_ros_driver::msg::TalonFaults;
 
+using phx6::CANBus;
 using phx6::hardware::Pigeon2;
 using phx6::hardware::TalonFX;
 using phx6::hardware::TalonFXS;
@@ -104,9 +106,9 @@ inline TalonFXConfiguration buildFXConfig(
                 .WithStatorCurrentLimitEnable(stator_current_limit > 0.)
                 .WithSupplyCurrentLimit(
                     units::current::ampere_t{supply_current_limit})
-                .WithSupplyCurrentLimitEnable(supply_current_limit >= 0.))
+                .WithSupplyCurrentLimitEnable(supply_current_limit > 0.))
         .WithVoltage(
-            (voltage_limit >= 0.)
+            (voltage_limit > 0.)
                 ? VoltageConfigs{}
                       .WithPeakForwardVoltage(
                           units::voltage::volt_t{voltage_limit})

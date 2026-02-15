@@ -44,20 +44,33 @@
 #include "base_adapter.hpp"
 
 
+/* Access lidar frame id ros param and store it for publisher use,
+ * since this doesn't get send over the wire. This is a separate class
+ * since we don't need to cache anything for the subscriber. */
+class MS136ImuAdapterPubState
+{
+    friend class MS136ImuAdapter;
+
+public:
+    MS136ImuAdapterPubState(rclcpp::Node& n);
+
+protected:
+    const std::string lidar_frame_id;
+};
+
 class MS136ImuAdapter :
-    public BaseAdapter<sensor_msgs::msg::Imu, MS136ImuAdapter>
+    public BaseAdapter<
+        sensor_msgs::msg::Imu,
+        MS136ImuAdapter,
+        MS136ImuAdapterPubState,
+        void>
 {
     friend BaseT;
-
-    using ImuMsg = sensor_msgs::msg::Imu;
 
 protected:
     MS136ImuAdapter(rclcpp::Node&);
 
 protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, const SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, const PubStateT&);
-
-protected:
-    std::string lidar_frame_id;
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
 };
