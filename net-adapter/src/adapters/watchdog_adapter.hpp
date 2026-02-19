@@ -37,96 +37,21 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <string>
+#pragma once
 
-#include <zenoh.hxx>
+#include <std_msgs/msg/int32.hpp>
 
-#include <rclcpp/rclcpp.hpp>
-
-#include <std_msgs/msg/int8.hpp>
-#include <std_msgs/msg/string.hpp>
-
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
-
-#include "adapters/joy_adapter.hpp"
-#include "adapters/talon_adapter.hpp"
-#include "adapters/generic_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
-#include "adapters/ms136_imu_adapter.hpp"
-#include "adapters/ms136_scan_adapter.hpp"
+#include "base_adapter.hpp"
 
 
-#define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
-
-using namespace zenoh;
-using namespace util;
-
-
-class ClientEndpointNode : public rclcpp::Node
+class WatchdogAdapter :
+    public BaseAdapter<std_msgs::msg::Int32, WatchdogAdapter>
 {
-    using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
-    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
+    friend BaseT;
 
-public:
-    ClientEndpointNode() :
-        Node{
-            "client_redux_endpoint"
-    },
-        zsh{Session::open(configDirectConnectTo(
-            declare_and_get_param<std::string>(
-                *this,
-                "robot_hostname",
-                DEFAULT_ROBOT_IP_ADDRESS)))},
+protected:
+    WatchdogAdapter(rclcpp::Node&);
 
-        imu_pub{MS136ImuAdapter::createPublisher(*this, zsh, "multiscan/imu")},
-        scan_pub{MS136ScanAdapter::createPublisher(
-            *this,
-            zsh,
-            "multiscan/lidar_scan")},
-
-        talon_pubs{
-            *this,
-            zsh,
-            {"lance/track_left",
-             "lance/track_right",
-             "lance/trencher",
-             "lance/hopper_belt",
-             "lance/hopper_act"}},
-
-        joy_sub{JoyAdapter::createSubscriber(*this, zsh, "/joy")},
-        watchdog_sub{WatchdogAdapter::createSubscriber(
-            *this,
-            zsh,
-            "lance/watchdog_status")},
-
-        relay_status_pub{
-            StdInt8Adapter::createPublisher(*this, zsh, "lance/relay_status")},
-        op_status_pub{
-            StdStringAdapter::createPublisher(*this, zsh, "lance/op_status")}
-    {
-    }
-
-private:
-    Session zsh;
-
-    MS136ImuAdapter::Publisher imu_pub;
-    MS136ScanAdapter::Publisher scan_pub;
-    TalonFeedback::PublisherGroup talon_pubs;
-
-    JoyAdapter::Subscriber joy_sub;
-    WatchdogAdapter::Subscriber watchdog_sub;
-
-    StdInt8Adapter::Publisher relay_status_pub;
-    StdStringAdapter::Publisher op_status_pub;
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
 };
-
-
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ClientEndpointNode>());
-    rclcpp::shutdown();
-
-    return 0;
-}

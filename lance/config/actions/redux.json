@@ -1,0 +1,50 @@
+{
+    "redux":
+    {
+        "pragma:default": null,
+
+        "robot":
+        {
+            "target": "robot",
+            "client_hostname": "${ ip.net1.client1 }"
+        },
+
+        "client_panda":
+        {
+            "target": "client",
+            "robot_hostname": "${ ip.net1.mochapanda }",
+            "lidar_frame_id": "${ id.lidar_frame }",
+            "max_joy_pub_freq": 100.0,
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "lance/op_status": "lance/robot_op_status"
+                }
+            }
+        },
+        "client_mac_eth":
+        {
+            "pragma:derived": "client",
+            "robot_hostname": "${ ip.net1.mac_vm_eth }"
+        },
+        "client_mac_wifi":
+        {
+            "pragma:derived": "client",
+            "robot_hostname": "${ ip.net1.mac_vm_wifi }"
+        },
+
+        "client_remapped":
+        {
+            "pragma:derived": "client_mac_eth",
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "multiscan/imu": "redux/imu",
+                    "multiscan/lidar_scan": "redux/lidar_scan"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,46 @@
+{
+    "pplan_client":
+    {
+        "pragma:default": null,
+        "enabled": {}
+    },
+
+    "robot_status":
+    {
+        "pragma:default": null,
+        "enabled": {}
+    },
+
+    "joy_node":
+    {
+        "pragma:default": null,
+        "enabled": {}
+    },
+
+    "zone_viz":
+    {
+        "pragma:default": null,
+
+        "ksc":
+        {
+            "frame_id": "${ id.arena_frame }",
+            "arena_bounds": "${ zone.ksc.arena }",
+            "mining_zone_bounds": "${ zone.ksc.mining }",
+            "offload_zone_bounds": "${ zone.ksc.offload }"
+        },
+        "ucf_right":
+        {
+            "frame_id": "${ id.arena_frame }",
+            "arena_bounds": "${ zone.ucf_right.arena }",
+            "mining_zone_bounds": "${ zone.ucf_right.mining }",
+            "offload_zone_bounds": "${ zone.ucf_right.offload }"
+        },
+        "ucf_left":
+        {
+            "frame_id": "${ id.arena_frame }",
+            "arena_bounds": "${ zone.ucf_left.arena }",
+            "mining_zone_bounds": "${ zone.ucf_left.mining }",
+            "offload_zone_bounds": "${ zone.ucf_left.offload }"
+        }
+    }
+}

@@ -1,0 +1,69 @@
+{
+    "motor_sim":
+    {
+        "pragma:default": null,
+
+        "lance1":
+        {
+            "model": 1,
+            "use_gz_track_feedback": false
+        },
+        "lance2":
+        {
+            "model": 2,
+            "use_gz_track_feedback": false
+        },
+
+        "gz_sim_l1":
+        {
+            "model": 1,
+            "use_gz_track_feedback": true
+        },
+        "gz_sim_l2":
+        {
+            "model": 2,
+            "use_gz_track_feedback": true
+        }
+    },
+
+
+
+    "gz_sim":
+    {
+        "pragma:default": null,
+
+        "lance1":
+        {
+            "robot": "lance"
+        },
+        "lance2":
+        {
+            "robot": "lance2"
+        },
+
+        "motor_sim_l1":
+        {
+            "robot": "lance",
+            "bridge_remappings":
+            {
+                "/joint_states": "/gz_joint_states"
+            },
+            "hid_control": false
+        },
+        "motor_sim_l2":
+        {
+            "robot": "lance2",
+            "bridge_remappings":
+            {
+                "/joint_states": "/gz_joint_states"
+            },
+            "hid_control": false
+        }
+    },
+
+    "gz_gui" :
+    {
+        "pragma:default": null,
+        "enabled": {}
+    }
+}
