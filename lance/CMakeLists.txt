@@ -150,10 +150,10 @@ if(BUILD_LANCE2)
         ${motor_sim_ament_deps})
 endif()
 
-# --- Zone Visuals Node -------------------------------------------------------
-add_executable(zone_visuals_node
-    "src/zone_visuals_node.cpp")
-ament_target_dependencies(zone_visuals_node
+# --- Zone Visuals Node --------------------------------------------------------
+add_executable(zone_visualizer
+    "src/zone_viz_node.cpp")
+ament_target_dependencies(zone_visualizer
     rclcpp
     visualization_msgs)
 
@@ -189,7 +189,7 @@ endif()
 
 install(TARGETS
     robot_status
-    zone_visuals_node
+    zone_visualizer
     DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
     config

@@ -125,6 +125,13 @@ def get_redux_action(config):
     print(f'Invalid redux value for target key : {target}')
     return None
 
+def get_zone_viz_action(config):
+    return NodeAction(config).format_node(
+        package = 'lance',
+        executable = 'zone_visualizer',
+        output = 'screen'
+    )
+
 def get_robot_actions(config, launch_args = {}):
     a = []
     if 'multiscan_driver' in config:
@@ -141,6 +148,8 @@ def get_robot_actions(config, launch_args = {}):
         a.append(get_watchdog_action(config['robot_status']))
     if 'redux' in config:
         a.append(get_redux_action(config['redux']))
+    if 'zone_viz' in config:
+        a.append(get_zone_viz_action(config['zone_viz']))
     return a
 
 

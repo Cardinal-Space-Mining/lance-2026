@@ -2,19 +2,20 @@
     "perception":
     {
         "pragma:default": null,
+
         "lance2":
         {
-            "map_frame_id": "${ ARENA_FRAME_ID }",
-            "odom_frame_id": "${ ODOM_FRAME_ID }",
-            "base_frame_id": "${ ROBOT_FRAME_ID }",
-            "scan_topic": "${ LIDAR_SCAN_TOPIC }",
-            "imu_topic": "${ LIDAR_IMU_TOPIC }",
+            "map_frame_id": "${ id.arena_frame }",
+            "odom_frame_id": "${ id.odom_frame }",
+            "base_frame_id": "${ id.robot_frame }",
+            "scan_topic": "${ topic.lidar_scan }",
+            "imu_topic": "${ topic.lidar_imu }",
             "tag_usage_mode": 0,
             "metrics_pub_freq": 10.0,
             "exclusion_zones" :
             [
                 {
-                    "frame_id" : "${ ROBOT_FRAME_ID }",
+                    "frame_id" : "${ id.robot_frame }",
                     "min": [ -0.7,  -0.575, 0.0   ],
                     "max": [  0.790, 0.575, 0.925 ]
                 }
@@ -177,24 +178,15 @@
                 "map_passive_crop_vertical_range": 5.0
             }
         },
-        "lance1":
-        {
-            "pragma:derived": "lance2",
-            "exclusion_zones":
-            [
-                {
-                    "frame_id": "${ ROBOT_FRAME_ID }",
-                    "min": [ -0.405, -0.6, 0.0   ],
-                    "max": [  0.735,  0.6, 0.959 ]
-                }
-            ]
-        },
-        "sim":
+
+
+
+        "lance2_sim":
         {
             "pragma:derived": "lance2",
             "use_sim_time": true
         },
-        "debug":
+        "lance2_debug":
         {
             "pragma:derived": "lance2",
             "pragma:node_options":
@@ -202,13 +194,44 @@
                 "prefix": ["xterm -e gdb -ex run --args"]
             }
         },
+
+        "lance1":
+        {
+            "pragma:derived": "lance2",
+            "exclusion_zones":
+            [
+                {
+                    "frame_id": "${ id.robot_frame }",
+                    "min": [ -0.405, -0.6, 0.0   ],
+                    "max": [  0.735,  0.6, 0.959 ]
+                }
+            ]
+        },
+        "lance1_sim":
+        {
+            "pragma:derived": "lance1",
+            "use_sim_time": true
+        },
+        "lance1_debug":
+        {
+            "pragma:derived": "lance1",
+            "pragma:node_options":
+            {
+                "prefix": ["xterm -e gdb -ex run --args"]
+            }
+        },
+
         "lidar_only":
         {
             "pragma:derived": "lance2",
-            "base_frame_id": "${ LIDAR_FRAME_ID }",
+            "base_frame_id": "${ id.lidar_frame }",
             "exclusion_zones": []
         }
     },
+
+
+
+
 
     "tag_detection":
     {
