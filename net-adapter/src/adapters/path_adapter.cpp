@@ -37,108 +37,69 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <string>
+#include "path_adapter.hpp"
 
-#include <zenoh.hxx>
+#include <std_msgs/msg/header.hpp>
 
-#include <rclcpp/rclcpp.hpp>
+#include "mem_helpers.hpp"
 
-#include <std_msgs/msg/int8.hpp>
-#include <std_msgs/msg/string.hpp>
-#include <geometry_msgs/msg/point_stamped.hpp>
+// todo parametrize this?
+#define FRAME_ID "odom"
 
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
-
-#include "adapters/joy_adapter.hpp"
-#include "adapters/talon_adapter.hpp"
-#include "adapters/generic_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
-#include "adapters/ms136_imu_adapter.hpp"
-#include "adapters/ms136_scan_adapter.hpp"
-#include "adapters/path_adapter.hpp"
-
-
-#define DEFAULT_CLIENT_IP_ADDRESS "10.11.11.8"
-
-using namespace zenoh;
 using namespace util;
 
 
-class RobotEndpointNode : public rclcpp::Node
+PathAdapter::PathAdapter(rclcpp::Node& node) : BaseT(node) {}
+
+bool PathAdapter::serializeMsg(ByteBuffer& bytes, const MsgT& msg, SubStateT&)
 {
-    using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
-    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
-    using PointStampedAdapter =
-        GenericAdapter<geometry_msgs::msg::PointStamped>;
+    bytes.resize(sizeof(float) * 3 * msg.poses.size());
 
-public:
-    RobotEndpointNode() :
-        Node{
-            "robot_redux_endpoint"
-    },
-        zsh{Session::open(configDirectConnectTo(
-            declare_and_get_param<std::string>(
-                *this,
-                "client_hostname",
-                DEFAULT_CLIENT_IP_ADDRESS)))},
+    uint8_t* ptr = bytes.data();
 
-        joy_pub{JoyAdapter::createPublisher(*this, zsh, "/joy")},
-        watchdog_pub{WatchdogAdapter::createPublisher(
-            *this,
-            zsh,
-            "lance/watchdog_status")},
-        clicked_point_pub{
-            PointStampedAdapter::createPublisher(*this, zsh, "clicked_point")},
+    writeAndIncrement(ptr, msg.header.stamp.sec);
+    writeAndIncrement(ptr, msg.header.stamp.nanosec);
 
-        imu_sub{MS136ImuAdapter::createSubscriber(*this, zsh, "multiscan/imu")},
-        scan_sub{MS136ScanAdapter::createSubscriber(
-            *this,
-            zsh,
-            "multiscan/lidar_scan")},
-
-        talon_subs{
-            *this,
-            zsh,
-            {"lance/track_left",
-             "lance/track_right",
-             "lance/trencher",
-             "lance/hopper_belt",
-             "lance/hopper_act"}},
-        path_sub{PathAdapter::createSubscriber(
-            *this,
-            zsh,
-            "cardinal_perception/planned_path")},
-
-        relay_status_sub{
-            StdInt8Adapter::createSubscriber(*this, zsh, "lance/relay_status")},
-        op_status_sub{
-            StdStringAdapter::createSubscriber(*this, zsh, "lance/op_status")}
+    for (const auto& pose : msg.poses)
     {
+        writeAsAndIncrement<float>(ptr, pose.pose.position.x);
+        writeAsAndIncrement<float>(ptr, pose.pose.position.y);
+        writeAsAndIncrement<float>(ptr, pose.pose.position.z);
     }
 
-private:
-    Session zsh;
+    return true;
+}
 
-    JoyAdapter::Publisher joy_pub;
-    WatchdogAdapter::Publisher watchdog_pub;
-    PointStampedAdapter::Publisher clicked_point_pub;
-
-    MS136ImuAdapter::Subscriber imu_sub;
-    MS136ScanAdapter::Subscriber scan_sub;
-    TalonFeedback::SubscriberGroup talon_subs;
-    PathAdapter::Subscriber path_sub;
-
-    StdInt8Adapter::Subscriber relay_status_sub;
-    StdStringAdapter::Subscriber op_status_sub;
-};
-
-
-int main(int argc, char** argv)
+bool PathAdapter::deserializeMsg(MsgT& msg, const ByteBuffer& bytes, PubStateT&)
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotEndpointNode>());
-    rclcpp::shutdown();
+    if (bytes.size() % (sizeof(float) * 3) != 0)
+    {
+        return false;
+    }
 
-    return 0;
+    const uint8_t* ptr = bytes.data();
+    std_msgs::msg::Header header;
+
+    msg.header.frame_id = FRAME_ID;
+    readAndIncrement(ptr, msg.header.stamp.sec);
+    readAndIncrement(ptr, msg.header.stamp.nanosec);
+
+    msg.poses.clear();
+
+    msg.header = header;
+
+    size_t numPoses = bytes.size() / (sizeof(float) * 3);
+    msg.poses.reserve(numPoses);
+
+    for (size_t i = 0; i < numPoses; ++i)
+    {
+        geometry_msgs::msg::PoseStamped pose;
+        readAsAndIncrement<float>(ptr, pose.pose.position.x);
+        readAsAndIncrement<float>(ptr, pose.pose.position.y);
+        readAsAndIncrement<float>(ptr, pose.pose.position.z);
+        pose.header = header;
+        msg.poses.push_back(pose);
+    }
+
+    return true;
 }

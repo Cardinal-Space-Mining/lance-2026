@@ -45,6 +45,7 @@
 
 #include <std_msgs/msg/int8.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "ros_utils.hpp"
 #include "zenoh_utils.hpp"
@@ -55,6 +56,7 @@
 #include "adapters/watchdog_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
+#include "adapters/path_adapter.hpp"
 
 
 #define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
@@ -67,6 +69,8 @@ class ClientEndpointNode : public rclcpp::Node
 {
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
+    using PointStampedAdapter =
+        GenericAdapter<geometry_msgs::msg::PointStamped>;
 
 public:
     ClientEndpointNode() :
@@ -93,12 +97,18 @@ public:
              "lance/trencher",
              "lance/hopper_belt",
              "lance/hopper_act"}},
+        path_pub{PathAdapter::createPublisher(
+            *this,
+            zsh,
+            "cardinal_perception/planned_path")},
 
         joy_sub{JoyAdapter::createSubscriber(*this, zsh, "/joy")},
         watchdog_sub{WatchdogAdapter::createSubscriber(
             *this,
             zsh,
             "lance/watchdog_status")},
+        clicked_point_sub{
+            PointStampedAdapter::createSubscriber(*this, zsh, "clicked_point")},
 
         relay_status_pub{
             StdInt8Adapter::createPublisher(*this, zsh, "lance/relay_status")},
@@ -113,9 +123,11 @@ private:
     MS136ImuAdapter::Publisher imu_pub;
     MS136ScanAdapter::Publisher scan_pub;
     TalonFeedback::PublisherGroup talon_pubs;
+    PathAdapter::Publisher path_pub;
 
     JoyAdapter::Subscriber joy_sub;
     WatchdogAdapter::Subscriber watchdog_sub;
+    PointStampedAdapter::Subscriber clicked_point_sub;
 
     StdInt8Adapter::Publisher relay_status_pub;
     StdStringAdapter::Publisher op_status_pub;

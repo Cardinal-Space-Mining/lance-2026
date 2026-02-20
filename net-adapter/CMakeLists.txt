@@ -40,7 +40,8 @@ add_library(msg_adapters STATIC
     "src/adapters/ms136_imu_adapter.cpp"
     "src/adapters/ms136_scan_adapter.cpp"
     "src/adapters/talon_adapter.cpp"
-    "src/adapters/watchdog_adapter.cpp")
+    "src/adapters/watchdog_adapter.cpp"
+    "src/adapters/path_adapter.cpp")
 target_link_libraries(msg_adapters
     Eigen3::Eigen
     zenohcxx::zenohc)
@@ -49,6 +50,7 @@ ament_target_dependencies(msg_adapters
     std_msgs
     sensor_msgs
     geometry_msgs
+    nav_msgs
     tf2_ros
     tf2_geometry_msgs
     phoenix_ros_driver
@@ -81,6 +83,7 @@ ament_export_dependencies(
     std_msgs
     sensor_msgs
     geometry_msgs
+    nav_msgs
     tf2_ros
     tf2_geometry_msgs
     phoenix_ros_driver
