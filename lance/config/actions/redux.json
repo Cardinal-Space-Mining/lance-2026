@@ -25,12 +25,12 @@
         },
         "client_mac_eth":
         {
-            "pragma:derived": "client",
+            "pragma:derived": "client_panda",
             "robot_hostname": "${ ip.net1.mac_vm_eth }"
         },
         "client_mac_wifi":
         {
-            "pragma:derived": "client",
+            "pragma:derived": "client_panda",
             "robot_hostname": "${ ip.net1.mac_vm_wifi }"
         },
 

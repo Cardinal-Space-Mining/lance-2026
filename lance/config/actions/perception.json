@@ -181,6 +181,11 @@
 
 
 
+        "lance2_headless":
+        {
+            "pragma:derived": "lance2",
+            "profiling": false
+        },
         "lance2_sim":
         {
             "pragma:derived": "lance2",
@@ -206,6 +211,11 @@
                     "max": [  0.735,  0.6, 0.959 ]
                 }
             ]
+        },
+        "lance1_headless":
+        {
+            "pragma:derived": "lance1",
+            "profiling": false
         },
         "lance1_sim":
         {
