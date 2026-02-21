@@ -44,7 +44,8 @@
             "canbus": "canable_A",
             "motors":[
                 {
-                    "name": "track_left",
+                    "name": "track_right",
+                    "can_id": "0",
                     "controller": "FX",
                     "follower": "",
                     "sensor": "",
@@ -60,7 +61,8 @@
                     "voltage_limit": 12.0                    
                 },
                 {
-                    "name": "track_right",
+                    "name": "track_left",
+                    "can_id": "1",
                     "controller": "FX",
                     "follower": "",
                     "sensor": "",
@@ -77,6 +79,7 @@
                 },
                 {
                     "name": "trencher",
+                    "can_id": "2",
                     "controller": "FX",
                     "follower": "",
                     "sensor": "",
@@ -93,6 +96,7 @@
                 },
                 {
                     "name": "hopper_belt",
+                    "can_id": "3",
                     "controller": "FX",
                     "follower": "",
                     "sensor": "",
@@ -109,6 +113,7 @@
                 },
                 {
                     "name": "hopper_act_left",
+                    "can_id": "4",
                     "controller": "FX",
                     "follower": "",
                     "sensor": "",
@@ -125,6 +130,7 @@
                 },
                 {
                     "name": "hopper_act_right",
+                    "can_id": "5",
                     "controller": "FX",
                     "follows": "hopper_act_left",
                     "sensor": "",
