@@ -46,13 +46,11 @@ AutoMiningController::AutoMiningController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const HopperState& hopper_state,
-    TraversalController& trav_controller) :
+    SharedControllerCollection& controllers) :
     pub_map{pub_map},
     params{params},
-    hopper_state{hopper_state},
-    traversal_controller{trav_controller},
-    mining_controller{node, pub_map, params, hopper_state}
+    traversal_controller{controllers.traversal_controller},
+    mining_controller{controllers.mining_controller}
 {
 }
 

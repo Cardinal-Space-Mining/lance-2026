@@ -46,6 +46,7 @@
 #include "../collection_state.hpp"
 
 #include "mining_controller.hpp"
+#include "shared_controllers.hpp"
 #include "traversal_controller.hpp"
 
 
@@ -59,8 +60,7 @@ public:
         RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        const HopperState&,
-        TraversalController&);
+        SharedControllerCollection&);
     ~AutoMiningController() = default;
 
 public:
@@ -85,10 +85,9 @@ protected:
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
-    const HopperState& hopper_state;
 
     Stage stage{Stage::FINISHED};
 
     TraversalController& traversal_controller;
-    MiningController mining_controller;
+    MiningController& mining_controller;
 };

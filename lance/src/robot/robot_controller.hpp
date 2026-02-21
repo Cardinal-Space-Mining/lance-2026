@@ -43,6 +43,9 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+
 #include "../util/pub_map.hpp"
 #include "../util/joy_utils.hpp"
 
@@ -52,6 +55,7 @@
 
 #include "controllers/auto_controller.hpp"
 #include "controllers/teleop_controller.hpp"
+#include "controllers/shared_controllers.hpp"
 
 
 class RobotController
@@ -59,6 +63,8 @@ class RobotController
     using RclNode = rclcpp::Node;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
+    using Tf2Buffer = tf2_ros::Buffer;
+    using Tf2Listener = tf2_ros::TransformListener;
 
 public:
     enum class ControlMode
@@ -75,6 +81,7 @@ public:
 public:
     const HopperState& hopperState() const;
     const RobotParams& getParams() const;
+    const Tf2Buffer& getTfBuffer() const;
 
     void iterate(
         int32_t watchdog,
@@ -89,6 +96,11 @@ protected:
 
     RobotParams params;
     CollectionState collection_state;
+
+    Tf2Buffer tf_buffer;
+    Tf2Listener tf_listener;
+
+    SharedControllerCollection shared_controllers;
 
     AutoController auto_controller;
     TeleopController teleop_controller;

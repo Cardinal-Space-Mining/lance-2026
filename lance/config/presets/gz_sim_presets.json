@@ -14,7 +14,6 @@
                 "robot_status": "enabled",
                 "robot_control": "lance1_ksc_sim",
                 "zone_viz": "ksc",
-                "pplan_client": "enabled",
                 "perception": "lance1_sim",
                 "foxglove_bridge": "all"
             }
@@ -51,7 +50,6 @@
                 "robot_status": "enabled",
                 "robot_control": "lance2_ksc_sim",
                 "zone_viz": "ksc",
-                "pplan_client": "enabled",
                 "perception": "lance2_sim",
                 "foxglove_bridge": "all"
             }
