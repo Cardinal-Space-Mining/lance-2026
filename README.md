@@ -58,28 +58,58 @@ This repo houses all client and robot code used for running LANCE-2 (2026) as we
     ./src/build.sh
     ```
 
+> [!TIP]
+> Certain nodes are compiled twice with different compile options (for each robot version), resulting in doubled build time. When only targetting one version, flags can be used to limit which versions are built:
+> * `./src/build.sh --l1` : Build for LANCE-1 only
+> * `./src/build.sh --l2` : Build for LANCE-2 only
+> * `./src/build.sh --la` : Explicitly build for both (default behavior)
+
 ## Running
-The easiest way to run the entire project is to use the provided script. This automatically sources all packages in the workspace and handles setting up/tearing down a canbus when required. To run without canbus support:
+The easiest way to run the entire project is to use the provided script. This automatically sources all packages in the workspace and handles any other environment startup/shutdown actions:
 ```bash
 ./src/run.sh
 ```
 
-And to enable canbus support:
-```bash
-./src/run.sh --canbus
-```
+The following flags may be used to enable different features:
+* `--canbus` : Runs `phoenix-driver/scripts/can_bringup.sh` on startup and `phoenix-driver/scripts/can_shutdown.sh` on shutdown. This is required when running CANbus actuators!
+* `--local` : Sets the required environment variables so that ROS uses cyclonedds configured for localhost-only discovery. This is necessary to enforce bandwidth reduction strategies.
+* `--help` : Displays a usage message.
 
-Reconfiguration for the various deployment contexts is accomplished with the help of [launch-utils](https://github.com/Cardinal-Space-Mining/launch-utils) and config presets. For example, to run the full project attached to a gazebo simulation, run:
-```bash
-./src/run.sh preset:=gz_dev
-```
-Presets for the robot and mission control have yet to be defined, so more info on these will follow later.
+Following any flag arguments come any number of "launch overrides" which directly interface with the config/launch system and determine what software is run. More info on the underlying system which manages this can be found [here](https://github.com/Cardinal-Space-Mining/launch-utils). There is a vast combination of launch overrides and presets availble for use, but a few simple and common examples are listed below:
+
+1. Run the **robot code** for LANCE-2 in the KSC arena:
+    ```bash
+    ./src/run.sh --canbus --local robot:=lance2_ksc
+    ```
+2. Run the **robot code** for LANCE-1 int the UCF left-side arena:
+    ```bash
+    ./src/run.sh --canbus --local robot:=lance1_ucf_left
+    ```
+3. Run the **client code** for LANCE-2 in the UCF right-side arena:
+    ```bash
+    ./src/run.sh --local client:=lance2_ucf_right
+    ```
+4. Run a Gazebo simulation of LANCE-1 in the UCF left-side arena:
+    ```bash
+    ./src/run.sh gz_motor_sim:=lance1_ucf_right
+    ```
+5. Run the **robot code** for LANCE-1 in the UCF right-side arena but explitlcy enable a foxglove server for debugging:
+    ```bash
+    ./src/run.sh --canbus --local robot:=lance1_ucf_right foxglove_bridge:=all
+    ```
+6. Run the **client code** for LANCE-2 in the KSC arena but targetting a development mac-mini using it's ethernet interface (assumes standard networking layout which matches that defined in the config):
+    ```bash
+    ./src/run.sh --local client:=lance2_ksc redux:=client_mac_eth
+    ```
+
+> [!TIP]
+> All available presets can be found in the `lance/config/presets` directory, and all low-level action configs can be found in the `lance/config/actions` directory.
 
 ## Foxglove Studio
 A foxglove studio layout configuration (`foxglove_layout.json`) is included which provides a main control dashboard as well as tabs for each perception stage and motor status info. This can be loaded by clicking the **"LAYOUT"** dropdown in the top right corner of foxglove studio, then clicking **"Import from file..."** and navigating to the json.
 
 ## Simulation
-Simulation assets (Gazebo and Nvidia Isaac) and launch utilities are encapsulated in a separate repo since including them here by default would make the repo quite bloated. Conveniently, the repo just needs to be cloned alongside the other packages to be built and used (see included readme for dependencies!):
+Simulation assets (Gazebo and Nvidia Isaac) and launch utilities are contained in a separate repo since including them here by default would make the repo quite bloated. Conveniently, the repo just needs to be cloned alongside the other packages to be built and used (see included readme for dependencies!):
 ```bash
 pushd src && git clone https://gitlab.com/csm2.0/csm-sim && popd
 ```
@@ -107,4 +137,4 @@ The build script exports compile commands which can help VSCode's C/C++ extensio
     "version": 4
 }
 ```
-__*Last updated: 1/21/26*__
+__*Last updated: 2/20/26*__

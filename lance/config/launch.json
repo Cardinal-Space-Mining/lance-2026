@@ -1,0 +1,23 @@
+{
+    "pragma:enable_preproc": true,
+    "pragma:import":
+    [
+        "actions/bag.json",
+        "actions/client.json",
+        "actions/foxglove.json",
+        "actions/multiscan_driver.json",
+        "actions/perception.json",
+        "actions/phoenix_driver.json",
+        "actions/redux.json",
+        "actions/robot_control.json",
+        "actions/shared.json",
+        "actions/sim.json",
+        "actions/tf.json",
+
+        "presets/robot_presets.json",
+        "presets/client_presets.json",
+        "presets/gz_sim_presets.json",
+        "presets/dev_presets.json",
+        "presets/replay_presets.json"
+    ]
+}

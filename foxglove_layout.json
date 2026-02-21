@@ -79,7 +79,8 @@
       ],
       "reverse": false,
       "foxglovePanelTitle": "Hopper Fullness",
-      "reverseDirection": false
+      "reverseDirection": false,
+      "style": "dial"
     },
     "Bar Display.Bar Display!308m91j": {
       "topicField": "/lance/hopper_act/info.bus_voltage",
@@ -216,9 +217,9 @@
     "3D!wl899f": {
       "cameraState": {
         "perspective": true,
-        "distance": 2.4417309747357163,
-        "phi": 36.104469854475724,
-        "thetaOffset": 171.48648648648668,
+        "distance": 2.8479148269251624,
+        "phi": 0.00005729577951308232,
+        "thetaOffset": -169.19644031066164,
         "targetOffset": [
           0.22632196518197975,
           -0.14142169816051317,
@@ -281,6 +282,9 @@
           "pointSize": 6,
           "minValue": 0,
           "maxValue": 1
+        },
+        "/cardinal_perception/planned_path": {
+          "visible": true
         }
       },
       "layers": {
@@ -421,7 +425,7 @@
       "isSynced": true,
       "showPoints": false
     },
-    "CallService!1gvldsh": {
+    "CallService!3803max": {
       "requestPayload": "{\n  \"mode\": 1\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
@@ -431,7 +435,7 @@
       "buttonText": "Enable",
       "foxglovePanelTitle": "Enable Robot"
     },
-    "CallService!3vavkl6": {
+    "CallService!1oawlhn": {
       "requestPayload": "{\n  \"mode\": 0\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
@@ -441,7 +445,7 @@
       "buttonColor": "#ff0000",
       "foxglovePanelTitle": "Disable Robot"
     },
-    "CallService!3gyep2l": {
+    "CallService!2bjoo7d": {
       "requestPayload": "{\n  \"mode\": -1\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
@@ -451,7 +455,7 @@
       "buttonText": "Autonomous",
       "foxglovePanelTitle": "Start Autonomous"
     },
-    "Indicator!2tgedv2": {
+    "Indicator!wijq4n": {
       "path": "/lance/watchdog_status.data",
       "style": "background",
       "fontSize": 36,
@@ -473,24 +477,65 @@
       ],
       "foxglovePanelTitle": "Robot Status"
     },
-    "RawMessages!3o67d49": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "/cardinal_perception/mining_evaluation",
-      "fontSize": 12
+    "Indicator!41hamdc": {
+      "path": "/lance/relay_status.data",
+      "style": "background",
+      "fontSize": 36,
+      "fallbackColor": "#424242",
+      "fallbackLabel": "Open",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "1",
+          "color": "#ffa400",
+          "label": "Closed"
+        }
+      ],
+      "foxglovePanelTitle": "Relay State"
     },
-    "3D!3o2i4gc": {
+    "Bar Display.Bar Display!44w8b0o": {
+      "topicField": "/lance/hopper_act/info.bus_voltage",
+      "minValue": 13,
+      "maxValue": 16.8,
+      "barColor": "#ffac00",
+      "orientation": "vertical",
+      "fillBehavior": "clamp",
+      "negateValue": false,
+      "foxglovePanelTitle": "Voltage"
+    },
+    "Bar Display.Bar Display!1fnw7fc": {
+      "topicField": "/lance/abs_total_supply_current.data",
+      "minValue": 0,
+      "maxValue": 20,
+      "barColor": "#ff3100",
+      "orientation": "vertical",
+      "fillBehavior": "clamp",
+      "negateValue": false,
+      "foxglovePanelTitle": "Current"
+    },
+    "StateTransitions!wlff2j": {
+      "paths": [
+        {
+          "value": "/lance/op_status.data",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
+        }
+      ],
+      "isSynced": true
+    },
+    "3D!18yg16o": {
       "cameraState": {
         "perspective": true,
-        "distance": 23.327015595372313,
-        "phi": 45.087906382879034,
-        "thetaOffset": -25.739430144868834,
+        "distance": 9.75349958229432,
+        "phi": 60.247991176262715,
+        "thetaOffset": -108.93858598884492,
         "targetOffset": [
-          2.5976589541139683,
-          3.2096124538566726,
-          -1.2015472699475337e-15
+          -0.577002236116742,
+          -0.4850010107509758,
+          -3.480629830265388e-16
         ],
         "target": [
           0,
@@ -515,11 +560,11 @@
         },
         "meshUpAxis": "z_up",
         "enableStats": false,
-        "syncCamera": false
+        "syncCamera": true
       },
       "transforms": {
         "frame:frame_link": {
-          "visible": false
+          "visible": true
         },
         "frame:fwd_cam_link": {
           "visible": false
@@ -528,7 +573,7 @@
           "visible": false
         },
         "frame:left_track_link": {
-          "visible": false
+          "visible": true
         },
         "frame:lidar_link_inv_rotated": {
           "visible": false
@@ -537,24 +582,248 @@
           "visible": false
         },
         "frame:right_track_link": {
-          "visible": false
+          "visible": true
         },
         "frame:collection_link": {
           "rpyCoefficient": [
             0,
             14.999999999999998,
             0
-          ],
+          ]
+        },
+        "frame:map": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/cardinal_perception/filtered_scan": {
+          "visible": true,
+          "pointSize": 3,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/multiscan/lidar_scan": {
+          "visible": true,
+          "colorField": "reflective",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 7,
+          "minValue": 0,
+          "maxValue": 1
+        },
+        "/cardinal_perception/trav_interp_points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "minValue": 0,
+          "maxValue": 1
+        },
+        "/cardinal_perception/traversability_points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 10,
+          "explicitAlpha": 1,
+          "minValue": 0,
+          "maxValue": 10
+        },
+        "/initialpose": {
           "visible": false
         },
-        "frame:base_link": {
+        "/poses/gravity_estimation": {
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            1,
+            0.1,
+            0.1
+          ],
+          "color": "#ff0084ff"
+        },
+        "/robot_description": {
+          "visible": false,
+          "displayMode": "collision",
+          "fallbackColor": "#7e7e7e"
+        },
+        "/cardinal_perception/map_cloud": {
+          "visible": false,
+          "colorField": "normal_z",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 2,
+          "flatColor": "#ffffff2b",
+          "minValue": 0,
+          "maxValue": 1,
+          "explicitAlpha": 1
+        },
+        "/cardinal_perception/poses/gravity_estimation": {
+          "visible": true,
+          "type": "arrow"
+        },
+        "/cardinal_perception/planned_path": {
+          "visible": true,
+          "gradient": [
+            "#6c00ffff",
+            "#00ff04ff"
+          ],
+          "lineWidth": 0.075,
+          "type": "line"
+        },
+        "/gz_multiscan/lidar_scan": {
+          "visible": false
+        },
+        "/gz_lidar_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/cardinal_perception/poses/fiducial_plane_0/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/poses/fiducial_plane_1/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/poses/fiducial_plane_2/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/traversibility_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 10,
+          "maxValue": 10,
+          "minValue": 0
+        },
+        "/cardinal_perception/pplan_target": {
+          "visible": false,
+          "type": "axis"
+        },
+        "/traversal_target_point": {
+          "visible": true,
+          "type": "arrow"
+        },
+        "/arena_zones": {
+          "visible": true,
+          "namespaces": {
+            "arena": {
+              "visible": true
+            },
+            "zones": {
+              "visible": true
+            }
+          },
+          "showOutlines": true,
+          "selectedIdVariable": ""
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "8e94af83-99c8-45a3-88b7-692c81af5f64",
+          "layerId": "foxglove.Grid",
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            20,
+            20,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "frameId": "map",
+          "size": 40,
+          "divisions": 40,
+          "drawBehind": true
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "odom",
+      "foxglovePanelTitle": "Raw"
+    },
+    "3D!3qwg4qu": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 9.75349958229432,
+        "phi": 60.247991176262715,
+        "thetaOffset": -108.93858598884492,
+        "targetOffset": [
+          -0.577002236116742,
+          -0.4850010107509758,
+          -3.480629830265388e-16
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "editable": false
+        },
+        "meshUpAxis": "z_up",
+        "enableStats": false,
+        "syncCamera": true
+      },
+      "transforms": {
+        "frame:frame_link": {
           "visible": true
         },
-        "frame:lidar_link": {
+        "frame:fwd_cam_link": {
           "visible": false
         },
-        "frame:gz_base_link": {
+        "frame:left_cam_link": {
           "visible": false
+        },
+        "frame:left_track_link": {
+          "visible": true
+        },
+        "frame:lidar_link_inv_rotated": {
+          "visible": false
+        },
+        "frame:rght_cam_link": {
+          "visible": false
+        },
+        "frame:right_track_link": {
+          "visible": true
+        },
+        "frame:collection_link": {
+          "rpyCoefficient": [
+            0,
+            14.999999999999998,
+            0
+          ]
         }
       },
       "topics": {
@@ -607,12 +876,12 @@
           "color": "#ff0084ff"
         },
         "/robot_description": {
-          "visible": false,
+          "visible": true,
           "displayMode": "collision",
           "fallbackColor": "#7e7e7e"
         },
         "/cardinal_perception/map_cloud": {
-          "visible": true,
+          "visible": false,
           "colorField": "normal_z",
           "colorMode": "colormap",
           "colorMap": "turbo",
@@ -623,11 +892,11 @@
           "explicitAlpha": 1
         },
         "/cardinal_perception/poses/gravity_estimation": {
-          "visible": false,
+          "visible": true,
           "type": "arrow"
         },
         "/cardinal_perception/planned_path": {
-          "visible": true,
+          "visible": false,
           "gradient": [
             "#6c00ffff",
             "#00ff04ff"
@@ -645,40 +914,99 @@
           "colorMap": "turbo"
         },
         "/cardinal_perception/poses/fiducial_plane_0/pose": {
-          "visible": false
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            0.3,
+            0.05,
+            0.05
+          ],
+          "color": "#ff0000ff"
         },
         "/cardinal_perception/poses/fiducial_plane_1/pose": {
-          "visible": false
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            0.3,
+            0.05,
+            0.05
+          ],
+          "color": "#00ff0dff"
         },
         "/cardinal_perception/poses/fiducial_plane_2/pose": {
-          "visible": false
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            0.3,
+            0.05,
+            0.05
+          ],
+          "color": "#0037ffff"
         },
         "/cardinal_perception/traversibility_points": {
-          "visible": true,
+          "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
           "pointSize": 10,
-          "maxValue": 1,
+          "maxValue": 10,
           "minValue": 0
         },
         "/cardinal_perception/pplan_target": {
-          "visible": true,
+          "visible": false,
           "type": "axis"
         },
-        "/traversal_target_point": {
+        "/cardinal_perception/fiducial_plane_0/points": {
           "visible": true,
-          "type": "axis",
-          "arrowScale": [
-            1,
-            0.259,
-            0.15
-          ]
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "flatColor": "#ff0000ff"
+        },
+        "/cardinal_perception/fiducial_plane_1/points": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "flatColor": "#00ff0dff"
+        },
+        "/cardinal_perception/fiducial_plane_2/points": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "flatColor": "#0027ffff"
+        },
+        "/cardinal_perception/fiducial_input_points": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/cardinal_perception/poses/fiducial_tag_pose": {
+          "visible": true
+        },
+        "/cardinal_perception/fiducial_redetect_points": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/arena_zones": {
+          "visible": true,
+          "namespaces": {
+            "arena": {
+              "visible": true
+            }
+          }
         }
       },
       "layers": {
         "grid": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "label": "Grid",
           "instanceId": "8e94af83-99c8-45a3-88b7-692c81af5f64",
@@ -709,9 +1037,469 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "map"
+      "followTf": "odom",
+      "foxglovePanelTitle": "Fiducial Detector"
     },
-    "Plot!4kazw24": {
+    "3D!hllzd3": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 9.75349958229432,
+        "phi": 60.247991176262715,
+        "thetaOffset": -108.93858598884492,
+        "targetOffset": [
+          -0.577002236116742,
+          -0.4850010107509758,
+          -3.480629830265388e-16
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "editable": false
+        },
+        "meshUpAxis": "z_up",
+        "enableStats": false,
+        "syncCamera": true
+      },
+      "transforms": {
+        "frame:frame_link": {
+          "visible": true
+        },
+        "frame:fwd_cam_link": {
+          "visible": false
+        },
+        "frame:left_cam_link": {
+          "visible": false
+        },
+        "frame:left_track_link": {
+          "visible": true
+        },
+        "frame:lidar_link_inv_rotated": {
+          "visible": false
+        },
+        "frame:rght_cam_link": {
+          "visible": false
+        },
+        "frame:right_track_link": {
+          "visible": true
+        },
+        "frame:collection_link": {
+          "rpyCoefficient": [
+            0,
+            14.999999999999998,
+            0
+          ]
+        }
+      },
+      "topics": {
+        "/cardinal_perception/filtered_scan": {
+          "visible": false,
+          "pointSize": 3,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/multiscan/lidar_scan": {
+          "visible": false,
+          "colorField": "reflective",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 7,
+          "minValue": 0,
+          "maxValue": 1
+        },
+        "/cardinal_perception/trav_interp_points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "minValue": 0,
+          "maxValue": 1
+        },
+        "/cardinal_perception/traversability_points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 10,
+          "explicitAlpha": 1,
+          "minValue": 0,
+          "maxValue": 10
+        },
+        "/initialpose": {
+          "visible": false
+        },
+        "/poses/gravity_estimation": {
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            1,
+            0.1,
+            0.1
+          ],
+          "color": "#ff0084ff"
+        },
+        "/robot_description": {
+          "visible": true,
+          "displayMode": "collision",
+          "fallbackColor": "#7e7e7e"
+        },
+        "/cardinal_perception/map_cloud": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 2,
+          "flatColor": "#ffffff2b",
+          "explicitAlpha": 1
+        },
+        "/cardinal_perception/poses/gravity_estimation": {
+          "visible": true,
+          "type": "arrow"
+        },
+        "/cardinal_perception/planned_path": {
+          "visible": true,
+          "gradient": [
+            "#6c00ffff",
+            "#00ff04ff"
+          ],
+          "lineWidth": 0.075,
+          "type": "line"
+        },
+        "/gz_multiscan/lidar_scan": {
+          "visible": false
+        },
+        "/gz_lidar_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/cardinal_perception/poses/fiducial_plane_0/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/poses/fiducial_plane_1/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/poses/fiducial_plane_2/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/traversibility_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 10,
+          "maxValue": 10,
+          "minValue": 0
+        },
+        "/cardinal_perception/pplan_target": {
+          "visible": false,
+          "type": "axis",
+          "axisScale": 1
+        },
+        "/traversal_target_point": {
+          "visible": true
+        },
+        "/cardinal_perception/pplan_map": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/arena_zones": {
+          "visible": true,
+          "namespaces": {
+            "arena": {
+              "visible": true
+            },
+            "zones": {
+              "visible": false
+            }
+          }
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "8e94af83-99c8-45a3-88b7-692c81af5f64",
+          "layerId": "foxglove.Grid",
+          "size": 7,
+          "divisions": 7,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            3.5,
+            3.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "odom",
+      "foxglovePanelTitle": "Mapping"
+    },
+    "3D!q6dbn4": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 9.75349958229432,
+        "phi": 60.247991176262715,
+        "thetaOffset": -108.93858598884492,
+        "targetOffset": [
+          -0.577002236116742,
+          -0.4850010107509758,
+          -3.480629830265388e-16
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "editable": false
+        },
+        "meshUpAxis": "z_up",
+        "enableStats": false,
+        "syncCamera": true
+      },
+      "transforms": {
+        "frame:frame_link": {
+          "visible": true
+        },
+        "frame:fwd_cam_link": {
+          "visible": false
+        },
+        "frame:left_cam_link": {
+          "visible": false
+        },
+        "frame:left_track_link": {
+          "visible": true
+        },
+        "frame:lidar_link_inv_rotated": {
+          "visible": false
+        },
+        "frame:rght_cam_link": {
+          "visible": false
+        },
+        "frame:right_track_link": {
+          "visible": true
+        },
+        "frame:collection_link": {
+          "rpyCoefficient": [
+            0,
+            14.999999999999998,
+            0
+          ]
+        }
+      },
+      "topics": {
+        "/cardinal_perception/filtered_scan": {
+          "visible": false,
+          "pointSize": 3,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/multiscan/lidar_scan": {
+          "visible": false,
+          "colorField": "reflective",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 7,
+          "minValue": 0,
+          "maxValue": 1
+        },
+        "/cardinal_perception/trav_interp_points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "minValue": 0,
+          "maxValue": 1
+        },
+        "/cardinal_perception/traversability_points": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 10,
+          "explicitAlpha": 1,
+          "minValue": 0,
+          "maxValue": 10
+        },
+        "/initialpose": {
+          "visible": false
+        },
+        "/poses/gravity_estimation": {
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            1,
+            0.1,
+            0.1
+          ],
+          "color": "#ff0084ff"
+        },
+        "/robot_description": {
+          "visible": true,
+          "displayMode": "collision",
+          "fallbackColor": "#7e7e7e"
+        },
+        "/cardinal_perception/map_cloud": {
+          "visible": false,
+          "colorField": "normal_z",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 2,
+          "flatColor": "#ffffff2b",
+          "minValue": 0,
+          "maxValue": 1,
+          "explicitAlpha": 1
+        },
+        "/cardinal_perception/poses/gravity_estimation": {
+          "visible": true,
+          "type": "arrow"
+        },
+        "/cardinal_perception/planned_path": {
+          "visible": true,
+          "gradient": [
+            "#6c00ffff",
+            "#00ff04ff"
+          ],
+          "lineWidth": 0.075,
+          "type": "line"
+        },
+        "/gz_multiscan/lidar_scan": {
+          "visible": false
+        },
+        "/gz_lidar_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/cardinal_perception/poses/fiducial_plane_0/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/poses/fiducial_plane_1/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/poses/fiducial_plane_2/pose": {
+          "visible": false
+        },
+        "/cardinal_perception/traversibility_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 7,
+          "maxValue": 10,
+          "minValue": 0
+        },
+        "/cardinal_perception/pplan_target": {
+          "visible": true,
+          "type": "axis"
+        },
+        "/cardinal_perception/pplan_map": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 7,
+          "explicitAlpha": 1,
+          "minValue": 0,
+          "maxValue": 10
+        },
+        "/traversal_target_point": {
+          "visible": false
+        },
+        "/arena_zones": {
+          "visible": true
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "8e94af83-99c8-45a3-88b7-692c81af5f64",
+          "layerId": "foxglove.Grid",
+          "size": 7,
+          "divisions": 7,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            3.5,
+            3.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "odom",
+      "foxglovePanelTitle": "Traversibility"
+    },
+    "Plot!1cavv0y": {
       "paths": [
         {
           "timestampMethod": "receiveTime",
@@ -751,10 +1539,10 @@
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/profiling/tasks/mining_eval/dt.data",
+          "value": "/profiling/perception_latency.data",
           "enabled": true,
-          "color": "#cad660",
-          "id": "d20cb382-6201-4c41-89e1-73265327228b"
+          "color": "#ff00ee",
+          "id": "6937a9c5-81f3-4d43-aa84-a40de9837318"
         }
       ],
       "showXAxisLabels": true,
@@ -766,7 +1554,7 @@
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
     },
-    "Plot!1e9kfr4": {
+    "Plot!12m61er": {
       "paths": [
         {
           "timestampMethod": "receiveTime",
@@ -796,23 +1584,32 @@
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
     },
-    "CallService!f8oc69": {
+    "CallService!1yalwf5": {
       "requestPayload": "{}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/rosbag2_player/toggle_paused"
+      "serviceName": "/rosbag2_player/toggle_paused",
+      "editingMode": false,
+      "buttonText": "Toggle Paused",
+      "buttonColor": "#ffae00"
     },
-    "CallService!3675kbo": {
-      "requestPayload": "{\n  \"target\": {\n    \"header\": {\n      \"stamp\": {\n        \"sec\": 0,\n        \"nsec\": 0\n      },\n      \"frame_id\": \"map\"\n    },\n    \"pose\": {\n      \"position\": {\n        \"x\": 5.5,\n        \"y\": 1.5,\n        \"z\": 0\n      },\n      \"orientation\": {\n        \"x\": 0,\n        \"y\": 0,\n        \"z\": 0,\n        \"w\": 0\n      }\n    }\n  },\n  \"completed\": false\n}",
+    "CallService!37sete9": {
+      "requestPayload": "{\n  \"rate\": 1\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/cardinal_perception/update_path_planning"
+      "serviceName": "/rosbag2_player/set_rate",
+      "editingMode": false,
+      "buttonText": "Play 1X Speed",
+      "buttonColor": "#00ff36"
     },
-    "CallService!8ihjw": {
-      "requestPayload": "{\n  \"queries\": {\n    \"header\": {\n      \"stamp\": {\n        \"sec\": 0,\n        \"nsec\": 0\n      },\n      \"frame_id\": \"base_link\"\n    },\n    \"poses\": [\n      {\n        \"position\": {\n          \"x\": 0,\n          \"y\": 0,\n          \"z\": 0\n        },\n        \"orientation\": {\n          \"x\": 1,\n          \"y\": 0,\n          \"z\": 0,\n          \"w\": 0\n        }\n      }\n    ]\n  },\n  \"eval_width\": 0.5,\n  \"eval_height\": 0.5,\n  \"completed\": false\n}",
+    "CallService!51s1v6": {
+      "requestPayload": "{\n  \"rate\": 4\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/cardinal_perception/query_mining_eval"
+      "serviceName": "/rosbag2_player/set_rate",
+      "editingMode": false,
+      "buttonText": "Play 4X Speed",
+      "buttonColor": "#00b2ff"
     },
     "CallService!2v3amib": {
       "requestPayload": "{}",
@@ -1072,7 +1869,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/info.velocity",
-          "enabled": false,
+          "enabled": true,
           "color": "#4e98e2"
         },
         {
@@ -1084,13 +1881,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/info.output_current",
-          "enabled": false,
+          "enabled": true,
           "color": "#f7df71"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/info.bus_voltage",
-          "enabled": true,
+          "enabled": false,
           "color": "#5cd6a9"
         },
         {
@@ -1114,7 +1911,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/info.enabled",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -1144,7 +1941,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/ctrl.value",
-          "enabled": false,
+          "enabled": true,
           "color": "#a395e2"
         },
         {
@@ -1187,19 +1984,19 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.bus_voltage",
-          "enabled": true,
+          "enabled": false,
           "color": "#5cd6a9"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.supply_current",
-          "enabled": true,
+          "enabled": false,
           "color": "#61cbff"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.device_temp",
-          "enabled": true,
+          "enabled": false,
           "color": "#a395e2"
         },
         {
@@ -1211,7 +2008,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.enabled",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -1241,13 +2038,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/ctrl.value",
-          "enabled": false,
+          "enabled": true,
           "color": "#a395e2"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.position",
-          "enabled": true,
+          "enabled": false,
           "color": "#cad660"
         }
       ],
@@ -1266,7 +2063,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/info.velocity",
-          "enabled": false,
+          "enabled": true,
           "color": "#4e98e2"
         },
         {
@@ -1278,13 +2075,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/info.output_current",
-          "enabled": false,
+          "enabled": true,
           "color": "#f7df71"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/info.bus_voltage",
-          "enabled": true,
+          "enabled": false,
           "color": "#5cd6a9"
         },
         {
@@ -1308,7 +2105,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/info.enabled",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -1338,7 +2135,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/ctrl.value",
-          "enabled": false,
+          "enabled": true,
           "color": "#a395e2"
         },
         {
@@ -1363,7 +2160,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/info.velocity",
-          "enabled": false,
+          "enabled": true,
           "color": "#4e98e2"
         },
         {
@@ -1381,7 +2178,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/info.bus_voltage",
-          "enabled": true,
+          "enabled": false,
           "color": "#5cd6a9"
         },
         {
@@ -1405,7 +2202,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/info.enabled",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -1435,7 +2232,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/ctrl.value",
-          "enabled": false,
+          "enabled": true,
           "color": "#a395e2"
         },
         {
@@ -1460,7 +2257,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/info.velocity",
-          "enabled": false,
+          "enabled": true,
           "color": "#4e98e2"
         },
         {
@@ -1478,7 +2275,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/info.bus_voltage",
-          "enabled": true,
+          "enabled": false,
           "color": "#5cd6a9"
         },
         {
@@ -1502,7 +2299,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/info.enabled",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -1532,8 +2329,15 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/ctrl.value",
-          "enabled": false,
+          "enabled": true,
           "color": "#a395e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/hopper_act/info.position",
+          "enabled": true,
+          "color": "#cad660",
+          "id": "0e0df571-e612-4c7f-8e9f-f2b2cd4586ea"
         }
       ],
       "showXAxisLabels": true,
@@ -2093,13 +2897,13 @@
     "3D!3bd7eia": {
       "cameraState": {
         "perspective": true,
-        "distance": 11.376001845502708,
-        "phi": 45.2518934298488,
-        "thetaOffset": 176.40792685909926,
+        "distance": 11.376001845430551,
+        "phi": 31.422888211731465,
+        "thetaOffset": 120.65959807626653,
         "targetOffset": [
-          0.3304039677964525,
-          -0.7860278765449292,
-          3.1518017168410546e-18
+          0.5141410184818311,
+          -0.28050915256840125,
+          -2.4629330953169757e-17
         ],
         "target": [
           0,
@@ -2150,7 +2954,7 @@
           "visible": true,
           "pointSize": 3,
           "colorField": "reflective",
-          "colorMode": "gradient",
+          "colorMode": "colormap",
           "colorMap": "turbo"
         },
         "/cardinal_perception/fiducial_plane_0/points": {
@@ -2300,16 +3104,15 @@
       },
       "layers": {
         "grid": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "label": "Grid",
           "instanceId": "9d77ab9d-d03b-40f7-bed6-a03f75cc5552",
           "layerId": "foxglove.Grid",
-          "lineWidth": 1,
           "color": "#248eff",
           "position": [
-            3.5,
-            3.5,
+            0,
+            0,
             0
           ],
           "rotation": [
@@ -2317,10 +3120,11 @@
             0,
             0
           ],
-          "frameId": "map",
+          "frameId": "lidar_link",
           "drawBehind": true,
-          "size": 7,
-          "divisions": 7
+          "size": 1,
+          "divisions": 100,
+          "lineWidth": 0.5
         }
       },
       "publish": {
@@ -2333,7 +3137,7 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "base_link"
+      "followTf": "map"
     },
     "Plot!45jce6e": {
       "paths": [
@@ -2479,9 +3283,9 @@
     "3D!3vxc2ba": {
       "cameraState": {
         "perspective": true,
-        "distance": 18.999999999893493,
-        "phi": 41.173674527375475,
-        "thetaOffset": -39.0799551686567,
+        "distance": 21.05263157882629,
+        "phi": 20.321885770988434,
+        "thetaOffset": -48.27927373765629,
         "targetOffset": [
           -0.23078536049816473,
           1.0457489643157172,
@@ -3151,16 +3955,29 @@
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
     },
+    "StateTransitions!3xjnsj6": {
+      "paths": [
+        {
+          "value": "/lance/op_status.data",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
+        }
+      ],
+      "isSynced": true
+    },
     "3D!vf6rg": {
       "cameraState": {
         "perspective": true,
-        "distance": 11.376001841594663,
-        "phi": 33.44268024914718,
-        "thetaOffset": -105.5850543230025,
+        "distance": 13.268408620583642,
+        "phi": 5.7022748400860355,
+        "thetaOffset": -64.38048137708314,
         "targetOffset": [
-          -0.362089257665363,
-          2.331698324650834,
-          -7.907252040296909e-16
+          -0.1879494521028085,
+          -0.45433036332244514,
+          -3.011580000719617e-16
         ],
         "target": [
           0,
@@ -3226,7 +4043,7 @@
           "colorMap": "turbo"
         },
         "/multiscan/lidar_scan": {
-          "visible": false,
+          "visible": true,
           "colorField": "reflective",
           "colorMode": "colormap",
           "colorMap": "turbo",
@@ -3338,20 +4155,22 @@
           "label": "Grid",
           "instanceId": "8e94af83-99c8-45a3-88b7-692c81af5f64",
           "layerId": "foxglove.Grid",
-          "size": 7,
-          "divisions": 7,
           "lineWidth": 1,
           "color": "#248eff",
           "position": [
-            3.5,
-            3.5,
+            20,
+            20,
             0
           ],
           "rotation": [
             0,
             0,
             0
-          ]
+          ],
+          "frameId": "map",
+          "size": 40,
+          "divisions": 40,
+          "drawBehind": true
         }
       },
       "publish": {
@@ -3369,13 +4188,13 @@
     "3D!48fih02": {
       "cameraState": {
         "perspective": true,
-        "distance": 11.376001841594663,
-        "phi": 33.44268024914718,
-        "thetaOffset": -105.5850543230025,
+        "distance": 13.268408620583642,
+        "phi": 5.7022748400860355,
+        "thetaOffset": -64.38048137708314,
         "targetOffset": [
-          -0.362089257665363,
-          2.331698324650834,
-          -7.907252040296909e-16
+          -0.1879494521028085,
+          -0.45433036332244514,
+          -3.011580000719617e-16
         ],
         "target": [
           0,
@@ -3640,13 +4459,13 @@
     "3D!3arw002": {
       "cameraState": {
         "perspective": true,
-        "distance": 11.376001841594663,
-        "phi": 33.44268024914718,
-        "thetaOffset": -105.5850543230025,
+        "distance": 13.268408620583642,
+        "phi": 5.7022748400860355,
+        "thetaOffset": -64.38048137708314,
         "targetOffset": [
-          -0.362089257665363,
-          2.331698324650834,
-          -7.907252040296909e-16
+          -0.1879494521028085,
+          -0.45433036332244514,
+          -3.011580000719617e-16
         ],
         "target": [
           0,
@@ -3808,10 +4627,17 @@
         },
         "/cardinal_perception/pplan_target": {
           "visible": false,
-          "type": "axis"
+          "type": "axis",
+          "axisScale": 1
         },
         "/traversal_target_point": {
           "visible": true
+        },
+        "/cardinal_perception/pplan_map": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
         }
       },
       "layers": {
@@ -3852,13 +4678,13 @@
     "3D!21u9evc": {
       "cameraState": {
         "perspective": true,
-        "distance": 11.376001841594663,
-        "phi": 33.44268024914718,
-        "thetaOffset": -105.5850543230025,
+        "distance": 13.268408620583642,
+        "phi": 5.7022748400860355,
+        "thetaOffset": -64.38048137708314,
         "targetOffset": [
-          -0.362089257665363,
-          2.331698324650834,
-          -7.907252040296909e-16
+          -0.1879494521028085,
+          -0.45433036332244514,
+          -3.011580000719617e-16
         ],
         "target": [
           0,
@@ -4241,13 +5067,27 @@
           "value": "/cardinal_perception/process_stats.mem_usage_mb",
           "enabled": true,
           "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/multiscan_driver/process_stats.cpu_percent",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "ecd10f28-15cf-4706-8660-3b6f6a82e4a1"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/multiscan_driver/process_stats.mem_usage_mb",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "id": "182ab259-fe29-45e1-916f-0faa3a598d10"
         }
       ],
       "showXAxisLabels": true,
       "showYAxisLabels": true,
       "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": false,
+      "showPlotValuesInLegend": true,
       "isSynced": true,
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
@@ -4449,13 +5289,34 @@
           "value": "/multiscan/imu.header.stamp",
           "enabled": true,
           "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/clock.clock.sec",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "005f515a-c7af-46f1-813c-1ec757b3809a"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/clock_debug.data",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "id": "8bb5a88f-12dd-4e97-bfd6-1187853a7111"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/tf.transforms[:]{child_frame_id==\"base_link\"}.header.stamp.sec",
+          "enabled": true,
+          "color": "#61cbff",
+          "id": "92194b64-600c-4aaf-bf41-4609133c07ce"
         }
       ],
       "showXAxisLabels": true,
       "showYAxisLabels": true,
-      "showLegend": false,
+      "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": false,
+      "showPlotValuesInLegend": true,
       "isSynced": true,
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
@@ -4528,13 +5389,180 @@
       "showYAxisLabels": true,
       "showLegend": true,
       "legendDisplay": "floating",
-      "showPlotValuesInLegend": false,
+      "showPlotValuesInLegend": true,
       "isSynced": true,
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
     },
+    "3D!2u55iff": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 10.266841665487153,
+        "phi": 30.356196638968804,
+        "thetaOffset": -110.56948297391449,
+        "targetOffset": [
+          -0.26353530841259437,
+          0.3600878037176087,
+          -2.9674205012606253e-16
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "visible": false
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/redux/lidar_scan": {
+          "visible": true,
+          "colorField": "_auto_distance",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 5,
+          "flatColor": "#80ed90ff"
+        },
+        "/multiscan/lidar_scan": {
+          "visible": true,
+          "colorField": "reflective",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 6
+        },
+        "/cloud_all_fields_fullframe": {
+          "visible": true,
+          "colorField": "ts",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/cardinal_perception/map_cloud": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/filtered_cloud": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "label": "Grid",
+          "instanceId": "92bb26ac-a878-4d3a-be9f-297330a4c45b",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "odom"
+    },
+    "RawMessages!12yqxje": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/multiscan/imu",
+      "fontSize": 12
+    },
+    "RawMessages!2ndbo1f": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/redux/imu",
+      "fontSize": 12
+    },
+    "RawMessages!16olyp8": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/multiscan/lidar_scan",
+      "fontSize": 12,
+      "expansion": {
+        "header": "e",
+        "stamp~header": "e",
+        "fields": "c",
+        "0~fields": "e",
+        "1~fields": "e",
+        "2~fields": "e",
+        "3~fields": "e",
+        "4~fields": "e",
+        "5~fields": "e",
+        "6~fields": "e",
+        "7~fields": "e",
+        "8~fields": "e",
+        "9~fields": "e",
+        "10~fields": "e",
+        "11~fields": "e",
+        "12~fields": "e",
+        "data": "e"
+      }
+    },
+    "RawMessages!q8q0es": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/redux/lidar_scan",
+      "fontSize": 12,
+      "expansion": {
+        "header": "e",
+        "stamp~header": "e",
+        "fields": "c",
+        "0~fields": "e",
+        "1~fields": "e",
+        "2~fields": "e",
+        "3~fields": "e",
+        "data": "e"
+      }
+    },
+    "RawMessages!432nadh": {
+      "topicPath": "/lance/hopper_act/faults"
+    },
     "Tab!1nwcji4": {
-      "activeTabIdx": 11,
+      "activeTabIdx": 1,
       "tabs": [
         {
           "title": "Info Dashboard",
@@ -4604,14 +5632,27 @@
           "layout": {
             "first": {
               "first": {
-                "first": "CallService!1gvldsh",
+                "first": "CallService!3803max",
                 "second": {
-                  "first": "CallService!3vavkl6",
+                  "first": "CallService!1oawlhn",
                   "second": {
-                    "first": "CallService!3gyep2l",
+                    "first": "CallService!2bjoo7d",
                     "second": {
-                      "first": "Indicator!2tgedv2",
-                      "second": "RawMessages!3o67d49",
+                      "first": {
+                        "first": "Indicator!wijq4n",
+                        "second": "Indicator!41hamdc",
+                        "direction": "column"
+                      },
+                      "second": {
+                        "first": {
+                          "first": "Bar Display.Bar Display!44w8b0o",
+                          "second": "Bar Display.Bar Display!1fnw7fc",
+                          "direction": "row"
+                        },
+                        "second": "StateTransitions!wlff2j",
+                        "direction": "column",
+                        "splitPercentage": 76.38564505419578
+                      },
                       "direction": "column",
                       "splitPercentage": 29.794149512459366
                     },
@@ -4622,35 +5663,50 @@
                   "splitPercentage": 7.801418439716312
                 },
                 "direction": "column",
-                "splitPercentage": 7.101024890190337
+                "splitPercentage": 6.419675889739983
               },
-              "second": "3D!3o2i4gc",
-              "direction": "row",
-              "splitPercentage": 16.408469376159996
-            },
-            "second": {
-              "first": "Plot!4kazw24",
               "second": {
-                "first": "Plot!1e9kfr4",
-                "second": {
-                  "first": "CallService!f8oc69",
-                  "second": {
-                    "first": "CallService!3675kbo",
-                    "second": "CallService!8ihjw",
-                    "direction": "column",
-                    "splitPercentage": 32.413793103448256
-                  },
+                "first": {
+                  "first": "3D!18yg16o",
+                  "second": "3D!3qwg4qu",
                   "direction": "row",
-                  "splitPercentage": 33.74387787913143
+                  "splitPercentage": 50.133398693232024
+                },
+                "second": {
+                  "first": "3D!hllzd3",
+                  "second": "3D!q6dbn4",
+                  "direction": "row",
+                  "splitPercentage": 50.169518637246114
                 },
                 "direction": "column",
-                "splitPercentage": 34.389140271493204
+                "splitPercentage": 43.009495982468955
+              },
+              "direction": "row",
+              "splitPercentage": 13.839287004386533
+            },
+            "second": {
+              "first": "Plot!1cavv0y",
+              "second": {
+                "first": "Plot!12m61er",
+                "second": {
+                  "first": "CallService!1yalwf5",
+                  "second": {
+                    "first": "CallService!37sete9",
+                    "second": "CallService!51s1v6",
+                    "direction": "column",
+                    "splitPercentage": 40.74305990398662
+                  },
+                  "direction": "column",
+                  "splitPercentage": 29.781620987835254
+                },
+                "direction": "column",
+                "splitPercentage": 51.7393215644408
               },
               "direction": "column",
               "splitPercentage": 31.15264797507788
             },
             "direction": "row",
-            "splitPercentage": 74.77054269364551
+            "splitPercentage": 82.39656518345043
           }
         },
         {
@@ -4832,7 +5888,12 @@
                     "first": "CallService!mbgqob",
                     "second": {
                       "first": "Indicator!1frn35q",
-                      "second": "Plot!3u5p8ya",
+                      "second": {
+                        "first": "Plot!3u5p8ya",
+                        "second": "StateTransitions!3xjnsj6",
+                        "direction": "column",
+                        "splitPercentage": 76.38564505419578
+                      },
                       "direction": "column",
                       "splitPercentage": 29.794149512459366
                     },
@@ -4843,7 +5904,7 @@
                   "splitPercentage": 7.801418439716312
                 },
                 "direction": "column",
-                "splitPercentage": 6.72412564997507
+                "splitPercentage": 6.419675889739983
               },
               "second": {
                 "first": {
@@ -4854,13 +5915,14 @@
                 "second": {
                   "first": "3D!3arw002",
                   "second": "3D!21u9evc",
-                  "direction": "row"
+                  "direction": "row",
+                  "splitPercentage": 64.03440606935919
                 },
                 "direction": "column",
-                "splitPercentage": 38.23099415204678
+                "splitPercentage": 23.686389091794496
               },
               "direction": "row",
-              "splitPercentage": 19.44932630345636
+              "splitPercentage": 16.627190904784463
             },
             "second": {
               "first": "Plot!1g85zgv",
@@ -4879,7 +5941,7 @@
               "splitPercentage": 31.15264797507788
             },
             "direction": "row",
-            "splitPercentage": 78.6273606632888
+            "splitPercentage": 82.39656518345043
           }
         },
         {
@@ -4915,6 +5977,30 @@
         {
           "title": "Motor Debug Plot",
           "layout": "Plot!1xm34r2"
+        },
+        {
+          "title": "",
+          "layout": {
+            "first": "3D!2u55iff",
+            "second": {
+              "first": {
+                "first": "RawMessages!12yqxje",
+                "second": "RawMessages!2ndbo1f",
+                "direction": "row"
+              },
+              "second": {
+                "first": "RawMessages!16olyp8",
+                "second": "RawMessages!q8q0es",
+                "direction": "row"
+              },
+              "direction": "column"
+            },
+            "direction": "row"
+          }
+        },
+        {
+          "title": "",
+          "layout": "RawMessages!432nadh"
         }
       ]
     }
