@@ -128,6 +128,18 @@ void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
 
     this->state = State::INITIALIZATION;
 }
+void TraversalController::initializePoint(
+    const PointStampedMsg& dest,
+    const Vec2f& dir)
+{
+    this->last_path = nullptr;
+    this->arena_dest_direction = dir.normalized();
+    this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
+                                                     : DestinationType::POINT;
+    this->initPlanningService(dest);
+
+    this->state = State::INITIALIZATION;
+}
 void TraversalController::initializeZone(
     const Vec2f& dest_min,
     const Vec2f& dest_max)
@@ -209,14 +221,25 @@ void TraversalController::iterate(
     }
 }
 
-void TraversalController::initPlanningService(const Vec3f& dest)
+void TraversalController::initPlanningService(const Vec3f& arena_dest)
 {
     auto req = std::make_shared<UpdatePathPlanSrv::Request>();
     req->target.header.frame_id = this->params.arena_frame_id;
     req->target.header.stamp = util::toTimeMsg(system_clock::now());
-    req->target.pose.position.x = dest.x();
-    req->target.pose.position.y = dest.y();
-    req->target.pose.position.z = dest.z();
+    req->target.pose.position.x = arena_dest.x();
+    req->target.pose.position.y = arena_dest.y();
+    req->target.pose.position.z = arena_dest.z();
+    req->completed = false;
+
+    this->pplan_control_client->async_send_request(
+        req,
+        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void TraversalController::initPlanningService(const PointStampedMsg& dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header = dest.header;
+    req->target.pose.position = dest.point;
     req->completed = false;
 
     this->pplan_control_client->async_send_request(
@@ -383,7 +406,8 @@ bool TraversalController::iterateTraversal(
         float Vb = std::numeric_limits<float>::infinity();
         {
             const float max_target_vel = std::min(V_max, V_prev + Vd_max);
-            const float max_decell_dist = kmx::decellDist(max_target_vel, A_max);
+            const float max_decell_dist =
+                kmx::decellDist(max_target_vel, A_max);
             Vec2f pt_a = Vec2f::Zero();
             float sum_dist = 0.f;
             for (size_t i = (seg_proj_t < 0.f ? seg_beg_idx : seg_end_idx);
@@ -450,8 +474,7 @@ bool TraversalController::iterateTraversal(
         const float theta_S = std::atan2(Sd.y(), Sd.x());
         // stanley crosstrack error angular coeff (angular velocity)
         const float theta_E =
-            std::atan(K1 * M.norm() / Vd) *
-            (std::signbit(M.y()) ? -1.f : 1.f);
+            std::atan(K1 * M.norm() / Vd) * (std::signbit(M.y()) ? -1.f : 1.f);
         // stanley controller output angular velocity
         const float Wa = (theta_S + theta_E);
         // proportional controller output angular velocity

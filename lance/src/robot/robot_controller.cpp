@@ -62,16 +62,16 @@ inline constexpr int transition_v = encodeTransition(FromV, ToV);
 RobotController::RobotController(RclNode& node, GenericPubMap& pub_map) :
     pub_map{pub_map},
     params{node},
-    auto_controller{
+    tf_buffer{node.get_clock()},
+    tf_listener{tf_buffer, &node},
+    shared_controllers{
         node,
         pub_map,
         params,
-        this->collection_state.getHopperState()},
-    teleop_controller{
-        node,
-        pub_map,
-        params,
-        this->collection_state.getHopperState()}
+        collection_state.getHopperState(),
+        tf_buffer},
+    auto_controller{node, pub_map, params, shared_controllers},
+    teleop_controller{node, pub_map, params, shared_controllers}
 {
     this->collection_state.setParams(
         this->params.collection_model_initial_volume_liters,
@@ -86,9 +86,11 @@ const HopperState& RobotController::hopperState() const
     return this->collection_state.getHopperState();
 }
 
-const RobotParams& RobotController::getParams() const
+const RobotParams& RobotController::getParams() const { return this->params; }
+
+const RobotController::Tf2Buffer& RobotController::getTfBuffer() const
 {
-    return this->params;
+    return this->tf_buffer;
 }
 
 void RobotController::iterate(

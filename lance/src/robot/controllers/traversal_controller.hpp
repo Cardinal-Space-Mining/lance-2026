@@ -50,6 +50,8 @@
 
 #include <nav_msgs/msg/path.hpp>
 
+#include <geometry_msgs/msg/point_stamped.hpp>
+
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
 
 #include "../robot_params.hpp"
@@ -63,6 +65,7 @@ class TraversalController
     using RclNode = rclcpp::Node;
     using Tf2Buffer = tf2_ros::Buffer;
     using PathMsg = nav_msgs::msg::Path;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
@@ -88,6 +91,9 @@ public:
 public:
     void initializePoint(
         const Vec2f& dest,
+        const Vec2f& dest_direction = Vec2f::Zero());
+    void initializePoint(
+        const PointStampedMsg& dest,
         const Vec2f& dest_direction = Vec2f::Zero());
     void initializeZone(const Vec2f& dest_min, const Vec2f& dest_max);
 
@@ -115,6 +121,7 @@ protected:
 
 protected:
     void initPlanningService(const Vec3f&);
+    void initPlanningService(const PointStampedMsg&);
     void stopPlanningService();
 
     bool iterateTraversal(
