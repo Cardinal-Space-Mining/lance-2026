@@ -43,26 +43,16 @@
 
 #include <sensor_msgs/msg/joy.hpp>
 
+#include "filtering.hpp"
 #include "base_adapter.hpp"
 
 
-class JoyAdapterSubState
+class JoyAdapterSubState : public FrequencyFilter
 {
     friend class JoyAdapter;
 
-    using system_clock = std::chrono::system_clock;
-    using system_time = system_clock::time_point;
-
 public:
-    JoyAdapterSubState(rclcpp::Node& n);
-
-protected:
-    bool freqFilterStatus();
-
-protected:
-    float max_pub_freq{0.f};
-
-    system_time prev_msg_time{};
+    JoyAdapterSubState(rclcpp::Node&);
 };
 
 class JoyAdapter :

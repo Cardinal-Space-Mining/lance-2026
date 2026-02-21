@@ -44,7 +44,9 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/string.hpp>
+
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "ros_utils.hpp"
@@ -53,7 +55,6 @@
 #include "adapters/joy_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
 #include "adapters/generic_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
 #include "adapters/path_adapter.hpp"
@@ -68,6 +69,7 @@ using namespace util;
 class RobotEndpointNode : public rclcpp::Node
 {
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
+    using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
     using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
@@ -84,7 +86,7 @@ public:
                 DEFAULT_CLIENT_IP_ADDRESS)))},
 
         joy_pub{JoyAdapter::createPublisher(*this, zsh, "/joy")},
-        watchdog_pub{WatchdogAdapter::createPublisher(
+        watchdog_pub{StdInt32Adapter::createPublisher(
             *this,
             zsh,
             "lance/watchdog_status")},
@@ -121,7 +123,7 @@ private:
     Session zsh;
 
     JoyAdapter::Publisher joy_pub;
-    WatchdogAdapter::Publisher watchdog_pub;
+    StdInt32Adapter::Publisher watchdog_pub;
     PointStampedAdapter::Publisher clicked_point_pub;
 
     MS136ImuAdapter::Subscriber imu_sub;

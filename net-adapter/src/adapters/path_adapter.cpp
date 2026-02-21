@@ -42,18 +42,41 @@
 #include <std_msgs/msg/header.hpp>
 
 #include "mem_helpers.hpp"
+#include "../ros_utils.hpp"
 
-// todo parametrize this?
-#define FRAME_ID "odom"
 
 using namespace util;
 
 
+PathAdapterPubState::PathAdapterPubState(rclcpp::Node& node) :
+    path_frame_id{
+        declare_and_get_param<std::string>(node, "path_frame_id", "odom")}
+{
+}
+
+
+PathAdapterSubState::PathAdapterSubState(rclcpp::Node& node) :
+    FrequencyFilter{declare_and_get_param(node, "max_path_pub_freq", 1.f)}
+{
+}
+
+
 PathAdapter::PathAdapter(rclcpp::Node& node) : BaseT(node) {}
 
-bool PathAdapter::serializeMsg(ByteBuffer& bytes, const MsgT& msg, SubStateT&)
+bool PathAdapter::serializeMsg(
+    ByteBuffer& bytes,
+    const MsgT& msg,
+    SubStateT& state)
 {
-    bytes.resize(sizeof(float) * 3 * msg.poses.size());
+    if (!state.freqFilterStatus())
+    {
+        return false;
+    }
+
+    bytes.resize(
+        sizeof(decltype(msg.header.stamp.sec)) +      //
+        sizeof(decltype(msg.header.stamp.nanosec)) +  //
+        msg.poses.size() * (sizeof(float) * 3));
 
     uint8_t* ptr = bytes.data();
 
@@ -70,35 +93,31 @@ bool PathAdapter::serializeMsg(ByteBuffer& bytes, const MsgT& msg, SubStateT&)
     return true;
 }
 
-bool PathAdapter::deserializeMsg(MsgT& msg, const ByteBuffer& bytes, PubStateT&)
+bool PathAdapter::deserializeMsg(
+    MsgT& msg,
+    const ByteBuffer& bytes,
+    PubStateT& state)
 {
-    if (bytes.size() % (sizeof(float) * 3) != 0)
-    {
-        return false;
-    }
+    constexpr size_t STAMP_SIZE =
+        (sizeof(decltype(msg.header.stamp.sec)) +
+         sizeof(decltype(msg.header.stamp.nanosec)));
+    constexpr size_t PT_SIZE = (3 * sizeof(float));
 
     const uint8_t* ptr = bytes.data();
-    std_msgs::msg::Header header;
 
-    msg.header.frame_id = FRAME_ID;
+    msg.header.frame_id = state.path_frame_id;
     readAndIncrement(ptr, msg.header.stamp.sec);
     readAndIncrement(ptr, msg.header.stamp.nanosec);
 
     msg.poses.clear();
-
-    msg.header = header;
-
-    size_t numPoses = bytes.size() / (sizeof(float) * 3);
-    msg.poses.reserve(numPoses);
-
-    for (size_t i = 0; i < numPoses; ++i)
+    msg.poses.reserve((bytes.size() - STAMP_SIZE) / PT_SIZE);
+    while (ptr + PT_SIZE <= bytes.end().base())
     {
-        geometry_msgs::msg::PoseStamped pose;
-        readAsAndIncrement<float>(ptr, pose.pose.position.x);
-        readAsAndIncrement<float>(ptr, pose.pose.position.y);
-        readAsAndIncrement<float>(ptr, pose.pose.position.z);
-        pose.header = header;
-        msg.poses.push_back(pose);
+        auto& kp = msg.poses.emplace_back();
+        kp.header = msg.header;
+        readAsAndIncrement<float>(ptr, kp.pose.position.x);
+        readAsAndIncrement<float>(ptr, kp.pose.position.y);
+        readAsAndIncrement<float>(ptr, kp.pose.position.z);
     }
 
     return true;

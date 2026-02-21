@@ -52,7 +52,7 @@ class MS136ImuAdapterPubState
     friend class MS136ImuAdapter;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node& n);
+    MS136ImuAdapterPubState(rclcpp::Node&);
 
 protected:
     const std::string lidar_frame_id;

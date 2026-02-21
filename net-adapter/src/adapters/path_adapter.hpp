@@ -43,10 +43,35 @@
 
 #include <nav_msgs/msg/path.hpp>
 
+#include "filtering.hpp"
 #include "base_adapter.hpp"
 
 
-class PathAdapter : public BaseAdapter<nav_msgs::msg::Path, PathAdapter>
+class PathAdapterPubState
+{
+    friend class PathAdapter;
+
+public:
+    PathAdapterPubState(rclcpp::Node&);
+
+protected:
+    const std::string path_frame_id;
+};
+
+class PathAdapterSubState : public FrequencyFilter
+{
+    friend class PathAdapter;
+
+public:
+    PathAdapterSubState(rclcpp::Node&);
+};
+
+class PathAdapter :
+    public BaseAdapter<
+        nav_msgs::msg::Path,
+        PathAdapter,
+        PathAdapterPubState,
+        PathAdapterSubState>
 {
     friend BaseT;
 

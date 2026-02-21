@@ -80,25 +80,9 @@ static inline float dequantizeAxisVal(int16_t v)
 }
 
 
-JoyAdapterSubState::JoyAdapterSubState(rclcpp::Node& node)
+JoyAdapterSubState::JoyAdapterSubState(rclcpp::Node& node) :
+    FrequencyFilter{declare_and_get_param(node, "max_joy_pub_freq", 100.f)}
 {
-    declare_param(node, "max_joy_pub_freq", this->max_pub_freq, 100.f);
-}
-
-bool JoyAdapterSubState::freqFilterStatus()
-{
-    const system_time t = system_clock::now();
-    const auto d = std::chrono::duration_cast<std::chrono::milliseconds>(
-        t - this->prev_msg_time);
-    const auto f = std::chrono::milliseconds(
-        static_cast<int64_t>(1000.f / this->max_pub_freq));
-
-    if (d >= f)
-    {
-        this->prev_msg_time = t;
-        return true;
-    }
-    return false;
 }
 
 

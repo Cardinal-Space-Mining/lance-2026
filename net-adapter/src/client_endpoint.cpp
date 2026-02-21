@@ -44,7 +44,9 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/string.hpp>
+
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "ros_utils.hpp"
@@ -53,7 +55,6 @@
 #include "adapters/joy_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
 #include "adapters/generic_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
 #include "adapters/path_adapter.hpp"
@@ -68,6 +69,7 @@ using namespace util;
 class ClientEndpointNode : public rclcpp::Node
 {
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
+    using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
     using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
@@ -103,7 +105,7 @@ public:
             "cardinal_perception/planned_path")},
 
         joy_sub{JoyAdapter::createSubscriber(*this, zsh, "/joy")},
-        watchdog_sub{WatchdogAdapter::createSubscriber(
+        watchdog_sub{StdInt32Adapter::createSubscriber(
             *this,
             zsh,
             "lance/watchdog_status")},
@@ -126,7 +128,7 @@ private:
     PathAdapter::Publisher path_pub;
 
     JoyAdapter::Subscriber joy_sub;
-    WatchdogAdapter::Subscriber watchdog_sub;
+    StdInt32Adapter::Subscriber watchdog_sub;
     PointStampedAdapter::Subscriber clicked_point_sub;
 
     StdInt8Adapter::Publisher relay_status_pub;
