@@ -28,7 +28,7 @@ except Exception as e:
     HAVE_SIM_UTILS = False
 
 PKG_PATH = get_package_share_directory('lance')
-DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'lance.json')
+DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'launch.json')
 
 
 def find_arduino():
@@ -125,6 +125,13 @@ def get_redux_action(config):
     print(f'Invalid redux value for target key : {target}')
     return None
 
+def get_zone_viz_action(config):
+    return NodeAction(config).format_node(
+        package = 'lance',
+        executable = 'zone_visualizer',
+        output = 'screen'
+    )
+
 def get_robot_actions(config, launch_args = {}):
     a = []
     if 'multiscan_driver' in config:
@@ -141,6 +148,8 @@ def get_robot_actions(config, launch_args = {}):
         a.append(get_watchdog_action(config['robot_status']))
     if 'redux' in config:
         a.append(get_redux_action(config['redux']))
+    if 'zone_viz' in config:
+        a.append(get_zone_viz_action(config['zone_viz']))
     return a
 
 
@@ -161,6 +170,10 @@ def launch(context, *args, **kwargs):
 
     if HAVE_SIM_UTILS:
         actions.extend(get_sim_actions(config))
+    else:
+        print("Failed to load 'csm-sim' launch utils! " +
+              "The simulation package can be cloned from " +
+              "https://gitlab.com/csm2.0/csm-sim if not already done!")
 
     return actions
 

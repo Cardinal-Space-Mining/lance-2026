@@ -1,0 +1,53 @@
+{
+    "multiscan_driver":
+    {
+        "pragma:default": null,
+
+        "net1":
+        {
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "lidar_scan": "${ topic.lidar_scan }",
+                    "lidar_imu": "${ topic.lidar_imu }"
+                }
+            },
+
+            "lidar_frame": "${ id.lidar_frame }",
+            "lidar_hostname": "${ ip.net1.lidar }",
+            "lidar_udp_port": 2115,
+            "sopas_tcp_port": 2111,
+            "use_msgpack": false,
+            "use_cola_binary": false,
+            "udp_reset_timeout": 2.0,
+            "udp_receive_timeout": 1.0,
+            "sopas_read_timeout": 3.0,
+            "error_restart_timeout": 3.0,
+            "max_segment_buffers": 3,
+            "echo_selection": 3
+        },
+        "net2":
+        {
+            "pragma:derived": "net1",
+            "lidar_hostname": "${ ip.net2.lidar }"
+        },
+
+        "net1_debug":
+        {
+            "pragma:derived": "net1",
+            "pragma:node_options":
+            {
+                "prefix": ["xterm -e gdb -ex run --args"]
+            }
+        },
+        "net2_debug":
+        {
+            "pragma:derived": "net2",
+            "pragma:node_options":
+            {
+                "prefix": ["xterm -e gdb -ex run --args"]
+            }
+        }
+    }
+}
