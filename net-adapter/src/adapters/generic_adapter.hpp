@@ -106,14 +106,11 @@ bool GenericAdapter<M>::deserializeMsg(
     const ByteBuffer& bytes,
     PubStateT& state)
 {
-    rclcpp::SerializedMessage serialized_msg;
-    serialized_msg.reserve(bytes.size());
-    std::memcpy(
-        serialized_msg.get_rcl_serialized_message().buffer,
-        bytes.data(),
-        bytes.size());
+    rclcpp::SerializedMessage serialized_msg(bytes.size());
 
-    serialized_msg.get_rcl_serialized_message().buffer_length = bytes.size();
+    auto& rcl_msg = serialized_msg.get_rcl_serialized_message();
+    std::memcpy(rcl_msg.buffer, bytes.data(), bytes.size());
+    rcl_msg.buffer_length = bytes.size();
 
     try
     {

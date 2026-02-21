@@ -44,7 +44,10 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/string.hpp>
+
+#include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "ros_utils.hpp"
 #include "zenoh_utils.hpp"
@@ -52,9 +55,9 @@
 #include "adapters/joy_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
 #include "adapters/generic_adapter.hpp"
-#include "adapters/watchdog_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
+#include "adapters/path_adapter.hpp"
 
 
 #define DEFAULT_CLIENT_IP_ADDRESS "10.11.11.8"
@@ -66,7 +69,10 @@ using namespace util;
 class RobotEndpointNode : public rclcpp::Node
 {
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
+    using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
     using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
+    using PointStampedAdapter =
+        GenericAdapter<geometry_msgs::msg::PointStamped>;
 
 public:
     RobotEndpointNode() :
@@ -80,10 +86,12 @@ public:
                 DEFAULT_CLIENT_IP_ADDRESS)))},
 
         joy_pub{JoyAdapter::createPublisher(*this, zsh, "/joy")},
-        watchdog_pub{WatchdogAdapter::createPublisher(
+        watchdog_pub{StdInt32Adapter::createPublisher(
             *this,
             zsh,
             "lance/watchdog_status")},
+        clicked_point_pub{
+            PointStampedAdapter::createPublisher(*this, zsh, "clicked_point")},
 
         imu_sub{MS136ImuAdapter::createSubscriber(*this, zsh, "multiscan/imu")},
         scan_sub{MS136ScanAdapter::createSubscriber(
@@ -99,6 +107,10 @@ public:
              "lance/trencher",
              "lance/hopper_belt",
              "lance/hopper_act"}},
+        path_sub{PathAdapter::createSubscriber(
+            *this,
+            zsh,
+            "cardinal_perception/planned_path")},
 
         relay_status_sub{
             StdInt8Adapter::createSubscriber(*this, zsh, "lance/relay_status")},
@@ -111,11 +123,13 @@ private:
     Session zsh;
 
     JoyAdapter::Publisher joy_pub;
-    WatchdogAdapter::Publisher watchdog_pub;
+    StdInt32Adapter::Publisher watchdog_pub;
+    PointStampedAdapter::Publisher clicked_point_pub;
 
     MS136ImuAdapter::Subscriber imu_sub;
     MS136ScanAdapter::Subscriber scan_sub;
     TalonFeedback::SubscriberGroup talon_subs;
+    PathAdapter::Subscriber path_sub;
 
     StdInt8Adapter::Subscriber relay_status_sub;
     StdStringAdapter::Subscriber op_status_sub;

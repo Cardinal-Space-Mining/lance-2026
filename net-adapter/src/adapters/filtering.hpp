@@ -37,41 +37,38 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "watchdog_adapter.hpp"
+#pragma once
 
-#include "mem_helpers.hpp"
-
-
-using namespace util;
+#include <chrono>
 
 
-WatchdogAdapter::WatchdogAdapter(rclcpp::Node& node) : BaseT(node) {}
-
-bool WatchdogAdapter::serializeMsg(
-    ByteBuffer& bytes,
-    const MsgT& msg,
-    SubStateT&)
+class FrequencyFilter
 {
-    bytes.resize(sizeof(int32_t));
+    using steady_clock = std::chrono::steady_clock;
+    using time_point = steady_clock::time_point;
 
-    uint8_t* ptr = bytes.data();
-    writeAndIncrement(ptr, msg.data);
+public:
+    inline FrequencyFilter(float max_freq) : max_freq{max_freq} {}
 
-    return true;
-}
-
-bool WatchdogAdapter::deserializeMsg(
-    MsgT& msg,
-    const ByteBuffer& bytes,
-    PubStateT&)
-{
-    if (bytes.size() != sizeof(int32_t))
+public:
+    inline bool freqFilterStatus()
     {
+        const time_point t = steady_clock::now();
+        const auto d = std::chrono::duration_cast<std::chrono::milliseconds>(
+            t - this->prev_time);
+        const auto f = std::chrono::milliseconds(
+            static_cast<int64_t>(1000.f / this->max_freq));
+
+        if (d >= f)
+        {
+            this->prev_time = t;
+            return true;
+        }
         return false;
     }
 
-    const uint8_t* ptr = bytes.data();
-    readAndIncrement(ptr, msg.data);
+protected:
+    const float max_freq;
 
-    return true;
-}
+    time_point prev_time{};
+};

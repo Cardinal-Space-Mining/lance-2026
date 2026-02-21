@@ -39,19 +39,46 @@
 
 #pragma once
 
-#include <std_msgs/msg/int32.hpp>
+#include <chrono>
 
+#include <nav_msgs/msg/path.hpp>
+
+#include "filtering.hpp"
 #include "base_adapter.hpp"
 
 
-class WatchdogAdapter :
-    public BaseAdapter<std_msgs::msg::Int32, WatchdogAdapter>
+class PathAdapterPubState
+{
+    friend class PathAdapter;
+
+public:
+    PathAdapterPubState(rclcpp::Node&);
+
+protected:
+    const std::string path_frame_id;
+};
+
+class PathAdapterSubState : public FrequencyFilter
+{
+    friend class PathAdapter;
+
+public:
+    PathAdapterSubState(rclcpp::Node&);
+};
+
+class PathAdapter :
+    public BaseAdapter<
+        nav_msgs::msg::Path,
+        PathAdapter,
+        PathAdapterPubState,
+        PathAdapterSubState>
 {
     friend BaseT;
 
 protected:
-    WatchdogAdapter(rclcpp::Node&);
+    PathAdapter(rclcpp::Node&);
 
+protected:
     static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
     static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
 };

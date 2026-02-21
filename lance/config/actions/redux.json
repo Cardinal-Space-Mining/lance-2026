@@ -6,7 +6,8 @@
         "robot":
         {
             "target": "robot",
-            "client_hostname": "${ ip.net1.client1 }"
+            "client_hostname": "${ ip.net1.client1 }",
+            "max_path_pub_freq": 1.0
         },
 
         "client_panda":
@@ -14,12 +15,14 @@
             "target": "client",
             "robot_hostname": "${ ip.net1.mochapanda }",
             "lidar_frame_id": "${ id.lidar_frame }",
+            "path_frame_id": "${ id.odom_frame }",
             "max_joy_pub_freq": 100.0,
             "pragma:node_options":
             {
                 "remappings":
                 {
-                    "lance/op_status": "lance/robot_op_status"
+                    "lance/op_status": "lance/robot_op_status",
+                    "cardinal_perception/planned_path": "cardinal_perception/robot_planned_path"
                 }
             }
         },
@@ -32,6 +35,11 @@
         {
             "pragma:derived": "client_panda",
             "robot_hostname": "${ ip.net1.mac_vm_wifi }"
+        },
+        "client_dev_1":
+        {
+            "pragma:derived": "client_panda",
+            "robot_hostname": "${ ip.net1.dev_1 }"
         },
 
         "client_remapped":

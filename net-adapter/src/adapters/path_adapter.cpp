@@ -37,40 +37,88 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "path_adapter.hpp"
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <std_msgs/msg/header.hpp>
 
-#include "base_adapter.hpp"
+#include "mem_helpers.hpp"
+#include "../ros_utils.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+using namespace util;
+
+
+PathAdapterPubState::PathAdapterPubState(rclcpp::Node& node) :
+    path_frame_id{
+        declare_and_get_param<std::string>(node, "path_frame_id", "odom")}
 {
-    friend class MS136ImuAdapter;
+}
 
-public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
 
-protected:
-    const std::string lidar_frame_id;
-};
-
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        MS136ImuAdapterPubState,
-        void>
+PathAdapterSubState::PathAdapterSubState(rclcpp::Node& node) :
+    FrequencyFilter{declare_and_get_param(node, "max_path_pub_freq", 1.f)}
 {
-    friend BaseT;
+}
 
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+PathAdapter::PathAdapter(rclcpp::Node& node) : BaseT(node) {}
+
+bool PathAdapter::serializeMsg(
+    ByteBuffer& bytes,
+    const MsgT& msg,
+    SubStateT& state)
+{
+    if (!state.freqFilterStatus())
+    {
+        return false;
+    }
+
+    bytes.resize(
+        sizeof(decltype(msg.header.stamp.sec)) +      //
+        sizeof(decltype(msg.header.stamp.nanosec)) +  //
+        msg.poses.size() * (sizeof(float) * 3));
+
+    uint8_t* ptr = bytes.data();
+
+    writeAndIncrement(ptr, msg.header.stamp.sec);
+    writeAndIncrement(ptr, msg.header.stamp.nanosec);
+
+    for (const auto& pose : msg.poses)
+    {
+        writeAsAndIncrement<float>(ptr, pose.pose.position.x);
+        writeAsAndIncrement<float>(ptr, pose.pose.position.y);
+        writeAsAndIncrement<float>(ptr, pose.pose.position.z);
+    }
+
+    return true;
+}
+
+bool PathAdapter::deserializeMsg(
+    MsgT& msg,
+    const ByteBuffer& bytes,
+    PubStateT& state)
+{
+    constexpr size_t STAMP_SIZE =
+        (sizeof(decltype(msg.header.stamp.sec)) +
+         sizeof(decltype(msg.header.stamp.nanosec)));
+    constexpr size_t PT_SIZE = (3 * sizeof(float));
+
+    const uint8_t* ptr = bytes.data();
+
+    msg.header.frame_id = state.path_frame_id;
+    readAndIncrement(ptr, msg.header.stamp.sec);
+    readAndIncrement(ptr, msg.header.stamp.nanosec);
+
+    msg.poses.clear();
+    msg.poses.reserve((bytes.size() - STAMP_SIZE) / PT_SIZE);
+    while (ptr + PT_SIZE <= bytes.end().base())
+    {
+        auto& kp = msg.poses.emplace_back();
+        kp.header = msg.header;
+        readAsAndIncrement<float>(ptr, kp.pose.position.x);
+        readAsAndIncrement<float>(ptr, kp.pose.position.y);
+        readAsAndIncrement<float>(ptr, kp.pose.position.z);
+    }
+
+    return true;
+}
