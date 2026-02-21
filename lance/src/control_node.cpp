@@ -166,7 +166,8 @@ RobotControlNode::RobotControlNode() :
             }
             else
             {
-                this->joy_state.updateDisconnected();
+                // this->joy_state.updateDisconnected();
+                // std::cout << "Set joy to disconnected!" << std::endl;
             }
 
             RobotMotorCommands commands;

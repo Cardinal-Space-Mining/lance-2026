@@ -92,8 +92,10 @@ void LocalizationController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+#define Dt    (this->params.iteration_period_seconds)
 #define V_max (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
+    // #define W_max (this->params.auto_traversal_max_angular_velocity_rps)
 
     // TODO: parameters
     constexpr uint32_t MIN_SEARCH_SAMPLES = 100U;
@@ -192,12 +194,27 @@ void LocalizationController::iterate(
             const float range =
                 static_cast<float>(std::hypot(pt.point.x, pt.point.y));
             const float range_error = (range - RANGE_TARGET);
+            // std::cout << "Range error: " << range_error << std::endl;
             const float abs_range_error = std::abs(range_error);
             if (abs_range_error > RANGE_THRESH)
             {
-                const float V =
-                    std::min(kmx::maxStartVel(0.f, range_error, A_max), V_max) *
+                const float Vl_prev =
+                    static_cast<float>(lance::trackMotorRpsToGroundMps(
+                        motor_status.track_left.velocity));
+                const float Vr_prev =
+                    static_cast<float>(lance::trackMotorRpsToGroundMps(
+                        motor_status.track_right.velocity));
+                const float V_prev =
+                    lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
+                const float Vd_max = (A_max * Dt);
+                const float V_target =
+                    kmx::maxStartVel(0.f, abs_range_error, A_max) *
                     (std::signbit(range_error) ? -1.f : 1.f);
+                const float V =
+                    std::clamp(V_target, (V_prev - Vd_max), (V_prev + Vd_max));
+
+                // std::cout << "V_target: " << V_target << ", V: " << V
+                //           << std::endl;
 
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(V),
