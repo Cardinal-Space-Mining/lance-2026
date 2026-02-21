@@ -157,7 +157,7 @@ void Phoenix5Driver::initMotor()
         TalonSRXFeedbackDevice::Analog);
     this->hopper_act.motor.SetInverted(true);
     this->hopper_act.motor.SetNeutralMode(NeutralMode::Brake);
-    this->hopper_act.motor.ConfigNeutralDeadband(5.);  // <-- percent
+    this->hopper_act.motor.ConfigNeutralDeadband(5. /* percent */);
     this->hopper_act.motor.ClearStickyFaults();
 }
 
