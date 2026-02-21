@@ -28,7 +28,7 @@ except Exception as e:
     HAVE_SIM_UTILS = False
 
 PKG_PATH = get_package_share_directory('lance')
-DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'lance.json')
+DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'launch.json')
 
 
 def find_arduino():
@@ -170,6 +170,10 @@ def launch(context, *args, **kwargs):
 
     if HAVE_SIM_UTILS:
         actions.extend(get_sim_actions(config))
+    else:
+        print("Failed to load 'csm-sim' launch utils! " +
+              "The simulation package can be cloned from " +
+              "https://gitlab.com/csm2.0/csm-sim if not already done!")
 
     return actions
 
