@@ -2,7 +2,6 @@
 
 // Helper to expand a single Talon motor into its sub-topics
 #define TALON_FEEDBACK(ENTRY, base_topic, slug)                             \
-    ENTRY(base_topic "/ctrl", TalonFaultsAdapter, slug##_ctrl, INCOMING)    \
     ENTRY(base_topic "/info", TalonInfoAdapter, slug##_info, OUTGOING)      \
     ENTRY(base_topic "/faults", TalonFaultsAdapter, slug##_fault, OUTGOING)
 
