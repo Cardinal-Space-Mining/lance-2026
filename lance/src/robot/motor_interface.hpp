@@ -46,6 +46,9 @@
 using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
 using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
 
+namespace lance
+{
+
 /** Contains TalonInfo for each motor */
 struct RobotMotorStatus
 {
@@ -116,3 +119,5 @@ struct RobotMotorCommands
         this->disableHopperAct();
     }
 };
+
+};  // namespace lance

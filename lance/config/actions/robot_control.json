@@ -82,7 +82,7 @@
         {
             "pragma:derived": "lance2",
             "controller": 1,
-            "auto_traversal.max_track_velocity_mps": 0.4,
+            "auto_traversal.max_track_velocity_mps": 0.25,
             "auto_traversal.max_track_acceleration_mpss": 0.25,
             "auto_traversal.max_path_deviation_m": 0.25
         },

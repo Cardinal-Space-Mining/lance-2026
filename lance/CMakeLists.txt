@@ -55,21 +55,13 @@ message(STATUS
     "\tLANCE-2 enabled: ${BUILD_LANCE2}")
 
 
-# --- Custom Types -------------------------------------------------------------
-rosidl_generate_interfaces(${PROJECT_NAME}
-    "srv/SetRobotMode.srv")
-
-rosidl_get_typesupport_target(lance_custom_types
-    ${PROJECT_NAME} rosidl_typesupport_cpp)
-
 # --- Watchdog -----------------------------------------------------------------
 add_executable(robot_status
     "src/watchdog_node.cpp")
-target_link_libraries(robot_status
-    "${lance_custom_types}")
 ament_target_dependencies(robot_status
     rclcpp
-    std_msgs)
+    std_msgs
+    std_srvs)
 
 # --- Robot Controller ---------------------------------------------------------
 set(robot_controller_srcs

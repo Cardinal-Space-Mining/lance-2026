@@ -52,6 +52,9 @@
 #include "../../util/pub_map.hpp"
 
 
+namespace lance
+{
+
 class LocalizationController
 {
     using RclNode = rclcpp::Node;
@@ -106,3 +109,5 @@ protected:
     Stage stage{Stage::FINISHED};
     ReflectorHintMsg::ConstSharedPtr last_hint{nullptr};
 };
+
+};  // namespace lance

@@ -50,6 +50,9 @@
 #include "traversal_controller.hpp"
 
 
+namespace lance
+{
+
 class AutoMiningController
 {
     using RclNode = rclcpp::Node;
@@ -91,3 +94,5 @@ protected:
     TraversalController& traversal_controller;
     MiningController& mining_controller;
 };
+
+};  // namespace lance

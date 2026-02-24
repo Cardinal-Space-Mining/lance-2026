@@ -45,6 +45,9 @@
 using namespace util;
 
 
+namespace lance
+{
+
 RobotParams::RobotParams(rclcpp::Node& node) :
     default_stick_deadzone{
         declare_and_get_param(node, "default_stick_deadzone", 0.05f)},
@@ -194,3 +197,5 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     this->offload_zone_bounds.max().x() = static_cast<float>(buff[0]);
     this->offload_zone_bounds.max().y() = static_cast<float>(buff[1]);
 }
+
+};  // namespace lance

@@ -1,52 +1,80 @@
 {
   "configById": {
     "CallService!4a757jn": {
-      "requestPayload": "{\n  \"mode\": 1\n}",
+      "requestPayload": "{\n  \"data\": true\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/lance/set_robot_mode",
+      "serviceName": "/lance/set_teleop_mode",
       "editingMode": false,
       "buttonText": "Enable",
       "buttonColor": "#00ff1e",
       "foxglovePanelTitle": "Enable Robot"
     },
-    "CallService!3517yo0": {
-      "requestPayload": "{\n  \"mode\": 0\n}",
+    "CallService!16lr9so": {
+      "requestPayload": "{\n  \"data\": true\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/lance/set_robot_mode",
+      "serviceName": "/lance/set_auto_mode",
+      "editingMode": false,
+      "buttonText": "Autonomous",
+      "buttonColor": "#5500ff"
+    },
+    "CallService!3517yo0": {
+      "requestPayload": "{\n  \"data\": false\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/lance/set_teleop_mode",
       "editingMode": false,
       "foxglovePanelTitle": "Disable Robot",
       "buttonText": "Disable",
       "buttonColor": "#ff0000"
     },
-    "CallService!16lr9so": {
-      "requestPayload": "{\n  \"mode\": -1\n}",
-      "layout": "vertical",
-      "timeoutSeconds": 10,
-      "serviceName": "/lance/set_robot_mode",
-      "editingMode": false,
-      "buttonText": "Autonomous",
-      "buttonColor": "#5500ff"
+    "Button.Button!4hdul51": {
+      "outputMode": "service",
+      "name": "/lance/set_test_mode",
+      "buttonMode": "toggle",
+      "activeColor": "#ffb400",
+      "inactiveColor": "#0f81ff",
+      "activeText": "Test Mode",
+      "inactiveText": "Normal Operation",
+      "foxglovePanelTitle": "Test Mode"
     },
     "Indicator!d0ckl5": {
-      "path": "/lance/watchdog_status.data",
+      "path": "/foxglove/control_state.data",
       "style": "background",
       "fontSize": 36,
-      "fallbackColor": "#ff0000",
-      "fallbackLabel": "Disabled",
+      "fallbackColor": "#818181",
+      "fallbackLabel": "Unknown",
       "rules": [
         {
-          "operator": "<",
+          "operator": "=",
           "rawValue": "0",
+          "color": "#ff0000",
+          "label": "Disabled"
+        },
+        {
+          "operator": "=",
+          "rawValue": "1",
+          "color": "#33ff00",
+          "label": "Enabled"
+        },
+        {
+          "operator": "=",
+          "rawValue": "2",
+          "color": "#ffb400",
+          "label": "Test"
+        },
+        {
+          "operator": "=",
+          "rawValue": "-1",
           "color": "#5400ff",
           "label": "Auto"
         },
         {
-          "operator": ">",
-          "rawValue": "0",
-          "color": "#33ff00",
-          "label": "Enabled"
+          "operator": "=",
+          "rawValue": "-2",
+          "color": "#5400ff",
+          "label": "Test Auto"
         }
       ],
       "foxglovePanelTitle": "Robot Status"
@@ -55,7 +83,7 @@
       "path": "/lance/relay_status.data",
       "style": "background",
       "fontSize": 36,
-      "fallbackColor": "#424242",
+      "fallbackColor": "#818181",
       "fallbackLabel": "Open",
       "rules": [
         {
@@ -93,7 +121,7 @@
       "foxglovePanelTitle": "Voltage"
     },
     "Bar Display.Bar Display!k9azda": {
-      "topicField": "/lance/abs_total_supply_current.data",
+      "topicField": "/foxglove/abs_total_supply_current.data",
       "minValue": 0,
       "maxValue": 20,
       "barColor": "#ff3100",
@@ -184,15 +212,11 @@
       "paths": [
         {
           "value": "/lance/op_status.data",
-          "timestampMethod": "receiveTime"
-        },
-        {
-          "value": "/lance/mining_status.data",
-          "timestampMethod": "receiveTime"
-        },
-        {
-          "value": "/lance/offload_status.data",
-          "timestampMethod": "receiveTime"
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
         },
         {
           "value": "/collection_state/is_full_occ.data",
@@ -216,14 +240,14 @@
     },
     "3D!wl899f": {
       "cameraState": {
-        "perspective": true,
-        "distance": 2.8479148269251624,
-        "phi": 0.00005729577951308232,
-        "thetaOffset": -169.19644031066164,
+        "perspective": false,
+        "distance": 4.078136514905661,
+        "phi": 0.00005729832627056611,
+        "thetaOffset": 90.69659438927859,
         "targetOffset": [
-          0.22632196518197975,
-          -0.14142169816051317,
-          -1.0789366675102283e-17
+          -0.013719238162790746,
+          0.2101558301650538,
+          -2.7109286951256576e-16
         ],
         "target": [
           0,
@@ -243,11 +267,18 @@
       "followMode": "follow-pose",
       "scene": {
         "transforms": {
-          "visible": false,
+          "visible": true,
           "showLabel": false
         }
       },
-      "transforms": {},
+      "transforms": {
+        "frame:gz_map": {
+          "visible": false
+        },
+        "frame:gz_base_link": {
+          "visible": false
+        }
+      },
       "topics": {
         "/robot_description": {
           "visible": true,
@@ -285,6 +316,17 @@
         },
         "/cardinal_perception/planned_path": {
           "visible": true
+        },
+        "/arena_zones": {
+          "visible": true,
+          "namespaces": {
+            "arena": {
+              "visible": true
+            },
+            "zones": {
+              "visible": true
+            }
+          }
         }
       },
       "layers": {
@@ -426,53 +468,81 @@
       "showPoints": false
     },
     "CallService!3803max": {
-      "requestPayload": "{\n  \"mode\": 1\n}",
+      "requestPayload": "{\n  \"data\": true\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/lance/set_robot_mode",
+      "serviceName": "/lance/set_teleop_mode",
       "editingMode": false,
       "buttonColor": "#00ff1e",
       "buttonText": "Enable",
       "foxglovePanelTitle": "Enable Robot"
     },
-    "CallService!1oawlhn": {
-      "requestPayload": "{\n  \"mode\": 0\n}",
-      "layout": "vertical",
-      "timeoutSeconds": 10,
-      "serviceName": "/lance/set_robot_mode",
-      "editingMode": false,
-      "buttonText": "Disable",
-      "buttonColor": "#ff0000",
-      "foxglovePanelTitle": "Disable Robot"
-    },
     "CallService!2bjoo7d": {
-      "requestPayload": "{\n  \"mode\": -1\n}",
+      "requestPayload": "{\n  \"data\": true\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/lance/set_robot_mode",
+      "serviceName": "/lance/set_auto_mode",
       "editingMode": false,
       "buttonColor": "#5500ff",
       "buttonText": "Autonomous",
       "foxglovePanelTitle": "Start Autonomous"
     },
+    "CallService!1oawlhn": {
+      "requestPayload": "{\n  \"data\": false\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/lance/set_teleop_mode",
+      "editingMode": false,
+      "buttonText": "Disable",
+      "buttonColor": "#ff0000",
+      "foxglovePanelTitle": "Disable Robot"
+    },
+    "Button.Button!419g9xu": {
+      "outputMode": "service",
+      "name": "/lance/set_test_mode",
+      "buttonMode": "toggle",
+      "activeColor": "#ffb400",
+      "inactiveColor": "#0f81ff",
+      "activeText": "Test Mode",
+      "inactiveText": "Normal Operation",
+      "foxglovePanelTitle": "Test Mode"
+    },
     "Indicator!wijq4n": {
-      "path": "/lance/watchdog_status.data",
+      "path": "/foxglove/control_state.data",
       "style": "background",
       "fontSize": 36,
-      "fallbackColor": "#ff0000",
-      "fallbackLabel": "Disabled",
+      "fallbackColor": "#818181",
+      "fallbackLabel": "Unknown",
       "rules": [
         {
-          "operator": "<",
+          "operator": "=",
           "rawValue": "0",
+          "color": "#ff0000",
+          "label": "Disabled"
+        },
+        {
+          "operator": "=",
+          "rawValue": "1",
+          "color": "#33ff00",
+          "label": "Enabled"
+        },
+        {
+          "operator": "=",
+          "rawValue": "2",
+          "color": "#ffb400",
+          "label": "Test"
+        },
+        {
+          "operator": "=",
+          "rawValue": "-1",
           "color": "#5400ff",
           "label": "Auto"
         },
         {
-          "operator": ">",
-          "rawValue": "0",
-          "color": "#33ff00",
-          "label": "Enabled"
+          "operator": "=",
+          "rawValue": "-2",
+          "color": "#5400ff",
+          "label": "Test Auto"
         }
       ],
       "foxglovePanelTitle": "Robot Status"
@@ -481,7 +551,7 @@
       "path": "/lance/relay_status.data",
       "style": "background",
       "fontSize": 36,
-      "fallbackColor": "#424242",
+      "fallbackColor": "#818181",
       "fallbackLabel": "Open",
       "rules": [
         {
@@ -504,7 +574,7 @@
       "foxglovePanelTitle": "Voltage"
     },
     "Bar Display.Bar Display!1fnw7fc": {
-      "topicField": "/lance/abs_total_supply_current.data",
+      "topicField": "/foxglove/abs_total_supply_current.data",
       "minValue": 0,
       "maxValue": 20,
       "barColor": "#ff3100",
@@ -529,13 +599,13 @@
     "3D!18yg16o": {
       "cameraState": {
         "perspective": true,
-        "distance": 9.75349958229432,
-        "phi": 60.247991176262715,
-        "thetaOffset": -108.93858598884492,
+        "distance": 10.807201753224884,
+        "phi": 0.000057304686744168496,
+        "thetaOffset": -80.07634318800861,
         "targetOffset": [
-          -0.577002236116742,
-          -0.4850010107509758,
-          -3.480629830265388e-16
+          -0.3191294096784499,
+          0.5858962428544494,
+          -2.6485409997620017e-16
         ],
         "target": [
           0,
@@ -763,13 +833,13 @@
     "3D!3qwg4qu": {
       "cameraState": {
         "perspective": true,
-        "distance": 9.75349958229432,
-        "phi": 60.247991176262715,
-        "thetaOffset": -108.93858598884492,
+        "distance": 10.807201753224884,
+        "phi": 0.000057304686744168496,
+        "thetaOffset": -80.07634318800861,
         "targetOffset": [
-          -0.577002236116742,
-          -0.4850010107509758,
-          -3.480629830265388e-16
+          -0.3191294096784499,
+          0.5858962428544494,
+          -2.6485409997620017e-16
         ],
         "target": [
           0,
@@ -1043,13 +1113,13 @@
     "3D!hllzd3": {
       "cameraState": {
         "perspective": true,
-        "distance": 9.75349958229432,
-        "phi": 60.247991176262715,
-        "thetaOffset": -108.93858598884492,
+        "distance": 10.807201753224884,
+        "phi": 0.000057304686744168496,
+        "thetaOffset": -80.07634318800861,
         "targetOffset": [
-          -0.577002236116742,
-          -0.4850010107509758,
-          -3.480629830265388e-16
+          -0.3191294096784499,
+          0.5858962428544494,
+          -2.6485409997620017e-16
         ],
         "target": [
           0,
@@ -1274,13 +1344,13 @@
     "3D!q6dbn4": {
       "cameraState": {
         "perspective": true,
-        "distance": 9.75349958229432,
-        "phi": 60.247991176262715,
-        "thetaOffset": -108.93858598884492,
+        "distance": 10.807201753224884,
+        "phi": 0.000057304686744168496,
+        "thetaOffset": -80.07634318800861,
         "targetOffset": [
-          -0.577002236116742,
-          -0.4850010107509758,
-          -3.480629830265388e-16
+          -0.3191294096784499,
+          0.5858962428544494,
+          -2.6485409997620017e-16
         ],
         "target": [
           0,
@@ -5255,7 +5325,7 @@
       "sidebarDimension": 240
     },
     "NodePlayground!v6m629": {
-      "selectedNodeId": "24ead575-de36-4503-9e17-c3af91b88b6c",
+      "selectedNodeId": "d545177e-baff-434e-b015-bd7eae200a58",
       "autoFormatOnSave": true
     },
     "Plot!12txg01": {
@@ -5559,7 +5629,7 @@
       }
     },
     "RawMessages!432nadh": {
-      "topicPath": "/lance/hopper_act/faults"
+      "topicPath": "/lance/watchdog_status"
     },
     "Tab!1nwcji4": {
       "activeTabIdx": 1,
@@ -5569,39 +5639,42 @@
           "layout": {
             "first": {
               "first": {
-                "first": "CallService!4a757jn",
+                "first": {
+                  "first": "CallService!4a757jn",
+                  "second": "CallService!16lr9so",
+                  "direction": "row"
+                },
                 "second": {
-                  "first": "CallService!3517yo0",
+                  "first": {
+                    "first": "CallService!3517yo0",
+                    "second": "Button.Button!4hdul51",
+                    "direction": "row"
+                  },
                   "second": {
-                    "first": "CallService!16lr9so",
+                    "first": {
+                      "first": "Indicator!d0ckl5",
+                      "second": "Indicator!2yek24b",
+                      "direction": "column"
+                    },
                     "second": {
-                      "first": {
-                        "first": "Indicator!d0ckl5",
-                        "second": "Indicator!2yek24b",
-                        "direction": "column"
-                      },
+                      "first": "Gauge!14u20zd",
                       "second": {
-                        "first": "Gauge!14u20zd",
-                        "second": {
-                          "first": "Bar Display.Bar Display!308m91j",
-                          "second": "Bar Display.Bar Display!k9azda",
-                          "direction": "row",
-                          "splitPercentage": 48.963607812293915
-                        },
-                        "direction": "column",
-                        "splitPercentage": 31.91489361702129
+                        "first": "Bar Display.Bar Display!308m91j",
+                        "second": "Bar Display.Bar Display!k9azda",
+                        "direction": "row",
+                        "splitPercentage": 48.963607812293915
                       },
                       "direction": "column",
-                      "splitPercentage": 26.418786692759287
+                      "splitPercentage": 32.00869014212003
                     },
                     "direction": "column",
-                    "splitPercentage": 9.075194468452898
+                    "splitPercentage": 25.15075547123789
                   },
                   "direction": "column",
-                  "splitPercentage": 8.392715756136182
+                  "splitPercentage": 8.314974863017566
                 },
                 "direction": "column",
-                "splitPercentage": 7.157057654075547
+                "splitPercentage": 7.75363451617946
               },
               "second": {
                 "first": "Plot!1n7cgqb",
@@ -5610,14 +5683,14 @@
                 "splitPercentage": 71.74231332357247
               },
               "direction": "row",
-              "splitPercentage": 15.645796956847095
+              "splitPercentage": 16.153621599723568
             },
             "second": {
               "first": {
                 "first": "3D!wl899f",
                 "second": "Plot!wy5z8y",
                 "direction": "column",
-                "splitPercentage": 31.120891245064637
+                "splitPercentage": 46.524493434932076
               },
               "second": "StateTransitions!3qedham",
               "direction": "column",
@@ -5632,38 +5705,42 @@
           "layout": {
             "first": {
               "first": {
-                "first": "CallService!3803max",
+                "first": {
+                  "first": "CallService!3803max",
+                  "second": "CallService!2bjoo7d",
+                  "direction": "row"
+                },
                 "second": {
-                  "first": "CallService!1oawlhn",
+                  "first": {
+                    "first": "CallService!1oawlhn",
+                    "second": "Button.Button!419g9xu",
+                    "direction": "row"
+                  },
                   "second": {
-                    "first": "CallService!2bjoo7d",
+                    "first": {
+                      "first": "Indicator!wijq4n",
+                      "second": "Indicator!41hamdc",
+                      "direction": "column",
+                      "splitPercentage": 50.66318501982553
+                    },
                     "second": {
                       "first": {
-                        "first": "Indicator!wijq4n",
-                        "second": "Indicator!41hamdc",
-                        "direction": "column"
+                        "first": "Bar Display.Bar Display!44w8b0o",
+                        "second": "Bar Display.Bar Display!1fnw7fc",
+                        "direction": "row"
                       },
-                      "second": {
-                        "first": {
-                          "first": "Bar Display.Bar Display!44w8b0o",
-                          "second": "Bar Display.Bar Display!1fnw7fc",
-                          "direction": "row"
-                        },
-                        "second": "StateTransitions!wlff2j",
-                        "direction": "column",
-                        "splitPercentage": 76.38564505419578
-                      },
+                      "second": "StateTransitions!wlff2j",
                       "direction": "column",
-                      "splitPercentage": 29.794149512459366
+                      "splitPercentage": 69.91332320614781
                     },
                     "direction": "column",
-                    "splitPercentage": 9.401709401709404
+                    "splitPercentage": 24.391214852476402
                   },
                   "direction": "column",
-                  "splitPercentage": 7.801418439716312
+                  "splitPercentage": 7.953454216799412
                 },
                 "direction": "column",
-                "splitPercentage": 6.419675889739983
+                "splitPercentage": 7.75363451617946
               },
               "second": {
                 "first": {
@@ -5682,7 +5759,7 @@
                 "splitPercentage": 43.009495982468955
               },
               "direction": "row",
-              "splitPercentage": 13.839287004386533
+              "splitPercentage": 14.48871348048478
             },
             "second": {
               "first": "Plot!1cavv0y",
@@ -6016,12 +6093,16 @@
       "name": "min/max ts"
     },
     "d545177e-baff-434e-b015-bd7eae200a58": {
-      "sourceCode": "// Quick / robust Foxglove user script\nimport { Message } from \"./types\";\n\nexport const inputs = [\n  \"/lance/track_left/info\",\n  \"/lance/track_right/info\",\n  \"/lance/trencher/info\",\n  \"/lance/hopper_belt/info\",\n  \"/lance/hopper_act/info\",\n];\nexport const output = \"/lance/abs_total_supply_current\";\n\ntype FloatMsg = Message<\"std_msgs/Float64\">;\n\nconst latest: Record<string, number | undefined> = {};\n\nexport default function script(event: any): FloatMsg | undefined {\n  const topic = (event && event.topic) as string | undefined;\n  const msg = event && event.message;\n  if (!topic || !msg) return;\n\n  // extract numeric field\n  const raw = msg.supply_current;\n  if (typeof raw !== \"number\") return;\n\n  latest[topic] = Math.abs(raw);\n\n  // values may be number | undefined\n  const values: (number | undefined)[] = inputs.map((t) => latest[t]);\n\n  // wait until we have all topics\n  if (values.some((v) => v === undefined)) return;\n\n  // TS doesn't automatically narrow the element type of `values` after the `.some` check,\n  // so assert it now to `number[]` because the previous guard guarantees no `undefined`.\n  const definedValues = values as number[];\n\n  // Now `definedValues` is number[], so reduce has no complaints.\n  const sum = definedValues.reduce((a, b) => a + b, 0);\n\n  // Alternative (works without the cast):\n  // const sum = values.reduce<number>((acc, v) => acc + (v ?? 0), 0);\n\n  return { data: sum } as FloatMsg;\n}\n",
+      "sourceCode": "// Quick / robust Foxglove user script\nimport { Message } from \"./types\";\n\nexport const inputs = [\n  \"/lance/track_left/info\",\n  \"/lance/track_right/info\",\n  \"/lance/trencher/info\",\n  \"/lance/hopper_belt/info\",\n  \"/lance/hopper_act/info\",\n];\nexport const output = \"/foxglove/abs_total_supply_current\";\n\ntype FloatMsg = Message<\"std_msgs/Float64\">;\n\nconst latest: Record<string, number | undefined> = {};\n\nexport default function script(event: any): FloatMsg | undefined {\n  const topic = (event && event.topic) as string | undefined;\n  const msg = event && event.message;\n  if (!topic || !msg) return;\n\n  // extract numeric field\n  const raw = msg.supply_current;\n  if (typeof raw !== \"number\") return;\n\n  latest[topic] = Math.abs(raw);\n\n  // values may be number | undefined\n  const values: (number | undefined)[] = inputs.map((t) => latest[t]);\n\n  // wait until we have all topics\n  if (values.some((v) => v === undefined)) return;\n\n  // TS doesn't automatically narrow the element type of `values` after the `.some` check,\n  // so assert it now to `number[]` because the previous guard guarantees no `undefined`.\n  const definedValues = values as number[];\n\n  // Now `definedValues` is number[], so reduce has no complaints.\n  const sum = definedValues.reduce((a, b) => a + b, 0);\n\n  // Alternative (works without the cast):\n  // const sum = values.reduce<number>((acc, v) => acc + (v ?? 0), 0);\n\n  return { data: sum } as FloatMsg;\n}\n",
       "name": "total current"
     },
     "24ead575-de36-4503-9e17-c3af91b88b6c": {
-      "sourceCode": "// Quick / robust Foxglove user script\nimport { Message } from \"./types\";\n\nexport const inputs = [\n  \"/profiling/tasks/odometry/dt\",\n  \"/profiling/tasks/mapping/dt\",\n  \"/profiling/tasks/traversibility/dt\",\n  \"/profiling/tasks/path_planning/dt\",\n];\nexport const output = \"/profiling/perception_latency\";\n\ntype FloatMsg = Message<\"std_msgs/Float64\">;\n\nconst latest: Record<string, number | undefined> = {};\n\nexport default function script(event: any): FloatMsg | undefined {\n  const topic = (event && event.topic) as string | undefined;\n  const msg = event && event.message;\n  if (!topic || !msg) return;\n\n  // extract numeric field\n  const raw = msg.data;\n  if (typeof raw !== \"number\") return;\n\n  latest[topic] = Math.abs(raw);\n\n  // values may be number | undefined\n  const values: (number | undefined)[] = inputs.map((t) => latest[t]);\n\n  // wait until we have all topics\n  if (values.some((v) => v === undefined)) return;\n\n  // TS doesn't automatically narrow the element type of `values` after the `.some` check,\n  // so assert it now to `number[]` because the previous guard guarantees no `undefined`.\n  const definedValues = values as number[];\n\n  // Now `definedValues` is number[], so reduce has no complaints.\n  const sum = definedValues.reduce((a, b) => a + b, 0);\n\n  // Alternative (works without the cast):\n  // const sum = values.reduce<number>((acc, v) => acc + (v ?? 0), 0);\n\n  return { data: sum } as FloatMsg;\n}\n",
+      "sourceCode": "// Quick / robust Foxglove user script\nimport { Message } from \"./types\";\n\nexport const inputs = [\n  \"/profiling/tasks/odometry/dt\",\n  \"/profiling/tasks/mapping/dt\",\n  \"/profiling/tasks/traversibility/dt\",\n  \"/profiling/tasks/path_planning/dt\",\n];\nexport const output = \"/foxglove/perception_latency\";\n\ntype FloatMsg = Message<\"std_msgs/Float64\">;\n\nconst latest: Record<string, number | undefined> = {};\n\nexport default function script(event: any): FloatMsg | undefined {\n  const topic = (event && event.topic) as string | undefined;\n  const msg = event && event.message;\n  if (!topic || !msg) return;\n\n  // extract numeric field\n  const raw = msg.data;\n  if (typeof raw !== \"number\") return;\n\n  latest[topic] = Math.abs(raw);\n\n  // values may be number | undefined\n  const values: (number | undefined)[] = inputs.map((t) => latest[t]);\n\n  // wait until we have all topics\n  if (values.some((v) => v === undefined)) return;\n\n  // TS doesn't automatically narrow the element type of `values` after the `.some` check,\n  // so assert it now to `number[]` because the previous guard guarantees no `undefined`.\n  const definedValues = values as number[];\n\n  // Now `definedValues` is number[], so reduce has no complaints.\n  const sum = definedValues.reduce((a, b) => a + b, 0);\n\n  // Alternative (works without the cast):\n  // const sum = values.reduce<number>((acc, v) => acc + (v ?? 0), 0);\n\n  return { data: sum } as FloatMsg;\n}\n",
       "name": "perception latency"
+    },
+    "80b09cee-c70b-4b66-85d5-b9ab85e8f86d": {
+      "sourceCode": "// Quick / robust Foxglove user script\nimport { Message } from \"./types\";\n\nexport const inputs = [\"/lance/watchdog_status\"];\nexport const output = \"/foxglove/control_state\";\n\ntype OutputMsg = Message<\"std_msgs/Float64\">;\n\nconst latest: Record<string, number | undefined> = {};\n\nexport default function script(event: any): OutputMsg | undefined {\n  const msg = event && event.message;\n  if (!msg) return;\n\n  const watchdog = Math.floor(msg.data / 1000);\n  const opts = Math.abs(msg.data) % 1000;\n\n  if (watchdog == 0) return { data: 0 } as OutputMsg;\n  if (watchdog > 0) {\n    return opts > 0 ? ({ data: 2 } as OutputMsg) : ({ data: 1 } as OutputMsg);\n  } else {\n    return opts > 0 ? ({ data: -2 } as OutputMsg) : ({ data: -1 } as OutputMsg);\n  }\n}\n",
+      "name": "control state"
     }
   },
   "playbackConfig": {

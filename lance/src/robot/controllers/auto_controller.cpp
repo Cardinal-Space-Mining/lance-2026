@@ -42,6 +42,9 @@
 #include <memory>
 
 
+namespace lance
+{
+
 AutoController::AutoController(
     RclNode& node,
     GenericPubMap& pub_map,
@@ -207,3 +210,5 @@ void AutoController::publishState()
         "lance/op_status",
         STAGE_STRINGS[static_cast<size_t>(this->stage)]);
 }
+
+};  // namespace lance

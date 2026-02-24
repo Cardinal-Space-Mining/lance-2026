@@ -60,6 +60,9 @@
 #include "../../util/joy_utils.hpp"
 
 
+namespace lance
+{
+
 class TraversalController
 {
     using RclNode = rclcpp::Node;
@@ -146,3 +149,5 @@ protected:
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
 };
+
+};  // namespace lance

@@ -42,6 +42,9 @@
 #include <Eigen/Core>
 
 
+namespace lance
+{
+
 AutoMiningController::AutoMiningController(
     RclNode& node,
     GenericPubMap& pub_map,
@@ -118,3 +121,5 @@ void AutoMiningController::iterate(
         }
     }
 }
+
+};  // namespace lance

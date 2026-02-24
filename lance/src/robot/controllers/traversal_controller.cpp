@@ -65,8 +65,8 @@ using Iso3f = Eigen::Isometry3f;
 
 void debugTracksControl(
     const util::JoyState& joy,
-    const RobotParams& params,
-    RobotMotorCommands& commands)
+    const lance::RobotParams& params,
+    lance::RobotMotorCommands& commands)
 {
     using namespace Bindings;
 
@@ -99,6 +99,9 @@ inline FloatT computeJunctionRadiusCoeff(FloatT cos_theta)
 }
 
 
+
+namespace lance
+{
 
 TraversalController::TraversalController(
     RclNode& node,
@@ -623,3 +626,5 @@ bool TraversalController::iterateReorient(
 #undef V_max
 #undef A_max
 #undef W_max
+
+};  // namespace lance

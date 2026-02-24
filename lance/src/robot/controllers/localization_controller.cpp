@@ -53,6 +53,9 @@
 using Vec2f = Eigen::Vector2f;
 
 
+namespace lance
+{
+
 LocalizationController::LocalizationController(
     RclNode& node,
     GenericPubMap& pub_map,
@@ -168,7 +171,7 @@ void LocalizationController::iterate(
             const float sin_heading = rel.normalized().y();
             if (std::abs(sin_heading) > std::sin(ALIGNMENT_ANGULAR_THRESH))
             {
-                const float s = sin_heading > 0.f ? 1.f : 0.f;
+                const float s = sin_heading > 0.f ? 1.f : -1.f;
 
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
@@ -194,7 +197,6 @@ void LocalizationController::iterate(
             const float range =
                 static_cast<float>(std::hypot(pt.point.x, pt.point.y));
             const float range_error = (range - RANGE_TARGET);
-            // std::cout << "Range error: " << range_error << std::endl;
             const float abs_range_error = std::abs(range_error);
             if (abs_range_error > RANGE_THRESH)
             {
@@ -210,11 +212,10 @@ void LocalizationController::iterate(
                 const float V_target =
                     kmx::maxStartVel(0.f, abs_range_error, A_max) *
                     (std::signbit(range_error) ? -1.f : 1.f);
-                const float V =
-                    std::clamp(V_target, (V_prev - Vd_max), (V_prev + Vd_max));
-
-                // std::cout << "V_target: " << V_target << ", V: " << V
-                //           << std::endl;
+                const float V = std::clamp(
+                    V_target,
+                    std::max((V_prev - Vd_max), -V_max),
+                    std::min((V_prev + Vd_max), V_max));
 
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(V),
@@ -241,3 +242,5 @@ void LocalizationController::setLfdControl(bool enabled)
         req,
         [](rclcpp::Client<SetBoolSrv>::SharedFuture) {});
 }
+
+};  // namespace lance
