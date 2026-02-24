@@ -165,11 +165,6 @@ RobotControlNode::RobotControlNode() :
                 this->joy_state.update(*this->last_joy_msg);
                 this->last_joy_msg = nullptr;
             }
-            else
-            {
-                // this->joy_state.updateDisconnected();
-                // std::cout << "Set joy to disconnected!" << std::endl;
-            }
 
             RobotMotorCommands commands;
             this->robot_controller.iterate(
