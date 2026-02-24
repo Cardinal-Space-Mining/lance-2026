@@ -37,91 +37,125 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "auto_offload_controller.hpp"
+#pragma once
 
-#include <Eigen/Core>
+#include <chrono>
+#include <limits>
+#include <cstdint>
 
 
 namespace lance
 {
 
-AutoOffloadController::AutoOffloadController(
-    RclNode& node,
-    GenericPubMap& pub_map,
-    const RobotParams& params,
-    SharedControllerCollection& controllers) :
-    pub_map{pub_map},
-    params{params},
-    traversal_controller{controllers.traversal_controller},
-    offload_controller{controllers.offload_controller}
+enum class ControlMode : uint8_t
 {
-}
-
-void AutoOffloadController::initialize()
+    DISABLED = 0,
+    TELEOPERATED = 1,
+    AUTONOMOUS = 2
+};
+enum class ControlOpts : uint8_t
 {
-    this->stage = Stage::INITIALIZATION;
-}
+    NONE = 0,
+    TEST_MODE = 1
+};
 
-bool AutoOffloadController::isFinished()
+
+class ControlStatus
 {
-    return this->stage == Stage::FINISHED;
-}
+private:
+    template<typename R, typename P>
+    using Duration = std::chrono::duration<R, P>;
+    using Milliseconds = std::chrono::milliseconds;
 
-void AutoOffloadController::setCancelled() { this->stage = Stage::FINISHED; }
+    static constexpr int64_t DEFAULT_TELEOP_FEED_TIME_MS = 250;
+    static constexpr int64_t DEFAULT_AUTO_FEED_TIME_MS = 10000;
 
-void AutoOffloadController::iterate(
-    const RobotMotorStatus& motor_status,
-    RobotMotorCommands& commands)
-{
-    switch (this->stage)
+    template<typename R, typename P>
+    static constexpr inline int32_t getClampedFeedTimeUs(Duration<R, P> dur)
     {
-        case Stage::INITIALIZATION:
-        {
-            this->stage = Stage::PLANNING;
-            [[fallthrough]];
-        }
-        case Stage::PLANNING:
-        {
-            if (false)  // *if not finished planning*
-            {
-                // planning algo here
+        using namespace std::chrono;
 
-                break;  // break if more work is required
-            }
+        const int64_t clamped_ms = std::min(
+            std::abs(duration_cast<milliseconds>(dur).count()),
+            duration_cast<milliseconds>(
+                microseconds(std::numeric_limits<int32_t>::max()))
+                .count());
 
-            // init with planned destination
-            this->traversal_controller.initializePoint(Eigen::Vector2f::Zero());
-            this->stage = Stage::TRAVERSING;
-            [[fallthrough]];
-        }
-        case Stage::TRAVERSING:
-        {
-            this->traversal_controller.iterate(motor_status, commands);
-            if (!this->traversal_controller.isFinished())
-            {
-                break;
-            }
-
-            // initialize with backup if necessary
-            this->offload_controller.initialize(0.f);
-            this->stage = Stage::OFFLOADING;
-            [[fallthrough]];
-        }
-        case Stage::OFFLOADING:
-        {
-            this->offload_controller.iterate(motor_status, commands);
-            if (!this->offload_controller.isFinished())
-            {
-                break;
-            }
-
-            this->stage = Stage::FINISHED;
-            [[fallthrough]];
-        }
-        case Stage::FINISHED:
-        {
-        }
+        return static_cast<int32_t>(
+            duration_cast<microseconds>(milliseconds(clamped_ms)).count());
     }
-}
 
+public:
+    template<typename R1, typename P1, typename R2, typename P2>
+    static constexpr inline int32_t format(
+        ControlMode mode,
+        uint8_t opts = static_cast<uint8_t>(ControlOpts::NONE),
+        Duration<R1, P1> teleop_feed_time =
+            Milliseconds(DEFAULT_TELEOP_FEED_TIME_MS),
+        Duration<R2, P2> auto_feed_time =
+            Milliseconds(DEFAULT_AUTO_FEED_TIME_MS))
+    {
+        int32_t v = 0;
+        switch (mode)
+        {
+            case ControlMode::DISABLED:
+            {
+                v = static_cast<int32_t>(opts);
+                break;
+            }
+            case ControlMode::TELEOPERATED:
+            {
+                v = getClampedFeedTimeUs(teleop_feed_time) +
+                    static_cast<int32_t>(opts);
+                break;
+            }
+            case ControlMode::AUTONOMOUS:
+            {
+                v = (getClampedFeedTimeUs(auto_feed_time) +
+                     static_cast<int32_t>(opts)) *
+                    -1;
+                break;
+            }
+        }
+        return v;
+    }
+
+    template<
+        int64_t Teleop_Feed_Time_Ms = DEFAULT_TELEOP_FEED_TIME_MS,
+        int64_t Auto_Feed_Time_Ms = DEFAULT_AUTO_FEED_TIME_MS>
+    static constexpr inline int32_t format(
+        ControlMode mode,
+        uint8_t opts = ControlOpts::NONE)
+    {
+        using namespace std::chrono;
+
+        return format(
+            mode,
+            opts,
+            milliseconds(Teleop_Feed_Time_Ms),
+            milliseconds(Auto_Feed_Time_Ms));
+    }
+
+    static constexpr inline ControlMode getMode(int32_t status)
+    {
+        const int32_t watchdog = status / 1000;
+        return (watchdog > 0) ? ControlMode::TELEOPERATED
+                              : ((watchdog < 0) ? ControlMode::AUTONOMOUS
+                                                : ControlMode::DISABLED);
+    }
+    static constexpr inline uint32_t getTimeoutMs(int32_t status)
+    {
+        return std::abs(status / 1000);
+    }
+    static constexpr inline uint8_t getOpts(int32_t status)
+    {
+        return static_cast<uint8_t>(std::abs(status) % 1000);
+    }
+    template<ControlOpts Opt_V>
+    static constexpr inline bool hasOpt(int32_t status)
+    {
+        return !(getOpts(status) ^ static_cast<uint8_t>(Opt_V));
+    }
+
+};  // namespace ctrl_status
 };  // namespace lance

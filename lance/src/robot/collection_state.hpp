@@ -44,6 +44,9 @@
 #include "motor_interface.hpp"
 
 
+namespace lance
+{
+
 class HopperState
 {
 public:
@@ -146,4 +149,6 @@ protected:
 
     double prev_mining_depth = DOUBLE_UNINITTED_VALUE;
     double prev_impact_volume = DOUBLE_UNINITTED_VALUE;
+};
+
 };

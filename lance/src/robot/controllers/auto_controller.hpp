@@ -53,6 +53,9 @@
 #include "localization_controller.hpp"
 
 
+namespace lance
+{
+
 class AutoController
 {
     using RclNode = rclcpp::Node;
@@ -102,3 +105,5 @@ protected:
     AutoMiningController mining_controller;
     AutoOffloadController offload_controller;
 };
+
+};  // namespace lance

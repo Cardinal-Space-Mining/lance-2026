@@ -45,6 +45,9 @@
 #define FG_CLICKED_POINT_TOPIC "/clicked_point"
 
 
+namespace lance
+{
+
 TeleopController::TeleopController(
     RclNode& node,
     GenericPubMap& pub_map,
@@ -158,7 +161,7 @@ void TeleopController::iterate(
     if (this->op_mode == Operation::MANUAL)
     {
         // handle manual control
-        this->handleTeleopInputs(joy, commands);
+        this->handleTeleopInputs(joy, motor_status, commands);
 
         // iterate controllers ONLY IF an op_mode transition occurred
         // (otherwise op_mode will still be MANUAL)
@@ -246,6 +249,7 @@ bool TeleopController::handleClickedPoint(bool can_apply)
 
 void TeleopController::handleTeleopInputs(
     const JoyState& joy,
+    const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
     using namespace Bindings;
@@ -323,7 +327,10 @@ void TeleopController::handleTeleopInputs(
             hopper_belt_percent * this->params.hopper_belt_max_velocity_rps);
 
         float hopper_act_scalar = TeleopHopperActuateAxis::rawValue(joy);
-        if (std::abs(hopper_act_scalar) < this->params.default_stick_deadzone)
+        if ((std::abs(hopper_act_scalar) <
+             this->params.default_stick_deadzone) ||
+            (motor_status.getHopperActNormalizedValue() < 0. &&
+             hopper_act_scalar < 0.f))
         {
             hopper_act_scalar = 0.f;
         }
@@ -345,3 +352,5 @@ void TeleopController::publishState()
         "lance/op_status",
         OP_STRINGS[static_cast<size_t>(this->op_mode)]);
 }
+
+};  // namespace lance

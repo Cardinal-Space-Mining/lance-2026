@@ -40,6 +40,9 @@
 #include "mining_controller.hpp"
 
 
+namespace lance
+{
+
 MiningController::MiningController(
     RclNode& node,
     GenericPubMap& pub_map,
@@ -341,3 +344,5 @@ void MiningController::iterate(
         }
     }
 }
+
+};  // namespace lance
