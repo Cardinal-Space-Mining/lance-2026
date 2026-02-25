@@ -60,6 +60,7 @@ using system_clock = std::chrono::system_clock;
 using namespace util::geom::cvt::ops;
 
 using Iso3f = Eigen::Isometry3f;
+using Quatf = Eigen::Quaternionf;
 
 
 
@@ -197,6 +198,7 @@ void TraversalController::iterate(
             }
 
             this->state = State::FOLLOW_PATH;
+            std::cout << "starting follow path" << std::endl;
             [[fallthrough]];
         }
         case State::FOLLOW_PATH:
@@ -206,6 +208,7 @@ void TraversalController::iterate(
                 break;
             }
             this->state = State::REORIENT;
+            std::cout << "starting reorient" << std::endl;
             [[fallthrough]];
         }
         case State::REORIENT:
@@ -316,11 +319,43 @@ bool TraversalController::iterateTraversal(
     }
 
     // handle close enough to final keypoint
-    if (keypoints.back().norm() <=
-        this->params.auto_traversal_keypoint_thresh_m)
+    switch (this->destination_type)
     {
-        commands.disableTracks();
-        return true;
+        case DestinationType::POINT:
+        case DestinationType::POSE:
+        {
+            if (keypoints.back().norm() <=
+                this->params.auto_traversal_keypoint_thresh_m)
+            {
+                commands.disableTracks();
+                return true;
+            }
+            break;
+        }
+        case DestinationType::ZONE:
+        {
+            try
+            {
+                Vec3f off;
+                off << this->tf_buffer
+                           .lookupTransform(
+                               this->params.arena_frame_id,
+                               this->params.robot_frame_id,
+                               tf2::TimePointZero)
+                           .transform.translation;
+                std::cout << off << std::endl;
+                if (this->arena_dest_zone.contains(off.template head<2>()))
+                {
+                    commands.disableTracks();
+                    return true;
+                }
+            }
+            catch (const std::exception& ex)
+            {
+                std::cout << ex.what() << std::endl;
+            }
+            break;
+        }
     }
 
     // 2. FIND TARGET SEGMENT OR KEYPOINT --------------------------------------
@@ -578,15 +613,17 @@ bool TraversalController::iterateReorient(
     Vec2f target = this->arena_dest_direction;
     try
     {
-        Iso3f tf;
-        tf << this->tf_buffer
-                  .lookupTransform(
-                      this->params.robot_frame_id,
-                      this->params.arena_frame_id,
-                      tf2::TimePointZero)
-                  .transform;
+        Quatf q;
+        q << this->tf_buffer
+                 .lookupTransform(
+                     this->params.robot_frame_id,
+                     this->params.arena_frame_id,
+                     tf2::TimePointZero)
+                 .transform.rotation;
 
-        target = (tf * Vec3f{target.x(), target.y(), 0.f}).template head<2>();
+        target = (q.toRotationMatrix() * Vec3f{target.x(), target.y(), 0.f})
+                     .template head<2>();
+        std::cout << target << std::endl;
     }
     catch (const std::exception& e)
     {
