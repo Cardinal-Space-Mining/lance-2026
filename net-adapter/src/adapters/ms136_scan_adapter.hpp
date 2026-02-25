@@ -50,6 +50,7 @@
 class MS136ScanAdapterPubState
 {
     friend class MS136ScanAdapter;
+    friend class MS136SimScanAdapter;
 
 public:
     MS136ScanAdapterPubState(rclcpp::Node& n);
@@ -69,6 +70,25 @@ class MS136ScanAdapter :
 
 protected:
     MS136ScanAdapter(rclcpp::Node&);
+
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+};
+
+
+/* Handles gazebo point layout */
+class MS136SimScanAdapter :
+    public BaseAdapter<
+        sensor_msgs::msg::PointCloud2,
+        MS136SimScanAdapter,
+        MS136ScanAdapterPubState,
+        void>
+{
+    friend BaseT;
+
+protected:
+    MS136SimScanAdapter(rclcpp::Node&);
 
 protected:
     static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);

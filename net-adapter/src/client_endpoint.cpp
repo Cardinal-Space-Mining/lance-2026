@@ -38,6 +38,7 @@
 *******************************************************************************/
 
 #include <string>
+#include <variant>
 
 #include <zenoh.hxx>
 
@@ -48,6 +49,8 @@
 #include <std_msgs/msg/string.hpp>
 
 #include <geometry_msgs/msg/point_stamped.hpp>
+
+#include <rosgraph_msgs/msg/clock.hpp>
 
 #include "ros_utils.hpp"
 #include "zenoh_utils.hpp"
@@ -73,6 +76,7 @@ class ClientEndpointNode : public rclcpp::Node
     using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
+    using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
 
 public:
     ClientEndpointNode() :
@@ -84,12 +88,20 @@ public:
                 *this,
                 "robot_hostname",
                 DEFAULT_ROBOT_IP_ADDRESS)))},
+        is_sim{declare_and_get_param(*this, "is_sim", false)},
 
         imu_pub{MS136ImuAdapter::createPublisher(*this, zsh, "multiscan/imu")},
-        scan_pub{MS136ScanAdapter::createPublisher(
-            *this,
-            zsh,
-            "multiscan/lidar_scan")},
+        scan_pub{
+            this->is_sim ? std::static_pointer_cast<void>(
+                               MS136SimScanAdapter::createSharedPublisher(
+                                   *this,
+                                   zsh,
+                                   "multiscan/lidar_scan"))
+                         : std::static_pointer_cast<void>(
+                               MS136ScanAdapter::createSharedPublisher(
+                                   *this,
+                                   zsh,
+                                   "multiscan/lidar_scan"))},
 
         talon_pubs{
             *this,
@@ -115,15 +127,21 @@ public:
         relay_status_pub{
             StdInt8Adapter::createPublisher(*this, zsh, "lance/relay_status")},
         op_status_pub{
-            StdStringAdapter::createPublisher(*this, zsh, "lance/op_status")}
+            StdStringAdapter::createPublisher(*this, zsh, "lance/op_status")},
+
+        sim_clock_pub{
+            this->is_sim
+                ? ClockAdapter::createSharedPublisher(*this, zsh, "/clock")
+                : nullptr}
     {
     }
 
 private:
     Session zsh;
+    const bool is_sim;
 
     MS136ImuAdapter::Publisher imu_pub;
-    MS136ScanAdapter::Publisher scan_pub;
+    std::shared_ptr<void> scan_pub;
     TalonFeedback::PublisherGroup talon_pubs;
     PathAdapter::Publisher path_pub;
 
@@ -133,6 +151,8 @@ private:
 
     StdInt8Adapter::Publisher relay_status_pub;
     StdStringAdapter::Publisher op_status_pub;
+
+    std::shared_ptr<ClockAdapter::Publisher> sim_clock_pub;
 };
 
 
