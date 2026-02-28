@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <cstdint>
 #include <type_traits>
@@ -85,12 +86,14 @@ public:
         friend BaseT;
         friend DerivedT;
 
+    public:
         Subscriber(
             rclcpp::Node&,
             zenoh::Session&,
             const std::string&,
             const rclcpp::QoS&);
 
+    private:
         SubStateT state;
         ZenohPub zpub;
         RosSub rsub;
@@ -101,12 +104,14 @@ public:
         friend BaseT;
         friend DerivedT;
 
+    public:
         Publisher(
             rclcpp::Node&,
             zenoh::Session&,
             const std::string&,
             const rclcpp::QoS&);
 
+    private:
         PubStateT state;
         RosPub rpub;
         ZenohSub zsub;
@@ -119,6 +124,17 @@ public:
         const std::string&,
         const rclcpp::QoS& = rclcpp::SensorDataQoS{});
     static Publisher createPublisher(
+        rclcpp::Node&,
+        zenoh::Session&,
+        const std::string&,
+        const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+
+    static std::shared_ptr<Subscriber> createSharedSubscriber(
+        rclcpp::Node&,
+        zenoh::Session&,
+        const std::string&,
+        const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+    static std::shared_ptr<Publisher> createSharedPublisher(
         rclcpp::Node&,
         zenoh::Session&,
         const std::string&,
@@ -209,4 +225,34 @@ typename BaseAdapter<M, D, P, S>::Publisher
         const rclcpp::QoS& qos)
 {
     return Publisher(node, zsh, topic, qos);
+}
+
+template<typename M, typename D, typename P, typename S>
+std::shared_ptr<typename BaseAdapter<M, D, P, S>::Subscriber>
+    BaseAdapter<M, D, P, S>::createSharedSubscriber(
+        rclcpp::Node& node,
+        zenoh::Session& zsh,
+        const std::string& topic,
+        const rclcpp::QoS& qos)
+{
+    return std::make_shared<Subscriber>(
+        std::ref(node),
+        std::ref(zsh),
+        std::cref(topic),
+        std::cref(qos));
+}
+
+template<typename M, typename D, typename P, typename S>
+std::shared_ptr<typename BaseAdapter<M, D, P, S>::Publisher>
+    BaseAdapter<M, D, P, S>::createSharedPublisher(
+        rclcpp::Node& node,
+        zenoh::Session& zsh,
+        const std::string& topic,
+        const rclcpp::QoS& qos)
+{
+    return std::make_shared<Publisher>(
+        std::ref(node),
+        std::ref(zsh),
+        std::cref(topic),
+        std::cref(qos));
 }

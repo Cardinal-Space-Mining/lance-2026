@@ -49,6 +49,9 @@
 #include "traversal_controller.hpp"
 
 
+namespace lance
+{
+
 class AutoOffloadController
 {
     using RclNode = rclcpp::Node;
@@ -90,3 +93,5 @@ protected:
     TraversalController& traversal_controller;
     OffloadController& offload_controller;
 };
+
+};  // namespace lance

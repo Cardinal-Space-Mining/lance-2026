@@ -50,6 +50,7 @@
 #include "../util/joy_utils.hpp"
 
 #include "robot_params.hpp"
+#include "robot_status.hpp"
 #include "motor_interface.hpp"
 #include "collection_state.hpp"
 
@@ -58,6 +59,9 @@
 #include "controllers/shared_controllers.hpp"
 
 
+namespace lance
+{
+
 class RobotController
 {
     using RclNode = rclcpp::Node;
@@ -65,14 +69,6 @@ class RobotController
     using GenericPubMap = util::GenericPubMap;
     using Tf2Buffer = tf2_ros::Buffer;
     using Tf2Listener = tf2_ros::TransformListener;
-
-public:
-    enum class ControlMode
-    {
-        DISABLED = 0,
-        TELEOP = 1,
-        AUTO = 2
-    };
 
 public:
     RobotController(RclNode&, GenericPubMap&);
@@ -84,10 +80,15 @@ public:
     const Tf2Buffer& getTfBuffer() const;
 
     void iterate(
-        int32_t watchdog,
+        int32_t ctrl_status,
         const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
+
+protected:
+    const RobotMotorStatus& handleTestModeStateInjection(
+        const RobotMotorStatus& ref,
+        int32_t ctrl_status);
 
 protected:
     GenericPubMap& pub_map;
@@ -95,6 +96,7 @@ protected:
     ControlMode control_mode{ControlMode::DISABLED};
 
     RobotParams params;
+    RobotMotorStatus filtered_status;
     CollectionState collection_state;
 
     Tf2Buffer tf_buffer;
@@ -105,3 +107,5 @@ protected:
     AutoController auto_controller;
     TeleopController teleop_controller;
 };
+
+};  // namespace lance

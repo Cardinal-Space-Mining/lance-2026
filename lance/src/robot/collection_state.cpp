@@ -42,6 +42,9 @@
 #include "robot_math.hpp"
 
 
+namespace lance
+{
+
 void HopperState::setParams(
     double initial_volume_l,
     double capacity_volume_l,
@@ -174,7 +177,7 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     const double rtrack_rotations = motors_status.track_right.position;
 
     double curr_mining_depth_m = lance::linearActuatorToMiningDepthClamped(
-        motors_status.hopper_actuator.position / 1000.);
+        motors_status.getHopperActNormalizedValue());
     double curr_impact_volume =
         lance::miningDepthToTrencherImpactVolume(curr_mining_depth_m);
 
@@ -225,8 +228,8 @@ void CollectionState::handleInit(
     double impact_volume)
 {
     // clang-format off
-        #define SET_IF_UNINITTED(var, val)                \
-            if ((var) == DOUBLE_UNINITTED_VALUE) (var) = (val);
+    #define SET_IF_UNINITTED(var, val)                \
+        if ((var) == DOUBLE_UNINITTED_VALUE) (var) = (val);
     // clang-format on
 
     SET_IF_UNINITTED(
@@ -242,6 +245,8 @@ void CollectionState::handleInit(
     SET_IF_UNINITTED(this->prev_impact_volume, impact_volume)
 
     // clang-format off
-        #undef SET_IF_UNINITTED
+    #undef SET_IF_UNINITTED
     // clang-format on
 }
+
+};  // namespace lance

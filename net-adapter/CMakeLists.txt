@@ -9,6 +9,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(rosgraph_msgs REQUIRED)
 
 find_package(phoenix_ros_driver REQUIRED)
 find_package(multiscan_driver REQUIRED)
@@ -52,6 +53,7 @@ ament_target_dependencies(msg_adapters
     nav_msgs
     tf2_ros
     tf2_geometry_msgs
+    rosgraph_msgs
     phoenix_ros_driver
     multiscan_driver)
 
@@ -85,6 +87,7 @@ ament_export_dependencies(
     nav_msgs
     tf2_ros
     tf2_geometry_msgs
+    rosgraph_msgs
     phoenix_ros_driver
     multiscan_driver)
     # csm_metrics)

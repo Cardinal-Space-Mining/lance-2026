@@ -50,6 +50,9 @@
 #include "../../util/joy_utils.hpp"
 
 
+namespace lance
+{
+
 class OffloadController
 {
     using RclNode = rclcpp::Node;
@@ -117,3 +120,5 @@ protected:
     double calculated_target_belt_pos{0.};
     bool using_hopper_model{true};
 };
+
+};  // namespace lance

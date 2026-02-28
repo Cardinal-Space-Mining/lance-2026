@@ -46,6 +46,9 @@
 #include <rclcpp/rclcpp.hpp>
 
 
+namespace lance
+{
+
 struct RobotParams
 {
     using Box2f = Eigen::AlignedBox2f;
@@ -109,3 +112,5 @@ public:
 public:
     RobotParams(rclcpp::Node&);
 };
+
+};  // namespace lance

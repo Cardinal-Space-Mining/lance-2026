@@ -54,6 +54,9 @@
 #include "traversal_controller.hpp"
 
 
+namespace lance
+{
+
 class TeleopController
 {
     using RclNode = rclcpp::Node;
@@ -95,7 +98,10 @@ protected:
 protected:
     bool handleGlobalInputs(const JoyState& joy);
     bool handleClickedPoint(bool can_apply);
-    void handleTeleopInputs(const JoyState& joy, RobotMotorCommands& commands);
+    void handleTeleopInputs(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
     void publishState();
 
 protected:
@@ -112,3 +118,5 @@ protected:
     OffloadController& offload_controller;
     TraversalController& traversal_controller;
 };
+
+};  // namespace lance

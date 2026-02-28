@@ -40,24 +40,19 @@
 #include "robot_controller.hpp"
 
 
-inline constexpr RobotController::ControlMode getMode(int32_t watchdog)
-{
-    return watchdog > 0
-               ? RobotController::ControlMode::TELEOP
-               : (watchdog < 0 ? RobotController::ControlMode::AUTO
-                               : RobotController::ControlMode::DISABLED);
-}
 inline constexpr int encodeTransition(
-    RobotController::ControlMode from,
-    RobotController::ControlMode to)
+    lance::ControlMode from,
+    lance::ControlMode to)
 {
     return (static_cast<int>(from) << 2) | static_cast<int>(to);
 }
 
-template<RobotController::ControlMode FromV, RobotController::ControlMode ToV>
+template<lance::ControlMode FromV, lance::ControlMode ToV>
 inline constexpr int transition_v = encodeTransition(FromV, ToV);
 
 
+namespace lance
+{
 
 RobotController::RobotController(RclNode& node, GenericPubMap& pub_map) :
     pub_map{pub_map},
@@ -94,46 +89,48 @@ const RobotController::Tf2Buffer& RobotController::getTfBuffer() const
 }
 
 void RobotController::iterate(
-    int32_t watchdog,
+    int32_t ctrl_status,
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    this->collection_state.update(motor_status);
+    const RobotMotorStatus& filtered_status =
+        this->handleTestModeStateInjection(motor_status, ctrl_status);
+    this->collection_state.update(filtered_status);
 
     const ControlMode prev_mode = this->control_mode;
-    this->control_mode = getMode(watchdog);
+    this->control_mode = ControlStatus::getMode(ctrl_status);
 
     // process transition actions
     switch (encodeTransition(prev_mode, this->control_mode))
     {
-        case transition_v<ControlMode::DISABLED, ControlMode::TELEOP>:
+        case transition_v<ControlMode::DISABLED, ControlMode::TELEOPERATED>:
         {
             this->teleop_controller.initialize();
             break;
         }
-        case transition_v<ControlMode::DISABLED, ControlMode::AUTO>:
+        case transition_v<ControlMode::DISABLED, ControlMode::AUTONOMOUS>:
         {
             this->auto_controller.initialize();
             break;
         }
-        case transition_v<ControlMode::TELEOP, ControlMode::DISABLED>:
+        case transition_v<ControlMode::TELEOPERATED, ControlMode::DISABLED>:
         {
             this->teleop_controller.setCancelled();
             break;
         }
-        case transition_v<ControlMode::TELEOP, ControlMode::AUTO>:
+        case transition_v<ControlMode::TELEOPERATED, ControlMode::AUTONOMOUS>:
         {
             this->teleop_controller.setCancelled();
             this->auto_controller.initialize();
             break;
         }
-        case transition_v<ControlMode::AUTO, ControlMode::DISABLED>:
+        case transition_v<ControlMode::AUTONOMOUS, ControlMode::DISABLED>:
         {
             this->auto_controller.setCancelled();
             break;
         }
-        case transition_v<ControlMode::AUTO, ControlMode::TELEOP>:
+        case transition_v<ControlMode::AUTONOMOUS, ControlMode::TELEOPERATED>:
         {
             this->auto_controller.setCancelled();
             this->teleop_controller.initialize();
@@ -147,14 +144,14 @@ void RobotController::iterate(
     // process current state actions
     switch (this->control_mode)
     {
-        case ControlMode::TELEOP:
+        case ControlMode::TELEOPERATED:
         {
-            this->teleop_controller.iterate(joy, motor_status, commands);
+            this->teleop_controller.iterate(joy, filtered_status, commands);
             break;
         }
-        case ControlMode::AUTO:
+        case ControlMode::AUTONOMOUS:
         {
-            this->auto_controller.iterate(joy, motor_status, commands);
+            this->auto_controller.iterate(joy, filtered_status, commands);
             break;
         }
         case ControlMode::DISABLED:
@@ -165,3 +162,21 @@ void RobotController::iterate(
         }
     }
 }
+
+const RobotMotorStatus& RobotController::handleTestModeStateInjection(
+    const RobotMotorStatus& ref,
+    int32_t ctrl_status)
+{
+    if (ControlStatus::hasOpt<ControlOpts::TEST_MODE>(ctrl_status))
+    {
+        if(ref.getHopperActNormalizedValue() < this->params.hopper_actuator_traversal_target)
+        {
+            this->filtered_status = ref;
+            this->filtered_status.hopper_actuator.position = -1.;
+            return this->filtered_status;
+        }
+    }
+    return ref;
+}
+
+};  // namespace lance

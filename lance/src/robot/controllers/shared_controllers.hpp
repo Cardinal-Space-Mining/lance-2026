@@ -45,6 +45,9 @@
 #include "localization_controller.hpp"
 
 
+namespace lance
+{
+
 class SharedControllerCollection
 {
     using RclNode = rclcpp::Node;
@@ -71,3 +74,5 @@ public:
     TraversalController traversal_controller;
     LocalizationController localization_controller;
 };
+
+};  // namespace lance
