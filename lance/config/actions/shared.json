@@ -17,10 +17,15 @@
                 "mochapanda": "10.11.11.13",
                 "frappepanda": "10.11.11.14",
 
-                "mac_vm_eth": "10.11.11.10",
-                "mac_vm_wifi": "10.11.11.11",
-                "mac_native_eth": "10.11.11.9",
-                "mac_native_wifi": "10.11.11.246",
+                "mac_vm_eth": "10.11.11.48",
+                "mac_vm_wifi": "10.11.11.15",
+                "mac_native_eth": "10.11.11.34",
+                "mac_native_wifi": "10.11.11.60",
+
+                "mac2_vm_eth": "10.11.11.10",
+                "mac2_vm_wifi": "10.11.11.11",
+                "mac2_native_eth": "10.11.11.9",
+                "mac2_native_wifi": "10.11.11.246",
 
                 "dev_1": "10.11.11.8",
                 "dev_2": "10.11.11.64",
