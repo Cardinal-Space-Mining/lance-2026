@@ -39,12 +39,12 @@
 
 #pragma once
 
-#include <chrono>
 #include <deque>
-#include <functional>
 #include <mutex>
+#include <chrono>
 #include <string>
 #include <vector>
+#include <functional>
 
 #include <zenoh.hxx>
 
@@ -52,10 +52,31 @@
 class DelayBuffer
 {
 public:
-    using ByteBuffer = std::vector<uint8_t>;
     using Clock = std::chrono::steady_clock;
     using TimePoint = Clock::time_point;
-    using PublishFn = std::function<void(ByteBuffer)>;
+    using ByteBuffer = std::vector<uint8_t>;
+    using PublishFn = std::function<void(ByteBuffer&&)>;
+
+    using Milliseconds = std::chrono::milliseconds;
+
+public:
+    template<typename R, typename P>
+    explicit DelayBuffer(std::chrono::duration<R, P> delay);
+
+public:
+    /* Change delay at runtime (takes effect for future enqueues). */
+    template<typename R, typename P>
+    void setDelay(std::chrono::duration<R, P> delay);
+
+    Milliseconds getDelay() const;
+
+    /* Enqueue a message.  Called from ROS subscriber callbacks. */
+    void enqueue(PublishFn publish_fn, ByteBuffer&& bytes);
+
+    /* Forward all entries whose deadline has passed.
+     * Call this from an rclcpp::Timer callback at a rate finer than the
+     * desired delay resolution (e.g. every 10 ms). */
+    void drain();
 
 private:
     struct Entry
@@ -65,55 +86,60 @@ private:
         ByteBuffer bytes;
     };
 
-    std::deque<Entry> queue_;
-    std::mutex mutex_;
-    std::chrono::milliseconds delay_;
-
-public:
-    explicit DelayBuffer(std::chrono::milliseconds delay) : delay_{delay} {}
-
-    /* Change delay at runtime (takes effect for future enqueues). */
-    void set_delay(std::chrono::milliseconds delay)
-    {
-        std::lock_guard<std::mutex> lk{mutex_};
-        delay_ = delay;
-    }
-
-    std::chrono::milliseconds get_delay() const { return delay_; }
-
-    /* Enqueue a message.  Called from ROS subscriber callbacks. */
-    void enqueue(PublishFn publish_fn, ByteBuffer bytes)
-    {
-        Entry e;
-        e.deadline = Clock::now() + delay_;
-        e.publish = std::move(publish_fn);
-        e.bytes = std::move(bytes);
-
-        std::lock_guard<std::mutex> lk{mutex_};
-        queue_.push_back(std::move(e));
-    }
-
-    /* Forward all entries whose deadline has passed.
-     * Call this from an rclcpp::Timer callback at a rate finer than the
-     * desired delay resolution (e.g. every 10 ms). */
-    void drain()
-    {
-        const TimePoint now = Clock::now();
-
-        // Collect under the lock, publish outside it.
-        std::vector<Entry> ready;
-        {
-            std::lock_guard<std::mutex> lk{mutex_};
-            while (!queue_.empty() && queue_.front().deadline <= now)
-            {
-                ready.push_back(std::move(queue_.front()));
-                queue_.pop_front();
-            }
-        }
-
-        for (auto& e : ready)
-        {
-            e.publish(std::move(e.bytes));
-        }
-    }
+    std::deque<Entry> queue;
+    std::mutex mtx;
+    Milliseconds delay;
 };
+
+
+
+// --- Implementation ----------------------------------------------------------
+
+template<typename R, typename P>
+DelayBuffer::DelayBuffer(std::chrono::duration<R, P> d) :
+    delay{std::chrono::duration_cast<std::chrono::milliseconds>(d)}
+{}
+
+template<typename R, typename P>
+void DelayBuffer::setDelay(std::chrono::duration<R, P> d)
+{
+    std::lock_guard<std::mutex> lk{this->mtx};
+    this->delay = std::chrono::duration_cast<std::chrono::milliseconds>(d);
+}
+
+DelayBuffer::Milliseconds DelayBuffer::getDelay() const
+{
+    return this->delay;
+}
+
+void DelayBuffer::enqueue(PublishFn publish_fn, ByteBuffer&& bytes)
+{
+    Entry e;
+    e.deadline = Clock::now() + this->delay;
+    e.publish = std::move(publish_fn);
+    e.bytes = std::move(bytes);
+
+    std::lock_guard<std::mutex> lk{this->mtx};
+    this->queue.emplace_back(std::move(e));
+}
+
+void DelayBuffer::drain()
+{
+    const TimePoint now = Clock::now();
+
+    // Collect under the lock, publish outside it.
+    std::vector<Entry> ready;
+    {
+        std::lock_guard<std::mutex> lk{this->mtx};
+        while (!this->queue.empty() && this->queue.front().deadline <= now)
+        {
+            ready.emplace_back(std::move(this->queue.front()));
+            this->queue.pop_front();
+        }
+    }
+
+    for (auto& e : ready)
+    {
+        e.publish(std::move(e.bytes));
+    }
+}

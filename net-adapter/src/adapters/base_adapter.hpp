@@ -47,7 +47,7 @@
 #include <zenoh.hxx>
 #include <rclcpp/rclcpp.hpp>
 
-class DelayBuffer;
+#include "../delay_buffer.hpp"
 
 
 /* Base class for adapter implementations (CRTP static polymorphism).
@@ -169,7 +169,6 @@ protected:
 
 
 // --- Implementation ----------------------------------------------------------
-#include "../delay_buffer.hpp"
 
 template<typename M, typename D, typename P, typename S>
 BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
@@ -198,7 +197,7 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
                 // so zpub always outlives every queued entry.
                 ZenohPub* pub = &this->zpub;
                 delay_buf->enqueue(
-                    [pub](ByteBuffer b)
+                    [pub](ByteBuffer&& b)
                     { pub->put(zenoh::Bytes(std::move(b))); },
                     std::move(bytes));
             }
