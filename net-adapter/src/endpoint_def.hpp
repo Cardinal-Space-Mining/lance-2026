@@ -125,27 +125,23 @@ struct AdapterTraits : public PubSubTraits<D, E>
             DelayBuffer* = nullptr);
     };
 
-    class Effector :
-        public std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>
-    {
-        using IterfaceT =
-            std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
+    using EffectorT =
+        std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
 
-    public:
-        Effector(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayBuffer* = nullptr);
-    };
+    // class Effector :
+    //     public std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>
+    // {
+    //     using IterfaceT =
+    //         std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
 
-    // static PipelineT makePipelineMember(
-    //     rclcpp::Node&,
-    //     zenoh::Session&,
-    //     std::string&,
-    //     rclcpp::QoS& = rclcpp::SensorDataQoS{},
-    //     DelayBuffer* = nullptr);
+    // public:
+    //     Effector(
+    //         rclcpp::Node&,
+    //         zenoh::Session&,
+    //         const std::string&,
+    //         const rclcpp::QoS& = rclcpp::SensorDataQoS{},
+    //         DelayBuffer* = nullptr);
+    // };
 };
 
 
@@ -172,130 +168,144 @@ AdapterTraits<A, D, E>::IPublisher::IPublisher(
     (void)db;
 }
 
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::Effector::Effector(
+// template<typename A, DataFlow D, EndPoint E>
+// AdapterTraits<A, D, E>::Effector::Effector(
+//     rclcpp::Node& node,
+//     zenoh::Session& zsh,
+//     const std::string& topic,
+//     const rclcpp::QoS& qos,
+//     DelayBuffer* db) :
+//     IterfaceT{node, zsh, topic, qos, db}
+// {
+// }
+
+
+
+template<EndPoint E, DataFlow D>
+class MS136ScanEffector
+{
+    using LiveEffectorT =
+        typename AdapterTraits<MS136ScanAdapter, E, D>::EffectorT;
+    using SimEffectorT =
+        typename AdapterTraits<MS136SimScanAdapter, E, D>::EffectorT;
+
+public:
+    MS136ScanEffector(
+        rclcpp::Node&,
+        zenoh::Session&,
+        const std::string&,
+        const rclcpp::QoS&,
+        bool is_sim,
+        DelayBuffer* = nullptr);
+
+private:
+    std::shared_ptr<void> data;
+};
+
+template<EndPoint E, DataFlow D>
+MS136ScanEffector<E, D>::MS136ScanEffector(
     rclcpp::Node& node,
     zenoh::Session& zsh,
     const std::string& topic,
     const rclcpp::QoS& qos,
-    DelayBuffer* db) :
-    IterfaceT{node, zsh, topic, qos, db}
+    bool is_sim,
+    DelayBuffer* db)
 {
+    if (is_sim)
+    {
+        this->data = std::make_shared<SimEffectorT>(node, zsh, topic, qos, db);
+    }
+    else
+    {
+        this->data = std::make_shared<LiveEffectorT>(node, zsh, topic, qos, db);
+    }
 }
 
-// template<typename A, DataFlow D, EndPoint E>
-// typename AdapterTraits<A, D, E>::PipelineT
-//     AdapterTraits<A, D, E>::makePipelineMember(
-//         rclcpp::Node& node,
-//         zenoh::Session& zsh,
-//         std::string& topic,
-//         rclcpp::QoS& qos,
-//         DelayBuffer* db)
-// {
-//     if constexpr (Is_Subscriber)
-//     {
-//         return AdapterT::createSubscriber(node, zsh, topic, qos, db);
-//     }
-//     else
-//     {
-//         return AdapterT::createPublisher(node, zsh, topic, qos);
-//     }
-// }
+
+
+template<EndPoint E, DataFlow D>
+class SimClockEffector
+{
+    using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
+    using EffectorT = typename AdapterTraits<ClockAdapter, E, D>::EffectorT;
+
+public:
+    SimClockEffector(
+        rclcpp::Node&,
+        zenoh::Session&,
+        const std::string&,
+        const rclcpp::QoS&,
+        bool is_sim,
+        DelayBuffer* = nullptr);
+
+private:
+    std::shared_ptr<void> data{nullptr};
+};
+
+template<EndPoint E, DataFlow D>
+SimClockEffector<E, D>::SimClockEffector(
+    rclcpp::Node& node,
+    zenoh::Session& zsh,
+    const std::string& topic,
+    const rclcpp::QoS& qos,
+    bool is_sim,
+    DelayBuffer* db)
+{
+    if (is_sim)
+    {
+        this->data = std::make_shared<EffectorT>(node, zsh, topic, qos, db);
+    }
+}
 
 
 
+template<EndPoint E, DataFlow D>
+class TalonEffectorsGroup
+{
+    using InfoEffectorT =
+        typename AdapterTraits<TalonInfoAdapter, E, D>::EffectorT;
+    using FaultsEffectorT =
+        typename AdapterTraits<TalonFaultsAdapter, E, D>::EffectorT;
 
-// template<NodeRole Role, typename Adapter, DataDir dir>
-// auto make_member(
-//     rclcpp::Node& node,
-//     zenoh::Session& zsh,
-//     const char* topic,
-//     DelayBuffer* delay_buf)
-// {
-//     constexpr bool isSub = (Role == NodeRole::ROBOT) == (dir == INCOMING);
-//     if constexpr (isSub)
-//     {
-//         return Adapter::createSubscriber(
-//             node,
-//             zsh,
-//             topic,
-//             rclcpp::SensorDataQoS{},
-//             delay_buf);
-//     }
-//     else
-//     {
-//         return Adapter::createPublisher(node, zsh, topic);
-//     }
-// }
+public:
+    TalonEffectorsGroup(
+        rclcpp::Node&,
+        zenoh::Session&,
+        const std::vector<std::string>&,
+        const rclcpp::QoS&,
+        DelayBuffer*);
 
-// template<NodeRole Role, typename Adapter, DataDir dir>
-// struct Member
-// {
-//     typename NetTraits<Role, Adapter, dir>::Type inner;
+private:
+    std::vector<InfoEffectorT> info_effectors;
+    std::vector<FaultsEffectorT> faults_effectors;
+};
 
-//     Member(
-//         rclcpp::Node& node,
-//         zenoh::Session& zsh,
-//         const char* topic,
-//         DelayBuffer* delay_buf) :
-//         inner{make_member<Role, Adapter, dir>(node, zsh, topic, delay_buf)}
-//     {
-//     }
-// };
+template<EndPoint E, DataFlow D>
+TalonEffectorsGroup<E, D>::TalonEffectorsGroup(
+    rclcpp::Node& node,
+    zenoh::Session& zsh,
+    const std::vector<std::string>& topics,
+    const rclcpp::QoS& qos,
+    DelayBuffer* db)
+{
+    this->info_effectors.reserve(topics.size());
+    this->faults_effectors.reserve(topics.size());
+    for (const std::string& base_topic : topics)
+    {
+        this->info_effectors
+            .emplace_back(node, zsh, (base_topic + "/info"), qos, db);
+        this->faults_effectors
+            .emplace_back(node, zsh, (base_topic + "/faults"), qos, db);
+    }
+}
+
+
 
 template<EndPoint E>
 class EndpointNode : public rclcpp::Node
 {
 public:
-    EndpointNode() :
-        Node{node_name},
-        zsh{zenoh::Session::open(
-            util::configDirectConnectTo(
-                util::declare_and_get_param<std::string>(
-                    *this,
-                    ip_param,
-                    default_ip)))},
-        is_sim{util::declare_and_get_param(*this, "is_sim", false)},
-
-        // Delay buffer ROS param (default 0 = disabled)
-        delay_buf_{std::chrono::milliseconds{
-            util::declare_and_get_param(*this, "delay_ms", 0)}},
-
-        // Control (CLIENT -> ROBOT)
-        joy{*this, zsh, "/joy", delay_ptr()},
-        watchdog_status{*this, zsh, "lance/watchdog_status", delay_ptr()},
-        clicked_point{*this, zsh, "/clicked_point", delay_ptr()},
-
-        // Data (ROBOT -> CLIENT)
-        imu{*this, zsh, "multiscan/imu", delay_ptr()},
-        lidar_scan{make_scan(*this, zsh, is_sim, delay_ptr())},
-        path{*this, zsh, "cardinal_perception/planned_path", delay_ptr()},
-        relay_status{*this, zsh, "lance/relay_status", delay_ptr()},
-        op_status{*this, zsh, "lance/op_status", delay_ptr()},
-
-        // Talon Motors
-        track_left{*this, zsh, "lance/track_left", delay_ptr()},
-        track_right{*this, zsh, "lance/track_right", delay_ptr()},
-        trencher{*this, zsh, "lance/trencher", delay_ptr()},
-        hopper_belt{*this, zsh, "lance/hopper_belt", delay_ptr()},
-        hopper_act{*this, zsh, "lance/hopper_act", delay_ptr()},
-
-        // Sim-only
-        sim_clock{make_clock(*this, zsh, is_sim, delay_ptr())}
-    {
-        // Start the drain timer only when a delay is actually configured.
-        if (delay_buf_.getDelay().count() > 0)
-        {
-            drain_timer_ = this->create_wall_timer(
-                std::chrono::milliseconds{drain_period_ms},
-                [this]() { delay_buf_.drain(); });
-        }
-
-        RCLCPP_INFO(
-            this->get_logger(),
-            "Bridge Started (delay: %ld ms)",
-            delay_buf_.getDelay().count());
-    }
+    EndpointNode();
 
 private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
@@ -303,7 +313,7 @@ private:
     using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
-    using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
+    // using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
 
 private:
     template<DataFlow D>
@@ -312,7 +322,7 @@ private:
     using ApTraits = AdapterTraits<AdapterT, D, E>;
 
     template<typename AdapterT, DataFlow D>
-    using M = typename ApTraits<AdapterT, D>::Effector;
+    using M = typename ApTraits<AdapterT, D>::EffectorT;
 
     constexpr static bool Is_Robot = (E == ROBOT_ENDPOINT);
     constexpr static bool Is_Client = (E == CLIENT_ENDPOINT);
@@ -329,105 +339,13 @@ private:
     constexpr static uint32_t Drain_Period_Ms = 10;
 
 private:
-    template<DataFlow D>
-    struct TalonMotor
-    {
-        M<TalonInfoAdapter, D> info;
-        M<TalonFaultsAdapter, D> faults;
-
-        TalonMotor(
-            rclcpp::Node& node,
-            zenoh::Session& zsh,
-            const std::string& base,
-            const rclcpp::QoS& qos = rclcpp::SensorDataQoS{}
-            DelayBuffer* delay_buf = nullptr) :
-            info{node, zsh, (base + "/info"), qos, delay_buf},
-            faults{node, zsh, (base + "/faults"), qos, delay_buf}
-        {
-        }
-    };
-
-private:
-    // Creates the correct scan adapter at runtime based on is_sim.
-    // Subscriber-side variants receive delay_buf; Publisher-side ignore it.
-    static std::shared_ptr<void> make_scan(
-        rclcpp::Node& node,
-        zenoh::Session& zsh,
-        bool is_sim,
-        DelayBuffer* delay_buf)
-    {
-        if (is_sim)
-        {
-            if constexpr (Role == NodeRole::ROBOT)
-            {
-                return MS136SimScanAdapter::createSharedSubscriber(
-                    node,
-                    zsh,
-                    "multiscan/lidar_scan",
-                    rclcpp::SensorDataQoS{},
-                    delay_buf);
-            }
-            else
-            {
-                return MS136SimScanAdapter::createSharedPublisher(
-                    node,
-                    zsh,
-                    "multiscan/lidar_scan");
-            }
-        }
-        else
-        {
-            if constexpr (Role == NodeRole::ROBOT)
-            {
-                return MS136ScanAdapter::createSharedSubscriber(
-                    node,
-                    zsh,
-                    "multiscan/lidar_scan",
-                    rclcpp::SensorDataQoS{},
-                    delay_buf);
-            }
-            else
-            {
-                return MS136ScanAdapter::createSharedPublisher(
-                    node,
-                    zsh,
-                    "multiscan/lidar_scan");
-            }
-        }
-    }
-
-    // Creates clock adapter only when is_sim, nullptr otherwise.
-    static std::shared_ptr<void> make_clock(
-        rclcpp::Node& node,
-        zenoh::Session& zsh,
-        bool is_sim,
-        DelayBuffer* delay_buf)
-    {
-        if (!is_sim)
-        {
-            return nullptr;
-        }
-        if constexpr (Role == NodeRole::ROBOT)
-        {
-            return ClockAdapter::createSharedSubscriber(
-                node,
-                zsh,
-                "/clock",
-                rclcpp::SensorDataQoS{},
-                delay_buf);
-        }
-        else
-        {
-            return ClockAdapter::createSharedPublisher(node, zsh, "/clock");
-        }
-    }
-
     /* Returns a pointer to the delay buffer when a delay is configured,
      * nullptr otherwise.  Used during member initialisation so that adapters
      * self-wire onto the buffer (non-null) or go direct to zenoh (null). */
-    DelayBuffer* delay_ptr()
+    DelayBuffer* resolveDelayBuff()
     {
-        return delay_buf_.getDelay().count() > 0 ? &delay_buf_ : nullptr;
+        return this->delay_buffer.getDelay().count() > 0 ? &this->delay_buffer
+                                                         : nullptr;
     }
 
 private:
@@ -435,7 +353,7 @@ private:
     const bool is_sim;
 
     // Single shared delay buffer for the entire endpoint
-    DelayBuffer delay_buf_;
+    DelayBuffer delay_buffer;
     rclcpp::TimerBase::SharedPtr drain_timer_;  // null when delay == 0
 
 
@@ -444,16 +362,107 @@ private:
     M<PointStampedAdapter, CLIENT_TO_ROBOT> clicked_point;
 
     M<MS136ImuAdapter, ROBOT_TO_CLIENT> imu;
-    std::shared_ptr<void> lidar_scan;  // OUTGOING
+    MS136ScanEffector<E, ROBOT_TO_CLIENT> lidar_scan;
     M<PathAdapter, ROBOT_TO_CLIENT> path;
     M<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
     M<StdStringAdapter, ROBOT_TO_CLIENT> op_status;
 
-    TalonMotor<ROBOT_TO_CLIENT> track_left;
-    TalonMotor<ROBOT_TO_CLIENT> track_right;
-    TalonMotor<ROBOT_TO_CLIENT> trencher;
-    TalonMotor<ROBOT_TO_CLIENT> hopper_belt;
-    TalonMotor<ROBOT_TO_CLIENT> hopper_act;
+    TalonEffectorsGroup<E, ROBOT_TO_CLIENT> talon_feedback;
 
-    std::shared_ptr<void> sim_clock;  // OUTGOING
+    SimClockEffector<E, ROBOT_TO_CLIENT> sim_clock;
 };
+
+template<EndPoint E>
+EndpointNode<E>::EndpointNode() :
+    Node{
+        Node_Name
+},
+    zsh{zenoh::Session::open(
+        util::configDirectConnectTo(
+            util::declare_and_get_param<std::string>(
+                *this,
+                Connection_Param_Name,
+                Default_Connection_Hostname)))},
+    is_sim{util::declare_and_get_param(*this, "is_sim", false)},
+
+    // Delay buffer ROS param (default 0 = disabled)
+    delay_buffer{std::chrono::duration<double>{
+        util::declare_and_get_param(*this, "net_delay_s", 0.0)}},
+
+    joy{*this, zsh, "/joy", rclcpp::SensorDataQoS{}, this->resolveDelayBuff()},
+    watchdog_status{
+        *this,
+        zsh,
+        "lance/watchdog_status",
+        rclcpp::SensorDataQoS{},
+        this->resolveDelayBuff()},
+    clicked_point{
+        *this,
+        zsh,
+        "/clicked_point",
+        rclcpp::SensorDataQoS{},
+        this->resolveDelayBuff()},
+
+    imu{*this,
+        zsh,
+        "multiscan/imu",
+        rclcpp::SensorDataQoS{},
+        this->resolveDelayBuff()},
+    lidar_scan{
+        *this,
+        zsh,
+        "multiscan/lidar_scan",
+        rclcpp::SensorDataQoS{},
+        is_sim,
+        this->resolveDelayBuff()},
+    path{
+        *this,
+        zsh,
+        "cardinal_perception/planned_path",
+        rclcpp::SensorDataQoS{},
+        this->resolveDelayBuff()},
+    relay_status{
+        *this,
+        zsh,
+        "lance/relay_status",
+        rclcpp::SensorDataQoS{},
+        this->resolveDelayBuff()},
+    op_status{
+        *this,
+        zsh,
+        "lance/op_status",
+        rclcpp::SensorDataQoS{},
+        this->resolveDelayBuff()},
+
+    talon_feedback{
+        *this,
+        zsh,
+        {"lance/track_left",
+         "lance/track_right",
+         "lance/trencher",
+         "lance/hopper_belt",
+         "lance/hopper_act"},
+        rclcpp::SensorDataQoS{},
+        this->resolveDelayBuff()},
+
+    sim_clock{
+        *this,
+        zsh,
+        "/clock",
+        rclcpp::SensorDataQoS{},
+        is_sim,
+        this->resolveDelayBuff()}
+{
+    // Start the drain timer only when a delay is actually configured.
+    if (delay_buffer.getDelay().count() > 0)
+    {
+        drain_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds{drain_period_ms},
+            [this]() { delay_buffer.drain(); });
+    }
+
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Bridge Started (delay: %ld ms)",
+        delay_buffer.getDelay().count());
+}
