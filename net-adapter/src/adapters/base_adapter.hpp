@@ -47,7 +47,7 @@
 #include <zenoh.hxx>
 #include <rclcpp/rclcpp.hpp>
 
-#include "../delay_buffer.hpp"
+#include "../delay_queue.hpp"
 
 
 /* Base class for adapter implementations (CRTP static polymorphism).
@@ -96,7 +96,7 @@ public:
             zenoh::Session&,
             const std::string&,
             const rclcpp::QoS&,
-            DelayBuffer* delay_buf = nullptr);
+            DelayQueue* delay_q = nullptr);
 
     private:
         SubStateT state;
@@ -129,7 +129,7 @@ public:
         zenoh::Session&,
         const std::string&,
         const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-        DelayBuffer* delay_buf = nullptr);
+        DelayQueue* delay_q = nullptr);
 
     static Publisher createPublisher(
         rclcpp::Node&,
@@ -142,7 +142,7 @@ public:
         zenoh::Session&,
         const std::string&,
         const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-        DelayBuffer* delay_buf = nullptr);
+        DelayQueue* delay_q = nullptr);
 
     static std::shared_ptr<Publisher> createSharedPublisher(
         rclcpp::Node&,
@@ -176,13 +176,13 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
     zenoh::Session& zsh,
     const std::string& topic,
     const rclcpp::QoS& qos,
-    DelayBuffer* delay_buf) :
+    DelayQueue* delay_q) :
     state{node},
     zpub{zsh.declare_publisher(topic.front() == '/' ? topic.substr(1) : topic)},
     rsub{node.create_subscription<MsgT>(
         topic,
         qos,
-        [this, delay_buf](const MsgT& msg)
+        [this, delay_q](const MsgT& msg)
         {
             ByteBuffer bytes;
             if (!DerivedT::serializeMsg(bytes, msg, this->state))
@@ -190,13 +190,13 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
                 return;
             }
 
-            if (delay_buf)
+            if (delay_q)
             {
                 // Capture a raw pointer to zpub, probably safe because both this
-                // Subscriber and the DelayBuffer are owned by EndpointNode,
+                // Subscriber and the DelayQueue are owned by EndpointNode,
                 // so zpub always outlives every queued entry.
                 ZenohPub* pub = &this->zpub;
-                delay_buf->enqueue(
+                delay_q->push(
                     [pub](ByteBuffer&& b)
                     { pub->put(zenoh::Bytes(std::move(b))); },
                     std::move(bytes));
@@ -239,9 +239,9 @@ typename BaseAdapter<M, D, P, S>::Subscriber
         zenoh::Session& zsh,
         const std::string& topic,
         const rclcpp::QoS& qos,
-        DelayBuffer* delay_buf)
+        DelayQueue* delay_q)
 {
-    return Subscriber(node, zsh, topic, qos, delay_buf);
+    return Subscriber(node, zsh, topic, qos, delay_q);
 }
 
 template<typename M, typename D, typename P, typename S>
@@ -262,14 +262,14 @@ std::shared_ptr<typename BaseAdapter<M, D, P, S>::Subscriber>
         zenoh::Session& zsh,
         const std::string& topic,
         const rclcpp::QoS& qos,
-        DelayBuffer* delay_buf)
+        DelayQueue* delay_q)
 {
     return std::make_shared<Subscriber>(
         std::ref(node),
         std::ref(zsh),
         std::cref(topic),
         std::cref(qos),
-        delay_buf);
+        delay_q);
 }
 
 template<typename M, typename D, typename P, typename S>

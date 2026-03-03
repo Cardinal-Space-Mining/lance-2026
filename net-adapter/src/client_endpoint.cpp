@@ -43,7 +43,7 @@
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<EndpointNode<NodeRole::CLIENT>>();
+    auto node = std::make_shared<EndpointNode<CLIENT_ENDPOINT>>();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

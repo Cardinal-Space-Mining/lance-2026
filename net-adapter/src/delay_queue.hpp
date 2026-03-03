@@ -39,56 +39,70 @@
 
 #pragma once
 
-#include <deque>
 #include <mutex>
+#include <queue>
+#include <atomic>
 #include <chrono>
-#include <string>
-#include <vector>
+#include <thread>
 #include <functional>
+#include <condition_variable>
 
 #include <zenoh.hxx>
 
 
-class DelayBuffer
+class DelayQueue
 {
-public:
-    using Clock = std::chrono::steady_clock;
-    using TimePoint = Clock::time_point;
+    using ClockT = std::chrono::steady_clock;
+    using TimePointT = ClockT::time_point;
+    using DurationT = std::chrono::nanoseconds;
+
     using ByteBuffer = std::vector<uint8_t>;
     using PublishFn = std::function<void(ByteBuffer&&)>;
 
-    using Milliseconds = std::chrono::milliseconds;
-
 public:
     template<typename R, typename P>
-    explicit DelayBuffer(std::chrono::duration<R, P> delay);
+    explicit DelayQueue(std::chrono::duration<R, P> delay);
+    ~DelayQueue();
 
 public:
-    /* Change delay at runtime (takes effect for future enqueues). */
     template<typename R, typename P>
     void setDelay(std::chrono::duration<R, P> delay);
+    DurationT getDelay() const;
 
-    Milliseconds getDelay() const;
+    void startThread();
+    void stopThread();
 
-    /* Enqueue a message.  Called from ROS subscriber callbacks. */
-    void enqueue(PublishFn publish_fn, ByteBuffer&& bytes);
-
-    /* Forward all entries whose deadline has passed.
-     * Call this from an rclcpp::Timer callback at a rate finer than the
-     * desired delay resolution (e.g. every 10 ms). */
-    void drain();
+    void push(PublishFn pub_fn, ByteBuffer&& payload);
 
 private:
-    struct Entry
+    struct QueuedMessage
     {
-        TimePoint deadline;
-        PublishFn publish;  // captures the specific zenoh::Publisher*
-        ByteBuffer bytes;
+        TimePointT pub_time;
+        ByteBuffer payload;
+        PublishFn pub_fn;
+
+        bool operator<(const QueuedMessage&) const;
+        bool operator>(const QueuedMessage&) const;
     };
 
-    std::deque<Entry> queue;
+private:
+    TimePointT delayFromNow() const;
+
+    void thread_worker();
+
+private:
+    DurationT delay;
+
+    std::priority_queue<
+        QueuedMessage,
+        std::vector<QueuedMessage>,
+        std::greater<QueuedMessage>>
+        msg_queue;
+
+    std::thread thread;
     std::mutex mtx;
-    Milliseconds delay;
+    std::atomic_bool is_running{false};
+    std::condition_variable msg_notifier;
 };
 
 
@@ -96,50 +110,106 @@ private:
 // --- Implementation ----------------------------------------------------------
 
 template<typename R, typename P>
-DelayBuffer::DelayBuffer(std::chrono::duration<R, P> d) :
-    delay{std::chrono::duration_cast<std::chrono::milliseconds>(d)}
-{}
+DelayQueue::DelayQueue(std::chrono::duration<R, P> d) :
+    delay{std::chrono::duration_cast<DurationT>(d)}
+{
+}
+
+DelayQueue::~DelayQueue()
+{
+    this->stopThread();
+}
 
 template<typename R, typename P>
-void DelayBuffer::setDelay(std::chrono::duration<R, P> d)
+void DelayQueue::setDelay(std::chrono::duration<R, P> d)
 {
-    std::lock_guard<std::mutex> lk{this->mtx};
-    this->delay = std::chrono::duration_cast<std::chrono::milliseconds>(d);
+    std::lock_guard lock{this->mtx};
+    this->delay = std::chrono::duration_cast<DurationT>(d);
 }
 
-DelayBuffer::Milliseconds DelayBuffer::getDelay() const
+DelayQueue::DurationT DelayQueue::getDelay() const { return this->delay; }
+
+void DelayQueue::startThread()
 {
-    return this->delay;
-}
-
-void DelayBuffer::enqueue(PublishFn publish_fn, ByteBuffer&& bytes)
-{
-    Entry e;
-    e.deadline = Clock::now() + this->delay;
-    e.publish = std::move(publish_fn);
-    e.bytes = std::move(bytes);
-
-    std::lock_guard<std::mutex> lk{this->mtx};
-    this->queue.emplace_back(std::move(e));
-}
-
-void DelayBuffer::drain()
-{
-    const TimePoint now = Clock::now();
-
-    // Collect under the lock, publish outside it.
-    std::vector<Entry> ready;
+    if (!this->is_running)
     {
-        std::lock_guard<std::mutex> lk{this->mtx};
-        while (!this->queue.empty() && this->queue.front().deadline <= now)
+        this->is_running = true;
+        this->thread = std::thread{&DelayQueue::thread_worker, this};
+    }
+}
+void DelayQueue::stopThread()
+{
+    this->is_running = false;
+    if (this->thread.joinable())
+    {
+        this->msg_notifier.notify_one();
+        this->thread.join();
+    }
+}
+
+void DelayQueue::push(PublishFn pub_fn, ByteBuffer&& payload)
+{
+    std::lock_guard lock{this->mtx};
+
+    this->msg_queue.emplace(
+        this->delayFromNow(),
+        std::move(payload),
+        std::move(pub_fn));
+
+    this->msg_notifier.notify_one();
+}
+
+
+bool DelayQueue::QueuedMessage::operator<(const QueuedMessage& m) const
+{
+    return this->pub_time < m.pub_time;
+}
+bool DelayQueue::QueuedMessage::operator>(const QueuedMessage& m) const
+{
+    return this->pub_time > m.pub_time;
+}
+
+
+DelayQueue::TimePointT DelayQueue::delayFromNow() const
+{
+    return (ClockT::now() + this->delay);
+}
+
+void DelayQueue::thread_worker()
+{
+    std::mutex tmp_mtx;
+    std::unique_lock<std::mutex> tmp_lock{tmp_mtx};
+
+    // First loop iteration has no delay and this gets initialized from the
+    // queue top or with a dummy delay if the queue is empty.
+    TimePointT next{};
+    do
+    {
+        // Normally we would check the status to see if the wait timed out,
+        // was triggered by another thread, or spurriously awoken, but in all
+        // cases we might as well recheck the queue; thus it doesn't matter.
+        this->msg_notifier.wait_until(tmp_lock, next);
+
+        std::lock_guard lock{this->mtx};
+        while(!this->msg_queue.empty())
         {
-            ready.emplace_back(std::move(this->queue.front()));
-            this->queue.pop_front();
+            const TimePointT rn = ClockT::now();
+            const QueuedMessage& msg = this->msg_queue.top();
+            if(msg.pub_time <= rn)
+            {
+                msg.pub_fn(std::move(const_cast<QueuedMessage&>(msg).payload));
+                this->msg_queue.pop();
+            }
+            else
+            {
+                next = msg.pub_time;
+                break;
+            }
         }
-    }
-
-    for (auto& e : ready)
-    {
-        e.publish(std::move(e.bytes));
-    }
+        if (this->msg_queue.empty())
+        {
+            next = this->delayFromNow();
+        }
+    }  //
+    while (this->is_running.load());
 }
