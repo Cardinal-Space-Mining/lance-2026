@@ -47,7 +47,7 @@
 #include <zenoh.hxx>
 #include <rclcpp/rclcpp.hpp>
 
-#include "../delay_queue.hpp"
+#include "../util/delay_queue.hpp"
 
 
 /* Base class for adapter implementations (CRTP static polymorphism).
@@ -193,7 +193,7 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
             if (delay_q)
             {
                 // Capture a raw pointer to zpub, probably safe because both this
-                // Subscriber and the DelayQueue are owned by EndpointNode,
+                // Subscriber and the DelayQueue are owned by EndPointNode,
                 // so zpub always outlives every queued entry.
                 ZenohPub* pub = &this->zpub;
                 delay_q->push(

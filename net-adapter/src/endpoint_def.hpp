@@ -40,10 +40,11 @@
 #pragma once
 
 #include <chrono>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include <zenoh.hxx>
-
 #include <rclcpp/rclcpp.hpp>
 
 #include <std_msgs/msg/int8.hpp>
@@ -52,9 +53,9 @@
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
-#include "delay_queue.hpp"
+#include "util/ros_utils.hpp"
+#include "util/zenoh_utils.hpp"
+#include "util/delay_queue.hpp"
 
 #include "adapters/joy_adapter.hpp"
 #include "adapters/path_adapter.hpp"
@@ -63,268 +64,32 @@
 #include "adapters/ms136_imu_adapter.hpp"
 #include "adapters/ms136_scan_adapter.hpp"
 
+#include "endpoint_traits.hpp"
+
 
 #define DEFAULT_ROBOT_HOSTNAME  "10.11.11.15"
 #define DEFAULT_CLIENT_HOSTNAME "10.11.11.1"
 
 
-enum EndPoint
-{
-    ROBOT_ENDPOINT,
-    CLIENT_ENDPOINT
-};
-enum DataFlow
-{
-    ROBOT_TO_CLIENT,
-    CLIENT_TO_ROBOT
-};
-
-template<DataFlow D, EndPoint E>
-struct PubSubTraits
-{
-    constexpr static int Data_Flow_V = D;
-    constexpr static int End_Point_V = E;
-
-    constexpr static bool Is_Subscriber =
-        ((Data_Flow_V == ROBOT_TO_CLIENT) == (End_Point_V == ROBOT_ENDPOINT));
-    constexpr static bool Is_Publisher =
-        ((Data_Flow_V == CLIENT_TO_ROBOT) == (End_Point_V == ROBOT_ENDPOINT));
-};
-
-template<typename Adapter_T, DataFlow D, EndPoint E>
-struct AdapterTraits : public PubSubTraits<D, E>
-{
-    // **traits check that adapter extends BaseAdapter**
-
-    using PubSubTraits<D, E>::Is_Subscriber;
-
-    using AdapterT = Adapter_T;
-    using RawSubscriberT = typename AdapterT::Subscriber;
-    using RawPublisherT = typename AdapterT::Publisher;
-
-    class ISubscriber : public RawSubscriberT
-    {
-        using RawT = RawSubscriberT;
-
-    public:
-        ISubscriber(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-    class IPublisher : public RawPublisherT
-    {
-        using RawT = RawPublisherT;
-
-    public:
-        IPublisher(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-
-    using EffectorT =
-        std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
-
-    // class Effector :
-    //     public std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>
-    // {
-    //     using IterfaceT =
-    //         std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
-
-    // public:
-    //     Effector(
-    //         rclcpp::Node&,
-    //         zenoh::Session&,
-    //         const std::string&,
-    //         const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-    //         DelayQueue* = nullptr);
-    // };
-};
-
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::ISubscriber::ISubscriber(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* db) :
-    RawSubscriberT{node, zsh, topic, qos, db}
-{
-}
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::IPublisher::IPublisher(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* db) :
-    RawPublisherT{node, zsh, topic, qos}
-{
-    (void)db;
-}
-
-// template<typename A, DataFlow D, EndPoint E>
-// AdapterTraits<A, D, E>::Effector::Effector(
-//     rclcpp::Node& node,
-//     zenoh::Session& zsh,
-//     const std::string& topic,
-//     const rclcpp::QoS& qos,
-//     DelayQueue* db) :
-//     IterfaceT{node, zsh, topic, qos, db}
-// {
-// }
-
-
-
-template<DataFlow D, EndPoint E>
-class MS136ScanEffector
-{
-    using LiveEffectorT =
-        typename AdapterTraits<MS136ScanAdapter, D, E>::EffectorT;
-    using SimEffectorT =
-        typename AdapterTraits<MS136SimScanAdapter, D, E>::EffectorT;
-
-public:
-    MS136ScanEffector(
-        rclcpp::Node&,
-        zenoh::Session&,
-        const std::string&,
-        const rclcpp::QoS&,
-        bool is_sim,
-        DelayQueue* = nullptr);
-
-private:
-    std::shared_ptr<void> data;
-};
-
-template<DataFlow D, EndPoint E>
-MS136ScanEffector<D, E>::MS136ScanEffector(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    bool is_sim,
-    DelayQueue* db)
-{
-    if (is_sim)
-    {
-        this->data = std::make_shared<SimEffectorT>(node, zsh, topic, qos, db);
-    }
-    else
-    {
-        this->data = std::make_shared<LiveEffectorT>(node, zsh, topic, qos, db);
-    }
-}
-
-
-
-template<DataFlow D, EndPoint E>
-class SimClockEffector
-{
-    using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
-    using EffectorT = typename AdapterTraits<ClockAdapter, D, E>::EffectorT;
-
-public:
-    SimClockEffector(
-        rclcpp::Node&,
-        zenoh::Session&,
-        const std::string&,
-        const rclcpp::QoS&,
-        bool is_sim,
-        DelayQueue* = nullptr);
-
-private:
-    std::shared_ptr<void> data{nullptr};
-};
-
-template<DataFlow D, EndPoint E>
-SimClockEffector<D, E>::SimClockEffector(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    bool is_sim,
-    DelayQueue* db)
-{
-    if (is_sim)
-    {
-        this->data = std::make_shared<EffectorT>(node, zsh, topic, qos, db);
-    }
-}
-
-
-
-template<DataFlow D, EndPoint E>
-class TalonEffectorsGroup
-{
-    using InfoEffectorT =
-        typename AdapterTraits<TalonInfoAdapter, D, E>::EffectorT;
-    using FaultsEffectorT =
-        typename AdapterTraits<TalonFaultsAdapter, D, E>::EffectorT;
-
-public:
-    TalonEffectorsGroup(
-        rclcpp::Node&,
-        zenoh::Session&,
-        const std::vector<std::string>&,
-        const rclcpp::QoS&,
-        DelayQueue*);
-
-private:
-    std::vector<InfoEffectorT> info_effectors;
-    std::vector<FaultsEffectorT> faults_effectors;
-};
-
-template<DataFlow D, EndPoint E>
-TalonEffectorsGroup<D, E>::TalonEffectorsGroup(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::vector<std::string>& topics,
-    const rclcpp::QoS& qos,
-    DelayQueue* db)
-{
-    this->info_effectors.reserve(topics.size());
-    this->faults_effectors.reserve(topics.size());
-    for (const std::string& base_topic : topics)
-    {
-        this->info_effectors
-            .emplace_back(node, zsh, (base_topic + "/info"), qos, db);
-        this->faults_effectors
-            .emplace_back(node, zsh, (base_topic + "/faults"), qos, db);
-    }
-}
-
-
-
 template<EndPoint E>
-class EndpointNode : public rclcpp::Node
+class EndPointNode : public rclcpp::Node
 {
 public:
-    EndpointNode();
+    EndPointNode();
 
 private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
     using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
+    using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
-    // using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
 
 private:
-    template<DataFlow D>
-    using PSTraits = PubSubTraits<D, E>;
     template<typename AdapterT, DataFlow D>
     using ApTraits = AdapterTraits<AdapterT, D, E>;
-
     template<typename AdapterT, DataFlow D>
-    using M = typename ApTraits<AdapterT, D>::EffectorT;
+    using Channel = typename ApTraits<AdapterT, D>::ChannelT;
 
     constexpr static bool Is_Robot = (E == ROBOT_ENDPOINT);
     constexpr static bool Is_Client = (E == CLIENT_ENDPOINT);
@@ -338,116 +103,200 @@ private:
         (Is_Robot ? DEFAULT_CLIENT_HOSTNAME : DEFAULT_ROBOT_HOSTNAME);
 
 private:
-    /* Returns a pointer to the delay buffer when a delay is configured,
-     * nullptr otherwise.  Used during member initialisation so that adapters
+    template<DataFlow D>
+    class MS136ScanChannel
+    {
+    public:
+        MS136ScanChannel(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::string&,
+            const rclcpp::QoS&,
+            bool is_sim,
+            DelayQueue* = nullptr);
+
+    private:
+        std::shared_ptr<void> data;
+    };
+
+    template<DataFlow D>
+    class SimClockChannel
+    {
+    public:
+        SimClockChannel(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::string&,
+            const rclcpp::QoS&,
+            bool is_sim,
+            DelayQueue* = nullptr);
+
+    private:
+        std::shared_ptr<void> data{nullptr};
+    };
+
+    template<DataFlow D>
+    class TalonFBChannelsGroup
+    {
+        using InfoChannelT = Channel<TalonInfoAdapter, D>;
+        using FaultsChannelT = Channel<TalonFaultsAdapter, D>;
+
+    public:
+        TalonFBChannelsGroup(
+            rclcpp::Node& node,
+            zenoh::Session& zsh,
+            const std::vector<std::string>& topics,
+            const rclcpp::QoS& qos,
+            DelayQueue* dq);
+
+    private:
+        std::vector<InfoChannelT> info_channels;
+        std::vector<FaultsChannelT> faults_channels;
+    };
+
+private:
+    /* Returns a pointer to the delay queue when a delay is configured,
+     * nullptr otherwise. Used during member initialisation so that adapters
      * self-wire onto the buffer (non-null) or go direct to zenoh (null). */
-    DelayQueue* resolveDelayBuff()
+    DelayQueue* getQueue()
     {
         return this->delay_queue.getDelay().count() > 0 ? &this->delay_queue
-                                                         : nullptr;
+                                                        : nullptr;
     }
 
 private:
     zenoh::Session zsh;
-    const bool is_sim;
-
     DelayQueue delay_queue;
 
-    M<JoyAdapter, CLIENT_TO_ROBOT> joy;
-    M<StdInt32Adapter, CLIENT_TO_ROBOT> watchdog_status;
-    M<PointStampedAdapter, CLIENT_TO_ROBOT> clicked_point;
+    const bool is_sim;
 
-    M<MS136ImuAdapter, ROBOT_TO_CLIENT> imu;
-    MS136ScanEffector<ROBOT_TO_CLIENT, E> lidar_scan;
-    M<PathAdapter, ROBOT_TO_CLIENT> path;
-    M<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
-    M<StdStringAdapter, ROBOT_TO_CLIENT> op_status;
+    Channel<JoyAdapter, CLIENT_TO_ROBOT> joy;
+    Channel<StdInt32Adapter, CLIENT_TO_ROBOT> watchdog_status;
+    Channel<PointStampedAdapter, CLIENT_TO_ROBOT> clicked_point;
 
-    TalonEffectorsGroup<ROBOT_TO_CLIENT, E> talon_feedback;
+    MS136ScanChannel<ROBOT_TO_CLIENT> lidar_scan;
+    Channel<MS136ImuAdapter, ROBOT_TO_CLIENT> imu;
 
-    SimClockEffector<ROBOT_TO_CLIENT, E> sim_clock;
+    TalonFBChannelsGroup<ROBOT_TO_CLIENT> talon_feedback;
+
+    Channel<PathAdapter, ROBOT_TO_CLIENT> path;
+    Channel<StdStringAdapter, ROBOT_TO_CLIENT> op_status;
+    Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
+
+    SimClockChannel<ROBOT_TO_CLIENT> sim_clock;
 };
 
+
+
+// ---
+
+#define PARAMS_FROM_TOPIC(topic)                                 \
+    *this, zsh, topic, rclcpp::SensorDataQoS{}, this->getQueue()
+#define PARAMS_FROM_TOPIC_SIM(topic)                                           \
+    *this, zsh, topic, rclcpp::SensorDataQoS{}, this->is_sim, this->getQueue()
+#define PARAMS_FROM_TOPICS(...)                                        \
+    *this, zsh, __VA_ARGS__, rclcpp::SensorDataQoS{}, this->getQueue()
+
 template<EndPoint E>
-EndpointNode<E>::EndpointNode() :
-    Node{
-        Node_Name
-},
+EndPointNode<E>::EndPointNode() :
+    Node{Node_Name},
     zsh{zenoh::Session::open(
         util::configDirectConnectTo(
             util::declare_and_get_param<std::string>(
                 *this,
                 Connection_Param_Name,
                 Default_Connection_Hostname)))},
-    is_sim{util::declare_and_get_param(*this, "is_sim", false)},
-
-    // Delay buffer ROS param (default 0 = disabled)
     delay_queue{std::chrono::duration<double>{
         util::declare_and_get_param(*this, "net_delay_s", 0.0)}},
 
-    joy{*this, zsh, "/joy", rclcpp::SensorDataQoS{}, this->resolveDelayBuff()},
-    watchdog_status{
-        *this,
-        zsh,
-        "lance/watchdog_status",
-        rclcpp::SensorDataQoS{},
-        this->resolveDelayBuff()},
-    clicked_point{
-        *this,
-        zsh,
-        "/clicked_point",
-        rclcpp::SensorDataQoS{},
-        this->resolveDelayBuff()},
+    is_sim{util::declare_and_get_param(*this, "is_sim", false)},
 
-    imu{*this,
-        zsh,
-        "multiscan/imu",
-        rclcpp::SensorDataQoS{},
-        this->resolveDelayBuff()},
-    lidar_scan{
-        *this,
-        zsh,
-        "multiscan/lidar_scan",
-        rclcpp::SensorDataQoS{},
-        is_sim,
-        this->resolveDelayBuff()},
-    path{
-        *this,
-        zsh,
-        "cardinal_perception/planned_path",
-        rclcpp::SensorDataQoS{},
-        this->resolveDelayBuff()},
-    relay_status{
-        *this,
-        zsh,
-        "lance/relay_status",
-        rclcpp::SensorDataQoS{},
-        this->resolveDelayBuff()},
-    op_status{
-        *this,
-        zsh,
-        "lance/op_status",
-        rclcpp::SensorDataQoS{},
-        this->resolveDelayBuff()},
+    joy{PARAMS_FROM_TOPIC("/joy")},
+    watchdog_status{PARAMS_FROM_TOPIC("lance/watchdog_status")},
+    clicked_point{PARAMS_FROM_TOPIC("/clicked_point")},
 
-    talon_feedback{
-        *this,
-        zsh,
+    lidar_scan{PARAMS_FROM_TOPIC_SIM("multiscan/lidar_scan")},
+    imu{PARAMS_FROM_TOPIC("multiscan/imu")},
+
+    talon_feedback{PARAMS_FROM_TOPICS(
         {"lance/track_left",
          "lance/track_right",
          "lance/trencher",
          "lance/hopper_belt",
-         "lance/hopper_act"},
-        rclcpp::SensorDataQoS{},
-        this->resolveDelayBuff()},
+         "lance/hopper_act"})},
 
-    sim_clock{
-        *this,
-        zsh,
-        "/clock",
-        rclcpp::SensorDataQoS{},
-        is_sim,
-        this->resolveDelayBuff()}
+    path{PARAMS_FROM_TOPIC("cardinal_perception/planned_path")},
+    op_status{PARAMS_FROM_TOPIC("lance/op_status")},
+    relay_status{PARAMS_FROM_TOPIC("lance/relay_status")},
+
+    sim_clock{PARAMS_FROM_TOPIC_SIM("/clock")}
 {
     this->delay_queue.startThread();
+}
+
+#undef PARAMS_FROM_TOPIC
+#undef PARAMS_FROM_TOPIC_SIM
+#undef PARAMS_FROM_TOPICS
+
+
+
+template<EndPoint E>
+template<DataFlow D>
+EndPointNode<E>::MS136ScanChannel<D>::MS136ScanChannel(
+    rclcpp::Node& node,
+    zenoh::Session& zsh,
+    const std::string& topic,
+    const rclcpp::QoS& qos,
+    bool is_sim,
+    DelayQueue* dq)
+{
+    using SimChennelT = Channel<MS136SimScanAdapter, D>;
+    using LiveChannelT = Channel<MS136ScanAdapter, D>;
+
+    if (is_sim)
+    {
+        this->data = std::make_shared<SimChennelT>(node, zsh, topic, qos, dq);
+    }
+    else
+    {
+        this->data = std::make_shared<LiveChannelT>(node, zsh, topic, qos, dq);
+    }
+}
+
+template<EndPoint E>
+template<DataFlow D>
+EndPointNode<E>::SimClockChannel<D>::SimClockChannel(
+    rclcpp::Node& node,
+    zenoh::Session& zsh,
+    const std::string& topic,
+    const rclcpp::QoS& qos,
+    bool is_sim,
+    DelayQueue* dq)
+{
+    using ChannelT = Channel<ClockAdapter, D>;
+
+    if (is_sim)
+    {
+        this->data = std::make_shared<ChannelT>(node, zsh, topic, qos, dq);
+    }
+}
+
+template<EndPoint E>
+template<DataFlow D>
+EndPointNode<E>::TalonFBChannelsGroup<D>::TalonFBChannelsGroup(
+    rclcpp::Node& node,
+    zenoh::Session& zsh,
+    const std::vector<std::string>& topics,
+    const rclcpp::QoS& qos,
+    DelayQueue* dq)
+{
+    this->info_channels.reserve(topics.size());
+    this->faults_channels.reserve(topics.size());
+    for (const std::string& base_topic : topics)
+    {
+        this->info_channels
+            .emplace_back(node, zsh, (base_topic + "/info"), qos, dq);
+        this->faults_channels
+            .emplace_back(node, zsh, (base_topic + "/faults"), qos, dq);
+    }
 }

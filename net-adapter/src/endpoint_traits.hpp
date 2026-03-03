@@ -39,35 +39,94 @@
 
 #pragma once
 
-#include <chrono>
-
-#include <sensor_msgs/msg/joy.hpp>
-
-#include "base_adapter.hpp"
-#include "../util/filtering.hpp"
+#include "util/ros_utils.hpp"
+#include "util/zenoh_utils.hpp"
+#include "util/delay_queue.hpp"
 
 
-class JoyAdapterSubState : public FrequencyFilter
+enum EndPoint
 {
-    friend class JoyAdapter;
-
-public:
-    JoyAdapterSubState(rclcpp::Node&);
+    ROBOT_ENDPOINT,
+    CLIENT_ENDPOINT
+};
+enum DataFlow
+{
+    ROBOT_TO_CLIENT,
+    CLIENT_TO_ROBOT
 };
 
-class JoyAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Joy,
-        JoyAdapter,
-        void,
-        JoyAdapterSubState>
+template<DataFlow D, EndPoint E>
+struct ChannelTraits
 {
-    friend BaseT;
+    constexpr static int Data_Flow_V = D;
+    constexpr static int End_Point_V = E;
 
-protected:
-    JoyAdapter(rclcpp::Node&);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+    constexpr static bool Is_Subscriber =
+        ((Data_Flow_V == ROBOT_TO_CLIENT) == (End_Point_V == ROBOT_ENDPOINT));
+    constexpr static bool Is_Publisher =
+        ((Data_Flow_V == CLIENT_TO_ROBOT) == (End_Point_V == ROBOT_ENDPOINT));
 };
+
+template<typename Adapter_T, DataFlow D, EndPoint E>
+struct AdapterTraits : public ChannelTraits<D, E>
+{
+    // **traits check that adapter extends BaseAdapter**
+
+    using AdapterT = Adapter_T;
+    using RawSubscriberT = typename AdapterT::Subscriber;
+    using RawPublisherT = typename AdapterT::Publisher;
+
+    class ISubscriber : public RawSubscriberT
+    {
+        using RawT = RawSubscriberT;
+
+    public:
+        ISubscriber(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::string&,
+            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
+            DelayQueue* = nullptr);
+    };
+    class IPublisher : public RawPublisherT
+    {
+        using RawT = RawPublisherT;
+
+    public:
+        IPublisher(
+            rclcpp::Node&,
+            zenoh::Session&,
+            const std::string&,
+            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
+            DelayQueue* = nullptr);
+    };
+
+    using ChannelTraits<D, E>::Is_Subscriber;
+    using ChannelT = std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
+};
+
+
+// ---
+
+template<typename A, DataFlow D, EndPoint E>
+AdapterTraits<A, D, E>::ISubscriber::ISubscriber(
+    rclcpp::Node& node,
+    zenoh::Session& zsh,
+    const std::string& topic,
+    const rclcpp::QoS& qos,
+    DelayQueue* dq) :
+    RawSubscriberT{node, zsh, topic, qos, dq}
+{
+}
+
+template<typename A, DataFlow D, EndPoint E>
+AdapterTraits<A, D, E>::IPublisher::IPublisher(
+    rclcpp::Node& node,
+    zenoh::Session& zsh,
+    const std::string& topic,
+    const rclcpp::QoS& qos,
+    DelayQueue* dq) :
+    RawPublisherT{node, zsh, topic, qos}
+{
+    (void)dq;
+}
