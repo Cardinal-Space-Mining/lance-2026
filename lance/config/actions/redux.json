@@ -13,7 +13,8 @@
         "robot_sim":
         {
             "pragma:derived": "robot",
-            "is_sim": true
+            "is_sim": true,
+            "net_delay_s": 0.0
         },
 
         "client_panda":
@@ -51,7 +52,8 @@
         "client_dev_1_sim":
         {
             "pragma:derived": "client_dev_1",
-            "is_sim": true
+            "is_sim": true,
+            "net_delay_s": 0.0
         },
 
         "client_remapped":

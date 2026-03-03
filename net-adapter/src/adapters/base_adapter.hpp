@@ -47,14 +47,18 @@
 #include <zenoh.hxx>
 #include <rclcpp/rclcpp.hpp>
 
+#include "../util/delay_queue.hpp"
 
-/* Base class for adapter impelementations (crtp static polymorphism)
- * Msg_T : ROS message type which the adapter interfaces with
- * Derived_T : CRTP derivee class
- * PubState_T : Optional additional storage state for publishers
- *  (default uses derivee class - must have a constructor that accepts rclcpp::Node&)
- * SubState_T : Optional additional storage state for subscribers
- *  (default uses derivee class - must have a constructor that accepts rclcpp::Node&) */
+
+/* Base class for adapter implementations (CRTP static polymorphism).
+ *
+ * Msg_T      : ROS message type the adapter interfaces with
+ * Derived_T  : CRTP derivee class
+ * PubState_T : Optional extra storage for publishers (default = Derived_T)
+ * SubState_T : Optional extra storage for subscribers (default = Derived_T)
+ *
+ * Both PubState_T / SubState_T must have a constructor that accepts
+ * rclcpp::Node& when they equal Derived_T. */
 template<
     typename Msg_T,
     typename Derived_T = void,
@@ -91,14 +95,16 @@ public:
             rclcpp::Node&,
             zenoh::Session&,
             const std::string&,
-            const rclcpp::QoS&);
+            const rclcpp::QoS&,
+            DelayQueue* delay_q = nullptr);
 
     private:
         SubStateT state;
         ZenohPub zpub;
         RosSub rsub;
     };
-    /* Publisher to the remote ROS network, subscriber to the zenoh network. */
+
+    /* Subscribes to the zenoh network and publishes onto the local ROS network. */
     class Publisher
     {
         friend BaseT;
@@ -122,7 +128,9 @@ public:
         rclcpp::Node&,
         zenoh::Session&,
         const std::string&,
-        const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+        const rclcpp::QoS& = rclcpp::SensorDataQoS{},
+        DelayQueue* delay_q = nullptr);
+
     static Publisher createPublisher(
         rclcpp::Node&,
         zenoh::Session&,
@@ -133,7 +141,9 @@ public:
         rclcpp::Node&,
         zenoh::Session&,
         const std::string&,
-        const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+        const rclcpp::QoS& = rclcpp::SensorDataQoS{},
+        DelayQueue* delay_q = nullptr);
+
     static std::shared_ptr<Publisher> createSharedPublisher(
         rclcpp::Node&,
         zenoh::Session&,
@@ -165,16 +175,33 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
     rclcpp::Node& node,
     zenoh::Session& zsh,
     const std::string& topic,
-    const rclcpp::QoS& qos) :
+    const rclcpp::QoS& qos,
+    DelayQueue* delay_q) :
     state{node},
     zpub{zsh.declare_publisher(topic.front() == '/' ? topic.substr(1) : topic)},
     rsub{node.create_subscription<MsgT>(
         topic,
         qos,
-        [this](const MsgT& msg)
+        [this, delay_q](const MsgT& msg)
         {
             ByteBuffer bytes;
-            if (DerivedT::serializeMsg(bytes, msg, this->state))
+            if (!DerivedT::serializeMsg(bytes, msg, this->state))
+            {
+                return;
+            }
+
+            if (delay_q)
+            {
+                // Capture a raw pointer to zpub, probably safe because both this
+                // Subscriber and the DelayQueue are owned by EndPointNode,
+                // so zpub always outlives every queued entry.
+                ZenohPub* pub = &this->zpub;
+                delay_q->push(
+                    [pub](ByteBuffer&& b)
+                    { pub->put(zenoh::Bytes(std::move(b))); },
+                    std::move(bytes));
+            }
+            else
             {
                 this->zpub.put(zenoh::Bytes(std::move(bytes)));
             }
@@ -211,9 +238,10 @@ typename BaseAdapter<M, D, P, S>::Subscriber
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
-        const rclcpp::QoS& qos)
+        const rclcpp::QoS& qos,
+        DelayQueue* delay_q)
 {
-    return Subscriber(node, zsh, topic, qos);
+    return Subscriber(node, zsh, topic, qos, delay_q);
 }
 
 template<typename M, typename D, typename P, typename S>
@@ -233,13 +261,15 @@ std::shared_ptr<typename BaseAdapter<M, D, P, S>::Subscriber>
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
-        const rclcpp::QoS& qos)
+        const rclcpp::QoS& qos,
+        DelayQueue* delay_q)
 {
     return std::make_shared<Subscriber>(
         std::ref(node),
         std::ref(zsh),
         std::cref(topic),
-        std::cref(qos));
+        std::cref(qos),
+        delay_q);
 }
 
 template<typename M, typename D, typename P, typename S>
