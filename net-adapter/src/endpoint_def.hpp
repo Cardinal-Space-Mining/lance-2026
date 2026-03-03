@@ -70,6 +70,10 @@
 #define DEFAULT_ROBOT_HOSTNAME  "10.11.11.15"
 #define DEFAULT_CLIENT_HOSTNAME "10.11.11.1"
 
+#ifndef ENABLE_NET_DELAY
+    #define ENABLE_NET_DELAY 1
+#endif
+
 
 template<EndPoint E>
 class EndPointNode : public rclcpp::Node
@@ -160,8 +164,12 @@ private:
      * self-wire onto the buffer (non-null) or go direct to zenoh (null). */
     DelayQueue* getQueue()
     {
+#if ENABLE_NET_DELAY
         return this->delay_queue.getDelay().count() > 0 ? &this->delay_queue
                                                         : nullptr;
+#else
+        return nullptr;
+#endif
     }
 
 private:
@@ -231,7 +239,9 @@ EndPointNode<E>::EndPointNode() :
 
     sim_clock{PARAMS_FROM_TOPIC_SIM("/clock")}
 {
+#if ENABLE_NET_DELAY
     this->delay_queue.startThread();
+#endif
 }
 
 #undef PARAMS_FROM_TOPIC
