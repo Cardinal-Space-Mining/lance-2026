@@ -39,7 +39,7 @@
 
 #include "talon_adapter.hpp"
 
-#include "mem_helpers.hpp"
+#include "../util/mem_helpers.hpp"
 
 
 using namespace util;
@@ -279,58 +279,4 @@ bool TalonFaultsAdapter::deserializeMsg(
     msg.sticky_static_brake_disabled_fault = (bits >> 7) & 1;
 
     return true;
-}
-
-
-
-// ---
-
-TalonFeedback::Subscriber::Subscriber(
-    rclcpp::Node& n,
-    zenoh::Session& z,
-    const std::string& base_topic,
-    const rclcpp::QoS& qos) :
-    info_sub{
-        TalonInfoAdapter::createSubscriber(n, z, base_topic + "/info", qos)},
-    faults_sub{
-        TalonFaultsAdapter::createSubscriber(n, z, base_topic + "/faults", qos)}
-{
-}
-
-TalonFeedback::Publisher::Publisher(
-    rclcpp::Node& n,
-    zenoh::Session& z,
-    const std::string& base_topic,
-    const rclcpp::QoS& qos) :
-    info_pub{
-        TalonInfoAdapter::createPublisher(n, z, base_topic + "/info", qos)},
-    faults_pub{
-        TalonFaultsAdapter::createPublisher(n, z, base_topic + "/faults", qos)}
-{
-}
-
-TalonFeedback::SubscriberGroup::SubscriberGroup(
-    rclcpp::Node& n,
-    zenoh::Session& z,
-    const std::vector<std::string>& base_topics,
-    const rclcpp::QoS& qos)
-{
-    this->subs.reserve(base_topics.size());
-    for(const std::string& base_topic : base_topics)
-    {
-        this->subs.emplace_back(n, z, base_topic, qos);
-    }
-}
-
-TalonFeedback::PublisherGroup::PublisherGroup(
-    rclcpp::Node& n,
-    zenoh::Session& z,
-    const std::vector<std::string>& base_topics,
-    const rclcpp::QoS& qos)
-{
-    this->pubs.reserve(base_topics.size());
-    for(const std::string& base_topic : base_topics)
-    {
-        this->pubs.emplace_back(n, z, base_topic, qos);
-    }
 }

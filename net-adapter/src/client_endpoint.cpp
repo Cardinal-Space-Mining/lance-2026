@@ -37,130 +37,15 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <string>
-#include <variant>
+#define ENABLE_NET_DELAY 1
 
-#include <zenoh.hxx>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <std_msgs/msg/int8.hpp>
-#include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/string.hpp>
-
-#include <geometry_msgs/msg/point_stamped.hpp>
-
-#include <rosgraph_msgs/msg/clock.hpp>
-
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
-
-#include "adapters/joy_adapter.hpp"
-#include "adapters/talon_adapter.hpp"
-#include "adapters/generic_adapter.hpp"
-#include "adapters/ms136_imu_adapter.hpp"
-#include "adapters/ms136_scan_adapter.hpp"
-#include "adapters/path_adapter.hpp"
-
-
-#define DEFAULT_ROBOT_IP_ADDRESS "10.11.11.10"
-
-using namespace zenoh;
-using namespace util;
-
-
-class ClientEndpointNode : public rclcpp::Node
-{
-    using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
-    using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
-    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
-    using PointStampedAdapter =
-        GenericAdapter<geometry_msgs::msg::PointStamped>;
-    using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
-
-public:
-    ClientEndpointNode() :
-        Node{
-            "client_redux_endpoint"
-    },
-        zsh{Session::open(configDirectConnectTo(
-            declare_and_get_param<std::string>(
-                *this,
-                "robot_hostname",
-                DEFAULT_ROBOT_IP_ADDRESS)))},
-        is_sim{declare_and_get_param(*this, "is_sim", false)},
-
-        imu_pub{MS136ImuAdapter::createPublisher(*this, zsh, "multiscan/imu")},
-        scan_pub{
-            this->is_sim ? std::static_pointer_cast<void>(
-                               MS136SimScanAdapter::createSharedPublisher(
-                                   *this,
-                                   zsh,
-                                   "multiscan/lidar_scan"))
-                         : std::static_pointer_cast<void>(
-                               MS136ScanAdapter::createSharedPublisher(
-                                   *this,
-                                   zsh,
-                                   "multiscan/lidar_scan"))},
-
-        talon_pubs{
-            *this,
-            zsh,
-            {"lance/track_left",
-             "lance/track_right",
-             "lance/trencher",
-             "lance/hopper_belt",
-             "lance/hopper_act"}},
-        path_pub{PathAdapter::createPublisher(
-            *this,
-            zsh,
-            "cardinal_perception/planned_path")},
-
-        joy_sub{JoyAdapter::createSubscriber(*this, zsh, "/joy")},
-        watchdog_sub{StdInt32Adapter::createSubscriber(
-            *this,
-            zsh,
-            "lance/watchdog_status")},
-        clicked_point_sub{
-            PointStampedAdapter::createSubscriber(*this, zsh, "clicked_point")},
-
-        relay_status_pub{
-            StdInt8Adapter::createPublisher(*this, zsh, "lance/relay_status")},
-        op_status_pub{
-            StdStringAdapter::createPublisher(*this, zsh, "lance/op_status")},
-
-        sim_clock_pub{
-            this->is_sim
-                ? ClockAdapter::createSharedPublisher(*this, zsh, "/clock")
-                : nullptr}
-    {
-    }
-
-private:
-    Session zsh;
-    const bool is_sim;
-
-    MS136ImuAdapter::Publisher imu_pub;
-    std::shared_ptr<void> scan_pub;
-    TalonFeedback::PublisherGroup talon_pubs;
-    PathAdapter::Publisher path_pub;
-
-    JoyAdapter::Subscriber joy_sub;
-    StdInt32Adapter::Subscriber watchdog_sub;
-    PointStampedAdapter::Subscriber clicked_point_sub;
-
-    StdInt8Adapter::Publisher relay_status_pub;
-    StdStringAdapter::Publisher op_status_pub;
-
-    std::shared_ptr<ClockAdapter::Publisher> sim_clock_pub;
-};
+#include "endpoint_def.hpp"
 
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ClientEndpointNode>());
+    rclcpp::spin(std::make_shared<EndPointNode<CLIENT_ENDPOINT>>());
     rclcpp::shutdown();
-
     return 0;
 }

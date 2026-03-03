@@ -36,16 +36,17 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # --- Common -------------------------------------------------------------------
-add_library(msg_adapters STATIC
+add_library(adapters_core STATIC
+    "src/util/delay_queue.cpp"
     "src/adapters/joy_adapter.cpp"
     "src/adapters/ms136_imu_adapter.cpp"
     "src/adapters/ms136_scan_adapter.cpp"
     "src/adapters/talon_adapter.cpp"
     "src/adapters/path_adapter.cpp")
-target_link_libraries(msg_adapters
+target_link_libraries(adapters_core
     Eigen3::Eigen
     zenohcxx::zenohc)
-ament_target_dependencies(msg_adapters
+ament_target_dependencies(adapters_core
     rclcpp
     std_msgs
     sensor_msgs
@@ -61,7 +62,7 @@ ament_target_dependencies(msg_adapters
 add_executable(robot_endpoint
     "src/robot_endpoint.cpp")
 target_link_libraries(robot_endpoint
-    msg_adapters
+    adapters_core
     # csm_metrics::profiling
     zenohcxx::zenohc)
 ament_target_dependencies(robot_endpoint
@@ -71,7 +72,7 @@ ament_target_dependencies(robot_endpoint
 add_executable(client_endpoint
     "src/client_endpoint.cpp")
 target_link_libraries(client_endpoint
-    msg_adapters
+    adapters_core
     # csm_metrics::profiling
     zenohcxx::zenohc)
 ament_target_dependencies(client_endpoint

@@ -39,52 +39,84 @@
 
 #pragma once
 
+#include <mutex>
+#include <queue>
+#include <atomic>
+#include <chrono>
+#include <thread>
 #include <vector>
-
-#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
-#include <phoenix_ros_driver/msg/talon_info.hpp>
-#include <phoenix_ros_driver/msg/talon_faults.hpp>
-
-#include "base_adapter.hpp"
+#include <functional>
+#include <condition_variable>
 
 
-class TalonCtrlAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonCtrl, TalonCtrlAdapter>
+class DelayQueue
 {
-    friend BaseT;
+    using ClockT = std::chrono::steady_clock;
+    using TimePointT = ClockT::time_point;
+    using DurationT = std::chrono::nanoseconds;
+
+    using ByteBuffer = std::vector<uint8_t>;
+    using PublishFn = std::function<void(ByteBuffer&&)>;
 
 public:
-    TalonCtrlAdapter(rclcpp::Node& node);
+    template<typename R, typename P>
+    explicit DelayQueue(std::chrono::duration<R, P> delay);
+    ~DelayQueue();
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+public:
+    template<typename R, typename P>
+    void setDelay(std::chrono::duration<R, P> delay);
+    DurationT getDelay() const;
+
+    void startThread();
+    void stopThread();
+
+    void push(PublishFn pub_fn, ByteBuffer&& payload);
+
+private:
+    struct QueuedMessage
+    {
+        TimePointT pub_time;
+        ByteBuffer payload;
+        PublishFn pub_fn;
+
+        bool operator<(const QueuedMessage&) const;
+        bool operator>(const QueuedMessage&) const;
+    };
+
+private:
+    TimePointT delayFromNow() const;
+
+    void thread_worker();
+
+private:
+    DurationT delay;
+
+    std::priority_queue<
+        QueuedMessage,
+        std::vector<QueuedMessage>,
+        std::greater<QueuedMessage>>
+        msg_queue;
+
+    std::thread thread;
+    std::mutex mtx;
+    std::atomic_bool is_running{false};
+    std::condition_variable msg_notifier;
 };
 
 
-class TalonInfoAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonInfo, TalonInfoAdapter>
+
+// --- Implementation (templated methods) --------------------------------------
+
+template<typename R, typename P>
+DelayQueue::DelayQueue(std::chrono::duration<R, P> d) :
+    delay{std::chrono::duration_cast<DurationT>(d)}
 {
-    friend BaseT;
+}
 
-public:
-    TalonInfoAdapter(rclcpp::Node& node);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
-
-
-class TalonFaultsAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonFaults, TalonFaultsAdapter>
+template<typename R, typename P>
+void DelayQueue::setDelay(std::chrono::duration<R, P> d)
 {
-    friend BaseT;
-
-public:
-    TalonFaultsAdapter(rclcpp::Node& node);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+    std::lock_guard lock{this->mtx};
+    this->delay = std::chrono::duration_cast<DurationT>(d);
+}
