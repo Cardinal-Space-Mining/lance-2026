@@ -46,14 +46,13 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/buffer.h>
-
 #include <nav_msgs/msg/path.hpp>
 
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
 
+#include "../tf_cache.hpp"
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
 #include "../../util/pub_map.hpp"
@@ -66,7 +65,6 @@ namespace lance
 class TraversalController
 {
     using RclNode = rclcpp::Node;
-    using Tf2Buffer = tf2_ros::Buffer;
     using PathMsg = nav_msgs::msg::Path;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
@@ -88,7 +86,7 @@ public:
         RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        const Tf2Buffer&);
+        const TfCache&);
     ~TraversalController() = default;
 
 public:
@@ -137,7 +135,7 @@ protected:
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
-    const Tf2Buffer& tf_buffer;
+    const TfCache& tf_cache;
 
     RclSubPtr<PathMsg> path_sub;
     RclClientPtr<UpdatePathPlanSrv> pplan_control_client;

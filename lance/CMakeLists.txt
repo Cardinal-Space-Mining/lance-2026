@@ -66,6 +66,7 @@ ament_target_dependencies(robot_status
 # --- Robot Controller ---------------------------------------------------------
 set(robot_controller_srcs
     "src/control_node.cpp"
+    "src/robot/tf_cache.cpp"
     "src/robot/robot_params.cpp"
     "src/robot/collection_state.cpp"
     "src/robot/robot_controller.cpp"

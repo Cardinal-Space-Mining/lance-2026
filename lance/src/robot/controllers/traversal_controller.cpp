@@ -108,10 +108,10 @@ TraversalController::TraversalController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const Tf2Buffer& tf_buffer) :
+    const TfCache& tf_cache) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{tf_buffer},
+    tf_cache{tf_cache},
     path_sub{node.create_subscription<PathMsg>(
         PERCEPTION_PATH_TOPIC,
         rclcpp::SensorDataQoS{},
@@ -198,7 +198,6 @@ void TraversalController::iterate(
             }
 
             this->state = State::FOLLOW_PATH;
-            std::cout << "starting follow path" << std::endl;
             [[fallthrough]];
         }
         case State::FOLLOW_PATH:
@@ -208,7 +207,6 @@ void TraversalController::iterate(
                 break;
             }
             this->state = State::REORIENT;
-            std::cout << "starting reorient" << std::endl;
             [[fallthrough]];
         }
         case State::REORIENT:
@@ -282,29 +280,19 @@ bool TraversalController::iterateTraversal(
 
     if (this->last_path->header.frame_id != this->params.robot_frame_id)
     {
-        try
+        const auto* tf =
+            this->tf_cache.getTf(this->last_path->header.frame_id, ROBOT_FRAME);
+        if (tf)
         {
-            Iso3f tf;
-            tf << this->tf_buffer
-                      .lookupTransform(
-                          this->params.robot_frame_id,
-                          this->last_path->header.frame_id,
-                          tf2::TimePointZero)
-                      .transform;
-
             Vec3f tmp;
             for (size_t i = 0; i < keypoints.size(); i++)
             {
                 const auto& pt = this->last_path->poses[i].pose.position;
-                keypoints[i] = (tf * (tmp << pt)).template head<2>();
+                keypoints[i] = (tf->tf * (tmp << pt)).template head<2>();
             }
         }
-        catch (const std::exception& e)
+        else
         {
-            // failed to transform to robot frame
-            // std::cout
-            //     << "--- TRAVERSAL ITERATION ---\nFailed to transform keypoints to robot frame\n"
-            //     << std::endl;
             return false;
         }
     }
@@ -334,25 +322,12 @@ bool TraversalController::iterateTraversal(
         }
         case DestinationType::ZONE:
         {
-            try
+            const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+            if (tf &&
+                this->arena_dest_zone.contains(tf->pose.vec.template head<2>()))
             {
-                Vec3f off;
-                off << this->tf_buffer
-                           .lookupTransform(
-                               this->params.arena_frame_id,
-                               this->params.robot_frame_id,
-                               tf2::TimePointZero)
-                           .transform.translation;
-                std::cout << off << std::endl;
-                if (this->arena_dest_zone.contains(off.template head<2>()))
-                {
-                    commands.disableTracks();
-                    return true;
-                }
-            }
-            catch (const std::exception& ex)
-            {
-                std::cout << ex.what() << std::endl;
+                commands.disableTracks();
+                return true;
             }
             break;
         }
@@ -611,26 +586,15 @@ bool TraversalController::iterateReorient(
     }
 
     Vec2f target = this->arena_dest_direction;
-    try
+    const auto* tf = this->tf_cache.getTf(ARENA_TO_ROBOT_TF);
+    if (tf)
     {
-        Quatf q;
-        q << this->tf_buffer
-                 .lookupTransform(
-                     this->params.robot_frame_id,
-                     this->params.arena_frame_id,
-                     tf2::TimePointZero)
-                 .transform.rotation;
-
-        target = (q.toRotationMatrix() * Vec3f{target.x(), target.y(), 0.f})
+        target = (tf->pose.quat.toRotationMatrix() *
+                  Vec3f{target.x(), target.y(), 0.f})
                      .template head<2>();
-        std::cout << target << std::endl;
     }
-    catch (const std::exception& e)
+    else
     {
-        // failed to transform to robot frame
-        // std::cout
-        //     << "--- TRAVERSAL ITERATION ---\nFailed to transform keypoints to robot frame\n"
-        //     << std::endl;
         return false;
     }
 

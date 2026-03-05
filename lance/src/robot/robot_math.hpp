@@ -330,6 +330,7 @@ inline FloatT maxStartVel(FloatT end_vel, FloatT dist, FloatT max_acc)
     // v_f^2 = v_i^2 + 2*a*x
     return std::sqrt((FloatT)2 * dist * max_acc + end_vel * end_vel);
 }
+
 template<typename FloatT>
 inline FloatT decellDist(FloatT vel, FloatT max_decell)
 {
