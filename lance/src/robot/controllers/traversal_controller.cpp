@@ -60,6 +60,7 @@ using system_clock = std::chrono::system_clock;
 using namespace util::geom::cvt::ops;
 
 using Iso3f = Eigen::Isometry3f;
+using Quatf = Eigen::Quaternionf;
 
 
 
@@ -107,10 +108,10 @@ TraversalController::TraversalController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const Tf2Buffer& tf_buffer) :
+    const TfCache& tf_cache) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{tf_buffer},
+    tf_cache{tf_cache},
     path_sub{node.create_subscription<PathMsg>(
         PERCEPTION_PATH_TOPIC,
         rclcpp::SensorDataQoS{},
@@ -279,29 +280,19 @@ bool TraversalController::iterateTraversal(
 
     if (this->last_path->header.frame_id != this->params.robot_frame_id)
     {
-        try
+        const auto* tf =
+            this->tf_cache.getTf(this->last_path->header.frame_id, ROBOT_FRAME);
+        if (tf)
         {
-            Iso3f tf;
-            tf << this->tf_buffer
-                      .lookupTransform(
-                          this->params.robot_frame_id,
-                          this->last_path->header.frame_id,
-                          tf2::TimePointZero)
-                      .transform;
-
             Vec3f tmp;
             for (size_t i = 0; i < keypoints.size(); i++)
             {
                 const auto& pt = this->last_path->poses[i].pose.position;
-                keypoints[i] = (tf * (tmp << pt)).template head<2>();
+                keypoints[i] = (tf->tf * (tmp << pt)).template head<2>();
             }
         }
-        catch (const std::exception& e)
+        else
         {
-            // failed to transform to robot frame
-            // std::cout
-            //     << "--- TRAVERSAL ITERATION ---\nFailed to transform keypoints to robot frame\n"
-            //     << std::endl;
             return false;
         }
     }
@@ -316,11 +307,30 @@ bool TraversalController::iterateTraversal(
     }
 
     // handle close enough to final keypoint
-    if (keypoints.back().norm() <=
-        this->params.auto_traversal_keypoint_thresh_m)
+    switch (this->destination_type)
     {
-        commands.disableTracks();
-        return true;
+        case DestinationType::POINT:
+        case DestinationType::POSE:
+        {
+            if (keypoints.back().norm() <=
+                this->params.auto_traversal_keypoint_thresh_m)
+            {
+                commands.disableTracks();
+                return true;
+            }
+            break;
+        }
+        case DestinationType::ZONE:
+        {
+            const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+            if (tf &&
+                this->arena_dest_zone.contains(tf->pose.vec.template head<2>()))
+            {
+                commands.disableTracks();
+                return true;
+            }
+            break;
+        }
     }
 
     // 2. FIND TARGET SEGMENT OR KEYPOINT --------------------------------------
@@ -576,24 +586,15 @@ bool TraversalController::iterateReorient(
     }
 
     Vec2f target = this->arena_dest_direction;
-    try
+    const auto* tf = this->tf_cache.getTf(ARENA_TO_ROBOT_TF);
+    if (tf)
     {
-        Iso3f tf;
-        tf << this->tf_buffer
-                  .lookupTransform(
-                      this->params.robot_frame_id,
-                      this->params.arena_frame_id,
-                      tf2::TimePointZero)
-                  .transform;
-
-        target = (tf * Vec3f{target.x(), target.y(), 0.f}).template head<2>();
+        target = (tf->pose.quat.toRotationMatrix() *
+                  Vec3f{target.x(), target.y(), 0.f})
+                     .template head<2>();
     }
-    catch (const std::exception& e)
+    else
     {
-        // failed to transform to robot frame
-        // std::cout
-        //     << "--- TRAVERSAL ITERATION ---\nFailed to transform keypoints to robot frame\n"
-        //     << std::endl;
         return false;
     }
 

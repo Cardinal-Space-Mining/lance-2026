@@ -86,8 +86,13 @@ void AutoMiningController::iterate(
                 break;  // break if more work is required
             }
 
+            // placeholder for testing
+            Eigen::Vector2f target_pos = this->params.mining_zone_bounds.max() -
+                                         Eigen::Vector2f::Constant(0.8f);
+            Eigen::Vector2f target_dir{0.f, -1.f};
+
             // init with planned destination
-            this->traversal_controller.initializePoint(Eigen::Vector2f::Zero());
+            this->traversal_controller.initializePoint(target_pos, target_dir);
             this->stage = Stage::TRAVERSING;
             [[fallthrough]];
         }

@@ -57,14 +57,14 @@ namespace lance
 RobotController::RobotController(RclNode& node, GenericPubMap& pub_map) :
     pub_map{pub_map},
     params{node},
-    tf_buffer{node.get_clock()},
-    tf_listener{tf_buffer, &node},
+    tf_cache{node, this->params},
+    tf_listener{tf_cache.getBuffer(), &node},
     shared_controllers{
         node,
         pub_map,
         params,
         collection_state.getHopperState(),
-        tf_buffer},
+        tf_cache},
     auto_controller{node, pub_map, params, shared_controllers},
     teleop_controller{node, pub_map, params, shared_controllers}
 {
@@ -85,7 +85,7 @@ const RobotParams& RobotController::getParams() const { return this->params; }
 
 const RobotController::Tf2Buffer& RobotController::getTfBuffer() const
 {
-    return this->tf_buffer;
+    return this->tf_cache.getBuffer();
 }
 
 void RobotController::iterate(
@@ -97,6 +97,7 @@ void RobotController::iterate(
     const RobotMotorStatus& filtered_status =
         this->handleTestModeStateInjection(motor_status, ctrl_status);
     this->collection_state.update(filtered_status);
+    this->tf_cache.refresh();
 
     const ControlMode prev_mode = this->control_mode;
     this->control_mode = ControlStatus::getMode(ctrl_status);
