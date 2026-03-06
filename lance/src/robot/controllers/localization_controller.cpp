@@ -60,10 +60,10 @@ LocalizationController::LocalizationController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const Tf2Buffer& tf_buffer) :
+    const TfCache& tf_cache) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{tf_buffer},
+    tf_cache{tf_cache},
     hint_sub{node.create_subscription<ReflectorHintMsg>(
         PERCEPTION_REFLECTOR_HINT_TOPIC,
         rclcpp::SensorDataQoS{},
@@ -114,10 +114,7 @@ void LocalizationController::iterate(
     // TODO: TF lookup timestamps are wildly inconsistent when using gazebo -
     //      the workaround for now is to just query the alignment tf and not the full tf,
     //      although we should really be checking to make sure we have full localization
-    if (this->tf_buffer.canTransform(
-            this->params.odom_frame_id,
-            this->params.arena_frame_id,
-            tf2::TimePointZero))
+    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         this->stage = Stage::FINISHED;
     }

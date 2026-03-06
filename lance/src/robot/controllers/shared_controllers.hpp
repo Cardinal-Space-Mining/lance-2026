@@ -51,7 +51,6 @@ namespace lance
 class SharedControllerCollection
 {
     using RclNode = rclcpp::Node;
-    using Tf2Buffer = tf2_ros::Buffer;
     using GenericPubMap = util::GenericPubMap;
 
 public:
@@ -60,11 +59,11 @@ public:
         GenericPubMap& pub_map,
         const RobotParams& params,
         const HopperState& hopper_state,
-        const Tf2Buffer& tf_buffer) :
+        const TfCache& tf_cache) :
         mining_controller{node, pub_map, params, hopper_state},
         offload_controller{node, pub_map, params, hopper_state},
-        traversal_controller{node, pub_map, params, tf_buffer},
-        localization_controller{node, pub_map, params, tf_buffer}
+        traversal_controller{node, pub_map, params, tf_cache},
+        localization_controller{node, pub_map, params, tf_cache}
     {
     }
 

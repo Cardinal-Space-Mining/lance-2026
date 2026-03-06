@@ -219,15 +219,7 @@
           }
         },
         {
-          "value": "/collection_state/is_full_occ.data",
-          "timestampMethod": "receiveTime",
-          "customStates": {
-            "type": "discrete",
-            "states": []
-          }
-        },
-        {
-          "value": "/collection_state/is_full_volume.data",
+          "value": "/lance/robot_op_status.data",
           "timestampMethod": "receiveTime",
           "customStates": {
             "type": "discrete",
@@ -241,13 +233,13 @@
     "3D!wl899f": {
       "cameraState": {
         "perspective": false,
-        "distance": 4.078136514905661,
-        "phi": 0.00005729832627056611,
-        "thetaOffset": 90.69659438927859,
+        "distance": 8.802533372997328,
+        "phi": 70.68675257729768,
+        "thetaOffset": 89.55835440534992,
         "targetOffset": [
-          -0.013719238162790746,
-          0.2101558301650538,
-          -2.7109286951256576e-16
+          0.05697902416822274,
+          0.021409735267484395,
+          -3.2207741383098887e-16
         ],
         "target": [
           0,
@@ -315,7 +307,12 @@
           "maxValue": 1
         },
         "/cardinal_perception/planned_path": {
-          "visible": true
+          "visible": true,
+          "gradient": [
+            "#4c00ffff",
+            "#00ff40ff"
+          ],
+          "lineWidth": 0.1
         },
         "/arena_zones": {
           "visible": true,
@@ -327,6 +324,14 @@
               "visible": true
             }
           }
+        },
+        "/cardinal_perception/robot_planned_path": {
+          "visible": true,
+          "gradient": [
+            "#00caffff",
+            "#ff00ffff"
+          ],
+          "lineWidth": 0.1
         }
       },
       "layers": {
@@ -592,20 +597,28 @@
             "type": "discrete",
             "states": []
           }
+        },
+        {
+          "value": "/lance/robot_op_status.data",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
         }
       ],
       "isSynced": true
     },
     "3D!18yg16o": {
       "cameraState": {
-        "perspective": true,
-        "distance": 10.807201753224884,
-        "phi": 0.000057304686744168496,
-        "thetaOffset": -80.07634318800861,
+        "perspective": false,
+        "distance": 10.26684166145949,
+        "phi": 0.00005729832627056611,
+        "thetaOffset": -137.41905585973845,
         "targetOffset": [
-          -0.3191294096784499,
-          0.5858962428544494,
-          -2.6485409997620017e-16
+          -2.426889083797642,
+          0.992899410560275,
+          -2.4698508366889402e-17
         ],
         "target": [
           0,
@@ -832,14 +845,14 @@
     },
     "3D!3qwg4qu": {
       "cameraState": {
-        "perspective": true,
-        "distance": 10.807201753224884,
-        "phi": 0.000057304686744168496,
-        "thetaOffset": -80.07634318800861,
+        "perspective": false,
+        "distance": 10.26684166145949,
+        "phi": 0.00005729832627056611,
+        "thetaOffset": -137.41905585973845,
         "targetOffset": [
-          -0.3191294096784499,
-          0.5858962428544494,
-          -2.6485409997620017e-16
+          -2.426889083797642,
+          0.992899410560275,
+          -2.4698508366889402e-17
         ],
         "target": [
           0,
@@ -1112,14 +1125,14 @@
     },
     "3D!hllzd3": {
       "cameraState": {
-        "perspective": true,
-        "distance": 10.807201753224884,
-        "phi": 0.000057304686744168496,
-        "thetaOffset": -80.07634318800861,
+        "perspective": false,
+        "distance": 10.26684166145949,
+        "phi": 0.00005729832627056611,
+        "thetaOffset": -137.41905585973845,
         "targetOffset": [
-          -0.3191294096784499,
-          0.5858962428544494,
-          -2.6485409997620017e-16
+          -2.426889083797642,
+          0.992899410560275,
+          -2.4698508366889402e-17
         ],
         "target": [
           0,
@@ -1303,6 +1316,14 @@
               "visible": false
             }
           }
+        },
+        "/cardinal_perception/robot_planned_path": {
+          "visible": true,
+          "lineWidth": 0.1,
+          "gradient": [
+            "#00a2ffff",
+            "#ff00eeff"
+          ]
         }
       },
       "layers": {
@@ -1343,14 +1364,14 @@
     },
     "3D!q6dbn4": {
       "cameraState": {
-        "perspective": true,
-        "distance": 10.807201753224884,
-        "phi": 0.000057304686744168496,
-        "thetaOffset": -80.07634318800861,
+        "perspective": false,
+        "distance": 10.26684166145949,
+        "phi": 0.00005729832627056611,
+        "thetaOffset": -137.41905585973845,
         "targetOffset": [
-          -0.3191294096784499,
-          0.5858962428544494,
-          -2.6485409997620017e-16
+          -2.426889083797642,
+          0.992899410560275,
+          -2.4698508366889402e-17
         ],
         "target": [
           0,
@@ -1609,7 +1630,7 @@
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/profiling/perception_latency.data",
+          "value": "/foxglove/perception_latency.data",
           "enabled": true,
           "color": "#ff00ee",
           "id": "6937a9c5-81f3-4d43-aa84-a40de9837318"
@@ -2967,13 +2988,13 @@
     "3D!3bd7eia": {
       "cameraState": {
         "perspective": true,
-        "distance": 11.376001845430551,
-        "phi": 31.422888211731465,
-        "thetaOffset": 120.65959807626653,
+        "distance": 12.604988194381972,
+        "phi": 27.72108872587151,
+        "thetaOffset": 118.19173175235856,
         "targetOffset": [
-          0.5141410184818311,
-          -0.28050915256840125,
-          -2.4629330953169757e-17
+          0.5698575276780583,
+          0.24463895990922807,
+          -2.5895007989246096e-17
         ],
         "target": [
           0,
@@ -4041,13 +4062,13 @@
     "3D!vf6rg": {
       "cameraState": {
         "perspective": true,
-        "distance": 13.268408620583642,
-        "phi": 5.7022748400860355,
-        "thetaOffset": -64.38048137708314,
+        "distance": 8.802533369586431,
+        "phi": 61.965015496938385,
+        "thetaOffset": -86.80403743597691,
         "targetOffset": [
-          -0.1879494521028085,
-          -0.45433036332244514,
-          -3.011580000719617e-16
+          0.47685805647980917,
+          -0.2290257904917292,
+          -3.0450977621943857e-16
         ],
         "target": [
           0,
@@ -4258,13 +4279,13 @@
     "3D!48fih02": {
       "cameraState": {
         "perspective": true,
-        "distance": 13.268408620583642,
-        "phi": 5.7022748400860355,
-        "thetaOffset": -64.38048137708314,
+        "distance": 8.802533369586431,
+        "phi": 61.965015496938385,
+        "thetaOffset": -86.80403743597691,
         "targetOffset": [
-          -0.1879494521028085,
-          -0.45433036332244514,
-          -3.011580000719617e-16
+          0.47685805647980917,
+          -0.2290257904917292,
+          -3.0450977621943857e-16
         ],
         "target": [
           0,
@@ -4529,13 +4550,13 @@
     "3D!3arw002": {
       "cameraState": {
         "perspective": true,
-        "distance": 13.268408620583642,
-        "phi": 5.7022748400860355,
-        "thetaOffset": -64.38048137708314,
+        "distance": 8.802533369586431,
+        "phi": 61.965015496938385,
+        "thetaOffset": -86.80403743597691,
         "targetOffset": [
-          -0.1879494521028085,
-          -0.45433036332244514,
-          -3.011580000719617e-16
+          0.47685805647980917,
+          -0.2290257904917292,
+          -3.0450977621943857e-16
         ],
         "target": [
           0,
@@ -4748,13 +4769,13 @@
     "3D!21u9evc": {
       "cameraState": {
         "perspective": true,
-        "distance": 13.268408620583642,
-        "phi": 5.7022748400860355,
-        "thetaOffset": -64.38048137708314,
+        "distance": 8.802533369586431,
+        "phi": 61.965015496938385,
+        "thetaOffset": -86.80403743597691,
         "targetOffset": [
-          -0.1879494521028085,
-          -0.45433036332244514,
-          -3.011580000719617e-16
+          0.47685805647980917,
+          -0.2290257904917292,
+          -3.0450977621943857e-16
         ],
         "target": [
           0,
@@ -5467,13 +5488,13 @@
     "3D!2u55iff": {
       "cameraState": {
         "perspective": true,
-        "distance": 10.266841665487153,
-        "phi": 30.356196638968804,
-        "thetaOffset": -110.56948297391449,
+        "distance": 10.807201753065586,
+        "phi": 37.48066249602095,
+        "thetaOffset": -172.3525009706523,
         "targetOffset": [
-          -0.26353530841259437,
-          0.3600878037176087,
-          -2.9674205012606253e-16
+          0.6411215720998978,
+          -1.1689110226809254,
+          -1.553425191126605e-16
         ],
         "target": [
           0,
@@ -5508,7 +5529,7 @@
         },
         "/multiscan/lidar_scan": {
           "visible": true,
-          "colorField": "reflective",
+          "colorField": "_auto_distance",
           "colorMode": "colormap",
           "colorMap": "turbo",
           "pointSize": 6
@@ -5530,6 +5551,13 @@
           "colorField": "z",
           "colorMode": "colormap",
           "colorMap": "turbo"
+        },
+        "/gz_lidar_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 4
         }
       },
       "layers": {
@@ -5629,10 +5657,10 @@
       }
     },
     "RawMessages!432nadh": {
-      "topicPath": "/lance/watchdog_status"
+      "topicPath": "/clock"
     },
     "Tab!1nwcji4": {
-      "activeTabIdx": 1,
+      "activeTabIdx": 0,
       "tabs": [
         {
           "title": "Info Dashboard",
@@ -5680,7 +5708,7 @@
                 "first": "Plot!1n7cgqb",
                 "second": "StateTransitions!xkp66y",
                 "direction": "column",
-                "splitPercentage": 71.74231332357247
+                "splitPercentage": 80.37100724297848
               },
               "direction": "row",
               "splitPercentage": 16.153621599723568
@@ -5689,8 +5717,7 @@
               "first": {
                 "first": "3D!wl899f",
                 "second": "Plot!wy5z8y",
-                "direction": "column",
-                "splitPercentage": 46.524493434932076
+                "direction": "column"
               },
               "second": "StateTransitions!3qedham",
               "direction": "column",

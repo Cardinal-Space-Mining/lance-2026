@@ -39,74 +39,157 @@
 
 #pragma once
 
-#include <cstdint>
+#include <mutex>
+#include <string>
 
 #include <rclcpp/rclcpp.hpp>
 
 #include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 
-#include "../util/pub_map.hpp"
-#include "../util/joy_utils.hpp"
-
-#include "tf_cache.hpp"
 #include "robot_params.hpp"
-#include "robot_status.hpp"
-#include "motor_interface.hpp"
-#include "collection_state.hpp"
-
-#include "controllers/auto_controller.hpp"
-#include "controllers/teleop_controller.hpp"
-#include "controllers/shared_controllers.hpp"
+#include "../util/geometry.hpp"
+#include "../util/time_cvt.hpp"
 
 
 namespace lance
 {
 
-class RobotController
+enum KeyFrame
 {
-    using RclNode = rclcpp::Node;
-    using JoyState = util::JoyState;
-    using GenericPubMap = util::GenericPubMap;
-    using Tf2Buffer = tf2_ros::Buffer;
-    using Tf2Listener = tf2_ros::TransformListener;
-
-public:
-    RobotController(RclNode&, GenericPubMap&);
-    ~RobotController() = default;
-
-public:
-    const HopperState& hopperState() const;
-    const RobotParams& getParams() const;
-    const Tf2Buffer& getTfBuffer() const;
-
-    void iterate(
-        int32_t ctrl_status,
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    const RobotMotorStatus& handleTestModeStateInjection(
-        const RobotMotorStatus& ref,
-        int32_t ctrl_status);
-
-protected:
-    GenericPubMap& pub_map;
-
-    ControlMode control_mode{ControlMode::DISABLED};
-
-    RobotParams params;
-    RobotMotorStatus filtered_status;
-    CollectionState collection_state;
-
-    TfCache tf_cache;
-    Tf2Listener tf_listener;
-
-    SharedControllerCollection shared_controllers;
-
-    AutoController auto_controller;
-    TeleopController teleop_controller;
+    INVALID_FRAME = 0,
+    ARENA_FRAME = 1,
+    ODOM_FRAME = 2,
+    ROBOT_FRAME = 3
 };
+enum KeyTf
+{
+    INVALID_TF = 0,
+    ARENA_TO_ODOM_TF = (ARENA_FRAME << 2 | ODOM_FRAME),
+    ARENA_TO_ROBOT_TF = (ARENA_FRAME << 2 | ROBOT_FRAME),
+    ODOM_TO_ARENA_TF = (ODOM_FRAME << 2 | ARENA_FRAME),
+    ODOM_TO_ROBOT_TF = (ODOM_FRAME << 2 | ROBOT_FRAME),
+    ROBOT_TO_ARENA_TF = (ROBOT_FRAME << 2 | ARENA_FRAME),
+    ROBOT_TO_ODOM_TF = (ROBOT_FRAME << 2 | ODOM_FRAME)
+};
+
+
+inline constexpr KeyTf composeKeyTf(KeyFrame from, KeyFrame to)
+{
+    return static_cast<KeyTf>(from << 2 | to);
+}
+
+
+class TfCache
+{
+    using Tf2Buffer = tf2_ros::Buffer;
+    using PoseTf = util::geom::PoseTf3f;
+
+public:
+    const std::string arena_frame_id;
+    const std::string odom_frame_id;
+    const std::string robot_frame_id;
+
+public:
+    TfCache(rclcpp::Node&, const RobotParams&);
+
+public:
+    void refresh();
+
+    Tf2Buffer& getBuffer();
+    const Tf2Buffer& getBuffer() const;
+
+    bool hasTf(KeyTf k) const;
+    template<typename KeyOrStr1, typename KeyOrStr2>
+    bool hasTf(KeyOrStr1&& from, KeyOrStr2&& to) const;
+
+    double getStamp(KeyTf k) const;
+    template<typename KeyOrStr1, typename KeyOrStr2>
+    double getStamp(KeyOrStr1&& from, KeyOrStr2&& to) const;
+
+    const PoseTf* getTf(KeyTf k) const;
+    template<typename KeyOrStr1, typename KeyOrStr2>
+    const PoseTf* getTf(KeyOrStr1&& from, KeyOrStr2&& to) const;
+
+protected:
+    struct TfLink
+    {
+        PoseTf tf;
+        PoseTf inv_tf;
+
+        double stamp{-1.};
+    };
+
+protected:
+    template<typename T>
+    KeyFrame resolveKeyFrame(T&& val) const;
+
+protected:
+    Tf2Buffer tf_buffer;
+
+    TfLink arena_to_odom;
+    TfLink odom_to_robot;
+    TfLink robot_to_arena;
+
+    mutable std::mutex mtx;
+};
+
+
+
+// ---
+
+#include <string_view>
+#include <type_traits>
+
+
+template<typename T1, typename T2>
+bool TfCache::hasTf(T1&& from, T2&& to) const
+{
+    return this->hasTf(composeKeyTf(
+        this->resolveKeyFrame(std::forward<T1>(from)),
+        this->resolveKeyFrame(std::forward<T2>(to))));
+}
+
+template<typename T1, typename T2>
+double TfCache::getStamp(T1&& from, T2&& to) const
+{
+    return this->getStamp(composeKeyTf(
+        this->resolveKeyFrame(std::forward<T1>(from)),
+        this->resolveKeyFrame(std::forward<T2>(to))));
+}
+
+template<typename T1, typename T2>
+const TfCache::PoseTf* TfCache::getTf(T1&& from, T2&& to) const
+{
+    return this->getTf(composeKeyTf(
+        this->resolveKeyFrame(std::forward<T1>(from)),
+        this->resolveKeyFrame(std::forward<T2>(to))));
+}
+
+template<typename T>
+KeyFrame TfCache::resolveKeyFrame(T&& val) const
+{
+    if constexpr (std::is_same_v<std::remove_cvref_t<T>, KeyFrame>)
+    {
+        return val;
+    }
+    if constexpr (std::is_constructible_v<std::string_view, T>)
+    {
+        std::string_view tag{val};
+
+        if (tag == this->robot_frame_id)
+        {
+            return ROBOT_FRAME;
+        }
+        if (tag == this->odom_frame_id)
+        {
+            return ODOM_FRAME;
+        }
+        if (tag == this->arena_frame_id)
+        {
+            return ARENA_FRAME;
+        }
+    }
+    return INVALID_FRAME;
+}
 
 };  // namespace lance
