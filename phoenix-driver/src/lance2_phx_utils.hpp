@@ -72,23 +72,46 @@ using phx6::signals::NeutralModeValue;
 using phx6::signals::InvertedValue;
 using phx6::signals::FeedbackSensorSourceValue;
 
-inline TalonFXConfiguration createFXConfig(
-    int can_id,
-    
-    
+template <typename TConfig>
+inline TConfig buildMotorConfig(
     double kP,
     double kI,
     double kD,
     double kV,
-
     double neutral_deadband,
-    int neutral_mode,
-    
-    int invert_mode,
+    bool neutral_brake,
     double stator_current_limit = 0.,
     double supply_current_limit = 0.,
-    double voltage_limit = 0.
-)
+    double voltage_limit = 0.)
+{
+    return TConfig{}
+        .WithSlot0(Slot0Configs{}.WithKP(kP).WithKI(kI).WithKD(kD).WithKV(kV))
+        .WithMotorOutput(
+            MotorOutputConfigs{}
+                .WithDutyCycleNeutralDeadband(neutral_deadband)
+                .WithNeutralMode(neutral_brake
+                    ? NeutralModeValue::Brake
+                    : NeutralModeValue::Coast))
+        .WithFeedback(
+            FeedbackConfigs{}.WithFeedbackSensorSource(
+                FeedbackSensorSourceValue::RotorSensor))
+        .WithCurrentLimits(
+            CurrentLimitsConfigs{}
+                .WithStatorCurrentLimit(
+                    units::current::ampere_t{stator_current_limit})
+                .WithStatorCurrentLimitEnable(stator_current_limit > 0.)
+                .WithSupplyCurrentLimit(
+                    units::current::ampere_t{supply_current_limit})
+                .WithSupplyCurrentLimitEnable(supply_current_limit > 0.))
+        .WithVoltage(
+            (voltage_limit > 0.)
+                ? VoltageConfigs{}
+                      .WithPeakForwardVoltage(
+                          units::voltage::volt_t{voltage_limit})
+                      .WithPeakReverseVoltage(
+                          units::voltage::volt_t{-voltage_limit})
+                : VoltageConfigs{});
+}
 
 // --- Message Serializers -----------------------------------------------------
 
