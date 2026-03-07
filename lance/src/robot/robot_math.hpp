@@ -127,6 +127,34 @@ constexpr inline T groundMpsToTrackMotorRps(const T& mps)
     return static_cast<T>(
         mps * (1 / (TRACK_EFFECTIVE_OUTPUT_RADIUS_M * TWO_PI) * TRACK_GEARING));
 }
+template<typename T>
+constexpr inline T trackVelocitiesToForwardVelocity(
+    const T& left_mps,
+    const T& right_mps)
+{
+    return static_cast<T>((left_mps + right_mps) / 2.);
+}
+template<typename T>
+constexpr inline T trackVelocitiesToAngularVelocity(
+    const T& left_mps,
+    const T& right_mps)
+{
+    return static_cast<T>((left_mps - right_mps) / TRACK_SEPARATION_M);
+}
+template<typename T>
+constexpr inline T bodyDynamicsToLeftTrackVelocityMps(
+    const T& v_mps,
+    const T& omega_radps)
+{
+    return static_cast<T>(v_mps - omega_radps * (TRACK_SEPARATION_M / 2));
+}
+template<typename T>
+constexpr inline T bodyDynamicsToRightTrackVelocityMps(
+    const T& v_mps,
+    const T& omega_radps)
+{
+    return static_cast<T>(v_mps + omega_radps * (TRACK_SEPARATION_M / 2));
+}
 
 template<typename T>
 constexpr inline T linearActuatorToMiningDepthUnclamped(
@@ -288,3 +316,26 @@ constexpr inline T hopperBeltMpsToMotorRps(const T& belt_mps)
 #undef LITERS_PER_M_CUBED
 
 };  // namespace lance
+
+
+// KineMatiCS [utilities]
+namespace kmx
+{
+
+// compute the maximum starting velocity such that it is still possible to decelerate
+// to the target velocity in the given distance at the given max decelleration
+template<typename FloatT>
+inline FloatT maxStartVel(FloatT end_vel, FloatT dist, FloatT max_acc)
+{
+    // v_f^2 = v_i^2 + 2*a*x
+    return std::sqrt((FloatT)2 * dist * max_acc + end_vel * end_vel);
+}
+
+template<typename FloatT>
+inline FloatT decellDist(FloatT vel, FloatT max_decell)
+{
+    // x = v^2 / 2a
+    return (vel * vel) * (2 * max_decell);
+}
+
+};  // namespace kmx

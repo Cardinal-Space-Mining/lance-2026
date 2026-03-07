@@ -58,7 +58,7 @@ public:
     JoyMsg::_buttons_type prev_buttons, buttons;
     double dt{0.};
     double stamp{0.};
-    bool continuous{true};
+    bool continuous{false};
 
 public:
     inline void update(const JoyMsg& joy)
@@ -67,8 +67,8 @@ public:
             (joy.axes.size() == this->axes.size() &&
              joy.buttons.size() == this->buttons.size());
 
-        this->prev_axes.swap(this->axes);
-        this->prev_buttons.swap(this->buttons);
+        this->prev_axes = std::move(this->axes);
+        this->prev_buttons = std::move(this->buttons);
         this->axes = joy.axes;
         this->buttons = joy.buttons;
 
@@ -78,6 +78,14 @@ public:
             this->dt = t - stamp;
         }
         this->stamp = t;
+    }
+    inline void updateDisconnected()
+    {
+        this->continuous = false;
+        this->axes.clear();
+        this->buttons.clear();
+        this->dt = 0.;
+        this->stamp = 0.;
     }
 
 public:
@@ -117,6 +125,10 @@ public:
     inline float getRawAxis(int idx) const
     {
         return this->hasAxisIdx(idx) ? this->axes[idx] : 0.f;
+    }
+    inline float getTriggerAxis(int idx) const
+    {
+        return this->hasAxisIdx(idx) ? ((1.f - this->axes[idx]) / 2.f) : 0.f;
     }
     inline float getAxisDelta(int idx) const
     {
@@ -184,7 +196,7 @@ struct JoyAxis
     }
     inline float triggerValue(const JoyState& joy) const
     {
-        return (1.f - this->rawValue(joy)) / 2.f;
+        return joy.getTriggerAxis(this->idx);
     }
     inline float delta(const JoyState& joy) const
     {
@@ -245,7 +257,7 @@ struct StaticJoyAxis
     }
     static inline float triggerValue(const JoyState& joy)
     {
-        return (1.f - rawValue(joy)) / 2.f;
+        return joy.getTriggerAxis(Idx);
     }
     static inline float delta(const JoyState& joy)
     {

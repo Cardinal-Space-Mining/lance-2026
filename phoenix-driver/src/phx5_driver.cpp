@@ -186,14 +186,15 @@ void Phoenix5Driver::feed_watchdog_status(int32_t status)
      * POSTIVE feed time --> enabled
      * ZERO feed time --> disabled
      * NEGATIVE feed time --> autonomous */
-    if (!status)
+    const int32_t timeout_ms = status / 1000;
+    if (!timeout_ms)
     {
         this->hopper_act.motor.Set(ControlMode::Disabled, 0.);
         this->is_disabled = true;
     }
     else
     {
-        ctre::phoenix::unmanaged::Unmanaged::FeedEnable(std::abs(status));
+        ctre::phoenix::unmanaged::Unmanaged::FeedEnable(std::abs(timeout_ms));
         this->is_disabled = false;
     }
 }

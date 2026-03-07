@@ -44,21 +44,53 @@
 #include "base_adapter.hpp"
 
 
+/* Access lidar frame id ros param and store it for publisher use,
+ * since this doesn't get send over the wire. This is a separate class
+ * since we don't need to cache anything for the subscriber. */
+class MS136ScanAdapterPubState
+{
+    friend class MS136ScanAdapter;
+    friend class MS136SimScanAdapter;
+
+public:
+    MS136ScanAdapterPubState(rclcpp::Node& n);
+
+protected:
+    const std::string lidar_frame_id;
+};
+
 class MS136ScanAdapter :
-    public BaseAdapter<sensor_msgs::msg::PointCloud2, MS136ScanAdapter>
+    public BaseAdapter<
+        sensor_msgs::msg::PointCloud2,
+        MS136ScanAdapter,
+        MS136ScanAdapterPubState,
+        void>
 {
     friend BaseT;
-
-    using PointField = sensor_msgs::msg::PointField;
-    // using PointCloudMsg = sensor_msgs::msg::PointCloud2;
 
 protected:
     MS136ScanAdapter(rclcpp::Node&);
 
 protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, const SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, const PubStateT&);
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+};
+
+
+/* Handles gazebo point layout */
+class MS136SimScanAdapter :
+    public BaseAdapter<
+        sensor_msgs::msg::PointCloud2,
+        MS136SimScanAdapter,
+        MS136ScanAdapterPubState,
+        void>
+{
+    friend BaseT;
 
 protected:
-    std::string lidar_frame_id;
+    MS136SimScanAdapter(rclcpp::Node&);
+
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
 };

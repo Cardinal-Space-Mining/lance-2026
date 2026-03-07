@@ -1,0 +1,68 @@
+{
+    "robot":
+    {
+        "pragma:default": null,
+
+        "lance1_ksc":
+        {
+            "pragma:action_overrides":
+            {
+                "robot_tf": "lance",
+                "phoenix5_driver": "enabled",
+                "phoenix6_driver": "enabled",
+                "robot_control": "lance1_ksc",
+                "redux": "robot",
+                "multiscan_driver": "net1",
+                "perception": "lance1_headless",
+                "bag_record": "telemetry"
+            }
+        },
+        "lance1_ucf_right":
+        {
+            "pragma:derived": "lance1_ksc",
+            "pragma:action_overrides":
+            {
+                "robot_control": "lance1_ucf_right"
+            }
+        },
+        "lance1_ucf_left":
+        {
+            "pragma:derived": "lance1_ksc",
+            "pragma:action_overrides":
+            {
+                "robot_control": "lance1_ucf_left"
+            }
+        },
+
+        "lance2_ksc":
+        {
+            "pragma:action_overrides":
+            {
+                "robot_tf": "lance2",
+                "phoenix5_driver": "enabled",
+                "phoenix6_driver": "enabled",
+                "robot_control": "lance2_ksc",
+                "redux": "robot",
+                "multiscan_driver": "net2",
+                "perception": "lance2_headless",
+                "bag_record": "all"
+            }
+        },
+        "lance2_ucf_right":
+        {
+            "pragma:derived": "lance2_ksc",
+            "pragma:action_overrides":
+            {
+                "robot_control": "lance2_ucf_right"
+            }
+        },
+        "lance2_ucf_left":
+        {
+            "pragma:derived": "lance2_ksc",
+            "pragma:action_overrides":
+            {
+                "robot_control": "lance2_ucf_left"
+            }
+        }
+    }
+}

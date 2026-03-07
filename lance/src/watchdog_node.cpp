@@ -42,15 +42,17 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <std_msgs/msg/int32.hpp>
-
-#include "lance/srv/set_robot_mode.hpp"
+#include <std_srvs/srv/set_bool.hpp>
 
 #include "util/ros_utils.hpp"
+#include "robot/robot_status.hpp"
 
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
+
 using namespace util::ros_aliases;
+using namespace lance;
 
 
 #define WATCHDOG_PUB_DT           100ms
@@ -63,7 +65,7 @@ using namespace util::ros_aliases;
 class RobotStatusServer : public rclcpp::Node
 {
     using Int32Msg = std_msgs::msg::Int32;
-    using SetRobotModeSrv = lance::srv::SetRobotMode;
+    using SetBoolSrv = std_srvs::srv::SetBool;
 
 public:
     RobotStatusServer() :
@@ -72,17 +74,34 @@ public:
         watchdog_status_pub{this->create_publisher<Int32Msg>(
             ROBOT_TOPIC("watchdog_status"),
             rclcpp::SensorDataQoS{})},
-        robot_state_service{this->create_service<SetRobotModeSrv>(
-            ROBOT_TOPIC("set_robot_mode"),
+        set_teleop_srv{this->create_service<SetBoolSrv>(
+            ROBOT_TOPIC("set_teleop_mode"),
             [this](
-                SetRobotModeSrv::Request::SharedPtr req,
-                SetRobotModeSrv::Response::SharedPtr resp)
+                SetBoolSrv::Request::SharedPtr req,
+                SetBoolSrv::Response::SharedPtr resp)
             {
-                this->robot_mode = req->mode;
-                RCLCPP_DEBUG(
-                    this->get_logger(),
-                    "SET ROBOT MODE : %d",
-                    this->robot_mode);
+                this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
+                                            : ControlMode::DISABLED;
+                resp->success = true;
+            })},
+        set_auto_srv{this->create_service<SetBoolSrv>(
+            ROBOT_TOPIC("set_auto_mode"),
+            [this](
+                SetBoolSrv::Request::SharedPtr req,
+                SetBoolSrv::Response::SharedPtr resp)
+            {
+                this->ctrl_mode =
+                    req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
+                resp->success = true;
+            })},
+        test_mode_srv{this->create_service<SetBoolSrv>(
+            ROBOT_TOPIC("set_test_mode"),
+            [this](
+                SetBoolSrv::Request::SharedPtr req,
+                SetBoolSrv::Response::SharedPtr resp)
+            {
+                this->ctrl_opts = static_cast<uint8_t>(
+                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
                 resp->success = true;
             })},
         watchdog_timer{this->create_wall_timer(
@@ -98,22 +117,22 @@ public:
 protected:
     inline int32_t getFeedTime()
     {
-        return (
-            this->robot_mode > 0
-                ? (duration_cast<milliseconds>(WATCHDOG_TELEOP_FEED_TIME)
-                       .count())
-                : (this->robot_mode < 0
-                       ? -duration_cast<milliseconds>(WATCHDOG_AUTO_FEED_TIME)
-                              .count()
-                       : 0));
+        return ControlStatus::format(
+            this->ctrl_mode,
+            this->ctrl_opts,
+            WATCHDOG_TELEOP_FEED_TIME,
+            WATCHDOG_AUTO_FEED_TIME);
     }
 
 protected:
     SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetRobotModeSrv> robot_state_service;
+    SharedSrv<SetBoolSrv> set_teleop_srv;
+    SharedSrv<SetBoolSrv> set_auto_srv;
+    SharedSrv<SetBoolSrv> test_mode_srv;
     RclTimer watchdog_timer;
 
-    int robot_mode{0};
+    ControlMode ctrl_mode{ControlMode::DISABLED};
+    uint8_t ctrl_opts{0};
 };
 
 

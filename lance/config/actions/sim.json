@@ -1,0 +1,119 @@
+{
+    "motor_sim":
+    {
+        "pragma:default": null,
+
+        "lance1":
+        {
+            "model": 1,
+            "use_gz_track_feedback": false
+        },
+        "lance2":
+        {
+            "model": 2,
+            "use_gz_track_feedback": false
+        },
+
+        "lance1_gz_sim":
+        {
+            "model": 1,
+            "use_gz_track_feedback": true
+        },
+        "lance2_gz_sim":
+        {
+            "model": 2,
+            "use_gz_track_feedback": true
+        }
+    },
+
+
+
+    "gz_sim":
+    {
+        "pragma:default": null,
+
+        "lance1_ksc":
+        {
+            "world": "ksc",
+            "robot": "lance1",
+            "hid_control": true,
+            "hid_inverted_yaw": false
+        },
+        "lance1_ucf_right":
+        {
+            "pragma:derived": "lance1_ksc",
+            "world": "ucf_right"
+        },
+        "lance1_ucf_left":
+        {
+            "pragma:derived": "lance1_ksc",
+            "world": "ucf_left"
+        },
+
+        "lance2_ksc":
+        {
+            "world": "ksc",
+            "robot": "lance2",
+            "hid_control": true,
+            "hid_inverted_yaw": false
+        },
+        "lance2_ucf_right":
+        {
+            "pragma:derived": "lance2_ksc",
+            "world": "ucf_right"
+        },
+        "lance2_ucf_left":
+        {
+            "pragma:derived": "lance2_ksc",
+            "world": "ucf_left"
+        },
+
+
+
+        "lance1_ksc_ms":
+        {
+            "pragma:derived": "lance1_ksc",
+            "hid_control": false,
+            "bridge_remappings":
+            {
+                "/joint_states": "/gz_joint_states"
+            }
+        },
+        "lance1_ucf_right_ms":
+        {
+            "pragma:derived": "lance1_ksc_ms",
+            "world": "ucf_right"
+        },
+        "lance1_ucf_left_ms":
+        {
+            "pragma:derived": "lance1_ksc_ms",
+            "world": "ucf_left"
+        },
+
+        "lance2_ksc_ms":
+        {
+            "pragma:derived": "lance2_ksc",
+            "hid_control": false,
+            "bridge_remappings":
+            {
+                "/joint_states": "/gz_joint_states"
+            }
+        },
+        "lance2_ucf_right_ms":
+        {
+            "pragma:derived": "lance2_ksc_ms",
+            "world": "ucf_right"
+        },
+        "lance2_ucf_left_ms":
+        {
+            "pragma:derived": "lance2_ksc_ms",
+            "world": "ucf_left"
+        }
+    },
+
+    "gz_gui" :
+    {
+        "pragma:default": null,
+        "enabled": {}
+    }
+}

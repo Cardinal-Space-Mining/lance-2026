@@ -41,39 +41,46 @@
 
 #include <cstdint>
 
-#include "mem_helpers.hpp"
-#include "../ros_utils.hpp"
+#include "../util/ros_utils.hpp"
+#include "../util/mem_helpers.hpp"
 
 
 using namespace util;
 
 
-MS136ImuAdapter::MS136ImuAdapter(rclcpp::Node& node) : BaseT{node}
+MS136ImuAdapterPubState::MS136ImuAdapterPubState(rclcpp::Node& node) :
+    lidar_frame_id{declare_and_get_param<std::string>(
+        node,
+        "lidar_frame_id",
+        "lidar_link")}
 {
-    declare_param(node, "lidar_frame_id", this->lidar_frame_id, "lidar_link");
 }
+
+
+MS136ImuAdapter::MS136ImuAdapter(rclcpp::Node& node) : BaseT{node} {}
 
 bool MS136ImuAdapter::serializeMsg(
     ByteBuffer& bytes,
     const MsgT& msg,
-    const SubStateT& state)
+    SubStateT& state)
 {
     (void)state;
 
     bytes.resize(
-        sizeof(decltype(msg.header.stamp.sec)) +
-        sizeof(decltype(msg.header.stamp.nanosec)) + sizeof(float) * 7);
+        sizeof(decltype(msg.header.stamp.sec)) +      //
+        sizeof(decltype(msg.header.stamp.nanosec)) +  //
+        sizeof(float) * 7);
 
     uint8_t* ptr = bytes.data();
-    util::writeAndIncrement(ptr, msg.header.stamp.sec);
-    util::writeAndIncrement(ptr, msg.header.stamp.nanosec);
-    util::writeAsAndIncrement<float>(ptr, msg.orientation.w);
-    util::writeAsAndIncrement<float>(ptr, msg.orientation.x);
-    util::writeAsAndIncrement<float>(ptr, msg.orientation.y);
-    util::writeAsAndIncrement<float>(ptr, msg.orientation.z);
-    util::writeAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
-    util::writeAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
-    util::writeAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
+    writeAndIncrement(ptr, msg.header.stamp.sec);
+    writeAndIncrement(ptr, msg.header.stamp.nanosec);
+    writeAsAndIncrement<float>(ptr, msg.orientation.w);
+    writeAsAndIncrement<float>(ptr, msg.orientation.x);
+    writeAsAndIncrement<float>(ptr, msg.orientation.y);
+    writeAsAndIncrement<float>(ptr, msg.orientation.z);
+    writeAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
+    writeAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
+    writeAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
 
     return true;
 }
@@ -81,7 +88,7 @@ bool MS136ImuAdapter::serializeMsg(
 bool MS136ImuAdapter::deserializeMsg(
     MsgT& msg,
     const ByteBuffer& bytes,
-    const PubStateT& state)
+    PubStateT& state)
 {
     constexpr size_t TARGET_BUFF_SIZE = 36;
     if (bytes.size() < TARGET_BUFF_SIZE)
@@ -90,15 +97,15 @@ bool MS136ImuAdapter::deserializeMsg(
     }
 
     const uint8_t* ptr = bytes.data();
-    util::readAndIncrement(ptr, msg.header.stamp.sec);
-    util::readAndIncrement(ptr, msg.header.stamp.nanosec);
-    util::readAsAndIncrement<float>(ptr, msg.orientation.w);
-    util::readAsAndIncrement<float>(ptr, msg.orientation.x);
-    util::readAsAndIncrement<float>(ptr, msg.orientation.y);
-    util::readAsAndIncrement<float>(ptr, msg.orientation.z);
-    util::readAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
-    util::readAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
-    util::readAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
+    readAndIncrement(ptr, msg.header.stamp.sec);
+    readAndIncrement(ptr, msg.header.stamp.nanosec);
+    readAsAndIncrement<float>(ptr, msg.orientation.w);
+    readAsAndIncrement<float>(ptr, msg.orientation.x);
+    readAsAndIncrement<float>(ptr, msg.orientation.y);
+    readAsAndIncrement<float>(ptr, msg.orientation.z);
+    readAsAndIncrement<float>(ptr, msg.linear_acceleration.x);
+    readAsAndIncrement<float>(ptr, msg.linear_acceleration.y);
+    readAsAndIncrement<float>(ptr, msg.linear_acceleration.z);
 
     msg.header.frame_id = state.lidar_frame_id;
 

@@ -1,0 +1,72 @@
+{
+    "redux":
+    {
+        "pragma:default": null,
+
+        "robot":
+        {
+            "target": "robot",
+            "client_hostname": "${ ip.net1.dev_1 }",
+            "max_path_pub_freq": 1.0,
+            "is_sim": false
+        },
+        "robot_sim":
+        {
+            "pragma:derived": "robot",
+            "is_sim": true,
+            "net_delay_s": 0.0
+        },
+
+        "client_panda":
+        {
+            "target": "client",
+            "robot_hostname": "${ ip.net1.mochapanda }",
+            "lidar_frame_id": "${ id.lidar_frame }",
+            "path_frame_id": "${ id.odom_frame }",
+            "max_joy_pub_freq": 100.0,
+            "is_sim": false,
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "lance/op_status": "lance/robot_op_status",
+                    "cardinal_perception/planned_path": "cardinal_perception/robot_planned_path"
+                }
+            }
+        },
+        "client_mac_eth":
+        {
+            "pragma:derived": "client_panda",
+            "robot_hostname": "${ ip.net1.mac_vm_eth }"
+        },
+        "client_mac_wifi":
+        {
+            "pragma:derived": "client_panda",
+            "robot_hostname": "${ ip.net1.mac_vm_wifi }"
+        },
+        "client_dev_1":
+        {
+            "pragma:derived": "client_panda",
+            "robot_hostname": "${ ip.net1.dev_1 }"
+        },
+        "client_dev_1_sim":
+        {
+            "pragma:derived": "client_dev_1",
+            "is_sim": true,
+            "net_delay_s": 0.0
+        },
+
+        "client_remapped":
+        {
+            "pragma:derived": "client_mac_eth",
+            "pragma:node_options":
+            {
+                "remappings":
+                {
+                    "multiscan/imu": "redux/imu",
+                    "multiscan/lidar_scan": "redux/lidar_scan"
+                }
+            }
+        }
+    }
+}

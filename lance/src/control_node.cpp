@@ -65,6 +65,7 @@
 
 using namespace std::chrono_literals;
 using namespace util::ros_aliases;
+using namespace lance;
 
 
 class RobotControlNode : public rclcpp::Node
@@ -109,7 +110,7 @@ private:
     RobotMotorStatus robot_motor_status;
     JoyMsg::ConstSharedPtr last_joy_msg{nullptr};
     JoyState joy_state;
-    int32_t watchdog_status{0};
+    int32_t control_status{0};
 };
 
 
@@ -149,7 +150,7 @@ RobotControlNode::RobotControlNode() :
         ROBOT_TOPIC("watchdog_status"),
         rclcpp::SensorDataQoS{},
         [this](const Int32Msg& status)
-        { this->watchdog_status = status.data; })},
+        { this->control_status = status.data; })},
 
     control_iteration_timer{this->create_wall_timer(
         std::chrono::duration<float>(
@@ -167,7 +168,7 @@ RobotControlNode::RobotControlNode() :
 
             RobotMotorCommands commands;
             this->robot_controller.iterate(
-                this->watchdog_status,
+                this->control_status,
                 this->joy_state,
                 this->robot_motor_status,
                 commands);

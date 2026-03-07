@@ -42,17 +42,18 @@
 #include <Eigen/Core>
 
 
+namespace lance
+{
+
 AutoOffloadController::AutoOffloadController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const HopperState& hopper_state,
-    TraversalController& trav_controller) :
+    SharedControllerCollection& controllers) :
     pub_map{pub_map},
     params{params},
-    hopper_state{hopper_state},
-    traversal_controller{trav_controller},
-    offload_controller{node, pub_map, params, hopper_state}
+    traversal_controller{controllers.traversal_controller},
+    offload_controller{controllers.offload_controller}
 {
 }
 
@@ -88,8 +89,16 @@ void AutoOffloadController::iterate(
                 break;  // break if more work is required
             }
 
+            // placeholder for testing
+            Eigen::Vector2f target_dir{0.f, 1.f};
+            Eigen::Vector2f target_pos =
+                ((this->params.offload_zone_bounds.max() +
+                  this->params.offload_zone_bounds.min()) *
+                 0.5f) +
+                (target_dir * 0.35f);
+
             // init with planned destination
-            this->traversal_controller.initializePoint(Eigen::Vector2f::Zero());
+            this->traversal_controller.initializePoint(target_pos, target_dir);
             this->stage = Stage::TRAVERSING;
             [[fallthrough]];
         }
@@ -122,3 +131,5 @@ void AutoOffloadController::iterate(
         }
     }
 }
+
+};  // namespace lance

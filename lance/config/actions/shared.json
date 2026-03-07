@@ -1,0 +1,113 @@
+{
+    "pragma:constants":
+    {
+        "id":
+        {
+            "arena_frame": "map",
+            "odom_frame": "odom",
+            "robot_frame": "base_link",
+            "lidar_frame": "lidar_link"
+        },
+
+        "ip":
+        {
+            "net1":
+            {
+                "lidar": "10.11.11.3",
+                "mochapanda": "10.11.11.13",
+                "frappepanda": "10.11.11.14",
+
+                "mac_vm_eth": "10.11.11.10",
+                "mac_vm_wifi": "10.11.11.11",
+                "mac_native_eth": "10.11.11.9",
+                "mac_native_wifi": "10.11.11.246",
+
+                "dev_1": "10.11.11.8"
+            },
+            "net2":
+            {
+                "lidar": "10.11.10.3",
+                "mac_vm_eth": "10.11.10.1"
+            }
+        },
+
+        "topic":
+        {
+            "lidar_scan": "/multiscan/lidar_scan",
+            "lidar_imu": "/multiscan/imu"
+        },
+
+        "zone":
+        {
+            "ksc":
+            {
+                "arena":
+                {
+                    "min": [0.0, 0.0, -0.45],
+                    "max": [6.88, 5.0, 3.0]
+                },
+                "mining":
+                {
+                    "min": [0.0, 0.0, -0.45],
+                    "max": [2.5, 5.0, 3.0]
+                },
+                "offload":
+                {
+                    "min": [4.53, 0.2, -0.45],
+                    "max": [6.23, 1.0, 3.0]
+                },
+                "construction":
+                {
+                    "min": [4.0, 0.0, -0.45],
+                    "max": [6.88, 1.5, 3.0]
+                }
+            },
+            "ucf_right":
+            {
+                "arena":
+                {
+                    "min": [0.0, 0.0, -0.9],
+                    "max": [4.57, 8.14, 3.0]
+                },
+                "mining":
+                {
+                    "min": [0.0, 0.0, -0.9],
+                    "max": [4.57, 4.0, 3.0]
+                },
+                "offload":
+                {
+                    "min": [3.07, 6.04, -0.9],
+                    "max": [4.07, 7.54, 3.0]
+                },
+                "construction":
+                {
+                    "min": [2.57, 5.54, -0.9],
+                    "max": [4.57, 8.14, 3.0]
+                }
+            },
+            "ucf_left":
+            {
+                "arena":
+                {
+                    "min": [0.0, 0.0, -0.9],
+                    "max": [8.14, 4.57, 3.0]
+                },
+                "mining":
+                {
+                    "min": [0.0, 0.0, -0.9],
+                    "max": [4.0, 4.57, 3.0]
+                },
+                "offload":
+                {
+                    "min": [6.04, 3.07, -0.9],
+                    "max": [7.54, 4.07, 3.0]
+                },
+                "construction":
+                {
+                    "min": [5.54, 2.57, -0.9],
+                    "max": [8.14, 4.57, 3.0]
+                }
+            }
+        }
+    }
+}

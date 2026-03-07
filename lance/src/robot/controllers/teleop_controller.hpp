@@ -41,28 +41,38 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <geometry_msgs/msg/point_stamped.hpp>
+
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
-#include "../collection_state.hpp"
 #include "../../util/pub_map.hpp"
 #include "../../util/joy_utils.hpp"
 
 #include "mining_controller.hpp"
+#include "shared_controllers.hpp"
 #include "offload_controller.hpp"
+#include "traversal_controller.hpp"
 
+
+namespace lance
+{
 
 class TeleopController
 {
     using RclNode = rclcpp::Node;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
+
+    template<typename T>
+    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
 
 public:
     TeleopController(
         RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        const HopperState&);
+        SharedControllerCollection&);
     ~TeleopController() = default;
 
 public:
@@ -81,21 +91,32 @@ protected:
         ASSISTED_MINING,
         ASSISTED_OFFLOAD,
         PRESET_MINING,
-        PRESET_OFFLOAD
+        PRESET_OFFLOAD,
+        AUTO_TRAVERSAL
     };
 
 protected:
     bool handleGlobalInputs(const JoyState& joy);
-    void handleTeleopInputs(const JoyState& joy, RobotMotorCommands& commands);
+    bool handleClickedPoint(bool can_apply);
+    void handleTeleopInputs(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
     void publishState();
 
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
 
+    RclSubPtr<PointStampedMsg> clicked_point_sub;
+    PointStampedMsg::ConstSharedPtr clicked_point;
+
     Operation op_mode{Operation::MANUAL};
     float driving_rps_scalar;
 
-    MiningController mining_controller;
-    OffloadController offload_controller;
+    MiningController& mining_controller;
+    OffloadController& offload_controller;
+    TraversalController& traversal_controller;
 };
+
+};  // namespace lance

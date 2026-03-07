@@ -10,6 +10,7 @@ find_package(std_srvs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
@@ -54,25 +55,18 @@ message(STATUS
     "\tLANCE-2 enabled: ${BUILD_LANCE2}")
 
 
-# --- Custom Types -------------------------------------------------------------
-rosidl_generate_interfaces(${PROJECT_NAME}
-    "srv/SetRobotMode.srv")
-
-rosidl_get_typesupport_target(lance_custom_types
-    ${PROJECT_NAME} rosidl_typesupport_cpp)
-
 # --- Watchdog -----------------------------------------------------------------
 add_executable(robot_status
     "src/watchdog_node.cpp")
-target_link_libraries(robot_status
-    "${lance_custom_types}")
 ament_target_dependencies(robot_status
     rclcpp
-    std_msgs)
+    std_msgs
+    std_srvs)
 
 # --- Robot Controller ---------------------------------------------------------
 set(robot_controller_srcs
     "src/control_node.cpp"
+    "src/robot/tf_cache.cpp"
     "src/robot/robot_params.cpp"
     "src/robot/collection_state.cpp"
     "src/robot/robot_controller.cpp"
@@ -149,6 +143,13 @@ if(BUILD_LANCE2)
         ${motor_sim_ament_deps})
 endif()
 
+# --- Zone Visuals Node --------------------------------------------------------
+add_executable(zone_visualizer
+    "src/zone_viz_node.cpp")
+ament_target_dependencies(zone_visualizer
+    rclcpp
+    visualization_msgs)
+
 # --- Export -------------------------------------------------------------------
 ament_export_dependencies(
     rosidl_default_runtime
@@ -158,6 +159,7 @@ ament_export_dependencies(
     nav_msgs
     sensor_msgs
     geometry_msgs
+    visualization_msgs
     tf2_ros
     tf2_geometry_msgs
     phoenix_ros_driver
@@ -180,6 +182,7 @@ endif()
 
 install(TARGETS
     robot_status
+    zone_visualizer
     DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
     config

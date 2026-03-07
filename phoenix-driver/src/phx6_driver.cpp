@@ -81,9 +81,9 @@ using namespace std::chrono_literals;
 #define HOPPER_BELT_CANID      3
 
 #define TFX_DEFAULT_KP 0.2
-// ^ 0.5 volts added for every turn per second error
+// ^ 0.2 volts added for every turn per second error
 #define TFX_DEFAULT_KI 0.05
-// ^ 0.2 volts added for every rotation integrated error
+// ^ 0.05 volts added for every rotation integrated error
 #define TFX_DEFAULT_KD 0.0001
 // ^ 0.0001 volts added for every rotation per second^2 change in error [per second]
 #define TFX_DEFAULT_KV 0.12
@@ -298,7 +298,7 @@ Phoenix6Driver::RclTalonFX::RclTalonFX(
     const ParamConfig::RclMotorConfig& config,
     RclNode& node,
     std::function<void(const TalonCtrlMsg&)> ctrl_cb) :
-    motor{config.can_id, std::string{config.canbus}},
+    motor{config.can_id, CANBus{config.canbus}},
     config{config.buildFXConfig()},
     info_pub{node.create_publisher<TalonInfoMsg>(
         config.topic_prefix + "/info",
@@ -760,13 +760,13 @@ void Phoenix6Driver::getParams(ParamConfig& params)
     auto& track_right_config = params.motor_configs[0];
     track_right_config.topic_prefix = ROBOT_TOPIC("track_right");
     track_right_config.can_id = RIGHT_TRACK_CANID;
-    track_right_config.invert_mode_val =
-        InvertedValue::CounterClockwise_Positive;
+    track_right_config.invert_mode_val = InvertedValue::Clockwise_Positive;
 
     auto& track_left_config = params.motor_configs[1];
     track_left_config.topic_prefix = ROBOT_TOPIC("track_left");
     track_left_config.can_id = LEFT_TRACK_CANID;
-    track_left_config.invert_mode_val = InvertedValue::Clockwise_Positive;
+    track_left_config.invert_mode_val =
+        InvertedValue::CounterClockwise_Positive;
 
     auto& trencher_config = params.motor_configs[2];
     trencher_config.topic_prefix = ROBOT_TOPIC("trencher");
@@ -825,7 +825,8 @@ void Phoenix6Driver::feed_watchdog_status(int32_t status)
      * POSTIVE feed time --> enabled
      * ZERO feed time --> disabled
      * NEGATIVE feed time --> autonomous */
-    if (!status)
+    const int32_t timeout_ms = status / 1000;
+    if (!timeout_ms)
     {
         for (auto& m : this->motors)
         {
@@ -834,7 +835,7 @@ void Phoenix6Driver::feed_watchdog_status(int32_t status)
     }
     else
     {
-        ctre::phoenix::unmanaged::FeedEnable(std::abs(status));
+        ctre::phoenix::unmanaged::FeedEnable(std::abs(timeout_ms));
         for (auto& m : this->motors)
         {
             m.setWatchdogEnabled();

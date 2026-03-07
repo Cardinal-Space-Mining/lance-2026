@@ -45,6 +45,9 @@
 using namespace util;
 
 
+namespace lance
+{
+
 RobotParams::RobotParams(rclcpp::Node& node) :
     default_stick_deadzone{
         declare_and_get_param(node, "default_stick_deadzone", 0.05f)},
@@ -153,20 +156,26 @@ RobotParams::RobotParams(rclcpp::Node& node) :
         node,
         "auto_traversal.max_track_velocity_mps",
         0.25f)},
+    auto_traversal_max_track_acceleration_mpss{declare_and_get_param(
+        node,
+        "auto_traversal.max_track_acceleration_mpss",
+        0.5f)},
     auto_traversal_max_angular_velocity_rps{declare_and_get_param(
         node,
         "auto_traversal.max_angular_velocity_rps",
         1.f)},
-    auto_traversal_max_track_acceleration_mpss{declare_and_get_param(
-        node,
-        "auto_traversal.max_acceleration_mpss",
-        0.5f)},
     auto_traversal_keypoint_thresh_m{
         declare_and_get_param(node, "auto_traversal.keypoint_thresh_m", 0.03f)},
     auto_traversal_max_path_deviation_m{declare_and_get_param(
         node,
         "auto_traversal.max_path_deviation_m",
-        0.03f)}
+        0.03f)},
+    auto_traversal_stanley_k_coeff{
+        declare_and_get_param(node, "auto_traversal.stanley_k_coeff", 1.f)},
+    auto_traversal_angular_kp{
+        declare_and_get_param(node, "auto_traversal.angular_kp", 1.f)},
+    auto_traversal_min_theta_window{
+        declare_and_get_param(node, "auto_traversal.min_theta_window_deg", 1.f)}
 {
     std::vector<double> buff;
 
@@ -188,3 +197,5 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     this->offload_zone_bounds.max().x() = static_cast<float>(buff[0]);
     this->offload_zone_bounds.max().y() = static_cast<float>(buff[1]);
 }
+
+};  // namespace lance

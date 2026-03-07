@@ -40,6 +40,9 @@
 #include "offload_controller.hpp"
 
 
+namespace lance
+{
+
 OffloadController::OffloadController(
     RclNode& node,
     GenericPubMap& pub_map,
@@ -202,3 +205,5 @@ void OffloadController::iterate(
         }
     }
 }
+
+};  // namespace lance

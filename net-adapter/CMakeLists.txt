@@ -9,6 +9,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(rosgraph_msgs REQUIRED)
 
 find_package(phoenix_ros_driver REQUIRED)
 find_package(multiscan_driver REQUIRED)
@@ -35,19 +36,25 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # --- Common -------------------------------------------------------------------
-add_library(msg_adapters STATIC
+add_library(adapters_core STATIC
+    "src/util/delay_queue.cpp"
+    "src/adapters/joy_adapter.cpp"
     "src/adapters/ms136_imu_adapter.cpp"
-    "src/adapters/ms136_scan_adapter.cpp")
-target_link_libraries(msg_adapters
+    "src/adapters/ms136_scan_adapter.cpp"
+    "src/adapters/talon_adapter.cpp"
+    "src/adapters/path_adapter.cpp")
+target_link_libraries(adapters_core
     Eigen3::Eigen
     zenohcxx::zenohc)
-ament_target_dependencies(msg_adapters
+ament_target_dependencies(adapters_core
     rclcpp
     std_msgs
     sensor_msgs
     geometry_msgs
+    nav_msgs
     tf2_ros
     tf2_geometry_msgs
+    rosgraph_msgs
     phoenix_ros_driver
     multiscan_driver)
 
@@ -55,7 +62,7 @@ ament_target_dependencies(msg_adapters
 add_executable(robot_endpoint
     "src/robot_endpoint.cpp")
 target_link_libraries(robot_endpoint
-    msg_adapters
+    adapters_core
     # csm_metrics::profiling
     zenohcxx::zenohc)
 ament_target_dependencies(robot_endpoint
@@ -65,7 +72,7 @@ ament_target_dependencies(robot_endpoint
 add_executable(client_endpoint
     "src/client_endpoint.cpp")
 target_link_libraries(client_endpoint
-    msg_adapters
+    adapters_core
     # csm_metrics::profiling
     zenohcxx::zenohc)
 ament_target_dependencies(client_endpoint
@@ -78,8 +85,10 @@ ament_export_dependencies(
     std_msgs
     sensor_msgs
     geometry_msgs
+    nav_msgs
     tf2_ros
     tf2_geometry_msgs
+    rosgraph_msgs
     phoenix_ros_driver
     multiscan_driver)
     # csm_metrics)

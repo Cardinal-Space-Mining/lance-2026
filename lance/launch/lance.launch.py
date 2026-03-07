@@ -1,5 +1,6 @@
 import os
 import sys
+import glob
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -27,7 +28,14 @@ except Exception as e:
     HAVE_SIM_UTILS = False
 
 PKG_PATH = get_package_share_directory('lance')
-DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'lance.json')
+DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'launch.json')
+
+
+def find_arduino():
+    matches = glob.glob("/dev/serial/by-id/*Arduino*")
+    if not matches:
+        return None
+    return matches[0]
 
 
 def get_multiscan_driver_action(config):
@@ -48,9 +56,11 @@ def get_phx5_action(config):
         output = 'screen'
     )
 
-def get_phx6_action(config, launch_args):
-    if 'arduino_device' in launch_args:
-        config['arduino_device'] = launch_args['arduino_device']
+def get_phx6_action(config):
+    arduino_device = find_arduino()
+    print(f'ARDUINO DEVICE IS {arduino_device}')
+    if arduino_device:
+        config['arduino_device'] = arduino_device
     return NodeAction(config).format_node(
         package = 'phoenix_ros_driver',
         executable = 'phx6_driver',
@@ -115,6 +125,13 @@ def get_redux_action(config):
     print(f'Invalid redux value for target key : {target}')
     return None
 
+def get_zone_viz_action(config):
+    return NodeAction(config).format_node(
+        package = 'lance',
+        executable = 'zone_visualizer',
+        output = 'screen'
+    )
+
 def get_robot_actions(config, launch_args = {}):
     a = []
     if 'multiscan_driver' in config:
@@ -122,7 +139,7 @@ def get_robot_actions(config, launch_args = {}):
     if 'phoenix5_driver' in config:
         a.append(get_phx5_action(config['phoenix5_driver']))
     if 'phoenix6_driver' in config:
-        a.append(get_phx6_action(config['phoenix6_driver'], launch_args))
+        a.append(get_phx6_action(config['phoenix6_driver']))
     if 'motor_sim' in config:
         a.append(get_motor_sim_action(config['motor_sim']))
     if 'robot_control' in config:
@@ -131,6 +148,8 @@ def get_robot_actions(config, launch_args = {}):
         a.append(get_watchdog_action(config['robot_status']))
     if 'redux' in config:
         a.append(get_redux_action(config['redux']))
+    if 'zone_viz' in config:
+        a.append(get_zone_viz_action(config['zone_viz']))
     return a
 
 
@@ -151,6 +170,10 @@ def launch(context, *args, **kwargs):
 
     if HAVE_SIM_UTILS:
         actions.extend(get_sim_actions(config))
+    else:
+        print("Failed to load 'csm-sim' launch utils! " +
+              "The simulation package can be cloned from " +
+              "https://gitlab.com/csm2.0/csm-sim if not already done!")
 
     return actions
 

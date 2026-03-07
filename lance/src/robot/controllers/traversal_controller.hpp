@@ -46,23 +46,27 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/buffer.h>
-
 #include <nav_msgs/msg/path.hpp>
+
+#include <geometry_msgs/msg/point_stamped.hpp>
 
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
 
+#include "../tf_cache.hpp"
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
 #include "../../util/pub_map.hpp"
 #include "../../util/joy_utils.hpp"
 
 
+namespace lance
+{
+
 class TraversalController
 {
     using RclNode = rclcpp::Node;
-    using Tf2Buffer = tf2_ros::Buffer;
     using PathMsg = nav_msgs::msg::Path;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
@@ -82,12 +86,15 @@ public:
         RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        const Tf2Buffer&);
+        const TfCache&);
     ~TraversalController() = default;
 
 public:
     void initializePoint(
         const Vec2f& dest,
+        const Vec2f& dest_direction = Vec2f::Zero());
+    void initializePoint(
+        const PointStampedMsg& dest,
         const Vec2f& dest_direction = Vec2f::Zero());
     void initializeZone(const Vec2f& dest_min, const Vec2f& dest_max);
 
@@ -96,8 +103,7 @@ public:
 
     void iterate(
         const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands,
-        const JoyState* joy = nullptr);
+        RobotMotorCommands& commands);
 
 protected:
     enum class State
@@ -116,16 +122,20 @@ protected:
 
 protected:
     void initPlanningService(const Vec3f&);
+    void initPlanningService(const PointStampedMsg&);
     void stopPlanningService();
 
-    bool computeTraversal(
+    bool iterateTraversal(
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+    bool iterateReorient(
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
-    const Tf2Buffer& tf_buffer;
+    const TfCache& tf_cache;
 
     RclSubPtr<PathMsg> path_sub;
     RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
@@ -137,3 +147,5 @@ protected:
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
 };
+
+};  // namespace lance

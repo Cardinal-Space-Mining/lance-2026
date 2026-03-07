@@ -1,0 +1,84 @@
+/*******************************************************************************
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*                                                                              *
+*                                 ;xxxxxxx:                                    *
+*                                ;$$$$$$$$$       ...::..                      *
+*                                $$$$$$$$$$x   .:::::::::::..                  *
+*                             x$$$$$$$$$$$$$$::::::::::::::::.                 *
+*                         :$$$$$&X;      .xX:::::::::::::.::...                *
+*                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :               *
+*                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.              *
+*               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.              *
+*              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::               *
+*               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.               *
+*                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.                *
+*                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                  *
+*                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                    *
+*                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                    *
+*                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
+*                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
+*                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
+*               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
+*                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
+*                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                     *
+*               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                            *
+*               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                               *
+*               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                   *
+*                .;;;;;;;;:;;    +$$$$$$$$$                                    *
+*                  .;;;;;;.       X$$$$$$$:                                    *
+*                                                                              *
+*   Unless required by applicable law or agreed to in writing, software        *
+*   distributed under the License is distributed on an "AS IS" BASIS,          *
+*   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   *
+*   See the License for the specific language governing permissions and        *
+*   limitations under the License.                                             *
+*                                                                              *
+*******************************************************************************/
+
+#pragma once
+
+#include <chrono>
+
+#include <nav_msgs/msg/path.hpp>
+
+#include "base_adapter.hpp"
+#include "../util/filtering.hpp"
+
+
+class PathAdapterPubState
+{
+    friend class PathAdapter;
+
+public:
+    PathAdapterPubState(rclcpp::Node&);
+
+protected:
+    const std::string path_frame_id;
+};
+
+class PathAdapterSubState : public FrequencyFilter
+{
+    friend class PathAdapter;
+
+public:
+    PathAdapterSubState(rclcpp::Node&);
+};
+
+class PathAdapter :
+    public BaseAdapter<
+        nav_msgs::msg::Path,
+        PathAdapter,
+        PathAdapterPubState,
+        PathAdapterSubState>
+{
+    friend BaseT;
+
+protected:
+    PathAdapter(rclcpp::Node&);
+
+protected:
+    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
+    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+};

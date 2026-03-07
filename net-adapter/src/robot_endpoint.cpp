@@ -37,56 +37,15 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <string>
+#define ENABLE_NET_DELAY 1
 
-#include <zenoh.hxx>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include "ros_utils.hpp"
-#include "zenoh_utils.hpp"
-
-#include "adapters/ms136_imu_adapter.hpp"
-#include "adapters/ms136_scan_adapter.hpp"
-
-
-#define DEFAULT_CLIENT_IP_ADDRESS "10.11.11.8"
-
-using namespace zenoh;
-using namespace util;
-
-
-class RobotEndpointNode : public rclcpp::Node
-{
-public:
-    RobotEndpointNode() :
-        Node{"robot_redux_endpoint"},
-        zsh{Session::open(configDirectConnectTo(
-            declare_and_get_param<std::string>(
-                *this,
-                "client_hostname",
-                DEFAULT_CLIENT_IP_ADDRESS)))},
-        imu_sub{MS136ImuAdapter::createSubscriber(*this, zsh, "multiscan/imu")},
-        scan_sub{MS136ScanAdapter::createSubscriber(
-            *this,
-            zsh,
-            "multiscan/lidar_scan")}
-    {
-    }
-
-private:
-    Session zsh;
-
-    MS136ImuAdapter::Subscriber imu_sub;
-    MS136ScanAdapter::Subscriber scan_sub;
-};
+#include "endpoint_def.hpp"
 
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotEndpointNode>());
+    rclcpp::spin(std::make_shared<EndPointNode<ROBOT_ENDPOINT>>());
     rclcpp::shutdown();
-
     return 0;
 }
