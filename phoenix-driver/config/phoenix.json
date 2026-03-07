@@ -114,7 +114,7 @@
                 {
                     "name": "hopper_act_left",
                     "can_id": "4",
-                    "controller": "FX",
+                    "controller": "FXS",
                     "follower": "",
                     "sensor": "",
 
@@ -131,7 +131,7 @@
                 {
                     "name": "hopper_act_right",
                     "can_id": "5",
-                    "controller": "FX",
+                    "controller": "FXS",
                     "follows": "hopper_act_left",
                     "sensor": "",
 
