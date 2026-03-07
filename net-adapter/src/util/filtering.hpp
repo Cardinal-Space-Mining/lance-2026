@@ -39,19 +39,36 @@
 
 #pragma once
 
-#include <std_msgs/msg/int32.hpp>
-
-#include "base_adapter.hpp"
+#include <chrono>
 
 
-class WatchdogAdapter :
-    public BaseAdapter<std_msgs::msg::Int32, WatchdogAdapter>
+class FrequencyFilter
 {
-    friend BaseT;
+    using steady_clock = std::chrono::steady_clock;
+    using time_point = steady_clock::time_point;
+
+public:
+    inline FrequencyFilter(float max_freq) : max_freq{max_freq} {}
+
+public:
+    inline bool freqFilterStatus()
+    {
+        const time_point t = steady_clock::now();
+        const auto d = std::chrono::duration_cast<std::chrono::milliseconds>(
+            t - this->prev_time);
+        const auto f = std::chrono::milliseconds(
+            static_cast<int64_t>(1000.f / this->max_freq));
+
+        if (d >= f)
+        {
+            this->prev_time = t;
+            return true;
+        }
+        return false;
+    }
 
 protected:
-    WatchdogAdapter(rclcpp::Node&);
+    const float max_freq;
 
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+    time_point prev_time{};
 };

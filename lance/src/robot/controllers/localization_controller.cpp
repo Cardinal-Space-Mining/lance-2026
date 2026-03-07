@@ -53,14 +53,17 @@
 using Vec2f = Eigen::Vector2f;
 
 
+namespace lance
+{
+
 LocalizationController::LocalizationController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const Tf2Buffer& tf_buffer) :
+    const TfCache& tf_cache) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{tf_buffer},
+    tf_cache{tf_cache},
     hint_sub{node.create_subscription<ReflectorHintMsg>(
         PERCEPTION_REFLECTOR_HINT_TOPIC,
         rclcpp::SensorDataQoS{},
@@ -92,8 +95,10 @@ void LocalizationController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+#define Dt    (this->params.iteration_period_seconds)
 #define V_max (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
+    // #define W_max (this->params.auto_traversal_max_angular_velocity_rps)
 
     // TODO: parameters
     constexpr uint32_t MIN_SEARCH_SAMPLES = 100U;
@@ -109,10 +114,7 @@ void LocalizationController::iterate(
     // TODO: TF lookup timestamps are wildly inconsistent when using gazebo -
     //      the workaround for now is to just query the alignment tf and not the full tf,
     //      although we should really be checking to make sure we have full localization
-    if (this->tf_buffer.canTransform(
-            this->params.odom_frame_id,
-            this->params.arena_frame_id,
-            tf2::TimePointZero))
+    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         this->stage = Stage::FINISHED;
     }
@@ -166,7 +168,7 @@ void LocalizationController::iterate(
             const float sin_heading = rel.normalized().y();
             if (std::abs(sin_heading) > std::sin(ALIGNMENT_ANGULAR_THRESH))
             {
-                const float s = sin_heading > 0.f ? 1.f : 0.f;
+                const float s = sin_heading > 0.f ? 1.f : -1.f;
 
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
@@ -195,9 +197,22 @@ void LocalizationController::iterate(
             const float abs_range_error = std::abs(range_error);
             if (abs_range_error > RANGE_THRESH)
             {
-                const float V =
-                    std::min(kmx::maxStartVel(0.f, range_error, A_max), V_max) *
+                const float Vl_prev =
+                    static_cast<float>(lance::trackMotorRpsToGroundMps(
+                        motor_status.track_left.velocity));
+                const float Vr_prev =
+                    static_cast<float>(lance::trackMotorRpsToGroundMps(
+                        motor_status.track_right.velocity));
+                const float V_prev =
+                    lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
+                const float Vd_max = (A_max * Dt);
+                const float V_target =
+                    kmx::maxStartVel(0.f, abs_range_error, A_max) *
                     (std::signbit(range_error) ? -1.f : 1.f);
+                const float V = std::clamp(
+                    V_target,
+                    std::max((V_prev - Vd_max), -V_max),
+                    std::min((V_prev + Vd_max), V_max));
 
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(V),
@@ -224,3 +239,5 @@ void LocalizationController::setLfdControl(bool enabled)
         req,
         [](rclcpp::Client<SetBoolSrv>::SharedFuture) {});
 }
+
+};  // namespace lance

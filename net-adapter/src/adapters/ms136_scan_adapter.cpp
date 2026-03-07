@@ -49,14 +49,40 @@
 
 #include <multiscan_driver/multiscan_spec.hpp>
 
-#include "mem_helpers.hpp"
-#include "../ros_utils.hpp"
+#include "../util/ros_utils.hpp"
+#include "../util/mem_helpers.hpp"
 
 
 using namespace util;
 
 using PointField = sensor_msgs::msg::PointField;
 
+#define OUTPUT_POINT_BYTE_LEN 16
+#define OUTPUT_POINT_FIELD_LIST              \
+    {PointField{}                            \
+         .set__name("x")                     \
+         .set__datatype(PointField::FLOAT32) \
+         .set__count(1)                      \
+         .set__offset(0),                    \
+     PointField{}                            \
+         .set__name("y")                     \
+         .set__datatype(PointField::FLOAT32) \
+         .set__count(1)                      \
+         .set__offset(4),                    \
+     PointField{}                            \
+         .set__name("z")                     \
+         .set__datatype(PointField::FLOAT32) \
+         .set__count(1)                      \
+         .set__offset(8),                    \
+     PointField{}                            \
+         .set__name("reflective")            \
+         .set__datatype(PointField::FLOAT32) \
+         .set__count(1)                      \
+         .set__offset(12)}
+
+
+
+// --- MS136ScanAdapterPubState ------------------------------------------------
 
 MS136ScanAdapterPubState::MS136ScanAdapterPubState(rclcpp::Node& node) :
     lidar_frame_id{declare_and_get_param<std::string>(
@@ -66,6 +92,8 @@ MS136ScanAdapterPubState::MS136ScanAdapterPubState(rclcpp::Node& node) :
 {
 }
 
+
+// --- MS136ScanAdapter --------------------------------------------------------
 
 MS136ScanAdapter::MS136ScanAdapter(rclcpp::Node& node) : BaseT{node} {}
 
@@ -147,7 +175,7 @@ bool MS136ScanAdapter::serializeMsg(
     bytes.resize(
         sizeof(decltype(msg.header.stamp.sec)) +      //
         sizeof(decltype(msg.header.stamp.nanosec)) +  //
-        packed_buff.size() * 2);
+        packed_buff.size() * sizeof(uint16_t));
     uint8_t* ptr = bytes.data();
 
     writeAndIncrement(ptr, msg.header.stamp.sec);
@@ -171,21 +199,19 @@ bool MS136ScanAdapter::deserializeMsg(
     const size_t n_packed_bytes = (bytes.end().base() - ptr);
 
     ms136::redux::PackedBuffer packed_buff;
-    readManyAndIncrement(ptr, packed_buff, n_packed_bytes / 2);
+    readManyAndIncrement(ptr, packed_buff, n_packed_bytes / sizeof(uint16_t));
 
     ms136::redux::DenseBuffer dense_buff;
     ms136::redux::unpackBuffer(dense_buff, packed_buff);
 
-    constexpr size_t POINT_BYTE_LEN = 16;
-
-    msg.data.reserve(dense_buff.size() * POINT_BYTE_LEN);
+    msg.data.reserve(dense_buff.size() * OUTPUT_POINT_BYTE_LEN);
     for (size_t i = 0; i < dense_buff.size(); i++)
     {
         const uint16_t pt = dense_buff[i];
         if (pt)
         {
             const size_t prev_end_off = msg.data.size();
-            msg.data.resize(msg.data.size() + POINT_BYTE_LEN);
+            msg.data.resize(msg.data.size() + OUTPUT_POINT_BYTE_LEN);
             uint8_t* ptr = msg.data.data() + prev_end_off;
 
             const auto proj = ms136::redux::projectPoint(i, pt);
@@ -198,32 +224,160 @@ bool MS136ScanAdapter::deserializeMsg(
         }
     }
 
-    msg.fields = {
-        PointField{}
-            .set__name("x")
-            .set__datatype(PointField::FLOAT32)
-            .set__count(1)
-            .set__offset(0),
-        PointField{}
-            .set__name("y")
-            .set__datatype(PointField::FLOAT32)
-            .set__count(1)
-            .set__offset(4),
-        PointField{}
-            .set__name("z")
-            .set__datatype(PointField::FLOAT32)
-            .set__count(1)
-            .set__offset(8),
-        PointField{}
-            .set__name("reflective")
-            .set__datatype(PointField::FLOAT32)
-            .set__count(1)
-            .set__offset(12)};
+    msg.fields = OUTPUT_POINT_FIELD_LIST;
     msg.is_bigendian = false;
-    msg.point_step = POINT_BYTE_LEN;
+    msg.point_step = OUTPUT_POINT_BYTE_LEN;
     msg.row_step = msg.data.size();
     msg.height = 1;
-    msg.width = (msg.data.size() / POINT_BYTE_LEN);
+    msg.width = (msg.data.size() / OUTPUT_POINT_BYTE_LEN);
+    msg.is_dense = true;
+
+    return true;
+}
+
+
+// --- MS136SimScanAdapter (and utils) -----------------------------------------
+
+#include <numbers>
+
+#include <sensor_msgs/point_cloud2_iterator.hpp>
+
+
+Eigen::Vector3f projectGzSimPoint(size_t i, uint16_t pt)
+{
+    constexpr float THETA_START = 0.f;
+    constexpr float THETA_STEP =
+        (2.f * std::numbers::pi_v<float>) / (ms136::POINTS_PER_LR_LAYER - 1);
+    constexpr float PHI_START = ms136::redux::ELEVATION_LUT.front();
+    constexpr float PHI_STEP = (ms136::redux::ELEVATION_LUT.back() -
+                                ms136::redux::ELEVATION_LUT.front()) /
+                               (ms136::NUM_LR_LAYERS - 1);
+
+
+    const size_t layer_i = i / ms136::POINTS_PER_LR_LAYER;
+    const size_t local_i = i % ms136::POINTS_PER_LR_LAYER;
+
+    const float r = ms136::redux::getRangeMeters(pt);
+    const float theta = THETA_START + THETA_STEP * local_i;
+    const float phi = PHI_START + PHI_STEP * layer_i;
+    const float sin_theta = std::sin(theta);
+    const float cos_theta = std::cos(theta);
+    const float sin_phi = std::sin(phi);
+    const float cos_phi = std::cos(phi);
+
+    return Eigen::Vector3f{
+        r * cos_phi * cos_theta,
+        r * cos_phi * sin_theta,
+        r * sin_phi};
+}
+
+
+MS136SimScanAdapter::MS136SimScanAdapter(rclcpp::Node& node) : BaseT{node} {}
+
+bool MS136SimScanAdapter::serializeMsg(
+    ByteBuffer& bytes,
+    const MsgT& msg,
+    SubStateT& state)
+{
+    (void)state;
+
+    const size_t n_pts = static_cast<size_t>(msg.height * msg.width);
+    if ((n_pts != ms136::POINTS_PER_LR_SCAN) ||
+        (msg.data.size() != (n_pts * msg.point_step)))
+    {
+        return false;
+    }
+
+    ms136::redux::DenseBuffer dense_buff;
+    try
+    {
+        sensor_msgs::PointCloud2ConstIterator<float> x_iter(msg, "x");
+        sensor_msgs::PointCloud2ConstIterator<float> y_iter(msg, "y");
+        sensor_msgs::PointCloud2ConstIterator<float> z_iter(msg, "z");
+        sensor_msgs::PointCloud2ConstIterator<float> rfl_iter(
+            msg,
+            "reflective");
+        // ^ if the fields aren't FLOAT32, this silently misreads the data!
+
+        for (size_t i = 0; i < n_pts;
+             i++, ++x_iter, ++y_iter, ++z_iter, ++rfl_iter)
+        {
+            const float x = *x_iter;
+            const float y = *y_iter;
+            const float z = *z_iter;
+
+            const float r = std::sqrt(x * x + y * y + z * z);
+            const uint8_t rf = *rfl_iter == 0.f ? 0 : 1;
+
+            dense_buff[i] = ms136::redux::reducePoint(r, rf);
+        }
+    }
+    catch (...)
+    {
+        return false;
+    }
+
+    ms136::redux::PackedBuffer packed_buff;
+    ms136::redux::packBuffer(packed_buff, dense_buff);
+
+    bytes.resize(
+        sizeof(decltype(msg.header.stamp.sec)) +      //
+        sizeof(decltype(msg.header.stamp.nanosec)) +  //
+        packed_buff.size() * sizeof(uint16_t));
+    uint8_t* ptr = bytes.data();
+
+    writeAndIncrement(ptr, msg.header.stamp.sec);
+    writeAndIncrement(ptr, msg.header.stamp.nanosec);
+    writeManyAndIncrement(ptr, packed_buff);
+
+    return true;
+}
+
+bool MS136SimScanAdapter::deserializeMsg(
+    MsgT& msg,
+    const ByteBuffer& bytes,
+    PubStateT& state)
+{
+    const uint8_t* ptr = bytes.data();
+
+    msg.header.frame_id = state.lidar_frame_id;
+    readAndIncrement(ptr, msg.header.stamp.sec);
+    readAndIncrement(ptr, msg.header.stamp.nanosec);
+
+    const size_t n_packed_bytes = (bytes.end().base() - ptr);
+
+    ms136::redux::PackedBuffer packed_buff;
+    readManyAndIncrement(ptr, packed_buff, n_packed_bytes / sizeof(uint16_t));
+
+    ms136::redux::DenseBuffer dense_buff;
+    ms136::redux::unpackBuffer(dense_buff, packed_buff);
+
+    msg.data.reserve(dense_buff.size() * OUTPUT_POINT_BYTE_LEN);
+    for (size_t i = 0; i < dense_buff.size(); i++)
+    {
+        const uint16_t pt = dense_buff[i];
+        if (pt)
+        {
+            const size_t prev_end_off = msg.data.size();
+            msg.data.resize(msg.data.size() + OUTPUT_POINT_BYTE_LEN);
+            uint8_t* ptr = msg.data.data() + prev_end_off;
+
+            const auto proj = projectGzSimPoint(i, pt);
+            const bool reflector = ms136::redux::getReflector(pt);
+
+            writeAndIncrement(ptr, proj.x());
+            writeAndIncrement(ptr, proj.y());
+            writeAndIncrement(ptr, proj.z());
+            writeAndIncrement(ptr, reflector ? 1.f : 0.f);
+        }
+    }
+
+    msg.fields = OUTPUT_POINT_FIELD_LIST;
+    msg.is_bigendian = false;
+    msg.point_step = OUTPUT_POINT_BYTE_LEN;
+    msg.row_step = msg.data.size();
+    msg.height = 1;
+    msg.width = (msg.data.size() / OUTPUT_POINT_BYTE_LEN);
     msg.is_dense = true;
 
     return true;

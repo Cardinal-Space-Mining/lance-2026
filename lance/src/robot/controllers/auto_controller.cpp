@@ -42,29 +42,20 @@
 #include <memory>
 
 
+namespace lance
+{
+
 AutoController::AutoController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const HopperState& hopper_state) :
+    SharedControllerCollection& controllers) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{node.get_clock()},
-    tf_listener{tf_buffer, &node},
-    localization_controller{node, pub_map, params, tf_buffer},
-    traversal_controller{node, pub_map, params, tf_buffer},
-    mining_controller{
-        node,
-        pub_map,
-        params,
-        hopper_state,
-        traversal_controller},
-    offload_controller{
-        node,
-        pub_map,
-        params,
-        hopper_state,
-        traversal_controller}
+    localization_controller{controllers.localization_controller},
+    traversal_controller{controllers.traversal_controller},
+    mining_controller{node, pub_map, params, controllers},
+    offload_controller{node, pub_map, params, controllers}
 {
 }
 
@@ -219,3 +210,5 @@ void AutoController::publishState()
         "lance/op_status",
         STAGE_STRINGS[static_cast<size_t>(this->stage)]);
 }
+
+};  // namespace lance

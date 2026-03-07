@@ -37,41 +37,86 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "watchdog_adapter.hpp"
+#pragma once
 
-#include "mem_helpers.hpp"
+#include <mutex>
+#include <queue>
+#include <atomic>
+#include <chrono>
+#include <thread>
+#include <vector>
+#include <functional>
+#include <condition_variable>
 
 
-using namespace util;
-
-
-WatchdogAdapter::WatchdogAdapter(rclcpp::Node& node) : BaseT(node) {}
-
-bool WatchdogAdapter::serializeMsg(
-    ByteBuffer& bytes,
-    const MsgT& msg,
-    SubStateT&)
+class DelayQueue
 {
-    bytes.resize(sizeof(int32_t));
+    using ClockT = std::chrono::steady_clock;
+    using TimePointT = ClockT::time_point;
+    using DurationT = std::chrono::nanoseconds;
 
-    uint8_t* ptr = bytes.data();
-    writeAndIncrement(ptr, msg.data);
+    using ByteBuffer = std::vector<uint8_t>;
+    using PublishFn = std::function<void(ByteBuffer&&)>;
 
-    return true;
+public:
+    template<typename R, typename P>
+    explicit DelayQueue(std::chrono::duration<R, P> delay);
+    ~DelayQueue();
+
+public:
+    template<typename R, typename P>
+    void setDelay(std::chrono::duration<R, P> delay);
+    DurationT getDelay() const;
+
+    void startThread();
+    void stopThread();
+
+    void push(PublishFn pub_fn, ByteBuffer&& payload);
+
+private:
+    struct QueuedMessage
+    {
+        TimePointT pub_time;
+        ByteBuffer payload;
+        PublishFn pub_fn;
+
+        bool operator<(const QueuedMessage&) const;
+        bool operator>(const QueuedMessage&) const;
+    };
+
+private:
+    TimePointT delayFromNow() const;
+
+    void thread_worker();
+
+private:
+    DurationT delay;
+
+    std::priority_queue<
+        QueuedMessage,
+        std::vector<QueuedMessage>,
+        std::greater<QueuedMessage>>
+        msg_queue;
+
+    std::thread thread;
+    std::mutex mtx;
+    std::atomic_bool is_running{false};
+    std::condition_variable msg_notifier;
+};
+
+
+
+// --- Implementation (templated methods) --------------------------------------
+
+template<typename R, typename P>
+DelayQueue::DelayQueue(std::chrono::duration<R, P> d) :
+    delay{std::chrono::duration_cast<DurationT>(d)}
+{
 }
 
-bool WatchdogAdapter::deserializeMsg(
-    MsgT& msg,
-    const ByteBuffer& bytes,
-    PubStateT&)
+template<typename R, typename P>
+void DelayQueue::setDelay(std::chrono::duration<R, P> d)
 {
-    if (bytes.size() != sizeof(int32_t))
-    {
-        return false;
-    }
-
-    const uint8_t* ptr = bytes.data();
-    readAndIncrement(ptr, msg.data);
-
-    return true;
+    std::lock_guard lock{this->mtx};
+    this->delay = std::chrono::duration_cast<DurationT>(d);
 }

@@ -825,7 +825,8 @@ void Phoenix6Driver::feed_watchdog_status(int32_t status)
      * POSTIVE feed time --> enabled
      * ZERO feed time --> disabled
      * NEGATIVE feed time --> autonomous */
-    if (!status)
+    const int32_t timeout_ms = status / 1000;
+    if (!timeout_ms)
     {
         for (auto& m : this->motors)
         {
@@ -834,7 +835,7 @@ void Phoenix6Driver::feed_watchdog_status(int32_t status)
     }
     else
     {
-        ctre::phoenix::unmanaged::FeedEnable(std::abs(status));
+        ctre::phoenix::unmanaged::FeedEnable(std::abs(timeout_ms));
         for (auto& m : this->motors)
         {
             m.setWatchdogEnabled();

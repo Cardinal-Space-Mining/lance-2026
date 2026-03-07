@@ -39,50 +39,44 @@
 
 #pragma once
 
-#include <vector>
+#include <chrono>
 
-#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
-#include <phoenix_ros_driver/msg/talon_info.hpp>
-#include <phoenix_ros_driver/msg/talon_faults.hpp>
+#include <nav_msgs/msg/path.hpp>
 
 #include "base_adapter.hpp"
+#include "../util/filtering.hpp"
 
 
-class TalonCtrlAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonCtrl, TalonCtrlAdapter>
+class PathAdapterPubState
 {
-    friend BaseT;
+    friend class PathAdapter;
 
 public:
-    TalonCtrlAdapter(rclcpp::Node& node);
+    PathAdapterPubState(rclcpp::Node&);
 
 protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+    const std::string path_frame_id;
 };
 
-
-class TalonInfoAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonInfo, TalonInfoAdapter>
+class PathAdapterSubState : public FrequencyFilter
 {
-    friend BaseT;
+    friend class PathAdapter;
 
 public:
-    TalonInfoAdapter(rclcpp::Node& node);
+    PathAdapterSubState(rclcpp::Node&);
+};
+
+class PathAdapter :
+    public BaseAdapter<
+        nav_msgs::msg::Path,
+        PathAdapter,
+        PathAdapterPubState,
+        PathAdapterSubState>
+{
+    friend BaseT;
 
 protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
-
-
-class TalonFaultsAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonFaults, TalonFaultsAdapter>
-{
-    friend BaseT;
-
-public:
-    TalonFaultsAdapter(rclcpp::Node& node);
+    PathAdapter(rclcpp::Node&);
 
 protected:
     static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);

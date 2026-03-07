@@ -60,13 +60,14 @@ using system_clock = std::chrono::system_clock;
 using namespace util::geom::cvt::ops;
 
 using Iso3f = Eigen::Isometry3f;
+using Quatf = Eigen::Quaternionf;
 
 
 
 void debugTracksControl(
     const util::JoyState& joy,
-    const RobotParams& params,
-    RobotMotorCommands& commands)
+    const lance::RobotParams& params,
+    lance::RobotMotorCommands& commands)
 {
     using namespace Bindings;
 
@@ -100,14 +101,17 @@ inline FloatT computeJunctionRadiusCoeff(FloatT cos_theta)
 
 
 
+namespace lance
+{
+
 TraversalController::TraversalController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const Tf2Buffer& tf_buffer) :
+    const TfCache& tf_cache) :
     pub_map{pub_map},
     params{params},
-    tf_buffer{tf_buffer},
+    tf_cache{tf_cache},
     path_sub{node.create_subscription<PathMsg>(
         PERCEPTION_PATH_TOPIC,
         rclcpp::SensorDataQoS{},
@@ -125,6 +129,18 @@ void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
                                                      : DestinationType::POINT;
 
     this->initPlanningService(Vec3f{dest.x(), dest.y(), 0.f});
+
+    this->state = State::INITIALIZATION;
+}
+void TraversalController::initializePoint(
+    const PointStampedMsg& dest,
+    const Vec2f& dir)
+{
+    this->last_path = nullptr;
+    this->arena_dest_direction = dir.normalized();
+    this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
+                                                     : DestinationType::POINT;
+    this->initPlanningService(dest);
 
     this->state = State::INITIALIZATION;
 }
@@ -209,14 +225,25 @@ void TraversalController::iterate(
     }
 }
 
-void TraversalController::initPlanningService(const Vec3f& dest)
+void TraversalController::initPlanningService(const Vec3f& arena_dest)
 {
     auto req = std::make_shared<UpdatePathPlanSrv::Request>();
     req->target.header.frame_id = this->params.arena_frame_id;
     req->target.header.stamp = util::toTimeMsg(system_clock::now());
-    req->target.pose.position.x = dest.x();
-    req->target.pose.position.y = dest.y();
-    req->target.pose.position.z = dest.z();
+    req->target.pose.position.x = arena_dest.x();
+    req->target.pose.position.y = arena_dest.y();
+    req->target.pose.position.z = arena_dest.z();
+    req->completed = false;
+
+    this->pplan_control_client->async_send_request(
+        req,
+        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void TraversalController::initPlanningService(const PointStampedMsg& dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header = dest.header;
+    req->target.pose.position = dest.point;
     req->completed = false;
 
     this->pplan_control_client->async_send_request(
@@ -253,29 +280,19 @@ bool TraversalController::iterateTraversal(
 
     if (this->last_path->header.frame_id != this->params.robot_frame_id)
     {
-        try
+        const auto* tf =
+            this->tf_cache.getTf(this->last_path->header.frame_id, ROBOT_FRAME);
+        if (tf)
         {
-            Iso3f tf;
-            tf << this->tf_buffer
-                      .lookupTransform(
-                          this->params.robot_frame_id,
-                          this->last_path->header.frame_id,
-                          tf2::TimePointZero)
-                      .transform;
-
             Vec3f tmp;
             for (size_t i = 0; i < keypoints.size(); i++)
             {
                 const auto& pt = this->last_path->poses[i].pose.position;
-                keypoints[i] = (tf * (tmp << pt)).template head<2>();
+                keypoints[i] = (tf->tf * (tmp << pt)).template head<2>();
             }
         }
-        catch (const std::exception& e)
+        else
         {
-            // failed to transform to robot frame
-            // std::cout
-            //     << "--- TRAVERSAL ITERATION ---\nFailed to transform keypoints to robot frame\n"
-            //     << std::endl;
             return false;
         }
     }
@@ -290,11 +307,30 @@ bool TraversalController::iterateTraversal(
     }
 
     // handle close enough to final keypoint
-    if (keypoints.back().norm() <=
-        this->params.auto_traversal_keypoint_thresh_m)
+    switch (this->destination_type)
     {
-        commands.disableTracks();
-        return true;
+        case DestinationType::POINT:
+        case DestinationType::POSE:
+        {
+            if (keypoints.back().norm() <=
+                this->params.auto_traversal_keypoint_thresh_m)
+            {
+                commands.disableTracks();
+                return true;
+            }
+            break;
+        }
+        case DestinationType::ZONE:
+        {
+            const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+            if (tf &&
+                this->arena_dest_zone.contains(tf->pose.vec.template head<2>()))
+            {
+                commands.disableTracks();
+                return true;
+            }
+            break;
+        }
     }
 
     // 2. FIND TARGET SEGMENT OR KEYPOINT --------------------------------------
@@ -383,7 +419,8 @@ bool TraversalController::iterateTraversal(
         float Vb = std::numeric_limits<float>::infinity();
         {
             const float max_target_vel = std::min(V_max, V_prev + Vd_max);
-            const float max_decell_dist = kmx::decellDist(max_target_vel, A_max);
+            const float max_decell_dist =
+                kmx::decellDist(max_target_vel, A_max);
             Vec2f pt_a = Vec2f::Zero();
             float sum_dist = 0.f;
             for (size_t i = (seg_proj_t < 0.f ? seg_beg_idx : seg_end_idx);
@@ -450,8 +487,7 @@ bool TraversalController::iterateTraversal(
         const float theta_S = std::atan2(Sd.y(), Sd.x());
         // stanley crosstrack error angular coeff (angular velocity)
         const float theta_E =
-            std::atan(K1 * M.norm() / Vd) *
-            (std::signbit(M.y()) ? -1.f : 1.f);
+            std::atan(K1 * M.norm() / Vd) * (std::signbit(M.y()) ? -1.f : 1.f);
         // stanley controller output angular velocity
         const float Wa = (theta_S + theta_E);
         // proportional controller output angular velocity
@@ -550,24 +586,15 @@ bool TraversalController::iterateReorient(
     }
 
     Vec2f target = this->arena_dest_direction;
-    try
+    const auto* tf = this->tf_cache.getTf(ARENA_TO_ROBOT_TF);
+    if (tf)
     {
-        Iso3f tf;
-        tf << this->tf_buffer
-                  .lookupTransform(
-                      this->params.robot_frame_id,
-                      this->params.arena_frame_id,
-                      tf2::TimePointZero)
-                  .transform;
-
-        target = (tf * Vec3f{target.x(), target.y(), 0.f}).template head<2>();
+        target = (tf->pose.quat.toRotationMatrix() *
+                  Vec3f{target.x(), target.y(), 0.f})
+                     .template head<2>();
     }
-    catch (const std::exception& e)
+    else
     {
-        // failed to transform to robot frame
-        // std::cout
-        //     << "--- TRAVERSAL ITERATION ---\nFailed to transform keypoints to robot frame\n"
-        //     << std::endl;
         return false;
     }
 
@@ -600,3 +627,5 @@ bool TraversalController::iterateReorient(
 #undef V_max
 #undef A_max
 #undef W_max
+
+};  // namespace lance

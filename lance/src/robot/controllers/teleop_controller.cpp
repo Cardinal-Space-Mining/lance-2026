@@ -42,17 +42,29 @@
 #include "../hid_bindings.hpp"
 
 
+#define FG_CLICKED_POINT_TOPIC "/clicked_point"
+
+
+namespace lance
+{
+
 TeleopController::TeleopController(
     RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
-    const HopperState& hopper_state) :
+    SharedControllerCollection& controllers) :
     pub_map{pub_map},
     params{params},
+    clicked_point_sub{node.create_subscription<PointStampedMsg>(
+        FG_CLICKED_POINT_TOPIC,
+        rclcpp::SensorDataQoS{},
+        [this](const PointStampedMsg::ConstSharedPtr& msg)
+        { this->clicked_point = msg; })},
     driving_rps_scalar{
         params.driving_medium_scalar * params.tracks_max_velocity_rps},
-    mining_controller{node, pub_map, params, hopper_state},
-    offload_controller{node, pub_map, params, hopper_state}
+    mining_controller{controllers.mining_controller},
+    offload_controller{controllers.offload_controller},
+    traversal_controller{controllers.traversal_controller}
 {
 }
 
@@ -72,6 +84,11 @@ void TeleopController::setCancelled()
         case Operation::PRESET_OFFLOAD:
         {
             this->offload_controller.setCancelled();
+            break;
+        }
+        case Operation::AUTO_TRAVERSAL:
+        {
+            this->traversal_controller.setCancelled();
             break;
         }
         default:
@@ -121,6 +138,13 @@ void TeleopController::iterate(
             command_finished = this->offload_controller.isFinished();
             break;
         }
+        case Operation::AUTO_TRAVERSAL:
+        {
+            this->handleClickedPoint(true);
+            this->traversal_controller.iterate(motor_status, commands);
+            command_finished = this->traversal_controller.isFinished();
+            break;
+        }
         default:
         {
         }
@@ -137,7 +161,7 @@ void TeleopController::iterate(
     if (this->op_mode == Operation::MANUAL)
     {
         // handle manual control
-        this->handleTeleopInputs(joy, commands);
+        this->handleTeleopInputs(joy, motor_status, commands);
 
         // iterate controllers ONLY IF an op_mode transition occurred
         // (otherwise op_mode will still be MANUAL)
@@ -163,12 +187,18 @@ void TeleopController::iterate(
                 this->offload_controller.iterate(motor_status, commands);
                 break;
             }
+            case Operation::AUTO_TRAVERSAL:
+            {
+                this->traversal_controller.iterate(motor_status, commands);
+                break;
+            }
             default:
             {
             }
         }
     }
 
+    this->handleClickedPoint(false);
     this->publishState();
 }
 
@@ -196,14 +226,30 @@ bool TeleopController::handleGlobalInputs(const JoyState& joy)
     {
         this->mining_controller.setCancelled();
         this->offload_controller.setCancelled();
+        this->traversal_controller.setCancelled();
+        this->op_mode = Operation::MANUAL;
         return false;
     }
 
     return true;
 }
 
+bool TeleopController::handleClickedPoint(bool can_apply)
+{
+    if (this->clicked_point && can_apply)
+    {
+        this->traversal_controller.initializePoint(*this->clicked_point);
+        this->op_mode = Operation::AUTO_TRAVERSAL;
+        this->clicked_point = nullptr;
+        return true;
+    }
+    this->clicked_point = nullptr;
+    return false;
+}
+
 void TeleopController::handleTeleopInputs(
     const JoyState& joy,
+    const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
     using namespace Bindings;
@@ -233,6 +279,10 @@ void TeleopController::handleTeleopInputs(
         this->offload_controller.initialize(
             this->params.preset_offload_backup_dist_meters);
         this->op_mode = Operation::PRESET_OFFLOAD;
+        return;
+    }
+    if (this->handleClickedPoint(true))
+    {
         return;
     }
 
@@ -277,7 +327,10 @@ void TeleopController::handleTeleopInputs(
             hopper_belt_percent * this->params.hopper_belt_max_velocity_rps);
 
         float hopper_act_scalar = TeleopHopperActuateAxis::rawValue(joy);
-        if (std::abs(hopper_act_scalar) < this->params.default_stick_deadzone)
+        if ((std::abs(hopper_act_scalar) <
+             this->params.default_stick_deadzone) ||
+            (motor_status.getHopperActNormalizedValue() < 0. &&
+             hopper_act_scalar < 0.f))
         {
             hopper_act_scalar = 0.f;
         }
@@ -292,9 +345,12 @@ void TeleopController::publishState()
         "Teleop Assisted Mining",
         "Teleop Assisted Offload",
         "Teleop Preset Mining",
-        "Teleop Preset Offload"};
+        "Teleop Preset Offload",
+        "Teleop Auto Traversal"};
 
     this->pub_map.publish<std_msgs::msg::String, std::string>(
         "lance/op_status",
         OP_STRINGS[static_cast<size_t>(this->op_mode)]);
 }
+
+};  // namespace lance

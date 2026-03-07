@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,52 +39,39 @@
 
 #pragma once
 
-#include <vector>
-
-#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
-#include <phoenix_ros_driver/msg/talon_info.hpp>
-#include <phoenix_ros_driver/msg/talon_faults.hpp>
-
-#include "base_adapter.hpp"
+#include "mining_controller.hpp"
+#include "offload_controller.hpp"
+#include "traversal_controller.hpp"
+#include "localization_controller.hpp"
 
 
-class TalonCtrlAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonCtrl, TalonCtrlAdapter>
+namespace lance
 {
-    friend BaseT;
+
+class SharedControllerCollection
+{
+    using RclNode = rclcpp::Node;
+    using GenericPubMap = util::GenericPubMap;
 
 public:
-    TalonCtrlAdapter(rclcpp::Node& node);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
-
-
-class TalonInfoAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonInfo, TalonInfoAdapter>
-{
-    friend BaseT;
-
-public:
-    TalonInfoAdapter(rclcpp::Node& node);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
-
-
-class TalonFaultsAdapter :
-    public BaseAdapter<phoenix_ros_driver::msg::TalonFaults, TalonFaultsAdapter>
-{
-    friend BaseT;
+    inline SharedControllerCollection(
+        RclNode& node,
+        GenericPubMap& pub_map,
+        const RobotParams& params,
+        const HopperState& hopper_state,
+        const TfCache& tf_cache) :
+        mining_controller{node, pub_map, params, hopper_state},
+        offload_controller{node, pub_map, params, hopper_state},
+        traversal_controller{node, pub_map, params, tf_cache},
+        localization_controller{node, pub_map, params, tf_cache}
+    {
+    }
 
 public:
-    TalonFaultsAdapter(rclcpp::Node& node);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+    MiningController mining_controller;
+    OffloadController offload_controller;
+    TraversalController traversal_controller;
+    LocalizationController localization_controller;
 };
+
+};  // namespace lance

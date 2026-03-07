@@ -43,11 +43,14 @@
 
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
-#include "../collection_state.hpp"
 
+#include "shared_controllers.hpp"
 #include "offload_controller.hpp"
 #include "traversal_controller.hpp"
 
+
+namespace lance
+{
 
 class AutoOffloadController
 {
@@ -59,8 +62,7 @@ public:
         RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        const HopperState&,
-        TraversalController&);
+        SharedControllerCollection&);
     ~AutoOffloadController() = default;
 
 public:
@@ -85,10 +87,11 @@ protected:
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
-    const HopperState& hopper_state;
 
     Stage stage{Stage::FINISHED};
 
     TraversalController& traversal_controller;
-    OffloadController offload_controller;
+    OffloadController& offload_controller;
 };
+
+};  // namespace lance

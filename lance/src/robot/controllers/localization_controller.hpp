@@ -41,21 +41,22 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/buffer.h>
-
 #include <std_srvs/srv/set_bool.hpp>
 
 #include <cardinal_perception/msg/reflector_hint.hpp>
 
+#include "../tf_cache.hpp"
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
 #include "../../util/pub_map.hpp"
 
 
+namespace lance
+{
+
 class LocalizationController
 {
     using RclNode = rclcpp::Node;
-    using Tf2Buffer = tf2_ros::Buffer;
     using SetBoolSrv = std_srvs::srv::SetBool;
     using ReflectorHintMsg = cardinal_perception::msg::ReflectorHint;
     using GenericPubMap = util::GenericPubMap;
@@ -70,7 +71,7 @@ public:
         RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        const Tf2Buffer&);
+        const TfCache&);
     ~LocalizationController() = default;
 
 public:
@@ -98,7 +99,7 @@ protected:
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
-    const Tf2Buffer& tf_buffer;
+    const TfCache& tf_cache;
 
     RclSubPtr<ReflectorHintMsg> hint_sub;
     RclClientPtr<SetBoolSrv> lfd_control_client;
@@ -106,3 +107,5 @@ protected:
     Stage stage{Stage::FINISHED};
     ReflectorHintMsg::ConstSharedPtr last_hint{nullptr};
 };
+
+};  // namespace lance

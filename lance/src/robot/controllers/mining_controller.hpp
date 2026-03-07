@@ -53,6 +53,9 @@
 #include "../../util/joy_utils.hpp"
 
 
+namespace lance
+{
+
 class MiningController
 {
     using RclNode = rclcpp::Node;
@@ -143,3 +146,5 @@ protected:
     BeltDutyCycleState belt_duty_cycle{};
     bool using_hopper_model{true};
 };
+
+};  // namespace lance
