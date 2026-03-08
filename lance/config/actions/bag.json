@@ -132,6 +132,8 @@
                 "/collection_state/low_pos_m",
                 "/collection_state/belt_usage_m",
 
+                "/cardinal_perception/planned_path",
+
                 "/cardinal_perception/trace_notifications",
                 "/rosout"
             ]
@@ -180,6 +182,8 @@
                 "/collection_state/high_pos_m",
                 "/collection_state/low_pos_m",
                 "/collection_state/belt_usage_m",
+
+                "/cardinal_perception/planned_path",
 
                 "/cardinal_perception/trace_notifications",
                 "/rosout"

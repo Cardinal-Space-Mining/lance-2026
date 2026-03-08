@@ -67,9 +67,9 @@
             {
                 "max_track_velocity_mps": 0.25,
                 "max_track_acceleration_mpss": 0.25,
-                "max_angular_velocity_radps": 0.5,
+                "max_angular_velocity_radps": 1.0,
                 "keypoint_thresh_m": 0.03,
-                "max_path_deviation_m": 0.25,
+                "max_path_deviation_m": 0.05,
                 "stanley_k_coeff": 1.0,
                 "angular_kp": 1.0,
                 "min_theta_window_deg": 2.0

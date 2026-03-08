@@ -491,12 +491,12 @@ bool TraversalController::iterateTraversal(
         // stanley controller output angular velocity
         const float Wa = (theta_S + theta_E);
         // proportional controller output angular velocity
-        // const float Wb = (W_Kp * theta_L);
+        const float Wb = (W_Kp * theta_L);
         // use stanley if eq pt is within window, otherwise proportional control
-        // const float Wc = (std::fabs(theta_E) < theta_R) ? Wa : Wb;
+        const float Wc = (std::fabs(theta_E) < theta_R) ? Wa : Wb;
         // ensure target angular velocity is not larger than max
         const float Wd =
-            std::clamp(Wa, -W_max, W_max);  // IGNORE PROPORTIONAL CONTROLLER
+            std::clamp(Wc, -W_max, W_max);  // IGNORE PROPORTIONAL CONTROLLER
         // apply kinematics
         Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(Vd, Wd);
         Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(Vd, Wd);
@@ -526,32 +526,45 @@ bool TraversalController::iterateTraversal(
     }
 
     // d. Apply per-track V, A limits
-    const float Vl_diff = (Vl_target - Vl_prev);
-    const float Vr_diff = (Vr_target - Vr_prev);
-    const float Vl_diff_abs = std::fabs(Vl_diff);
-    const float Vr_diff_abs = std::fabs(Vr_diff);
     float s = 1.f;
-    if (Vl_diff_abs > 1e-6f)
+    const float Vl_abs = std::abs(Vl_target);
+    const float Vr_abs = std::abs(Vr_target);
+    if(Vl_abs > V_max)
     {
-        // s = std::min(s, Vd_max / Vl_diff_abs);   // DOESN'T WORK
-        // don't quote me on the correctness of this, chadjippity wrote it
-        s = std::min(
-            s,
-            (Vl_diff > 0.f) ? ((V_max - Vl_prev) / Vl_diff)
-                            : ((-V_max - Vl_prev) / Vl_diff));
+        s = std::min(s, V_max / Vl_abs);
     }
-    if (Vr_diff_abs > 1e-6f)
+    if(Vr_abs > V_max)
     {
-        // s = std::min(s, Vd_max / Vr_diff_abs);   // DOESN'T WORK
-        // ...or this
-        s = std::min(
-            s,
-            (Vr_diff > 0.f) ? ((V_max - Vr_prev) / Vr_diff)
-                            : ((-V_max - Vr_prev) / Vr_diff));
+        s = std::min(s, V_max / Vr_abs);
     }
-    s = std::clamp(s, 0.f, 1.f);
-    const float Vl_out = Vl_prev + s * Vl_diff;
-    const float Vr_out = Vr_prev + s * Vr_diff;
+    const float Vl_out = Vl_target * s;
+    const float Vr_out = Vr_target * s;
+
+    // const float Vl_diff = (Vl_target - Vl_prev);
+    // const float Vr_diff = (Vr_target - Vr_prev);
+    // const float Vl_diff_abs = std::fabs(Vl_diff);
+    // const float Vr_diff_abs = std::fabs(Vr_diff);
+    // if (Vl_diff_abs > 1e-6f)
+    // {
+    //     // s = std::min(s, Vd_max / Vl_diff_abs);   // DOESN'T WORK
+    //     // don't quote me on the correctness of this, chadjippity wrote it
+    //     s = std::min(
+    //         s,
+    //         (Vl_diff > 0.f) ? ((V_max - Vl_prev) / Vl_diff)
+    //                         : ((-V_max - Vl_prev) / Vl_diff));
+    // }
+    // if (Vr_diff_abs > 1e-6f)
+    // {
+    //     // s = std::min(s, Vd_max / Vr_diff_abs);   // DOESN'T WORK
+    //     // ...or this
+    //     s = std::min(
+    //         s,
+    //         (Vr_diff > 0.f) ? ((V_max - Vr_prev) / Vr_diff)
+    //                         : ((-V_max - Vr_prev) / Vr_diff));
+    // }
+    // s = std::clamp(s, 0.f, 1.f);
+    // const float Vl_out = Vl_prev + s * Vl_diff;
+    // const float Vr_out = Vr_prev + s * Vr_diff;
 
     // e. Apply
     commands.setTracksVelocity(
