@@ -72,8 +72,8 @@ using phx6::signals::NeutralModeValue;
 using phx6::signals::InvertedValue;
 using phx6::signals::FeedbackSensorSourceValue;
 
-template <typename TConfig>
-inline TConfig buildMotorConfig(
+template <typename Config_T>
+inline Config_T buildMotorConfig(
     double kP,
     double kI,
     double kD,
@@ -84,7 +84,7 @@ inline TConfig buildMotorConfig(
     double supply_current_limit = 0.,
     double voltage_limit = 0.)
 {
-    return TConfig{}
+    return Config_T{}
         .WithSlot0(Slot0Configs{}.WithKP(kP).WithKI(kI).WithKD(kD).WithKV(kV))
         .WithMotorOutput(
             MotorOutputConfigs{}

@@ -123,8 +123,6 @@ Phoenix6Driver::Phoenix6Driver() :
     Node{"phoenix6_driver"},
     {
         this->initPhx();
-        this->initMotorFX();
-        this->initMotorFXS();
     }
 
 void Phoenix6Driver::initPhx()

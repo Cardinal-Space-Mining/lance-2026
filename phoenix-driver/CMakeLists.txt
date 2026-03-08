@@ -79,6 +79,16 @@ ament_target_dependencies(phx6_driver
     phoenix6)
 target_compile_features(phx6_driver PUBLIC c_std_99 cxx_std_20)     # not necessary but silences a lot of warnings
 
+# --- Lance 2 Phoenix 6 Driver ---------------------------------------------------------
+add_executable(phx6_driver2 src/lance2_phx6_driver.cpp)
+target_link_libraries(phx6_driver2
+    ${phoenix_ros_driver_custom_types})
+ament_target_dependencies(phx6_driver2
+    rclcpp
+    std_msgs
+    phoenix6)
+target_compile_features(phx6_driver2 PUBLIC c_std_99 cxx_std_20)     # not necessary but silences a lot of warnings
+
 # --- Export -------------------------------------------------------------------
 ament_export_dependencies(
     rclcpp
@@ -92,6 +102,7 @@ ament_package()
 install(TARGETS
     phx5_driver
     phx6_driver
+    phx6_driver2
     DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
     config
