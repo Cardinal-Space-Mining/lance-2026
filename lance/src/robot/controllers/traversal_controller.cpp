@@ -39,10 +39,12 @@
 
 #include "traversal_controller.hpp"
 
+#include <array>
 #include <chrono>
 #include <memory>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
@@ -97,6 +99,139 @@ inline FloatT computeJunctionRadiusCoeff(FloatT cos_theta)
     const FloatT cos_half_theta =
         std::sqrt((FloatT)0.5 + cos_theta * (FloatT)0.5);
     return cos_half_theta / ((FloatT)1 - cos_half_theta);
+}
+
+template<typename F>
+inline void applyTrackLimits(
+    F Vl_target,
+    F Vr_target,
+    F Vl_prev,
+    F Vr_prev,
+    F V_max,
+    F Vd_max,
+    F& Vl_out,
+    F& Vr_out)
+{
+    const F Vl_min = std::clamp(Vl_prev - Vd_max, -V_max, V_max);
+    const F Vl_max = std::clamp(Vl_prev + Vd_max, -V_max, V_max);
+    const F Vr_min = std::clamp(Vr_prev - Vd_max, -V_max, V_max);
+    const F Vr_max = std::clamp(Vr_prev + Vd_max, -V_max, V_max);
+
+    // 1. If target is already in attainable range, short-circuit.
+    if ((Vl_target <= Vl_max && Vl_target >= Vl_min) &&
+        (Vr_target <= Vr_max && Vr_target >= Vr_min))
+    {
+        Vl_out = Vl_target;
+        Vr_out = Vr_target;
+        return;
+    }
+
+    const F Vl_target_abs = std::abs(Vl_target);
+    const F Vr_target_abs = std::abs(Vr_target);
+
+    // 2. If targetting no movement, pick edge point that's closest
+    if (Vl_target_abs <= 1e-7 && Vr_target_abs <= 1e-7)
+    {
+        Vl_out = std::clamp(Vl_target, Vl_min, Vl_max);
+        Vr_out = std::clamp(Vr_target, Vr_min, Vr_max);
+        return;
+    }
+
+    // 3. If constant-curvature line intersects range, pick intersection point
+    //    that is closest
+    F t_min = -std::numeric_limits<F>::max();
+    F t_max = std::numeric_limits<F>::max();
+    if (Vl_target_abs > 1e-7)
+    {
+        const F a = (Vl_min / Vl_target);
+        const F b = (Vl_max / Vl_target);
+        t_min = std::max(t_min, std::min(a, b));
+        t_max = std::min(t_max, std::max(a, b));
+    }
+    else
+    {
+        // L-component is zero, thus equality line is the R-axis. If range
+        // doesn't intersect L=0, then there cannot be an intersection.
+        if (Vl_min > 0 || Vl_max < 0)
+        {
+            goto SKIP_INTERSECT_L;
+        }
+    }
+    if (Vr_target_abs > 1e-7)
+    {
+        const F a = (Vr_min / Vr_target);
+        const F b = (Vr_max / Vr_target);
+        t_min = std::max(t_min, std::min(a, b));
+        t_max = std::min(t_max, std::max(a, b));
+    }
+    else
+    {
+        // R-componenet is zero, thus equality line is the L-axis. If range
+        // doesn't intersect R=0, then there canot be an intersection.
+        if (Vr_min > 0 || Vr_max < 0)
+        {
+            goto SKIP_INTERSECT_L;
+        }
+    }
+
+    // Pick intersection point that's closest to the target
+    if (t_min <= t_max)
+    {
+        const F t = (std::abs(t_min - 1) < std::abs(t_max - 1)) ? t_min : t_max;
+        Vl_out = Vl_target * t;
+        Vr_out = Vr_target * t;
+        return;
+    }
+
+SKIP_INTERSECT_L:
+
+    // 4. Use the corner point with minimum radius/curvature error
+    const F Vlr_sum = Vl_target + Vr_target;
+    const F Vlr_diff = Vl_target - Vr_target;
+    const bool R_ok = std::abs(Vlr_diff) > 1e-7;
+    const bool C_ok = std::abs(Vlr_sum) > 1e-7;
+    const F R_target = R_ok ? (Vlr_sum / Vlr_diff) : 0;
+    const F C_target = C_ok ? (Vlr_diff / Vlr_sum) : 0;
+
+    struct CornerErrs
+    {
+        F R_err;
+        F C_err;
+        F l;
+        F r;
+    };
+    std::array<CornerErrs, 4> corner_errs;
+
+    for (size_t i = 0; i < 4; i++)
+    {
+        const F l = static_cast<bool>(i & 0b01) ? Vl_min : Vl_max;
+        const F r = static_cast<bool>(i & 0b10) ? Vr_min : Vr_max;
+        const F lr_sum = l + r;
+        const F lr_diff = l - r;
+
+        corner_errs[i].R_err = std::numeric_limits<F>::max();
+        corner_errs[i].C_err = std::numeric_limits<F>::max();
+        corner_errs[i].l = l;
+        corner_errs[i].r = r;
+
+        if (R_ok && std::abs(lr_diff) > 1e-7)
+        {
+            corner_errs[i].R_err = std::abs((lr_sum / lr_diff) - R_target);
+        }
+        if (C_ok && std::abs(lr_sum) > 1e-7)
+        {
+            corner_errs[i].C_err = std::abs((lr_diff / lr_sum) - C_target);
+        }
+    }
+
+    std::sort(
+        corner_errs.begin(),
+        corner_errs.end(),
+        [](const CornerErrs& a, const CornerErrs& b)
+        { return a.R_err < b.R_err && a.C_err < b.C_err; });
+
+    Vl_out = corner_errs[0].l;
+    Vr_out = corner_errs[0].r;
 }
 
 
@@ -529,42 +664,44 @@ bool TraversalController::iterateTraversal(
     float s = 1.f;
     const float Vl_abs = std::abs(Vl_target);
     const float Vr_abs = std::abs(Vr_target);
-    if(Vl_abs > V_max)
+    if (Vl_abs > V_max)
     {
         s = std::min(s, V_max / Vl_abs);
     }
-    if(Vr_abs > V_max)
+    if (Vr_abs > V_max)
     {
         s = std::min(s, V_max / Vr_abs);
     }
-    const float Vl_out = Vl_target * s;
-    const float Vr_out = Vr_target * s;
 
-    // const float Vl_diff = (Vl_target - Vl_prev);
-    // const float Vr_diff = (Vr_target - Vr_prev);
-    // const float Vl_diff_abs = std::fabs(Vl_diff);
-    // const float Vr_diff_abs = std::fabs(Vr_diff);
-    // if (Vl_diff_abs > 1e-6f)
-    // {
-    //     // s = std::min(s, Vd_max / Vl_diff_abs);   // DOESN'T WORK
-    //     // don't quote me on the correctness of this, chadjippity wrote it
-    //     s = std::min(
-    //         s,
-    //         (Vl_diff > 0.f) ? ((V_max - Vl_prev) / Vl_diff)
-    //                         : ((-V_max - Vl_prev) / Vl_diff));
-    // }
-    // if (Vr_diff_abs > 1e-6f)
-    // {
-    //     // s = std::min(s, Vd_max / Vr_diff_abs);   // DOESN'T WORK
-    //     // ...or this
-    //     s = std::min(
-    //         s,
-    //         (Vr_diff > 0.f) ? ((V_max - Vr_prev) / Vr_diff)
-    //                         : ((-V_max - Vr_prev) / Vr_diff));
-    // }
+    const float Vl_diff = (Vl_target - Vl_prev);
+    const float Vr_diff = (Vr_target - Vr_prev);
+    const float Vl_diff_abs = std::fabs(Vl_diff);
+    const float Vr_diff_abs = std::fabs(Vr_diff);
+    if (Vl_diff_abs > Vd_max)
+    {
+        const float diff_s = (Vd_max / Vl_diff_abs);
+        s = std::min(s, (Vl_prev + (diff_s * Vl_diff)) / Vl_target);
+        //     // s = std::min(s, Vd_max / Vl_diff_abs);   // DOESN'T WORK
+        //     // don't quote me on the correctness of this, chadjippity wrote it
+        //     s = std::min(
+        //         s,
+        //         (Vl_diff > 0.f) ? ((V_max - Vl_prev) / Vl_diff)
+        //                         : ((-V_max - Vl_prev) / Vl_diff));
+    }
+    if (Vr_diff_abs > 1e-6f)
+    {
+        //     // s = std::min(s, Vd_max / Vr_diff_abs);   // DOESN'T WORK
+        //     // ...or this
+        //     s = std::min(
+        //         s,
+        //         (Vr_diff > 0.f) ? ((V_max - Vr_prev) / Vr_diff)
+        //                         : ((-V_max - Vr_prev) / Vr_diff));
+    }
     // s = std::clamp(s, 0.f, 1.f);
     // const float Vl_out = Vl_prev + s * Vl_diff;
     // const float Vr_out = Vr_prev + s * Vr_diff;
+    const float Vl_out = Vl_target * s;
+    const float Vr_out = Vr_target * s;
 
     // e. Apply
     commands.setTracksVelocity(

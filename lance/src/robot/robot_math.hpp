@@ -65,7 +65,7 @@ CONSTEXPR_VAL_TEMPLATE(TRACK_SEPARATION_M, 0.636)
 
 CONSTEXPR_VAL_TEMPLATE(TRENCHER_WIDTH_M, 0.254)
 CONSTEXPR_VAL_TEMPLATE(TRENCHER_GEARING, 32)
-// bucket separation (CAD): 0.05107 m, actuation radius (CAD): 0.04890 m, struct bucket volume (CAD): 0.04309 L
+// bucket separation (CAD): 0.05107 m, actuation radius (CAD): 0.04890 m, strict bucket volume (CAD): 0.04309 L
 CONSTEXPR_VAL_TEMPLATE(
     TRENCHER_LITERS_PER_OUTPUT_ROTATION,
     (0.04309 * ((0.04826 * TWO_PI) / 0.05107)))
