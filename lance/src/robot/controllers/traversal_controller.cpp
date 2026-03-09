@@ -185,53 +185,62 @@ inline void applyTrackLimits(
 
 SKIP_INTERSECT_L:
 
-    // 4. Use the corner point with minimum radius/curvature error
+    // 4. Use the corner with minimum curvature error
+    //    Pick C or R form based on which is most stable across all corners.
     const F Vlr_sum = Vl_target + Vr_target;
     const F Vlr_diff = Vl_target - Vr_target;
     const bool R_ok = std::abs(Vlr_diff) > 1e-7;
     const bool C_ok = std::abs(Vlr_sum) > 1e-7;
-    const F R_target = R_ok ? (Vlr_sum / Vlr_diff) : 0;
-    const F C_target = C_ok ? (Vlr_diff / Vlr_sum) : 0;
 
-    struct CornerErrs
+    // Clamp to nearest as a default if anything fails...
+    Vl_out = std::clamp(Vl_target, Vl_min, Vl_max);
+    Vr_out = std::clamp(Vr_target, Vr_min, Vr_max);
+
+    // No valid target metric at all - use clamped values
+    if (!R_ok && !C_ok)
     {
-        F R_err;
-        F C_err;
-        F l;
-        F r;
-    };
-    std::array<CornerErrs, 4> corner_errs;
-
-    for (size_t i = 0; i < 4; i++)
-    {
-        const F l = static_cast<bool>(i & 0b01) ? Vl_min : Vl_max;
-        const F r = static_cast<bool>(i & 0b10) ? Vr_min : Vr_max;
-        const F lr_sum = l + r;
-        const F lr_diff = l - r;
-
-        corner_errs[i].R_err = std::numeric_limits<F>::max();
-        corner_errs[i].C_err = std::numeric_limits<F>::max();
-        corner_errs[i].l = l;
-        corner_errs[i].r = r;
-
-        if (R_ok && std::abs(lr_diff) > 1e-7)
-        {
-            corner_errs[i].R_err = std::abs((lr_sum / lr_diff) - R_target);
-        }
-        if (C_ok && std::abs(lr_sum) > 1e-7)
-        {
-            corner_errs[i].C_err = std::abs((lr_diff / lr_sum) - C_target);
-        }
+        return;
     }
 
-    std::sort(
-        corner_errs.begin(),
-        corner_errs.end(),
-        [](const CornerErrs& a, const CornerErrs& b)
-        { return a.R_err < b.R_err && a.C_err < b.C_err; });
+    // Find worst-case (minimum) denominator for each form across all corners
+    F C_denorm_min = std::numeric_limits<F>::max();
+    F R_denom_min = std::numeric_limits<F>::max();
+    for (size_t i = 0; i < 4; i++)
+    {
+        const F l = (i & 0b01) ? Vl_min : Vl_max;
+        const F r = (i & 0b10) ? Vr_min : Vr_max;
+        C_denorm_min = std::min(C_denorm_min, std::abs(l + r));
+        R_denom_min = std::min(R_denom_min, std::abs(l - r));
+    }
 
-    Vl_out = corner_errs[0].l;
-    Vr_out = corner_errs[0].r;
+    // Pick the single most stable form, respecting validity
+    // Then compute target reference value with that form
+    const bool use_R = R_ok && (!C_ok || R_denom_min >= C_denorm_min);
+    const F target_ref = use_R ? (Vlr_sum / Vlr_diff)   // R_target
+                               : (Vlr_diff / Vlr_sum);  // C_target
+
+    // Evaluate all 4 corners with the chosen form
+    F best_err = std::numeric_limits<F>::max();
+    for (size_t i = 0; i < 4; i++)
+    {
+        const F l = (i & 0b01) ? Vl_min : Vl_max;
+        const F r = (i & 0b10) ? Vr_min : Vr_max;
+        const F denom = use_R ? (l - r) : (l + r);
+        const F numer = use_R ? (l + r) : (l - r);
+
+        if (std::abs(denom) <= 1e-7)
+        {
+            continue;  // singular corner for chosen form, skip
+        }
+
+        const F err = std::abs(numer / denom - target_ref);
+        if (err < best_err)
+        {
+            best_err = err;
+            Vl_out = l;
+            Vr_out = r;
+        }
+    }
 }
 
 
