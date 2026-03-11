@@ -39,12 +39,10 @@
 
 #include "traversal_controller.hpp"
 
-#include <array>
 #include <chrono>
 #include <memory>
 #include <sstream>
 #include <iostream>
-#include <algorithm>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
@@ -65,184 +63,16 @@ using Iso3f = Eigen::Isometry3f;
 using Quatf = Eigen::Quaternionf;
 
 
-
-void debugTracksControl(
-    const util::JoyState& joy,
-    const lance::RobotParams& params,
-    lance::RobotMotorCommands& commands)
-{
-    using namespace Bindings;
-
-    const float x = TeleopDriveXAxis::rawValue(joy);
-    const float y = TeleopDriveYAxis::rawValue(joy);
-    if ((x * x + y * y) <
-        (params.driving_magnitude_deadzone * params.driving_magnitude_deadzone))
-    {
-        commands.setTracksVelocity(0., 0.);
-    }
-    else
-    {
-        const float l = y - x;  // y + (-x)
-        const float r = y + x;  // y - (-x)
-        const float s =
-            ((params.tracks_max_velocity_rps * params.driving_medium_scalar) /
-             std::max({1.f, std::abs(l), std::abs(r)}));
-        commands.setTracksVelocity((l * s), (r * s));
-    }
-}
-
-// compute the coefficient representing the ratio of radius-to-corner-
-// deviation-width when turning at a path junction
-template<typename FloatT>
-inline FloatT computeJunctionRadiusCoeff(FloatT cos_theta)
-{
-    const FloatT cos_half_theta =
-        std::sqrt((FloatT)0.5 + cos_theta * (FloatT)0.5);
-    return cos_half_theta / ((FloatT)1 - cos_half_theta);
-}
-
+/* Compute the radius-per-max-corner-deviation coefficient for a junction
+ * with a bend of theta degrees. The radius in this case is that of the arc
+ * that is tangent to both path segments. */
 template<typename F>
-inline void applyTrackLimits(
-    F Vl_target,
-    F Vr_target,
-    F Vl_prev,
-    F Vr_prev,
-    F V_max,
-    F Vd_max,
-    F& Vl_out,
-    F& Vr_out)
+inline F computeJunctionRadiusCoeff(F cos_theta)
 {
-    const F Vl_min = std::clamp(Vl_prev - Vd_max, -V_max, V_max);
-    const F Vl_max = std::clamp(Vl_prev + Vd_max, -V_max, V_max);
-    const F Vr_min = std::clamp(Vr_prev - Vd_max, -V_max, V_max);
-    const F Vr_max = std::clamp(Vr_prev + Vd_max, -V_max, V_max);
-
-    // 1. If target is already in attainable range, short-circuit.
-    if ((Vl_target <= Vl_max && Vl_target >= Vl_min) &&
-        (Vr_target <= Vr_max && Vr_target >= Vr_min))
-    {
-        Vl_out = Vl_target;
-        Vr_out = Vr_target;
-        return;
-    }
-
-    const F Vl_target_abs = std::abs(Vl_target);
-    const F Vr_target_abs = std::abs(Vr_target);
-
-    // 2. If targetting no movement, pick edge point that's closest
-    if (Vl_target_abs <= 1e-7 && Vr_target_abs <= 1e-7)
-    {
-        Vl_out = std::clamp(Vl_target, Vl_min, Vl_max);
-        Vr_out = std::clamp(Vr_target, Vr_min, Vr_max);
-        return;
-    }
-
-    // 3. If constant-curvature line intersects range, pick intersection point
-    //    that is closest
-    F t_min = -std::numeric_limits<F>::max();
-    F t_max = std::numeric_limits<F>::max();
-    if (Vl_target_abs > 1e-7)
-    {
-        const F a = (Vl_min / Vl_target);
-        const F b = (Vl_max / Vl_target);
-        t_min = std::max(t_min, std::min(a, b));
-        t_max = std::min(t_max, std::max(a, b));
-    }
-    else
-    {
-        // L-component is zero, thus equality line is the R-axis. If range
-        // doesn't intersect L=0, then there cannot be an intersection.
-        if (Vl_min > 0 || Vl_max < 0)
-        {
-            goto SKIP_INTERSECT_L;
-        }
-    }
-    if (Vr_target_abs > 1e-7)
-    {
-        const F a = (Vr_min / Vr_target);
-        const F b = (Vr_max / Vr_target);
-        t_min = std::max(t_min, std::min(a, b));
-        t_max = std::min(t_max, std::max(a, b));
-    }
-    else
-    {
-        // R-componenet is zero, thus equality line is the L-axis. If range
-        // doesn't intersect R=0, then there canot be an intersection.
-        if (Vr_min > 0 || Vr_max < 0)
-        {
-            goto SKIP_INTERSECT_L;
-        }
-    }
-
-    // Pick intersection point that's closest to the target
-    if (t_min <= t_max)
-    {
-        const F t = (std::abs(t_min - 1) < std::abs(t_max - 1)) ? t_min : t_max;
-        Vl_out = Vl_target * t;
-        Vr_out = Vr_target * t;
-        return;
-    }
-
-SKIP_INTERSECT_L:
-
-    // 4. Use the corner with minimum curvature error
-    //    Pick C or R form based on which is most stable across all corners.
-    const F Vlr_sum = Vl_target + Vr_target;
-    const F Vlr_diff = Vl_target - Vr_target;
-    const bool R_ok = std::abs(Vlr_diff) > 1e-7;
-    const bool C_ok = std::abs(Vlr_sum) > 1e-7;
-
-    // Clamp to nearest as a default if anything fails...
-    Vl_out = std::clamp(Vl_target, Vl_min, Vl_max);
-    Vr_out = std::clamp(Vr_target, Vr_min, Vr_max);
-
-    // No valid target metric at all - use clamped values
-    if (!R_ok && !C_ok)
-    {
-        return;
-    }
-
-    // Find worst-case (minimum) denominator for each form across all corners
-    F C_denorm_min = std::numeric_limits<F>::max();
-    F R_denom_min = std::numeric_limits<F>::max();
-    for (size_t i = 0; i < 4; i++)
-    {
-        const F l = (i & 0b01) ? Vl_min : Vl_max;
-        const F r = (i & 0b10) ? Vr_min : Vr_max;
-        C_denorm_min = std::min(C_denorm_min, std::abs(l + r));
-        R_denom_min = std::min(R_denom_min, std::abs(l - r));
-    }
-
-    // Pick the single most stable form, respecting validity
-    // Then compute target reference value with that form
-    const bool use_R = R_ok && (!C_ok || R_denom_min >= C_denorm_min);
-    const F target_ref = use_R ? (Vlr_sum / Vlr_diff)   // R_target
-                               : (Vlr_diff / Vlr_sum);  // C_target
-
-    // Evaluate all 4 corners with the chosen form
-    F best_err = std::numeric_limits<F>::max();
-    for (size_t i = 0; i < 4; i++)
-    {
-        const F l = (i & 0b01) ? Vl_min : Vl_max;
-        const F r = (i & 0b10) ? Vr_min : Vr_max;
-        const F denom = use_R ? (l - r) : (l + r);
-        const F numer = use_R ? (l + r) : (l - r);
-
-        if (std::abs(denom) <= 1e-7)
-        {
-            continue;  // singular corner for chosen form, skip
-        }
-
-        const F err = std::abs(numer / denom - target_ref);
-        if (err < best_err)
-        {
-            best_err = err;
-            Vl_out = l;
-            Vr_out = r;
-        }
-    }
+    const F cos_half_theta =
+        std::sqrt(static_cast<F>(0.5) + cos_theta * static_cast<F>(0.5));
+    return cos_half_theta / (static_cast<F>(1) - cos_half_theta);
 }
-
 
 
 namespace lance
@@ -341,6 +171,12 @@ void TraversalController::iterate(
                 break;
             }
 
+            this->prev_left_velocity =
+                static_cast<float>(lance::trackMotorRpsToGroundMps(
+                    motor_status.track_left.velocity));
+            this->prev_right_velocity =
+                static_cast<float>(lance::trackMotorRpsToGroundMps(
+                    motor_status.track_right.velocity));
             this->state = State::FOLLOW_PATH;
             [[fallthrough]];
         }
@@ -406,13 +242,14 @@ void TraversalController::stopPlanningService()
 
 
 
-#define K1    (this->params.auto_traversal_stanley_k_coeff)
-#define K2    (this->params.auto_traversal_max_path_deviation_m)
-#define W_Kp  (this->params.auto_traversal_angular_kp)
-#define Dt    (this->params.iteration_period_seconds)
-#define V_max (this->params.auto_traversal_max_track_velocity_mps)
-#define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
-#define W_max (this->params.auto_traversal_max_angular_velocity_rps)
+#define K1          (this->params.auto_traversal_stanley_k_coeff)
+#define K2          (this->params.auto_traversal_max_path_deviation_m)
+#define W_Kp        (this->params.auto_traversal_angular_kp)
+#define Dt          (this->params.iteration_period_seconds)
+#define V_max       (this->params.auto_traversal_max_track_velocity_mps)
+#define A_max       (this->params.auto_traversal_max_track_acceleration_mpss)
+#define W_max       (this->params.auto_traversal_max_angular_velocity_rps)
+#define V_delta_max (A_max * Dt)
 
 bool TraversalController::iterateTraversal(
     const RobotMotorStatus& motor_status,
@@ -450,7 +287,7 @@ bool TraversalController::iterateTraversal(
         }
     }
 
-    // handle close enough to final keypoint
+    // 2. Exit if final keypoint has been reached ------------------------------
     switch (this->destination_type)
     {
         case DestinationType::POINT:
@@ -477,7 +314,7 @@ bool TraversalController::iterateTraversal(
         }
     }
 
-    // 2. FIND TARGET SEGMENT OR KEYPOINT --------------------------------------
+    // 3. FIND TARGET SEGMENT OR KEYPOINT --------------------------------------
     size_t seg_beg_idx = 0;
     size_t seg_end_idx = 0;
     float seg_proj_t = 0.f;
@@ -507,228 +344,28 @@ bool TraversalController::iterateTraversal(
         }
     }
 
-    // 3. ALGO -----------------------------------------------------------------
-    // a. Aliases ---
-    const float theta_V = this->params.auto_traversal_min_theta_window *
-                          (std::numbers::pi_v<float> / 180.f);
-    const float KR_inv = -std::log(0.5f) / K2;
-    const float Vd_max = (A_max * Dt);
-
-    // b. Current state from sensors ---
-    const float Vl_prev = static_cast<float>(
-        lance::trackMotorRpsToGroundMps(motor_status.track_left.velocity));
-    const float Vr_prev = static_cast<float>(
-        lance::trackMotorRpsToGroundMps(motor_status.track_right.velocity));
-    const float V_prev =
-        lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
-    // const float W_prev =
-    //     lance::trackVelocitiesToAngularVelocity(Vl_prev, Vr_prev);
-
-    // std::ostringstream dbg;
-
-    // c. Get track targets ---
-    float Vl_target = 0.f, Vr_target = 0.f;
-    // target last keypoint
-    if (seg_beg_idx == seg_end_idx)
-    {
-        const Vec2f& S = keypoints[seg_end_idx];
-        // angular error
-        const float theta = std::atan2(S.y(), S.x());
-        // angular velocity proportional to error, clamped to parmertarized max
-        const float W = std::clamp(W_Kp * theta, -W_max, W_max);
-        // accelerate to full velocity if roughly pointed straight at target
-        const float Va = (std::fabs(theta) < theta_V) ? V_max : 0.f;
-        // TODO: backpropegation max velocity
-        const float Vb = kmx::maxStartVel(0.f, S.norm(), A_max);
-        // apply minimum of two velocities, and clamp initially to min/max acceleration diffs
-        const float Vc =
-            std::clamp(std::min(Va, Vb), V_prev - Vd_max, V_prev + Vd_max);
-        // differential drive kinematics to get left and right velocities
-        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(Vc, W);
-        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(Vc, W);
-
-        // dbg << "MODE: final pt\n"
-        //        "S: " << S << "\n"
-        //        "theta: " << theta << "\n"
-        //        "W: " << W << "\n"
-        //        "Va: " << Va << "\n"
-        //        "Vb: " << Vb << "\n"
-        //        "Vc: " << Vc << "\n"
-        //        "Vl_target: " << Vl_target << "\n"
-        //        "Vr_target: " << Vr_target << "\n";
-    }
-    // target current segment
-    else
-    {
-        float Vb = std::numeric_limits<float>::infinity();
-        {
-            const float max_target_vel = std::min(V_max, V_prev + Vd_max);
-            const float max_decell_dist =
-                kmx::decellDist(max_target_vel, A_max);
-            Vec2f pt_a = Vec2f::Zero();
-            float sum_dist = 0.f;
-            for (size_t i = (seg_proj_t < 0.f ? seg_beg_idx : seg_end_idx);
-                 i < keypoints.size() && sum_dist < max_decell_dist;
-                 i++)
-            {
-                const Vec2f& pt_b = keypoints[i];
-                const Vec2f seg_a = (pt_b - pt_a);
-                sum_dist += seg_a.norm();
-
-                if (sum_dist < max_decell_dist)
-                {
-                    if (i + 1 < keypoints.size())
-                    {
-                        const Vec2f& pt_c = keypoints[i + 1];
-                        const Vec2f seg_b = (pt_c - pt_b);
-
-                        const float cos_theta =
-                            seg_a.normalized().dot(seg_b.normalized());
-                        const float s = ::computeJunctionRadiusCoeff(cos_theta);
-                        const float r = (s * K2);
-                        Vb = std::min(
-                            Vb,
-                            kmx::maxStartVel((r * W_max), sum_dist, A_max));
-                    }
-                    else
-                    {
-                        Vb = std::min(
-                            Vb,
-                            kmx::maxStartVel(0.f, sum_dist, A_max));
-                    }
-                }
-            }
-        }
-
-        // REMEMBER: EVERYTHING RELATIVE TO ROBOT FRAME (P is <0, 0>, X+ is <1, 0>)!!
-        // segment start point
-        const Vec2f& S1 = keypoints[seg_beg_idx];
-        // segment end point
-        const Vec2f& S2 = keypoints[seg_end_idx];
-        // segment raw difference
-        const Vec2f Sd = S2 - S1;
-        // time along segment (+extrapolation) of closest point to origin
-        const float t = seg_proj_t;
-        // closest time clamped to segment range
-        const float u = std::clamp(t, 0.f, 1.f);
-        // closest point
-        const Vec2f M = S1 + (Sd * t);
-        // closest point actually on segment
-        const Vec2f L = S1 + (Sd * u);
-        // heading error from direction to closest point on segment
-        const float theta_L = std::atan2(L.y(), L.x());
-        // stanley validity angular range as a function of distance form segment
-        const float theta_R =
-            std::numbers::pi_v<float> * std::exp(-L.norm() * KR_inv);
-        // full forward velocity if within angular range, otherwise zero
-        const float Va =
-            (std::fabs(theta_L) < std::max(theta_R, theta_V)) ? V_max : 0.f;
-        // clamp to backpropegation max vel
-        const float Vc = std::min(Va, Vb);
-        // clamp forward velocity by max acceleration
-        const float Vd = std::clamp(Vc, V_prev - Vd_max, V_prev + Vd_max);
-        // angular error from the segment forward direction
-        const float theta_S = std::atan2(Sd.y(), Sd.x());
-        // stanley crosstrack error angular coeff (angular velocity)
-        const float theta_E =
-            std::atan(K1 * M.norm() / Vd) * (std::signbit(M.y()) ? -1.f : 1.f);
-        // stanley controller output angular velocity
-        const float Wa = (theta_S + theta_E);
-        // proportional controller output angular velocity
-        const float Wb = (W_Kp * theta_L);
-        // use stanley if eq pt is within window, otherwise proportional control
-        const float Wc = (std::fabs(theta_E) < theta_R) ? Wa : Wb;
-        // ensure target angular velocity is not larger than max
-        const float Wd =
-            std::clamp(Wc, -W_max, W_max);  // IGNORE PROPORTIONAL CONTROLLER
-        // apply kinematics
-        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(Vd, Wd);
-        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(Vd, Wd);
-
-        // dbg << "MODE: segment\n"
-        //        "S1: " << S1 << "\n"
-        //        "S2: " << S2 << "\n"
-        //        "Sd: " << Sd << "\n"
-        //        "t: " << t << "\n"
-        //        "u: " << u << "\n"
-        //        "M: " << M << "\n"
-        //        "L: " << L << "\n"
-        //        "theta_L: " << theta_L << "\n"
-        //        "theta_R: " << theta_R << "\n"
-        //        "Va: " << Va << "\n"
-        //        "Vb: " << Vb << "\n"
-        //        "Vc: " << Vc << "\n"
-        //        "Vd: " << Vd << "\n"
-        //        "theta_S: " << theta_S << "\n"
-        //        "theta_E: " << theta_E << "\n"
-        //        "Wa: " << Wa << "\n"
-        //        "Wb: " << Wb << "\n"
-        //        "Wc: " << Wc << "\n"
-        //        "Wd: " << Wd << "\n"
-        //        "Vl_target: " << Vl_target << "\n"
-        //        "Vr_target: " << Vr_target << "\n";
-    }
-
-    // d. Apply per-track V, A limits
-    float s = 1.f;
-    const float Vl_abs = std::abs(Vl_target);
-    const float Vr_abs = std::abs(Vr_target);
-    if (Vl_abs > V_max)
-    {
-        s = std::min(s, V_max / Vl_abs);
-    }
-    if (Vr_abs > V_max)
-    {
-        s = std::min(s, V_max / Vr_abs);
-    }
-
-    const float Vl_diff = (Vl_target - Vl_prev);
-    const float Vr_diff = (Vr_target - Vr_prev);
-    const float Vl_diff_abs = std::fabs(Vl_diff);
-    const float Vr_diff_abs = std::fabs(Vr_diff);
-    if (Vl_diff_abs > Vd_max)
-    {
-        const float diff_s = (Vd_max / Vl_diff_abs);
-        s = std::min(s, (Vl_prev + (diff_s * Vl_diff)) / Vl_target);
-        //     // s = std::min(s, Vd_max / Vl_diff_abs);   // DOESN'T WORK
-        //     // don't quote me on the correctness of this, chadjippity wrote it
-        //     s = std::min(
-        //         s,
-        //         (Vl_diff > 0.f) ? ((V_max - Vl_prev) / Vl_diff)
-        //                         : ((-V_max - Vl_prev) / Vl_diff));
-    }
-    if (Vr_diff_abs > 1e-6f)
-    {
-        //     // s = std::min(s, Vd_max / Vr_diff_abs);   // DOESN'T WORK
-        //     // ...or this
-        //     s = std::min(
-        //         s,
-        //         (Vr_diff > 0.f) ? ((V_max - Vr_prev) / Vr_diff)
-        //                         : ((-V_max - Vr_prev) / Vr_diff));
-    }
-    // s = std::clamp(s, 0.f, 1.f);
-    // const float Vl_out = Vl_prev + s * Vl_diff;
-    // const float Vr_out = Vr_prev + s * Vr_diff;
-    const float Vl_out = Vl_target * s;
-    const float Vr_out = Vr_target * s;
-
-    // e. Apply
-    commands.setTracksVelocity(
-        lance::groundMpsToTrackMotorRps(Vl_out),
-        lance::groundMpsToTrackMotorRps(Vr_out));
-
-    // dbg << "Vl_out: " << Vl_out << "\nVr_out: " << Vr_out << "\n";
-    // this->pub_map.publish<std_msgs::msg::String>("/dbg", dbg.str());
+    // 4. ALGO -----------------------------------------------------------------
+    this->runStanley(
+        motor_status,
+        keypoints,
+        seg_beg_idx,
+        seg_end_idx,
+        seg_proj_t,
+        commands);
 
     return false;
 }
+
 
 bool TraversalController::iterateReorient(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+    (void)motor_status;
+
     constexpr float TARGETTING_THETA_EPSILON =
         0.5f * (std::numbers::pi_v<float> / 180.f);
+    constexpr float MAX_ANGULAR_DECELL = 0.5f;
 
     switch (this->destination_type)
     {
@@ -759,24 +396,214 @@ bool TraversalController::iterateReorient(
 
     // angular error
     const float theta = std::atan2(target.y(), target.x());
+    const float theta_abs = std::abs(theta);
 
-    if (std::abs(theta) < TARGETTING_THETA_EPSILON)
+    if (theta_abs < TARGETTING_THETA_EPSILON)
     {
         return true;
     }
 
     // angular velocity proportional to error, clamped to parmertarized max
-    const float W = std::clamp(W_Kp * theta, -W_max, W_max);
+    // const float W = std::clamp((theta * W_Kp), -W_max, W_max);
+    const float W = std::min(kmx::maxStartVel(0.f, theta_abs, MAX_ANGULAR_DECELL), W_max) *
+                    (std::signbit(theta) ? -1.f : 1.f);
 
-    // TODO: apply kinematics limits
+    const float Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(0.f, W);
+    const float Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(0.f, W);
+
+    float Vl_out, Vr_out;
+    kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
 
     commands.setTracksVelocity(
-        lance::groundMpsToTrackMotorRps(
-            lance::bodyDynamicsToLeftTrackVelocityMps(0.f, W)),
-        lance::groundMpsToTrackMotorRps(
-            lance::bodyDynamicsToRightTrackVelocityMps(0.f, W)));
+        lance::groundMpsToTrackMotorRps(Vl_out),
+        lance::groundMpsToTrackMotorRps(Vr_out));
 
     return false;
+}
+
+
+
+void TraversalController::runStanley(
+    const RobotMotorStatus& motor_status,
+    const std::vector<Vec2f>& keypoints,
+    size_t seg_beg_idx,
+    size_t seg_end_idx,
+    float seg_proj_t,
+    RobotMotorCommands& commands)
+{
+    // 1. Aliases --------------------------------------------------------------
+    const float theta_V = this->params.auto_traversal_min_theta_window *
+                          (std::numbers::pi_v<float> / 180.f);
+    const float KR_inv = -std::log(0.5f) / K2;
+    const float Vd_max = V_delta_max;
+
+    // 2. Current state from sensors -------------------------------------------
+    float Vl_prev, Vr_prev;
+    this->getFilteredPrevVelocities(motor_status, Vl_prev, Vr_prev);
+
+    const float V_prev =
+        lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
+    // const float W_prev =
+    //     lance::trackVelocitiesToAngularVelocity(Vl_prev, Vr_prev);
+
+    // 3. Get track targets ----------------------------------------------------
+    float Vl_target = 0.f, Vr_target = 0.f;
+    // a. Target last keypoint ---
+    if (seg_beg_idx == seg_end_idx)
+    {
+        const Vec2f& S = keypoints[seg_end_idx];
+        // angular error
+        const float theta = std::atan2(S.y(), S.x());
+        // angular velocity proportional to error, clamped to parmertarized max
+        const float W = std::clamp(W_Kp * theta, -W_max, W_max);
+        // accelerate to full velocity if roughly pointed straight at target
+        const float Va = (std::fabs(theta) < theta_V) ? V_max : 0.f;
+        // TODO: backpropegation max velocity
+        const float Vb = kmx::maxStartVel(0.f, S.norm(), A_max);
+        // apply minimum of two velocities, and clamp initially to min/max
+        // acceleration diffs
+        const float Vc =
+            std::clamp(std::min(Va, Vb), V_prev - Vd_max, V_prev + Vd_max);
+        // differential drive kinematics to get left and right velocities
+        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(Vc, W);
+        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(Vc, W);
+    }
+    // b. Target current segment ---
+    else
+    {
+        // calculate junction backpropegated velocity limit
+        float Vb = std::numeric_limits<float>::infinity();
+        {
+            const float max_target_vel = std::min(V_max, V_prev + Vd_max);
+            const float max_decell_dist =
+                kmx::decellDist(max_target_vel, A_max);
+            Vec2f pt_a = Vec2f::Zero();
+            float sum_dist = 0.f;
+            for (size_t i = (seg_proj_t < 0.f ? seg_beg_idx : seg_end_idx);
+                 i < keypoints.size() && sum_dist < max_decell_dist;
+                 i++)
+            {
+                const Vec2f& pt_b = keypoints[i];
+                const Vec2f seg_a = (pt_b - pt_a);
+                sum_dist += seg_a.norm();
+
+                if (sum_dist < max_decell_dist)
+                {
+                    if (i + 1 < keypoints.size())
+                    {
+                        const Vec2f& pt_c = keypoints[i + 1];
+                        const Vec2f seg_b = (pt_c - pt_b);
+
+                        const float cos_theta =
+                            seg_a.normalized().dot(seg_b.normalized());
+                        // s is the ratio of radius to juction deviation
+                        const float s = ::computeJunctionRadiusCoeff(cos_theta);
+                        // multiply s by max deviation to get max radius
+                        const float r = (s * K2);
+                        // radius times max angular velocity equals max
+                        // tangential velocity - use this to backprop
+                        // what our current velocity limit should be such
+                        // that our acceleration limit is respected
+                        Vb = std::min(
+                            Vb,
+                            kmx::maxStartVel((r * W_max), sum_dist, A_max));
+                    }
+                    else
+                    {
+                        Vb = std::min(
+                            Vb,
+                            kmx::maxStartVel(0.f, sum_dist, A_max));
+                    }
+                }
+            }
+        }
+
+        // stanley >>>
+        // REMEMBER: EVERYTHING RELATIVE TO ROBOT FRAME (P is <0, 0>, X+ is <1, 0>)!!
+
+        // segment start point
+        const Vec2f& S1 = keypoints[seg_beg_idx];
+        // segment end point
+        const Vec2f& S2 = keypoints[seg_end_idx];
+        // segment raw difference
+        const Vec2f Sd = S2 - S1;
+        // time along segment (+extrapolation) of closest point to origin
+        const float t = seg_proj_t;
+        // closest time clamped to segment range
+        const float u = std::clamp(t, 0.f, 1.f);
+        // closest point
+        const Vec2f M = S1 + (Sd * t);
+        // closest point actually on segment
+        const Vec2f L = S1 + (Sd * u);
+        // heading error from direction to closest point on segment
+        const float theta_L = std::atan2(L.y(), L.x());
+        // stanley validity angular range as a function of distance form segment
+        const float theta_R =
+            std::numbers::pi_v<float> * std::exp(-L.norm() * KR_inv);
+        // full forward velocity if within angular range, otherwise zero
+        const float Va = std::min(
+            V_max,
+            V_max * std::max(theta_R, theta_V) / std::fabs(theta_L));
+        // (std::fabs(theta_L) < std::max(theta_R, theta_V)) ? V_max : 0.f;
+        // clamp to backpropegation max vel
+        const float Vc = std::min(Va, Vb);
+        // clamp forward velocity by max acceleration
+        const float Vd = std::clamp(Vc, V_prev - Vd_max, V_prev + Vd_max);
+        // angular error from the segment forward direction
+        const float theta_S = std::atan2(Sd.y(), Sd.x());
+        // stanley crosstrack error angular coeff (angular velocity)
+        const float theta_E =
+            std::atan(K1 * M.norm() / Vd) * (std::signbit(M.y()) ? -1.f : 1.f);
+        // stanley controller output angular velocity
+        const float Wa = (theta_S + theta_E);
+        // proportional controller output angular velocity
+        // const float Wb = (W_Kp * theta_L);
+        // use stanley if eq pt is within window, otherwise proportional control
+        // const float Wc = (std::fabs(theta_E) < theta_R) ? Wa : Wb;
+        // ensure target angular velocity is not larger than max
+        const float Wd =
+            std::clamp(Wa, -W_max, W_max);  // IGNORE PROPORTIONAL CONTROLLER
+        // apply kinematics
+        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(Vd, Wd);
+        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(Vd, Wd);
+    }
+
+    // 4. Apply per-track V, A limits ------------------------------------------
+    float Vl_out, Vr_out;
+    kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
+
+    // 5. Apply ----------------------------------------------------------------
+    commands.setTracksVelocity(
+        lance::groundMpsToTrackMotorRps(Vl_out),
+        lance::groundMpsToTrackMotorRps(Vr_out));
+
+    this->prev_left_velocity = Vl_out;
+    this->prev_right_velocity = Vr_out;
+}
+
+
+void TraversalController::getFilteredPrevVelocities(
+    const RobotMotorStatus& motor_status,
+    float& Vl_prev,
+    float& Vr_prev)
+{
+    const float Vd_max = V_delta_max;
+    const float Vl_prev_fb = static_cast<float>(
+        lance::trackMotorRpsToGroundMps(motor_status.track_left.velocity));
+    const float Vr_prev_fb = static_cast<float>(
+        lance::trackMotorRpsToGroundMps(motor_status.track_right.velocity));
+
+    // Use previous targets if the feedback data has a large deviation or is OOB
+    const float Vl_prev_err = std::abs((Vl_prev_fb - this->prev_left_velocity));
+    const float Vr_prev_err =
+        std::abs((Vr_prev_fb - this->prev_right_velocity));
+
+    Vl_prev = (Vl_prev_err > Vd_max || std::abs(Vl_prev_fb) > V_max)
+                  ? this->prev_left_velocity
+                  : Vl_prev_fb;
+    Vr_prev = (Vr_prev_err > Vd_max || std::abs(Vr_prev_fb) > V_max)
+                  ? this->prev_right_velocity
+                  : Vr_prev_fb;
 }
 
 #undef K1

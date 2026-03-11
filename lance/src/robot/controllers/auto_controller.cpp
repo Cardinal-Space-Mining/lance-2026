@@ -46,7 +46,6 @@ namespace lance
 {
 
 AutoController::AutoController(
-    RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
     SharedControllerCollection& controllers) :
@@ -54,8 +53,8 @@ AutoController::AutoController(
     params{params},
     localization_controller{controllers.localization_controller},
     traversal_controller{controllers.traversal_controller},
-    mining_controller{node, pub_map, params, controllers},
-    offload_controller{node, pub_map, params, controllers}
+    mining_controller{pub_map, params, controllers},
+    offload_controller{pub_map, params, controllers}
 {
 }
 
@@ -105,7 +104,6 @@ void AutoController::setCancelled()
 }
 
 void AutoController::iterate(
-    const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {

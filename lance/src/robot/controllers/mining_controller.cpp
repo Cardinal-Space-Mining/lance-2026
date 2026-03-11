@@ -44,7 +44,6 @@ namespace lance
 {
 
 MiningController::MiningController(
-    RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
     const HopperState& hopper_state) :

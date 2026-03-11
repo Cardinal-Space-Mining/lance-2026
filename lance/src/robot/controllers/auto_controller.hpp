@@ -58,13 +58,11 @@ namespace lance
 
 class AutoController
 {
-    using RclNode = rclcpp::Node;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 
 public:
     AutoController(
-        RclNode&,
         GenericPubMap&,
         const RobotParams&,
         SharedControllerCollection&);
@@ -75,7 +73,6 @@ public:
     void setCancelled();
 
     void iterate(
-        const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 

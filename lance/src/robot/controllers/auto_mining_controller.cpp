@@ -46,7 +46,6 @@ namespace lance
 {
 
 AutoMiningController::AutoMiningController(
-    RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
     SharedControllerCollection& controllers) :

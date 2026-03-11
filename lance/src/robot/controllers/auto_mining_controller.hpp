@@ -39,8 +39,6 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
 #include "../collection_state.hpp"
@@ -55,12 +53,10 @@ namespace lance
 
 class AutoMiningController
 {
-    using RclNode = rclcpp::Node;
     using GenericPubMap = util::GenericPubMap;
 
 public:
     AutoMiningController(
-        RclNode&,
         GenericPubMap&,
         const RobotParams&,
         SharedControllerCollection&);

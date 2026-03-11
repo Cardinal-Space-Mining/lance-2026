@@ -132,6 +132,19 @@ protected:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
+    void runStanley(
+        const RobotMotorStatus& motor_status,
+        const std::vector<Vec2f>& keypoints,
+        size_t seg_beg_idx,
+        size_t seg_end_idx,
+        float seg_proj_t,
+        RobotMotorCommands& commands);
+
+    void getFilteredPrevVelocities(
+        const RobotMotorStatus& motor_status,
+        float& Vl_prev,
+        float& Vr_prev);
+
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
@@ -146,6 +159,9 @@ protected:
     Box2f arena_dest_zone{};
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
+
+    float prev_left_velocity{0.f};
+    float prev_right_velocity{0.f};
 };
 
 };  // namespace lance

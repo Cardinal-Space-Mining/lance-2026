@@ -60,8 +60,8 @@ public:
         const RobotParams& params,
         const HopperState& hopper_state,
         const TfCache& tf_cache) :
-        mining_controller{node, pub_map, params, hopper_state},
-        offload_controller{node, pub_map, params, hopper_state},
+        mining_controller{pub_map, params, hopper_state},
+        offload_controller{pub_map, params, hopper_state},
         traversal_controller{node, pub_map, params, tf_cache},
         localization_controller{node, pub_map, params, tf_cache}
     {

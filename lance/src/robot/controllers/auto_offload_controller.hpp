@@ -39,8 +39,6 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
 
@@ -54,12 +52,10 @@ namespace lance
 
 class AutoOffloadController
 {
-    using RclNode = rclcpp::Node;
     using GenericPubMap = util::GenericPubMap;
 
 public:
     AutoOffloadController(
-        RclNode&,
         GenericPubMap&,
         const RobotParams&,
         SharedControllerCollection&);

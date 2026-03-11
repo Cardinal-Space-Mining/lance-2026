@@ -46,7 +46,6 @@ namespace lance
 {
 
 AutoOffloadController::AutoOffloadController(
-    RclNode& node,
     GenericPubMap& pub_map,
     const RobotParams& params,
     SharedControllerCollection& controllers) :

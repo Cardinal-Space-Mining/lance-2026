@@ -39,8 +39,6 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
 #include "../robot_math.hpp"
 #include "../hid_bindings.hpp"
 #include "../robot_params.hpp"
@@ -55,13 +53,11 @@ namespace lance
 
 class OffloadController
 {
-    using RclNode = rclcpp::Node;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 
 public:
     OffloadController(
-        RclNode&,
         GenericPubMap&,
         const RobotParams&,
         const HopperState&);

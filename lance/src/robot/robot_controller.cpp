@@ -65,7 +65,7 @@ RobotController::RobotController(RclNode& node, GenericPubMap& pub_map) :
         params,
         collection_state.getHopperState(),
         tf_cache},
-    auto_controller{node, pub_map, params, shared_controllers},
+    auto_controller{pub_map, params, shared_controllers},
     teleop_controller{node, pub_map, params, shared_controllers}
 {
     this->collection_state.setParams(
@@ -152,7 +152,7 @@ void RobotController::iterate(
         }
         case ControlMode::AUTONOMOUS:
         {
-            this->auto_controller.iterate(joy, filtered_status, commands);
+            this->auto_controller.iterate(filtered_status, commands);
             break;
         }
         case ControlMode::DISABLED:
