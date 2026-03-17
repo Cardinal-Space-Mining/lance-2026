@@ -779,6 +779,8 @@ inline std::vector<KeyPoint> plan_keypoints(
 
 
 
+#include <variant>
+
 namespace util
 {
 
@@ -797,17 +799,35 @@ public:
 
     bool update(const Path2f& path);
 
+    const Path2f& getPath() const;
+
 protected:
     struct Junction
     {
         float theta;
         float r;
         float l;
-        float k;
         float v;
+    };
+    struct LineSegment
+    {
+        Vec2f start, end;
+        float length{0.f};
+        float v_max{0.f};
+    };
+    struct ArcSegment
+    {
+        Vec2f center;
+        float radius{0.f};
+        float start_angle{0.f};
+        float sweep_angle{0.f};
+        float v_max{0.f};
+
+        inline float length() const { return radius * sweep_angle; }
     };
 
     using PathJunctions = std::vector<Junction>;
+    using PathSegments = std::vector<std::variant<LineSegment, ArcSegment>>;
 
 protected:
     static float alpha(float theta);
@@ -820,18 +840,21 @@ protected:
 
     bool filterAndUpdate(const Path2f& path);
     bool updateJunctions();
+    bool buildSegments();
 
     void optimizeJunctions(size_t seg_i);
 
 protected:
     Path2f path;
     PathJunctions junctions;
+    PathSegments segments;
 
     struct Tmp
     {
         std::vector<float> seg_len;
         std::vector<float> gammas;
-    } tmp;
+    }  //
+    tmp;
 
     float k_max;
     float omega_max;
@@ -867,6 +890,10 @@ bool PathSampler::update(const Path2f& path)
         return false;
     }
     if (!this->updateJunctions())
+    {
+        return false;
+    }
+    if (!this->buildSegments())
     {
         return false;
     }
@@ -994,10 +1021,21 @@ bool PathSampler::updateJunctions()
         Junction& jn = this->junctions[j];
 
         jn.l = jn.r * this->tmp.gammas[j];
-        jn.k = k_from_rl(jn.r, jn.l);
         jn.v = std::min(this->v_max, jn.r * this->omega_max);
     }
 }
+
+bool PathSampler::buildSegments()
+{
+    const size_t n_pts = this->path.size();
+    const size_t n_segs = n_pts - 1;
+    const size_t n_juncs = n_pts - 2;
+
+    this->segments.clear();
+    this->segments.reserve(n_segs + n_juncs);
+    for()
+}
+
 
 void PathSampler::optimizeJunctions(size_t seg_i)
 {
