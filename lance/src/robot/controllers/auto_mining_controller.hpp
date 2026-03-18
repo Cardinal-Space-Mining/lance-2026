@@ -48,6 +48,7 @@
 #include "mining_controller.hpp"
 #include "shared_controllers.hpp"
 #include "traversal_controller.hpp"
+#include "mining_planner.hpp"
 
 
 namespace lance
@@ -57,6 +58,8 @@ class AutoMiningController
 {
     using RclNode = rclcpp::Node;
     using GenericPubMap = util::GenericPubMap;
+    using MiningPlanner = MiningPlanner;
+    MiningPlanner mining_planner;
 
 public:
     AutoMiningController(
@@ -93,6 +96,7 @@ protected:
 
     TraversalController& traversal_controller;
     MiningController& mining_controller;
+    float evalMiningDistance(float x, float y, float heading_deg) const;
 };
 
 };  // namespace lance

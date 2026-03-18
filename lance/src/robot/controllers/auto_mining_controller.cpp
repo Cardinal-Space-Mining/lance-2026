@@ -38,9 +38,16 @@
 *******************************************************************************/
 
 #include "auto_mining_controller.hpp"
-
+#include "mining_planner.hpp"
 #include <Eigen/Core>
 
+std::function<float(float, float, float)> perception_eval_fn = [](float x, float y, float heading_deg) {
+    // Temporary until perception service/client exists.
+    // Replace with service call to perception when implemented.
+    (void)x;
+    (void)heading_deg;
+    return std::max(0.0f, 10.0f - y);
+};
 
 namespace lance
 {
@@ -53,8 +60,16 @@ AutoMiningController::AutoMiningController(
     pub_map{pub_map},
     params{params},
     traversal_controller{controllers.traversal_controller},
-    mining_controller{controllers.mining_controller}
+    mining_controller{controllers.mining_controller},
+
+    // Creates my implementation of the mining planner
+    mining_planner{
+        perception_eval_fn,
+        params,
+        this->params.mining_zone_bounds
+    }
 {
+    (void)node;
 }
 
 void AutoMiningController::initialize() { this->stage = Stage::INITIALIZATION; }
@@ -87,9 +102,18 @@ void AutoMiningController::iterate(
             }
 
             // placeholder for testing
-            Eigen::Vector2f target_pos = this->params.mining_zone_bounds.max() -
-                                         Eigen::Vector2f::Constant(0.8f);
-            Eigen::Vector2f target_dir{0.f, -1.f};
+            // Eigen::Vector2f target_pos = this->params.mining_zone_bounds.min() +
+            //                              Eigen::Vector2f::Constant(0.8f);
+            // Eigen::Vector2f target_pos = Eigen::Vector2f{0.f, 0.f};  // this should be set based on query result
+
+            Eigen::Vector2f target_pos = Eigen::Vector2f{
+                this->params.mining_zone_bounds.max().x() - 0.8f,
+                this->params.mining_zone_bounds.min().y() + 0.8f};  // this should be set based on query result
+            // Eigen::Vector2f target_pos = Eigen::Vector2f{
+            //     this->params.mining_zone_bounds.max().x()-this->params.mining_zone_bounds.sizes().x()/2.f,
+            //     this->params.mining_zone_bounds.min().y() + 0.8f};  // this should be set based on query result
+
+            Eigen::Vector2f target_dir{-1.f, 0.f};
 
             // init with planned destination
             this->traversal_controller.initializePoint(target_pos, target_dir);
@@ -126,5 +150,11 @@ void AutoMiningController::iterate(
         }
     }
 }
-
 };  // namespace lance
+
+
+
+
+// pkill -f "gz sim|gzserver|gzclient|foxglove|parameter_bridge|lance1_controller|lance2_controller|perception_node" || true
+
+// cd /home/brandon/lance-ws && pkill -f "gz sim|lance2_controller|parameter_bridge|foxglove_bridge|perception_node" || true && unset AMENT_PREFIX_PATH CMAKE_PREFIX_PATH COLCON_PREFIX_PATH && source /opt/ros/jazzy/setup.bash && colcon build --symlink-install --packages-select lance --cmake-clean-first && source /home/brandon/lance-ws/install/setup.bash && pkill -f "gz sim|gzserver|gzclient|foxglove|parameter_bridge|lance1_controller|lance2_controller|perception_node" || true
