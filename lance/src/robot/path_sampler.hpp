@@ -63,6 +63,7 @@ public:
         float heading_error{0.f};
         float lateral_error{0.f};
         float v_max{0.f};
+        bool is_last_seg{false};
     };
 
 public:
@@ -73,6 +74,7 @@ public:
     void setParams(size_t smoothing_passes);
 
     bool update(const Path2f& path);
+
     void sampleStanley(StanleySample& out, float offset = 0.f) const;
 
     const Path2f& getPath() const;
@@ -85,7 +87,7 @@ protected:
         float tan_off;
         float v_max;
 
-        inline float k() const { return k_from_rl(radius, tan_off); }
+        float k() const;
     };
     struct LineSegment
     {
@@ -110,14 +112,6 @@ protected:
     using PathSegments = std::vector<std::variant<LineSegment, ArcSegment>>;
 
 protected:
-    static float alpha(float theta);
-    static float beta(float theta);
-    static float gamma(float theta);
-    static float rho(float theta);
-    static float sigma(float theta);
-    static float k_from_rl(float r, float l);
-    float r_sat() const;
-
     bool filterAndUpdate(const Path2f& path);
     bool updateJunctions();
     bool buildSegments();

@@ -53,6 +53,7 @@
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
 
 #include "../tf_cache.hpp"
+#include "../path_sampler.hpp"
 #include "../robot_params.hpp"
 #include "../motor_interface.hpp"
 #include "../../util/pub_map.hpp"
@@ -70,6 +71,7 @@ class TraversalController
     using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
+    using PathSampler = util::PathSampler;
 
     template<typename T>
     using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
@@ -139,6 +141,10 @@ protected:
         size_t seg_end_idx,
         float seg_proj_t,
         RobotMotorCommands& commands);
+    void runStanley2(
+        const RobotMotorStatus& motor_status,
+        const std::vector<Vec2f>& keypoints,
+        RobotMotorCommands& commands);
 
     void getFilteredPrevVelocities(
         const RobotMotorStatus& motor_status,
@@ -159,6 +165,8 @@ protected:
     Box2f arena_dest_zone{};
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
+
+    PathSampler path_sampler;
 
     float prev_left_velocity{0.f};
     float prev_right_velocity{0.f};

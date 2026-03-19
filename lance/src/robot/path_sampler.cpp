@@ -40,6 +40,24 @@
 #include "path_sampler.hpp"
 
 
+constexpr inline float alpha(float theta) { return std::cos(theta * 0.5f); }
+constexpr inline float beta(float theta) { return std::sin(theta * 0.5f); }
+constexpr inline float gamma(float theta) { return std::tan(theta * 0.5f); }
+constexpr inline float rho(float theta)
+{
+    const float a = alpha(theta);
+    return (a / (1.f - a));
+}
+constexpr inline float sigma(float theta)
+{
+    return (beta(theta) / (1.f - alpha(theta)));
+}
+constexpr inline float k_from_rl(float r, float l)
+{
+    return (l * l) / (std::sqrt(r * r + l * l) + r);
+}
+
+
 namespace util
 {
 
@@ -61,6 +79,10 @@ void PathSampler::setParams(size_t smoothing_passes)
 
 bool PathSampler::update(const Path2f& path)
 {
+    this->path.clear();
+    this->junctions.clear();
+    this->segments.clear();
+
     if (!this->filterAndUpdate(path))
     {
         return false;
@@ -83,7 +105,7 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
     constexpr float PI2_F = std::numbers::pi_v<float> * 2.f;
     constexpr float PIH_F = std::numbers::pi_v<float> * 0.5f;
 
-    size_t i = 0;
+    size_t i = 0, adj_seg_i = 0;
     float len_to_next = 0.f;
     for (; i < this->segments.size(); i++)
     {
@@ -96,11 +118,18 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
 
             if (t < 1.f)
             {
+                adj_seg_i = i;
                 const float t_off = offset / seg.length;
                 if (t + t_off <= 1.f)
                 {
+                    const Vec2f closest_pt = seg.start + diff * t;
+
                     out.heading_error = std::atan2(diff.y(), diff.x());
-                    out.lateral_error = (seg.start + diff * t).norm();
+                    out.lateral_error = closest_pt.norm();
+                    if (std::signbit(closest_pt.y()))
+                    {
+                        out.lateral_error *= -1.f;
+                    }
                     out.v_max = this->v_max;
                     offset = 0.f;
                     len_to_next = (1.f - t - t_off) * seg.length;
@@ -145,6 +174,7 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
             const float dist = seg.center.norm();
             if (dist > 1e-4f)
             {
+                adj_seg_i = i;
                 const float off_theta = offset / dist;
                 if (seg.sweep_angle > 0)
                 {
@@ -158,10 +188,15 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
                                              std::sin(theta2) * seg.radius};
                         const Vec2f tan_dir =
                             Vec2f{std::cos(theta3), std::sin(theta3)};
-                        const float t = tan_dir.dot(-pt);
+                        const Vec2f closest_pt =
+                            (pt + tan_dir * (tan_dir.dot(-pt)));
 
                         out.heading_error = theta3;
-                        out.lateral_error = (pt + tan_dir * t).norm();
+                        out.lateral_error = closest_pt.norm();
+                        if (std::signbit(closest_pt.y()))
+                        {
+                            out.lateral_error *= -1.f;
+                        }
                         out.v_max = seg.v_max;
                         offset = 0.f;
                         len_to_next = (end_angle - theta2) * seg.radius;
@@ -183,10 +218,15 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
                                              std::sin(theta2) * seg.radius};
                         const Vec2f tan_dir =
                             Vec2f{std::cos(theta3), std::sin(theta3)};
-                        const float t = tan_dir.dot(-pt);
+                        const Vec2f closest_pt =
+                            (pt + tan_dir * (tan_dir.dot(-pt)));
 
                         out.heading_error = theta3;
-                        out.lateral_error = (pt + tan_dir * t).norm();
+                        out.lateral_error = closest_pt.norm();
+                        if (std::signbit(closest_pt.y()))
+                        {
+                            out.lateral_error *= -1.f;
+                        }
                         out.v_max = seg.v_max;
                         offset = 0.f;
                         len_to_next = (theta2 - end_angle) * seg.radius;
@@ -204,6 +244,9 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
         }
     }
 
+    out.is_last_seg =
+        (this->path.size() < 2 || adj_seg_i + 1 == this->segments.size());
+
     while (offset > 0.f)
     {
         i++;
@@ -216,8 +259,14 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
                 const Vec2f diff = seg.end - seg.start;
                 const float t =
                     (diff.dot(-seg.start)) / (seg.length * seg.length);
+                const Vec2f closest_pt = seg.start + diff * t;
+
                 out.heading_error = std::atan2(diff.y(), diff.x());
-                out.lateral_error = (seg.start + diff * t).norm();
+                out.lateral_error = closest_pt.norm();
+                if (std::signbit(closest_pt.y()))
+                {
+                    out.lateral_error *= -1.f;
+                }
                 out.v_max = this->v_max;
                 offset = 0.f;
                 len_to_next = seg.length - offset;
@@ -244,10 +293,15 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
                                          std::sin(theta) * seg.radius};
                     const Vec2f tan_dir =
                         Vec2f{std::cos(theta2), std::sin(theta2)};
-                    const float t = tan_dir.dot(-pt);
+                    const Vec2f closest_pt =
+                        (pt + tan_dir * (tan_dir.dot(-pt)));
 
                     out.heading_error = theta2;
-                    out.lateral_error = (pt + tan_dir * t).norm();
+                    out.lateral_error = closest_pt.norm();
+                    if (std::signbit(closest_pt.y()))
+                    {
+                        out.lateral_error *= -1.f;
+                    }
                     out.v_max = seg.v_max;
                     offset = 0.f;
                     len_to_next = (seg.sweep_angle - theta_off) * seg.radius;
@@ -262,10 +316,15 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
                                          std::sin(theta) * seg.radius};
                     const Vec2f tan_dir =
                         Vec2f{std::cos(theta2), std::sin(theta2)};
-                    const float t = tan_dir.dot(-pt);
+                    const Vec2f closest_pt =
+                        (pt + tan_dir * (tan_dir.dot(-pt)));
 
                     out.heading_error = theta2;
-                    out.lateral_error = (pt + tan_dir * t).norm();
+                    out.lateral_error = closest_pt.norm();
+                    if (std::signbit(closest_pt.y()))
+                    {
+                        out.lateral_error *= -1.f;
+                    }
                     out.v_max = seg.v_max;
                     offset = 0.f;
                     len_to_next = (theta_off - seg.sweep_angle) * seg.radius;
@@ -314,24 +373,13 @@ void PathSampler::sampleStanley(StanleySample& out, float offset) const
     }
 }
 
+const PathSampler::Path2f& PathSampler::getPath() const
+{
+    return this->path;
+}
 
-float PathSampler::alpha(float theta) { return std::cos(theta * 0.5f); }
-float PathSampler::beta(float theta) { return std::sin(theta * 0.5f); }
-float PathSampler::gamma(float theta) { return std::tan(theta * 0.5f); }
-float PathSampler::rho(float theta)
-{
-    const float a = alpha(theta);
-    return (a / (1.f - a));
-}
-float PathSampler::sigma(float theta)
-{
-    return (beta(theta) / (1.f - alpha(theta)));
-}
-float PathSampler::k_from_rl(float r, float l)
-{
-    return (l * l) / (std::sqrt(r * r + l * l) + r);
-}
-float PathSampler::r_sat() const { return this->v_max / this->omega_max; }
+
+float PathSampler::Junction::k() const { return k_from_rl(radius, tan_off); }
 
 
 bool PathSampler::filterAndUpdate(const Path2f& p)
@@ -345,7 +393,6 @@ bool PathSampler::filterAndUpdate(const Path2f& p)
         return false;
     }
 
-    this->path.clear();
     this->path.reserve(p.size());
     this->path.push_back(p.front());
 
@@ -391,7 +438,6 @@ bool PathSampler::updateJunctions()
     }
 
     this->tmp.gammas.clear();
-    this->junctions.clear();
     this->tmp.gammas.resize(n_juncs);
     this->junctions.resize(n_juncs);
     for (size_t j = 0; j < n_juncs; j++)
@@ -407,7 +453,9 @@ bool PathSampler::updateJunctions()
 
         jn.theta = std::acos(cos_theta);
         gam = gamma(jn.theta);
-        jn.radius = std::min(this->k_max * rho(jn.theta), this->r_sat());
+        jn.radius = std::min(
+            this->k_max * rho(jn.theta),
+            (this->v_max / this->omega_max));
 
         if (j == 0)
         {
@@ -454,7 +502,6 @@ bool PathSampler::buildSegments()
         return false;
     }
 
-    this->segments.clear();
     this->segments.reserve(n_segs + n_juncs);
 
     float start_off = 0.f;
