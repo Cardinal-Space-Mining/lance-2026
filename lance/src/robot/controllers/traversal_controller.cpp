@@ -633,13 +633,15 @@ void TraversalController::runStanley2(
         const float V_forward = std::clamp(
             std::min(V_max, s.v_max),
             V_prev - Vd_max,
-            V_prev + V_max);
+            V_prev + Vd_max);
         const float W_steering = s.heading_error;
         const float W_crosstrack =
             std::atan(K1 * std::abs(s.lateral_error) / V_forward) *
             (std::signbit(s.lateral_error) ? -1.f : 1.f);
+        // const float W_ff = k_ff * V_forward * s.path_curvature;
+        const float W_ff = 0.f;
         const float W_stanley =
-            std::clamp(W_steering + W_crosstrack, -W_max, W_max);
+            std::clamp(W_steering + W_crosstrack + W_ff, -W_max, W_max);
 
         Vl_target =
             lance::bodyDynamicsToLeftTrackVelocityMps(V_forward, W_stanley);
