@@ -45,7 +45,7 @@
 #include <std_srvs/srv/set_bool.hpp>
 
 #include "util/ros_utils.hpp"
-#include "robot/robot_status.hpp"
+#include "robot/core/robot_status.hpp"
 
 
 using namespace std::chrono;

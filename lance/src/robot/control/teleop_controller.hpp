@@ -39,85 +39,81 @@
 
 #pragma once
 
-#include "phoenix_ros_driver/msg/talon_ctrl.hpp"
-#include "phoenix_ros_driver/msg/talon_info.hpp"
+#include <rclcpp/rclcpp.hpp>
 
+#include <geometry_msgs/msg/point_stamped.hpp>
 
-using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
-using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
+#include "util/pub_map.hpp"
+#include "util/joy_utils.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
+
+#include "shared/shared_controllers.hpp"
+
 
 namespace lance
 {
 
-/** Contains TalonInfo for each motor */
-struct RobotMotorStatus
+class TeleopController
 {
-    TalonInfoMsg track_right;
-    TalonInfoMsg track_left;
-    TalonInfoMsg trencher;
-    TalonInfoMsg hopper_belt;
-    TalonInfoMsg hopper_actuator;
+    using RclNode = rclcpp::Node;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
+    using JoyState = util::JoyState;
+    using GenericPubMap = util::GenericPubMap;
 
-    inline double getHopperActNormalizedValue() const
-    {
-        return this->hopper_actuator.position / 1000.;
-    }
-};
+    template<typename T>
+    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
 
-/** Contains TalonCtrl for each motor */
-struct RobotMotorCommands
-{
-    TalonCtrlMsg track_right;
-    TalonCtrlMsg track_left;
-    TalonCtrlMsg trencher;
-    TalonCtrlMsg hopper_belt;
-    TalonCtrlMsg hopper_actuator;
+public:
+    TeleopController(
+        RclNode&,
+        GenericPubMap&,
+        const RobotParams&,
+        SharedControllerCollection&);
+    ~TeleopController() = default;
 
-    inline void setTracksVelocity(double left_rps, double right_rps)
-    {
-        this->track_left.set__mode(TalonCtrlMsg::VELOCITY).set__value(left_rps);
-        this->track_right.set__mode(TalonCtrlMsg::VELOCITY)
-            .set__value(right_rps);
-    }
-    inline void setTrencherVelocity(double rps)
-    {
-        this->trencher.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
-    }
-    inline void setHopperBeltVelocity(double rps)
-    {
-        this->hopper_belt.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
-    }
-    inline void setHopperActPercent(double percent)
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::PERCENT_OUTPUT)
-            .set__value(percent);
-    }
+public:
+    void initialize();
+    void setCancelled();
 
-    inline void disableTracks()
-    {
-        this->track_left.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-        this->track_right.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableTrencher()
-    {
-        this->trencher.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableHopperBelt()
-    {
-        this->hopper_belt.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableHopperAct()
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
+    void iterate(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
-    inline void disableAll()
+protected:
+    enum class Operation
     {
-        this->disableTracks();
-        this->disableTrencher();
-        this->disableHopperBelt();
-        this->disableHopperAct();
-    }
+        MANUAL = 0,
+        ASSISTED_MINING,
+        ASSISTED_OFFLOAD,
+        PRESET_MINING,
+        PRESET_OFFLOAD,
+        AUTO_TRAVERSAL
+    };
+
+protected:
+    bool handleGlobalInputs(const JoyState& joy);
+    bool handleClickedPoint(bool can_apply);
+    void handleTeleopInputs(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+    void publishState();
+
+protected:
+    GenericPubMap& pub_map;
+    const RobotParams& params;
+
+    RclSubPtr<PointStampedMsg> clicked_point_sub;
+    PointStampedMsg::ConstSharedPtr clicked_point;
+
+    Operation op_mode{Operation::MANUAL};
+    float driving_rps_scalar;
+
+    MiningController& mining_controller;
+    OffloadController& offload_controller;
+    TraversalController& traversal_controller;
 };
 
 };  // namespace lance

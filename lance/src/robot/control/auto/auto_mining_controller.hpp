@@ -39,13 +39,11 @@
 
 #pragma once
 
-#include "../robot_params.hpp"
-#include "../motor_interface.hpp"
-#include "../collection_state.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/core/collection_state.hpp"
 
-#include "mining_controller.hpp"
-#include "shared_controllers.hpp"
-#include "traversal_controller.hpp"
+#include "robot/control/shared/shared_controllers.hpp"
 
 
 namespace lance

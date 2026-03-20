@@ -39,55 +39,85 @@
 
 #pragma once
 
-#include "../robot_params.hpp"
-#include "../motor_interface.hpp"
+#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
+#include <phoenix_ros_driver/msg/talon_info.hpp>
 
-#include "shared_controllers.hpp"
-#include "offload_controller.hpp"
-#include "traversal_controller.hpp"
 
+using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
+using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
 
 namespace lance
 {
 
-class AutoOffloadController
+/** Contains TalonInfo for each motor */
+struct RobotMotorStatus
 {
-    using GenericPubMap = util::GenericPubMap;
+    TalonInfoMsg track_right;
+    TalonInfoMsg track_left;
+    TalonInfoMsg trencher;
+    TalonInfoMsg hopper_belt;
+    TalonInfoMsg hopper_actuator;
 
-public:
-    AutoOffloadController(
-        GenericPubMap&,
-        const RobotParams&,
-        SharedControllerCollection&);
-    ~AutoOffloadController() = default;
-
-public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
-
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    enum class Stage
+    inline double getHopperActNormalizedValue() const
     {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        OFFLOADING,
-        FINISHED
-    };
+        return this->hopper_actuator.position / 1000.;
+    }
+};
 
-protected:
-    GenericPubMap& pub_map;
-    const RobotParams& params;
+/** Contains TalonCtrl for each motor */
+struct RobotMotorCommands
+{
+    TalonCtrlMsg track_right;
+    TalonCtrlMsg track_left;
+    TalonCtrlMsg trencher;
+    TalonCtrlMsg hopper_belt;
+    TalonCtrlMsg hopper_actuator;
 
-    Stage stage{Stage::FINISHED};
+    inline void setTracksVelocity(double left_rps, double right_rps)
+    {
+        this->track_left.set__mode(TalonCtrlMsg::VELOCITY).set__value(left_rps);
+        this->track_right.set__mode(TalonCtrlMsg::VELOCITY)
+            .set__value(right_rps);
+    }
+    inline void setTrencherVelocity(double rps)
+    {
+        this->trencher.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
+    }
+    inline void setHopperBeltVelocity(double rps)
+    {
+        this->hopper_belt.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
+    }
+    inline void setHopperActPercent(double percent)
+    {
+        this->hopper_actuator.set__mode(TalonCtrlMsg::PERCENT_OUTPUT)
+            .set__value(percent);
+    }
 
-    TraversalController& traversal_controller;
-    OffloadController& offload_controller;
+    inline void disableTracks()
+    {
+        this->track_left.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+        this->track_right.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+    inline void disableTrencher()
+    {
+        this->trencher.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+    inline void disableHopperBelt()
+    {
+        this->hopper_belt.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+    inline void disableHopperAct()
+    {
+        this->hopper_actuator.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+
+    inline void disableAll()
+    {
+        this->disableTracks();
+        this->disableTrencher();
+        this->disableHopperBelt();
+        this->disableHopperAct();
+    }
 };
 
 };  // namespace lance

@@ -39,74 +39,68 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
+#include "util/pub_map.hpp"
+#include "util/joy_utils.hpp"
 
-#include "../util/pub_map.hpp"
-#include "../util/joy_utils.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
 
-#include "tf_cache.hpp"
-#include "robot_params.hpp"
-#include "robot_status.hpp"
-#include "motor_interface.hpp"
-#include "collection_state.hpp"
+#include "robot/control/shared/shared_controllers.hpp"
 
-#include "controllers/auto_controller.hpp"
-#include "controllers/teleop_controller.hpp"
-#include "controllers/shared_controllers.hpp"
+#include "auto_mining_controller.hpp"
+#include "auto_offload_controller.hpp"
 
 
 namespace lance
 {
 
-class RobotController
+class AutoController
 {
-    using RclNode = rclcpp::Node;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
-    using Tf2Buffer = tf2_ros::Buffer;
-    using Tf2Listener = tf2_ros::TransformListener;
 
 public:
-    RobotController(RclNode&, GenericPubMap&);
-    ~RobotController() = default;
+    AutoController(
+        GenericPubMap&,
+        const RobotParams&,
+        SharedControllerCollection&);
+    ~AutoController() = default;
 
 public:
-    const HopperState& hopperState() const;
-    const RobotParams& getParams() const;
-    const Tf2Buffer& getTfBuffer() const;
+    void initialize();
+    void setCancelled();
 
     void iterate(
-        int32_t ctrl_status,
-        const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
 protected:
-    const RobotMotorStatus& handleTestModeStateInjection(
-        const RobotMotorStatus& ref,
-        int32_t ctrl_status);
+    enum class Stage
+    {
+        LOCALIZATION = 0,
+        TRAVERSE_TO_MINING,
+        MINING,
+        TRAVERSE_TO_OFFLOAD,
+        OFFLOAD,
+        UNKNOWN
+    };
+
+protected:
+    void publishState();
 
 protected:
     GenericPubMap& pub_map;
+    const RobotParams& params;
 
-    ControlMode control_mode{ControlMode::DISABLED};
+    Stage stage{Stage::LOCALIZATION};
 
-    RobotParams params;
-    RobotMotorStatus filtered_status;
-    CollectionState collection_state;
+    LocalizationController& localization_controller;
+    TraversalController& traversal_controller;
 
-    TfCache tf_cache;
-    Tf2Listener tf_listener;
-
-    SharedControllerCollection shared_controllers;
-
-    AutoController auto_controller;
-    TeleopController teleop_controller;
+    AutoMiningController mining_controller;
+    AutoOffloadController offload_controller;
 };
 
 };  // namespace lance

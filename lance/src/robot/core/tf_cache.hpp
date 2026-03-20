@@ -39,129 +39,157 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <nav_msgs/msg/path.hpp>
+#include <tf2_ros/buffer.h>
 
-#include <geometry_msgs/msg/point_stamped.hpp>
-
-#include <cardinal_perception/srv/update_path_planning_mode.hpp>
-
-#include "../tf_cache.hpp"
-#include "../robot_params.hpp"
-#include "../motor_interface.hpp"
-#include "../../util/pub_map.hpp"
-#include "../../util/joy_utils.hpp"
+#include "robot_params.hpp"
+#include "util/geometry.hpp"
+#include "util/time_cvt.hpp"
 
 
 namespace lance
 {
 
-class TraversalController
+enum KeyFrame
 {
-    using RclNode = rclcpp::Node;
-    using PathMsg = nav_msgs::msg::Path;
-    using PointStampedMsg = geometry_msgs::msg::PointStamped;
-    using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
-    using JoyState = util::JoyState;
-    using GenericPubMap = util::GenericPubMap;
-
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
-    template<typename T>
-    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
-
-    using Vec2f = Eigen::Vector2f;
-    using Vec3f = Eigen::Vector3f;
-    using Quatf = Eigen::Quaternionf;
-    using Box2f = Eigen::AlignedBox2f;
-
-public:
-    TraversalController(
-        RclNode&,
-        GenericPubMap&,
-        const RobotParams&,
-        const TfCache&);
-    ~TraversalController() = default;
-
-public:
-    void initializePoint(
-        const Vec2f& dest,
-        const Vec2f& dest_direction = Vec2f::Zero());
-    void initializePoint(
-        const PointStampedMsg& dest,
-        const Vec2f& dest_direction = Vec2f::Zero());
-    void initializeZone(const Vec2f& dest_min, const Vec2f& dest_max);
-
-    bool isFinished();
-    void setCancelled();
-
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    enum class State
-    {
-        INITIALIZATION,
-        FOLLOW_PATH,
-        REORIENT,
-        FINISHED
-    };
-    enum class DestinationType
-    {
-        POINT,
-        POSE,
-        ZONE
-    };
-
-protected:
-    void initPlanningService(const Vec3f&);
-    void initPlanningService(const PointStampedMsg&);
-    void stopPlanningService();
-
-    bool iterateTraversal(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-    bool iterateReorient(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-    void runStanley(
-        const RobotMotorStatus& motor_status,
-        const std::vector<Vec2f>& keypoints,
-        size_t seg_beg_idx,
-        size_t seg_end_idx,
-        float seg_proj_t,
-        RobotMotorCommands& commands);
-
-    void getFilteredPrevVelocities(
-        const RobotMotorStatus& motor_status,
-        float& Vl_prev,
-        float& Vr_prev);
-
-protected:
-    GenericPubMap& pub_map;
-    const RobotParams& params;
-    const TfCache& tf_cache;
-
-    RclSubPtr<PathMsg> path_sub;
-    RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
-
-    State state{State::FINISHED};
-
-    PathMsg::ConstSharedPtr last_path{nullptr};
-    Box2f arena_dest_zone{};
-    Vec2f arena_dest_direction{};
-    DestinationType destination_type{DestinationType::POINT};
-
-    float prev_left_velocity{0.f};
-    float prev_right_velocity{0.f};
+    INVALID_FRAME = 0,
+    ARENA_FRAME = 1,
+    ODOM_FRAME = 2,
+    ROBOT_FRAME = 3
 };
+enum KeyTf
+{
+    INVALID_TF = 0,
+    ARENA_TO_ODOM_TF = (ARENA_FRAME << 2 | ODOM_FRAME),
+    ARENA_TO_ROBOT_TF = (ARENA_FRAME << 2 | ROBOT_FRAME),
+    ODOM_TO_ARENA_TF = (ODOM_FRAME << 2 | ARENA_FRAME),
+    ODOM_TO_ROBOT_TF = (ODOM_FRAME << 2 | ROBOT_FRAME),
+    ROBOT_TO_ARENA_TF = (ROBOT_FRAME << 2 | ARENA_FRAME),
+    ROBOT_TO_ODOM_TF = (ROBOT_FRAME << 2 | ODOM_FRAME)
+};
+
+
+inline constexpr KeyTf composeKeyTf(KeyFrame from, KeyFrame to)
+{
+    return static_cast<KeyTf>(from << 2 | to);
+}
+
+
+class TfCache
+{
+    using Tf2Buffer = tf2_ros::Buffer;
+    using PoseTf = util::geom::PoseTf3f;
+
+public:
+    const std::string arena_frame_id;
+    const std::string odom_frame_id;
+    const std::string robot_frame_id;
+
+public:
+    TfCache(rclcpp::Node&, const RobotParams&);
+
+public:
+    void refresh();
+
+    Tf2Buffer& getBuffer();
+    const Tf2Buffer& getBuffer() const;
+
+    bool hasTf(KeyTf k) const;
+    template<typename KeyOrStr1, typename KeyOrStr2>
+    bool hasTf(KeyOrStr1&& from, KeyOrStr2&& to) const;
+
+    double getStamp(KeyTf k) const;
+    template<typename KeyOrStr1, typename KeyOrStr2>
+    double getStamp(KeyOrStr1&& from, KeyOrStr2&& to) const;
+
+    const PoseTf* getTf(KeyTf k) const;
+    template<typename KeyOrStr1, typename KeyOrStr2>
+    const PoseTf* getTf(KeyOrStr1&& from, KeyOrStr2&& to) const;
+
+protected:
+    struct TfLink
+    {
+        PoseTf tf;
+        PoseTf inv_tf;
+
+        double stamp{-1.};
+    };
+
+protected:
+    template<typename T>
+    KeyFrame resolveKeyFrame(T&& val) const;
+
+protected:
+    Tf2Buffer tf_buffer;
+
+    TfLink arena_to_odom;
+    TfLink odom_to_robot;
+    TfLink robot_to_arena;
+
+    mutable std::mutex mtx;
+};
+
+
+
+// ---
+
+#include <string_view>
+#include <type_traits>
+
+
+template<typename T1, typename T2>
+bool TfCache::hasTf(T1&& from, T2&& to) const
+{
+    return this->hasTf(composeKeyTf(
+        this->resolveKeyFrame(std::forward<T1>(from)),
+        this->resolveKeyFrame(std::forward<T2>(to))));
+}
+
+template<typename T1, typename T2>
+double TfCache::getStamp(T1&& from, T2&& to) const
+{
+    return this->getStamp(composeKeyTf(
+        this->resolveKeyFrame(std::forward<T1>(from)),
+        this->resolveKeyFrame(std::forward<T2>(to))));
+}
+
+template<typename T1, typename T2>
+const TfCache::PoseTf* TfCache::getTf(T1&& from, T2&& to) const
+{
+    return this->getTf(composeKeyTf(
+        this->resolveKeyFrame(std::forward<T1>(from)),
+        this->resolveKeyFrame(std::forward<T2>(to))));
+}
+
+template<typename T>
+KeyFrame TfCache::resolveKeyFrame(T&& val) const
+{
+    if constexpr (std::is_same_v<std::remove_cvref_t<T>, KeyFrame>)
+    {
+        return val;
+    }
+    if constexpr (std::is_constructible_v<std::string_view, T>)
+    {
+        std::string_view tag{val};
+
+        if (tag == this->robot_frame_id)
+        {
+            return ROBOT_FRAME;
+        }
+        if (tag == this->odom_frame_id)
+        {
+            return ODOM_FRAME;
+        }
+        if (tag == this->arena_frame_id)
+        {
+            return ARENA_FRAME;
+        }
+    }
+    return INVALID_FRAME;
+}
 
 };  // namespace lance

@@ -53,9 +53,9 @@
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
 
-#include "robot/robot_math.hpp"
-#include "robot/motor_interface.hpp"
-#include "robot/robot_controller.hpp"
+#include "robot/core/robot_math.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/control/robot_controller.hpp"
 
 
 #define ROBOT_TOPIC(subtopic) "lance/" subtopic

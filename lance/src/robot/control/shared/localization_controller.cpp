@@ -44,7 +44,7 @@
 
 #include <Eigen/Core>
 
-#include "../robot_math.hpp"
+#include "robot/core/robot_math.hpp"
 
 
 #define PERCEPTION_REFLECTOR_HINT_TOPIC "/cardinal_perception/reflector_hint"

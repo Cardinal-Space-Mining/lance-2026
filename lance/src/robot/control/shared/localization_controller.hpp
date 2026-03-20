@@ -41,35 +41,43 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include "../robot_params.hpp"
-#include "../motor_interface.hpp"
-#include "../../util/pub_map.hpp"
-#include "../../util/joy_utils.hpp"
+#include <std_srvs/srv/set_bool.hpp>
 
-#include "shared_controllers.hpp"
-#include "traversal_controller.hpp"
-#include "auto_mining_controller.hpp"
-#include "auto_offload_controller.hpp"
-#include "localization_controller.hpp"
+#include <cardinal_perception/msg/reflector_hint.hpp>
+
+#include "util/pub_map.hpp"
+
+#include "robot/core/tf_cache.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
 
 
 namespace lance
 {
 
-class AutoController
+class LocalizationController
 {
-    using JoyState = util::JoyState;
+    using RclNode = rclcpp::Node;
+    using SetBoolSrv = std_srvs::srv::SetBool;
+    using ReflectorHintMsg = cardinal_perception::msg::ReflectorHint;
     using GenericPubMap = util::GenericPubMap;
 
+    template<typename T>
+    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
+    template<typename T>
+    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
+
 public:
-    AutoController(
+    LocalizationController(
+        RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        SharedControllerCollection&);
-    ~AutoController() = default;
+        const TfCache&);
+    ~LocalizationController() = default;
 
 public:
     void initialize();
+    bool isFinished();
     void setCancelled();
 
     void iterate(
@@ -79,28 +87,26 @@ public:
 protected:
     enum class Stage
     {
-        LOCALIZATION = 0,
-        TRAVERSE_TO_MINING,
-        MINING,
-        TRAVERSE_TO_OFFLOAD,
-        OFFLOAD,
-        UNKNOWN
+        INITIALIZATION,
+        SEARCHING,
+        ALIGN_HEADING,
+        ADJUST_RANGE,
+        FINISHED
     };
 
 protected:
-    void publishState();
+    void setLfdControl(bool enabled);
 
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
+    const TfCache& tf_cache;
 
-    Stage stage{Stage::LOCALIZATION};
+    RclSubPtr<ReflectorHintMsg> hint_sub;
+    RclClientPtr<SetBoolSrv> lfd_control_client;
 
-    LocalizationController& localization_controller;
-    TraversalController& traversal_controller;
-
-    AutoMiningController mining_controller;
-    AutoOffloadController offload_controller;
+    Stage stage{Stage::FINISHED};
+    ReflectorHintMsg::ConstSharedPtr last_hint{nullptr};
 };
 
 };  // namespace lance

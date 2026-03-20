@@ -54,6 +54,9 @@ message(STATUS
     "\tLANCE-2 enabled: ${BUILD_LANCE2}")
 
 
+include_directories("src")
+
+
 # --- Watchdog -----------------------------------------------------------------
 add_executable(robot_status
     "src/watchdog_node.cpp")
@@ -65,18 +68,18 @@ ament_target_dependencies(robot_status
 # --- Robot Controller ---------------------------------------------------------
 set(robot_controller_srcs
     "src/control_node.cpp"
-    "src/robot/tf_cache.cpp"
-    "src/robot/robot_params.cpp"
-    "src/robot/collection_state.cpp"
-    "src/robot/robot_controller.cpp"
-    "src/robot/controllers/auto_controller.cpp"
-    "src/robot/controllers/mining_controller.cpp"
-    "src/robot/controllers/teleop_controller.cpp"
-    "src/robot/controllers/offload_controller.cpp"
-    "src/robot/controllers/traversal_controller.cpp"
-    "src/robot/controllers/auto_mining_controller.cpp"
-    "src/robot/controllers/auto_offload_controller.cpp"
-    "src/robot/controllers/localization_controller.cpp")
+    "src/robot/core/tf_cache.cpp"
+    "src/robot/core/robot_params.cpp"
+    "src/robot/core/collection_state.cpp"
+    "src/robot/control/robot_controller.cpp"
+    "src/robot/control/teleop_controller.cpp"
+    "src/robot/control/auto/auto_controller.cpp"
+    "src/robot/control/auto/auto_mining_controller.cpp"
+    "src/robot/control/auto/auto_offload_controller.cpp"
+    "src/robot/control/shared/mining_controller.cpp"
+    "src/robot/control/shared/offload_controller.cpp"
+    "src/robot/control/shared/traversal_controller.cpp"
+    "src/robot/control/shared/localization_controller.cpp")
 set(robot_controller_libs
     csm_metrics::profiling
     Eigen3::Eigen)

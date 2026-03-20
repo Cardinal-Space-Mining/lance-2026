@@ -39,84 +39,53 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
 
-#include <geometry_msgs/msg/point_stamped.hpp>
-
-#include "../robot_params.hpp"
-#include "../motor_interface.hpp"
-#include "../../util/pub_map.hpp"
-#include "../../util/joy_utils.hpp"
-
-#include "mining_controller.hpp"
-#include "shared_controllers.hpp"
-#include "offload_controller.hpp"
-#include "traversal_controller.hpp"
+#include "robot/control/shared/shared_controllers.hpp"
 
 
 namespace lance
 {
 
-class TeleopController
+class AutoOffloadController
 {
-    using RclNode = rclcpp::Node;
-    using PointStampedMsg = geometry_msgs::msg::PointStamped;
-    using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
-
 public:
-    TeleopController(
-        RclNode&,
+    AutoOffloadController(
         GenericPubMap&,
         const RobotParams&,
         SharedControllerCollection&);
-    ~TeleopController() = default;
+    ~AutoOffloadController() = default;
 
 public:
     void initialize();
+    bool isFinished();
     void setCancelled();
 
     void iterate(
-        const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
 protected:
-    enum class Operation
+    enum class Stage
     {
-        MANUAL = 0,
-        ASSISTED_MINING,
-        ASSISTED_OFFLOAD,
-        PRESET_MINING,
-        PRESET_OFFLOAD,
-        AUTO_TRAVERSAL
+        INITIALIZATION,
+        PLANNING,
+        TRAVERSING,
+        OFFLOADING,
+        FINISHED
     };
-
-protected:
-    bool handleGlobalInputs(const JoyState& joy);
-    bool handleClickedPoint(bool can_apply);
-    void handleTeleopInputs(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-    void publishState();
 
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
 
-    RclSubPtr<PointStampedMsg> clicked_point_sub;
-    PointStampedMsg::ConstSharedPtr clicked_point;
+    Stage stage{Stage::FINISHED};
 
-    Operation op_mode{Operation::MANUAL};
-    float driving_rps_scalar;
-
-    MiningController& mining_controller;
-    OffloadController& offload_controller;
     TraversalController& traversal_controller;
+    OffloadController& offload_controller;
 };
 
 };  // namespace lance

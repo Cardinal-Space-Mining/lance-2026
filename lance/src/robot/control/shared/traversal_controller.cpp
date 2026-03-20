@@ -46,10 +46,11 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
-#include "../robot_math.hpp"
-#include "../hid_bindings.hpp"
-#include "../../util/geometry.hpp"
-#include "../../util/time_cvt.hpp"
+#include "util/geometry.hpp"
+#include "util/time_cvt.hpp"
+
+#include "robot/core/robot_math.hpp"
+#include "robot/core/hid_bindings.hpp"
 
 
 #define PERCEPTION_PATH_TOPIC "/cardinal_perception/planned_path"

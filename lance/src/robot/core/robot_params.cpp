@@ -39,7 +39,7 @@
 
 #include "robot_params.hpp"
 
-#include "../util/ros_utils.hpp"
+#include "util/ros_utils.hpp"
 
 
 using namespace util;

@@ -39,7 +39,7 @@
 
 #include "teleop_controller.hpp"
 
-#include "../hid_bindings.hpp"
+#include "robot/core/hid_bindings.hpp"
 
 
 #define FG_CLICKED_POINT_TOPIC "/clicked_point"

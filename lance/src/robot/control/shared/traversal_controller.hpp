@@ -39,108 +39,130 @@
 
 #pragma once
 
-#include <limits>
-#include <chrono>
+#include <string>
 
-#include "../robot_math.hpp"
-#include "../hid_bindings.hpp"
-#include "../robot_params.hpp"
-#include "../motor_interface.hpp"
-#include "../collection_state.hpp"
-#include "../../util/pub_map.hpp"
-#include "../../util/joy_utils.hpp"
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+
+#include <rclcpp/rclcpp.hpp>
+
+#include <nav_msgs/msg/path.hpp>
+
+#include <geometry_msgs/msg/point_stamped.hpp>
+
+#include <cardinal_perception/srv/update_path_planning_mode.hpp>
+
+#include "util/pub_map.hpp"
+#include "util/joy_utils.hpp"
+
+#include "robot/core/tf_cache.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
 
 
 namespace lance
 {
 
-class MiningController
+class TraversalController
 {
+    using RclNode = rclcpp::Node;
+    using PathMsg = nav_msgs::msg::Path;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
+    using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 
+    template<typename T>
+    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
+    template<typename T>
+    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
+
+    using Vec2f = Eigen::Vector2f;
+    using Vec3f = Eigen::Vector3f;
+    using Quatf = Eigen::Quaternionf;
+    using Box2f = Eigen::AlignedBox2f;
+
 public:
-    MiningController(
+    TraversalController(
+        RclNode&,
         GenericPubMap&,
         const RobotParams&,
-        const HopperState&);
-    ~MiningController() = default;
+        const TfCache&);
+    ~TraversalController() = default;
 
 public:
-    /* Restart the routine. If traversal distance is provided,
-     * the command will track the travelled distance and end if
-     * the traversal distance is exceeded. */
-    void initialize(float traversal_dist_m = 0.f);
-    /* Check if the command is finished, either as a result
-     * of being cancelled or automatically shutting down
-     * due to a stop state. */
+    void initializePoint(
+        const Vec2f& dest,
+        const Vec2f& dest_direction = Vec2f::Zero());
+    void initializePoint(
+        const PointStampedMsg& dest,
+        const Vec2f& dest_direction = Vec2f::Zero());
+    void initializeZone(const Vec2f& dest_min, const Vec2f& dest_max);
+
     bool isFinished();
-    /* Mark the command as cancelled, i.e. it will no longer be
-     * executed. */
     void setCancelled();
 
-    /* Update the remaining traversal distance. */
-    void setRemaining(float traversal_dist_m);
-    /* Set whether the hopper model should be used to determine finished state. */
-    void setUseHopperModel(bool enabled);
-
-    /* Iterate the controller in "full auto" mode (no user input). */
     void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-    /* Iterate the controller in "assisted" mode (user input). */
-    void iterate(
-        const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
 protected:
-    enum class Stage
+    enum class State
     {
         INITIALIZATION,
-        LOWERING,
-        TRAVERSING,
-        RAISING,
+        FOLLOW_PATH,
+        REORIENT,
         FINISHED
     };
-
-    struct TraversalState
+    enum class DestinationType
     {
-        void init(float remaining_dist = 0.f);
-        void setRemaining(float remaining_dist);
-        void updateOdom(float odom);
-        bool hasRemaining();
-
-    private:
-        float remaining_dist{0.f};
-        float prev_odom{0.f};
-    };
-    struct BeltDutyCycleState
-    {
-        void setMoved();
-        void setStopped();
-        bool canMove(float thresh_s);
-
-    private:
-        std::chrono::system_clock::time_point prev_belt_stop_time;
-        bool belt_moving{false};
+        POINT,
+        POSE,
+        ZONE
     };
 
 protected:
-    void iterate(
-        const JoyState* joy,
+    void initPlanningService(const Vec3f&);
+    void initPlanningService(const PointStampedMsg&);
+    void stopPlanningService();
+
+    bool iterateTraversal(
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
+    bool iterateReorient(
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+
+    void runStanley(
+        const RobotMotorStatus& motor_status,
+        const std::vector<Vec2f>& keypoints,
+        size_t seg_beg_idx,
+        size_t seg_end_idx,
+        float seg_proj_t,
+        RobotMotorCommands& commands);
+
+    void getFilteredPrevVelocities(
+        const RobotMotorStatus& motor_status,
+        float& Vl_prev,
+        float& Vr_prev);
 
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
-    const HopperState& hopper_state;
+    const TfCache& tf_cache;
 
-    Stage stage{Stage::FINISHED};
-    TraversalState traversal_state{};
-    BeltDutyCycleState belt_duty_cycle{};
-    bool using_hopper_model{true};
+    RclSubPtr<PathMsg> path_sub;
+    RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
+
+    State state{State::FINISHED};
+
+    PathMsg::ConstSharedPtr last_path{nullptr};
+    Box2f arena_dest_zone{};
+    Vec2f arena_dest_direction{};
+    DestinationType destination_type{DestinationType::POINT};
+
+    float prev_left_velocity{0.f};
+    float prev_right_velocity{0.f};
 };
 
 };  // namespace lance

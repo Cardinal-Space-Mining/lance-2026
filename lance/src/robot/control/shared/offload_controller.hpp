@@ -39,45 +39,83 @@
 
 #pragma once
 
-#include "../util/joy_utils.hpp"
-#include "hid_constants.hpp"
+#include "util/pub_map.hpp"
+#include "util/joy_utils.hpp"
+
+#include "robot/core/robot_math.hpp"
+#include "robot/core/hid_bindings.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/core/collection_state.hpp"
 
 
-namespace Bindings
+namespace lance
 {
-using namespace util;
-using namespace LogitechController;
 
-using DisableAllActionsButton = StaticJoyButton<Buttons::A>;
+class OffloadController
+{
+    using JoyState = util::JoyState;
+    using GenericPubMap = util::GenericPubMap;
 
-using TeleopLowSpeedButton = StaticJoyButton<Buttons::B>;
-using TeleopMediumSpeedButton = StaticJoyButton<Buttons::Y>;
-using TeleopHighSpeedButton = StaticJoyButton<Buttons::X>;
+public:
+    OffloadController(
+        GenericPubMap&,
+        const RobotParams&,
+        const HopperState&);
+    ~OffloadController() = default;
 
-using TeleopDriveXAxis = StaticJoyAxis<Axes::LEFTX>;
-using TeleopDriveYAxis = StaticJoyAxis<Axes::LEFTY>;
+public:
+    void initialize(float traversal_dist_m = 0.f);
+    bool isFinished();
+    void setCancelled();
 
-using TeleopTrencherSpeedAxis = StaticJoyAxis<Axes::R_TRIGGER>;
-using TeleopTrencherInvertButton = StaticJoyButton<Buttons::RB>;
+    void setUseHopperModel(bool enabled);
 
-using TeleopHopperSpeedAxis = StaticJoyAxis<Axes::L_TRIGGER>;
-using TeleopHopperInvertButton = StaticJoyButton<Buttons::LB>;
-using TeleopHopperActuateAxis = StaticJoyAxis<Axes::RIGHTY>;
+    void iterate(
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+    void iterate(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
-using AssistedMiningToggleButton = StaticJoyButton<Buttons::L_STICK>;
-using AssistedOffloadToggleButton = StaticJoyButton<Buttons::R_STICK>;
+protected:
+    enum class Stage
+    {
+        INITIALIZATION,
+        BACKUP,
+        RAISING,
+        OFFLOADING,
+        LOWERING,
+        FINISHED
+    };
 
-using PresetMiningInitButton = StaticJoyButton<Buttons::BACK>;
-using PresetOffloadInitButton = StaticJoyButton<Buttons::START>;
+    struct TraversalState
+    {
+        void init(float remaining_dist = 0.f);
+        void updateOdom(float odom);
+        bool hasRemaining();
 
-using ToggleTraversalCursorMode = StaticJoyButton<Buttons::LOGITECH>;
+    private:
+        float remaining_dist{0.f};
+        float prev_odom{0.f};
+    };
 
-// using PresetMiningStartButton =
-//     StaticJoyPov<Axes::DPAD_U_D, Axes::DPAD_K::DPAD_UP>;
-// using PresetMiningStopButton =
-//     StaticJoyPov<Axes::DPAD_U_D, Axes::DPAD_K::DPAD_DOWN>;
-// using PresetOffloadStartButton =
-//     StaticJoyPov<Axes::DPAD_R_L, Axes::DPAD_K::DPAD_RIGHT>;
-// using PresetOffloadStopButton =
-//     StaticJoyPov<Axes::DPAD_R_L, Axes::DPAD_K::DPAD_LEFT>;
-};  // namespace Bindings
+protected:
+    void iterate(
+        const JoyState* joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+
+protected:
+    GenericPubMap& pub_map;
+    const RobotParams& params;
+    const HopperState& hopper_state;
+
+    Stage stage{Stage::FINISHED};
+    TraversalState traversal_state{};
+    double calculated_target_belt_pos{0.};
+    bool using_hopper_model{true};
+};
+
+};  // namespace lance

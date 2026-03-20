@@ -39,47 +39,59 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
+#include <limits>
+#include <chrono>
 
-#include <std_srvs/srv/set_bool.hpp>
+#include "util/pub_map.hpp"
+#include "util/joy_utils.hpp"
 
-#include <cardinal_perception/msg/reflector_hint.hpp>
-
-#include "../tf_cache.hpp"
-#include "../robot_params.hpp"
-#include "../motor_interface.hpp"
-#include "../../util/pub_map.hpp"
+#include "robot/core/robot_math.hpp"
+#include "robot/core/hid_bindings.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/core/collection_state.hpp"
 
 
 namespace lance
 {
 
-class LocalizationController
+class MiningController
 {
-    using RclNode = rclcpp::Node;
-    using SetBoolSrv = std_srvs::srv::SetBool;
-    using ReflectorHintMsg = cardinal_perception::msg::ReflectorHint;
+    using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
-    template<typename T>
-    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
-
 public:
-    LocalizationController(
-        RclNode&,
+    MiningController(
         GenericPubMap&,
         const RobotParams&,
-        const TfCache&);
-    ~LocalizationController() = default;
+        const HopperState&);
+    ~MiningController() = default;
 
 public:
-    void initialize();
+    /* Restart the routine. If traversal distance is provided,
+     * the command will track the travelled distance and end if
+     * the traversal distance is exceeded. */
+    void initialize(float traversal_dist_m = 0.f);
+    /* Check if the command is finished, either as a result
+     * of being cancelled or automatically shutting down
+     * due to a stop state. */
     bool isFinished();
+    /* Mark the command as cancelled, i.e. it will no longer be
+     * executed. */
     void setCancelled();
 
+    /* Update the remaining traversal distance. */
+    void setRemaining(float traversal_dist_m);
+    /* Set whether the hopper model should be used to determine finished state. */
+    void setUseHopperModel(bool enabled);
+
+    /* Iterate the controller in "full auto" mode (no user input). */
     void iterate(
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+    /* Iterate the controller in "assisted" mode (user input). */
+    void iterate(
+        const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
@@ -87,25 +99,49 @@ protected:
     enum class Stage
     {
         INITIALIZATION,
-        SEARCHING,
-        ALIGN_HEADING,
-        ADJUST_RANGE,
+        LOWERING,
+        TRAVERSING,
+        RAISING,
         FINISHED
     };
 
+    struct TraversalState
+    {
+        void init(float remaining_dist = 0.f);
+        void setRemaining(float remaining_dist);
+        void updateOdom(float odom);
+        bool hasRemaining();
+
+    private:
+        float remaining_dist{0.f};
+        float prev_odom{0.f};
+    };
+    struct BeltDutyCycleState
+    {
+        void setMoved();
+        void setStopped();
+        bool canMove(float thresh_s);
+
+    private:
+        std::chrono::system_clock::time_point prev_belt_stop_time;
+        bool belt_moving{false};
+    };
+
 protected:
-    void setLfdControl(bool enabled);
+    void iterate(
+        const JoyState* joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
 protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
-    const TfCache& tf_cache;
-
-    RclSubPtr<ReflectorHintMsg> hint_sub;
-    RclClientPtr<SetBoolSrv> lfd_control_client;
+    const HopperState& hopper_state;
 
     Stage stage{Stage::FINISHED};
-    ReflectorHintMsg::ConstSharedPtr last_hint{nullptr};
+    TraversalState traversal_state{};
+    BeltDutyCycleState belt_duty_cycle{};
+    bool using_hopper_model{true};
 };
 
 };  // namespace lance
