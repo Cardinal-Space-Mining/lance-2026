@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.12)
 project(net_adapter)
 
 # --- Dependencies -------------------------------------------------------------
+find_package(rosidl_default_generators REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -35,6 +36,13 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# --- Messages -----------------------------------------------------------------
+rosidl_generate_interfaces(${PROJECT_NAME}
+    "msg/Bytes.msg")
+
+rosidl_get_typesupport_target(${PROJECT_NAME}_custom_types
+    ${PROJECT_NAME} rosidl_typesupport_cpp)
+
 # --- Common -------------------------------------------------------------------
 add_library(adapters_core STATIC
     "src/util/delay_queue.cpp"
@@ -44,6 +52,7 @@ add_library(adapters_core STATIC
     "src/adapters/talon_adapter.cpp"
     "src/adapters/path_adapter.cpp")
 target_link_libraries(adapters_core
+    ${${PROJECT_NAME}_custom_types}
     Eigen3::Eigen
     zenohcxx::zenohc)
 ament_target_dependencies(adapters_core
@@ -82,6 +91,7 @@ ament_target_dependencies(client_endpoint
 # --- Export -------------------------------------------------------------------
 ament_export_dependencies(
     rclcpp
+    rosidl_default_runtime
     std_msgs
     sensor_msgs
     geometry_msgs
