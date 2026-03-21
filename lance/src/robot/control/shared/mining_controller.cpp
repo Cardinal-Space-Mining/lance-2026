@@ -113,9 +113,13 @@ void MiningController::TraversalState::updateOdom(float odom)
     }
     this->prev_odom = odom;
 }
-bool MiningController::TraversalState::hasRemaining()
+bool MiningController::TraversalState::hasRemaining() const
 {
     return this->remaining_dist > 0.f;
+}
+float MiningController::TraversalState::remaining() const
+{
+    return this->remaining_dist;
 }
 
 

@@ -56,6 +56,8 @@ namespace lance
 
 class TeleopController
 {
+    friend class TelemetrySerializer;
+
     using RclNode = rclcpp::Node;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using JoyState = util::JoyState;

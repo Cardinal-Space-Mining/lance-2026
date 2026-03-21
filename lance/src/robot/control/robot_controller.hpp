@@ -43,8 +43,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
 
 #include "util/pub_map.hpp"
 #include "util/joy_utils.hpp"
@@ -65,6 +65,8 @@ namespace lance
 
 class RobotController
 {
+    friend class TelemetrySerializer;
+
     using RclNode = rclcpp::Node;
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;

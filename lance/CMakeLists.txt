@@ -13,9 +13,10 @@ find_package(visualization_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
+find_package(csm_metrics REQUIRED)
+find_package(net_adapter REQUIRED)
 find_package(phoenix_ros_driver REQUIRED)
 find_package(cardinal_perception REQUIRED)
-find_package(csm_metrics REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 
@@ -79,7 +80,8 @@ set(robot_controller_srcs
     "src/robot/control/shared/mining_controller.cpp"
     "src/robot/control/shared/offload_controller.cpp"
     "src/robot/control/shared/traversal_controller.cpp"
-    "src/robot/control/shared/localization_controller.cpp")
+    "src/robot/control/shared/localization_controller.cpp"
+    "src/robot/telemetry/serialization.cpp")
 set(robot_controller_libs
     csm_metrics::profiling
     Eigen3::Eigen)
@@ -92,9 +94,10 @@ set(robot_controller_ament_deps
     geometry_msgs
     tf2_ros
     tf2_geometry_msgs
+    csm_metrics
+    net_adapter
     phoenix_ros_driver
-    cardinal_perception
-    csm_metrics)
+    cardinal_perception)
 
 if(BUILD_LANCE1)
     add_executable(lance1_controller
@@ -163,9 +166,10 @@ ament_export_dependencies(
     visualization_msgs
     tf2_ros
     tf2_geometry_msgs
+    csm_metrics
+    net_adapter
     phoenix_ros_driver
-    cardinal_perception
-    csm_metrics)
+    cardinal_perception)
 ament_package()
 
 if(BUILD_LANCE1)

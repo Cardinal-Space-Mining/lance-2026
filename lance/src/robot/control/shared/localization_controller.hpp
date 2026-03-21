@@ -57,6 +57,8 @@ namespace lance
 
 class LocalizationController
 {
+    friend class TelemetrySerializer;
+
     using RclNode = rclcpp::Node;
     using SetBoolSrv = std_srvs::srv::SetBool;
     using ReflectorHintMsg = cardinal_perception::msg::ReflectorHint;

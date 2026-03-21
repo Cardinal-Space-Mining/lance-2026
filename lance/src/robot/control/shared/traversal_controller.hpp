@@ -65,6 +65,8 @@ namespace lance
 
 class TraversalController
 {
+    friend class TelemetrySerializer;
+
     using RclNode = rclcpp::Node;
     using PathMsg = nav_msgs::msg::Path;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;

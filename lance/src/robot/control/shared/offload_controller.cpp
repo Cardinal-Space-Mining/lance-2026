@@ -97,9 +97,13 @@ void OffloadController::TraversalState::updateOdom(float odom)
     }
     this->prev_odom = odom;
 }
-bool OffloadController::TraversalState::hasRemaining()
+bool OffloadController::TraversalState::hasRemaining() const
 {
     return this->remaining_dist > 0.f;
+}
+float OffloadController::TraversalState::remaining() const
+{
+    return this->remaining_dist;
 }
 
 

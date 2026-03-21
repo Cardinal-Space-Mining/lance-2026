@@ -81,6 +81,7 @@ inline constexpr KeyTf composeKeyTf(KeyFrame from, KeyFrame to)
 
 class TfCache
 {
+public:
     using Tf2Buffer = tf2_ros::Buffer;
     using PoseTf = util::geom::PoseTf3f;
 

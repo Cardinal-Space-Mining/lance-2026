@@ -39,112 +39,108 @@
 
 #pragma once
 
-#include <limits>
 #include <chrono>
+#include <vector>
+
+#include <rclcpp/rclcpp.hpp>
+
+#include <tf2_ros/transform_broadcaster.hpp>
+
+#include <net_adapter/msg/bytes.hpp>
 
 #include "util/pub_map.hpp"
-#include "util/joy_utils.hpp"
 
-#include "robot/core/robot_math.hpp"
-#include "robot/core/hid_bindings.hpp"
-#include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
+#include "robot/control/robot_controller.hpp"
 
 
 namespace lance
 {
 
-class MiningController
+class TelemetryBase
 {
-    friend class TelemetrySerializer;
+public:
+    using RclNode = rclcpp::Node;
+    using BytesMsg = net_adapter::msg::Bytes;
+    using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
+    using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;
 
-    using JoyState = util::JoyState;
+    using Bytes = BytesMsg::_data_type;
+    using Byte = Bytes::value_type;
+    using ReadPtr = const Byte*&;
+
+    static constexpr char const* TELEMETRY_TOPIC = "/lance/telemetry";
+};
+
+
+class TelemetrySerializer : public TelemetryBase
+{
+    using steady_clock = std::chrono::steady_clock;
+    using time_point = steady_clock::time_point;
+
+public:
+    TelemetrySerializer(RclNode&);
+
+public:
+    void update(const RobotMotorCommands&, const RobotController&);
+
+protected:
+    bool filterFreq(time_point&);
+
+    void addMotorCommands(Bytes&, const RobotMotorCommands&);
+    void addArenaTf(Bytes&, const TfCache&);
+    void addCollectionState(Bytes&, const CollectionState&);
+    void addControlState(Bytes&, const RobotController&);
+
+    void addAutoController(Bytes&, const AutoController&);
+    void addTeleopController(Bytes&, const TeleopController&);
+    void addAutoMiningController(Bytes&, const AutoMiningController&);
+    void addAutoOffloadController(Bytes&, const AutoOffloadController&);
+    void addMiningController(Bytes&, const MiningController&);
+    void addOffloadController(Bytes&, const OffloadController&);
+    void addLocController(Bytes&, const LocalizationController&);
+    void addTravController(Bytes&, const TraversalController&);
+
+protected:
+    BytesSharedPub pub;
+
+    time_point last_tf_pub, last_path_pub;
+
+    const float throttled_pub_freq;
+};
+
+
+class TelemetryDeserializer : public TelemetryBase
+{
     using GenericPubMap = util::GenericPubMap;
+    using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
 
 public:
-    MiningController(
-        GenericPubMap&,
-        const RobotParams&,
-        const HopperState&);
-    ~MiningController() = default;
-
-public:
-    /* Restart the routine. If traversal distance is provided,
-     * the command will track the travelled distance and end if
-     * the traversal distance is exceeded. */
-    void initialize(float traversal_dist_m = 0.f);
-    /* Check if the command is finished, either as a result
-     * of being cancelled or automatically shutting down
-     * due to a stop state. */
-    bool isFinished();
-    /* Mark the command as cancelled, i.e. it will no longer be
-     * executed. */
-    void setCancelled();
-
-    /* Update the remaining traversal distance. */
-    void setRemaining(float traversal_dist_m);
-    /* Set whether the hopper model should be used to determine finished state. */
-    void setUseHopperModel(bool enabled);
-
-    /* Iterate the controller in "full auto" mode (no user input). */
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-    /* Iterate the controller in "assisted" mode (user input). */
-    void iterate(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    TelemetryDeserializer(RclNode&);
 
 protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        LOWERING,
-        TRAVERSING,
-        RAISING,
-        FINISHED
-    };
-
-    struct TraversalState
-    {
-        void init(float remaining_dist = 0.f);
-        void setRemaining(float remaining_dist);
-        void updateOdom(float odom);
-        bool hasRemaining() const;
-        float remaining() const;
-
-    private:
-        float remaining_dist{0.f};
-        float prev_odom{0.f};
-    };
-    struct BeltDutyCycleState
-    {
-        void setMoved();
-        void setStopped();
-        bool canMove(float thresh_s);
-
-    private:
-        std::chrono::system_clock::time_point prev_belt_stop_time;
-        bool belt_moving{false};
-    };
+    void accept(const BytesMsg&);
 
 protected:
-    void iterate(
-        const JoyState* joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    void pubMotorCommands(ReadPtr);
+    void pubArenaTf(ReadPtr);
+    void pubCollectionState(ReadPtr);
+    void pubControlState(ReadPtr);
+
+    void pubAutoController(ReadPtr);
+    void pubTeleopController(ReadPtr);
+    void pubAutoMiningController(ReadPtr);
+    void pubAutoOffloadController(ReadPtr);
+    void pubMiningController(ReadPtr);
+    void pubOffloadController(ReadPtr);
+    void pubLocController(ReadPtr);
+    void pubTravController(ReadPtr);
 
 protected:
-    GenericPubMap& pub_map;
-    const RobotParams& params;
-    const HopperState& hopper_state;
+    BytesSharedSub sub;
 
-    Stage stage{Stage::FINISHED};
-    TraversalState traversal_state{};
-    BeltDutyCycleState belt_duty_cycle{};
-    bool using_hopper_model{true};
+    Tf2Broadcaster tf_broadcaster;
+    GenericPubMap pub_map;
 };
 
 };  // namespace lance

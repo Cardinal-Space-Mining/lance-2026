@@ -54,6 +54,8 @@ namespace lance
 
 class OffloadController
 {
+    friend class TelemetrySerializer;
+
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 
@@ -94,7 +96,8 @@ protected:
     {
         void init(float remaining_dist = 0.f);
         void updateOdom(float odom);
-        bool hasRemaining();
+        bool hasRemaining() const;
+        float remaining() const;
 
     private:
         float remaining_dist{0.f};

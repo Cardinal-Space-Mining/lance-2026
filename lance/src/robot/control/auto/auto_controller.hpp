@@ -58,6 +58,8 @@ namespace lance
 
 class AutoController
 {
+    friend class TelemetrySerializer;
+
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 

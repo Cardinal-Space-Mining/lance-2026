@@ -50,6 +50,8 @@ namespace lance
 
 class AutoOffloadController
 {
+    friend class TelemetrySerializer;
+
     using GenericPubMap = util::GenericPubMap;
 
 public:
