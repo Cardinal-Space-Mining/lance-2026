@@ -114,6 +114,7 @@ class TelemetryDeserializer : public TelemetryBase
 {
     using GenericPubMap = util::GenericPubMap;
     using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
+    using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
 
 public:
     TelemetryDeserializer(RclNode&);
@@ -122,25 +123,31 @@ protected:
     void accept(const BytesMsg&);
 
 protected:
-    void pubMotorCommands(ReadPtr);
-    void pubArenaTf(ReadPtr);
-    void pubCollectionState(ReadPtr);
-    void pubControlState(ReadPtr);
+    bool pubMotorCommands(ReadPtr);
+    bool pubArenaTf(ReadPtr);
+    bool pubCollectionState(ReadPtr);
+    bool pubControlState(ReadPtr);
 
-    void pubAutoController(ReadPtr);
-    void pubTeleopController(ReadPtr);
-    void pubAutoMiningController(ReadPtr);
-    void pubAutoOffloadController(ReadPtr);
-    void pubMiningController(ReadPtr);
-    void pubOffloadController(ReadPtr);
-    void pubLocController(ReadPtr);
-    void pubTravController(ReadPtr);
+    bool pubAutoController(ReadPtr);
+    bool pubTeleopController(ReadPtr);
+    bool pubAutoMiningController(ReadPtr);
+    bool pubAutoOffloadController(ReadPtr);
+    bool pubMiningController(ReadPtr);
+    bool pubOffloadController(ReadPtr);
+    bool pubLocController(ReadPtr);
+    bool pubTravController(ReadPtr);
 
 protected:
+    GenericPubMap pub_map;
+    Tf2Broadcaster tf_broadcaster;
+    ConstSharedClock rcl_clock;
+
     BytesSharedSub sub;
 
-    Tf2Broadcaster tf_broadcaster;
-    GenericPubMap pub_map;
+    const std::string odom_frame_id;
+    const std::string arena_frame_id;
+
+    std::vector<std::string> ctrl_chain;
 };
 
 };  // namespace lance

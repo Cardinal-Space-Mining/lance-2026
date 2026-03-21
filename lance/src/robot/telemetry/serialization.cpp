@@ -41,8 +41,6 @@
 
 #include <cstdint>
 
-#include <sensor_msgs/msg/joint_state.hpp>
-
 #include "util/ros_utils.hpp"
 #include "util/mem_helpers.hpp"
 
@@ -69,7 +67,9 @@ namespace lance
 
 enum class TelemetryType : uint8_t
 {
-    MOTOR_CTRL = 1,
+    INVALID_ID = 0,
+
+    MOTOR_CTRL,
     ARENA_TF,
     COLLECTION_STATE,
     CTRL_STATE
@@ -77,7 +77,9 @@ enum class TelemetryType : uint8_t
 
 enum class ControllerType : uint8_t
 {
-    AUTO = 1,
+    INVALID_ID = 0,
+
+    AUTO,
     TELEOP,
 
     AUTO_MINING,
@@ -467,29 +469,200 @@ void TelemetrySerializer::addTravController(
 // --- Deserializer ------------------------------------------------------------
 
 TelemetryDeserializer::TelemetryDeserializer(RclNode& node) :
+    pub_map{node, "/lance", rclcpp::SensorDataQoS{}},
+    tf_broadcaster{node},
+    rcl_clock{node.get_clock()},
     sub{node.create_subscription<BytesMsg>(
         TELEMETRY_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })},
-    tf_broadcaster{node},
-    pub_map{node, "", rclcpp::SensorDataQoS{}}
+    odom_frame_id{},
+    arena_frame_id{}
 {
 }
 
-void TelemetryDeserializer::accept(const BytesMsg& msg) {}
+void TelemetryDeserializer::accept(const BytesMsg& msg)
+{
+    this->ctrl_chain.clear();
 
-void TelemetryDeserializer::pubMotorCommands(ReadPtr ptr) {}
-void TelemetryDeserializer::pubArenaTf(ReadPtr ptr) {}
-void TelemetryDeserializer::pubCollectionState(ReadPtr ptr) {}
-void TelemetryDeserializer::pubControlState(ReadPtr ptr) {}
+    const Byte* ptr = msg.data.data();
+    bool ok = true;
+    while (ok && ptr < msg.data.end().base())
+    {
+        uint8_t id = static_cast<uint8_t>(TelemetryType::INVALID_ID);
+        readAndIncrement(ptr, id);
 
-void TelemetryDeserializer::pubAutoController(ReadPtr ptr) {}
-void TelemetryDeserializer::pubTeleopController(ReadPtr ptr) {}
-void TelemetryDeserializer::pubAutoMiningController(ReadPtr ptr) {}
-void TelemetryDeserializer::pubAutoOffloadController(ReadPtr ptr) {}
-void TelemetryDeserializer::pubMiningController(ReadPtr ptr) {}
-void TelemetryDeserializer::pubOffloadController(ReadPtr ptr) {}
-void TelemetryDeserializer::pubLocController(ReadPtr ptr) {}
-void TelemetryDeserializer::pubTravController(ReadPtr ptr) {}
+        switch (id)
+        {
+            case static_cast<uint8_t>(TelemetryType::MOTOR_CTRL):
+            {
+                ok &= this->pubMotorCommands(ptr);
+                break;
+            }
+            case static_cast<uint8_t>(TelemetryType::ARENA_TF):
+            {
+                ok &= this->pubArenaTf(ptr);
+                break;
+            }
+            case static_cast<uint8_t>(TelemetryType::COLLECTION_STATE):
+            {
+                ok &= this->pubCollectionState(ptr);
+                break;
+            }
+            case static_cast<uint8_t>(TelemetryType::CTRL_STATE):
+            {
+                ok &= this->pubControlState(ptr);
+                break;
+            }
+            case static_cast<uint8_t>(TelemetryType::INVALID_ID):
+            default:
+            {
+                ok = false;
+            }
+        }
+    }
+
+    // publish ctrl state strings from chain
+}
+
+bool TelemetryDeserializer::pubMotorCommands(ReadPtr ptr)
+{
+    constexpr char const* MOTOR_CTRL_TOPICS[] = {
+        "track_right/ctrl",
+        "track_left/ctrl",
+        "trencher/ctrl",
+        "hopper_belt/ctrl",
+        "hopper_act/ctrl"};
+
+    for (const char* TOPIC : MOTOR_CTRL_TOPICS)
+    {
+        TalonCtrlMsg msg;
+
+        readAndIncrement(ptr, msg.mode);
+        readAsAndIncrement<float>(ptr, msg.value);
+
+        this->pub_map.publish(TOPIC, msg);
+    }
+
+    return true;
+}
+
+bool TelemetryDeserializer::pubArenaTf(ReadPtr ptr)
+{
+    geometry_msgs::msg::TransformStamped msg;
+
+    readAsAndIncrement<float>(ptr, msg.transform.translation.x);
+    readAsAndIncrement<float>(ptr, msg.transform.translation.y);
+    readAsAndIncrement<float>(ptr, msg.transform.translation.z);
+    readAsAndIncrement<float>(ptr, msg.transform.rotation.w);
+    readAsAndIncrement<float>(ptr, msg.transform.rotation.x);
+    readAsAndIncrement<float>(ptr, msg.transform.rotation.y);
+    readAsAndIncrement<float>(ptr, msg.transform.rotation.z);
+
+    msg.child_frame_id = this->odom_frame_id;
+    msg.header.frame_id = this->arena_frame_id;
+    msg.header.stamp = this->rcl_clock->now();
+
+    this->tf_broadcaster.sendTransform(msg);
+
+    return true;
+}
+
+bool TelemetryDeserializer::pubCollectionState(ReadPtr ptr)
+{
+    constexpr char const* FLOAT_TOPICS[] = {
+        "collection_state/volume",
+        "collection_state/mining_target",
+        "collection_state/offload_target",
+        "collection_state/belt_pos_m",
+        "collection_state/high_pos_m",
+        "collection_state/low_pos_m",
+        "collection_state/belt_usage_m"};
+
+    uint8_t bool_fields{0};
+    readAndIncrement(ptr, bool_fields);
+
+    this->pub_map.publish<std_msgs::msg::Bool>(
+        "collection_state/is_full_volume",
+        static_cast<bool>(bool_fields & 0x1));
+    this->pub_map.publish<std_msgs::msg::Bool>(
+        "collection_state/is_full_occ",
+        static_cast<bool>(bool_fields & 0x2));
+
+    for (const char* TOPIC : FLOAT_TOPICS)
+    {
+        float val{0.f};
+        readAndIncrement(ptr, val);
+
+        this->pub_map.publish<std_msgs::msg::Float32>(TOPIC, val);
+    }
+
+    return true;
+}
+
+bool TelemetryDeserializer::pubControlState(ReadPtr ptr)
+{
+    uint8_t ctrl_id = static_cast<uint8_t>(ControllerType::INVALID_ID);
+    readAndIncrement(ptr, ctrl_id);
+
+    switch(ctrl_id)
+    {
+        case static_cast<uint8_t>(ControllerType::TELEOP):
+        {
+            this->ctrl_chain.push_back("Teleop");
+            return this->pubTeleopController(ptr);
+        }
+        case static_cast<uint8_t>(ControllerType::AUTO):
+        {
+            this->ctrl_chain.push_back("Auto");
+            return this->pubAutoController(ptr);
+        }
+        default:
+        {
+            return false;
+        }
+    }
+}
+
+bool TelemetryDeserializer::pubAutoController(ReadPtr ptr)
+{
+    // uint8_t 
+}
+
+bool TelemetryDeserializer::pubTeleopController(ReadPtr ptr)
+{
+
+}
+
+bool TelemetryDeserializer::pubAutoMiningController(ReadPtr ptr)
+{
+
+}
+
+bool TelemetryDeserializer::pubAutoOffloadController(ReadPtr ptr)
+{
+
+}
+
+bool TelemetryDeserializer::pubMiningController(ReadPtr ptr)
+{
+
+}
+
+bool TelemetryDeserializer::pubOffloadController(ReadPtr ptr)
+{
+
+}
+
+bool TelemetryDeserializer::pubLocController(ReadPtr ptr)
+{
+
+}
+
+bool TelemetryDeserializer::pubTravController(ReadPtr ptr)
+{
+
+}
+
 
 };  // namespace lance
