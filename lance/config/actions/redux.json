@@ -24,15 +24,7 @@
             "lidar_frame_id": "${ id.lidar_frame }",
             "path_frame_id": "${ id.odom_frame }",
             "max_joy_pub_freq": 100.0,
-            "is_sim": false,
-            "pragma:node_options":
-            {
-                "remappings":
-                {
-                    "lance/op_status": "lance/robot_op_status",
-                    "cardinal_perception/planned_path": "cardinal_perception/robot_planned_path"
-                }
-            }
+            "is_sim": false
         },
         "client_mac_eth":
         {

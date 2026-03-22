@@ -60,6 +60,8 @@ template<typename T>
 using SharedSub = typename rclcpp::Subscription<T>::SharedPtr;
 template<typename T>
 using SharedSrv = typename rclcpp::Service<T>::SharedPtr;
+template<typename T>
+using SharedClient = typename rclcpp::Client<T>::SharedPtr;
 
 #define BUILD_MSG_ALIAS(pkg, name)    using name##Msg = pkg::msg::name;
 #define BUILD_SRV_ALIAS(pkg, name)    using name##Srv = pkg::srv::name;
@@ -84,7 +86,13 @@ inline void declare_param(
     T& param,
     const typename identity<T>::type& default_value)
 {
-    node->declare_parameter(param_name, default_value);
+    try
+    {
+        node->declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
     node->get_parameter(param_name, param);
 }
 template<typename T>
@@ -94,7 +102,13 @@ inline void declare_param(
     T& param,
     const typename identity<T>::type& default_value)
 {
-    node.declare_parameter(param_name, default_value);
+    try
+    {
+        node.declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
     node.get_parameter(param_name, param);
 }
 template<typename T>
@@ -103,7 +117,13 @@ inline T declare_and_get_param(
     const std::string& param_name,
     const T& default_value)
 {
-    node.declare_parameter(param_name, default_value);
+    try
+    {
+        node.declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
     return node.get_parameter_or(param_name, default_value);
 }
 

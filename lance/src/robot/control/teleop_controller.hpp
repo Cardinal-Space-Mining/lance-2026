@@ -57,6 +57,7 @@ namespace lance
 class TeleopController
 {
     friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
 
     using RclNode = rclcpp::Node;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
@@ -101,7 +102,6 @@ protected:
         const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
-    void publishState();
 
 protected:
     GenericPubMap& pub_map;

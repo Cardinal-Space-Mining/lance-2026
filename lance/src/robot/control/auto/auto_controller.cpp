@@ -190,23 +190,6 @@ void AutoController::iterate(
         {
         }
     }
-
-    this->publishState();
-}
-
-void AutoController::publishState()
-{
-    static constexpr char const* STAGE_STRINGS[] = {
-        "Auto Localization",
-        "Auto Traverse To Mining",
-        "Auto Mining",
-        "Auto Traverse To Offload",
-        "Auto Offload",
-        "Auto [unknown]"};
-
-    this->pub_map.publish<std_msgs::msg::String, std::string>(
-        "lance/op_status",
-        STAGE_STRINGS[static_cast<size_t>(this->stage)]);
 }
 
 };  // namespace lance

@@ -55,6 +55,7 @@ namespace lance
 class OffloadController
 {
     friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
 
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;

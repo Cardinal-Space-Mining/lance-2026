@@ -24,9 +24,8 @@
                 "robot_tf": "lance",
                 "joy_node": "enabled",
                 "robot_status": "enabled",
-                "robot_control": "lance1_ksc",
+                "mission_control": "lance1_ksc",
                 "redux": "client_mac_wifi",
-                "zone_viz": "ksc",
                 "perception": "lance1",
                 "foxglove_bridge": "all",
                 "bag_record": "all"
@@ -55,7 +54,7 @@
                 "joy_node": "enabled",
                 "robot_status": "enabled",
                 "redux": "client_mac_wifi",
-                "robot_control": "lance2_ksc",
+                "mission_control": "lance2_ksc",
                 "perception": "lidar_only",
                 "foxglove_bridge": "all"
             }
@@ -68,6 +67,7 @@
                 "joy_node": "enabled",
                 "robot_status": "enabled",
                 "robot_control": "lance2_ksc",
+                "mission_control": "lance2_ksc",
                 "motor_sim": "lance2",
                 "robot_tf": "lance2",
                 "foxglove_bridge": "all"

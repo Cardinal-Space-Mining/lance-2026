@@ -79,6 +79,11 @@ inline constexpr KeyTf composeKeyTf(KeyFrame from, KeyFrame to)
 }
 
 
+/* Collects primary robot transforms from a tf2_ros::Buffer. Note that the
+ * buffer must be connected to an external tf2_ros::Listener for it to get
+ * updated, and the internal state won't get updated unless the refresh()
+ * method is called! Use the getBuffer() method to connect the internal
+ * buffer instance to an external listener. */
 class TfCache
 {
 public:
@@ -92,6 +97,11 @@ public:
 
 public:
     TfCache(rclcpp::Node&, const RobotParams&);
+    TfCache(
+        rclcpp::Node&,
+        const std::string& arena_frame_id,
+        const std::string& odom_frame_id,
+        const std::string& robot_frame_id);
 
 public:
     void refresh();

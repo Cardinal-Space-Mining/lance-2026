@@ -52,6 +52,7 @@ namespace lance
 class AutoMiningController
 {
     friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
 
     using GenericPubMap = util::GenericPubMap;
 

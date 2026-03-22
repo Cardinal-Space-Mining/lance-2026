@@ -49,16 +49,16 @@
 
 #include <std_msgs/msg/int8.hpp>
 #include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/string.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
+
+#include <net_adapter/msg/bytes.hpp>
 
 #include "util/ros_utils.hpp"
 #include "util/zenoh_utils.hpp"
 #include "util/delay_queue.hpp"
 
 #include "adapters/joy_adapter.hpp"
-#include "adapters/path_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
 #include "adapters/generic_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
@@ -84,10 +84,10 @@ public:
 private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
-    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
     using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
+    using BytesAdapter = GenericAdapter<net_adapter::msg::Bytes>;
 
 private:
     template<typename AdapterT, DataFlow D>
@@ -187,8 +187,7 @@ private:
 
     TalonFBChannelsGroup<ROBOT_TO_CLIENT> talon_feedback;
 
-    Channel<PathAdapter, ROBOT_TO_CLIENT> path;
-    Channel<StdStringAdapter, ROBOT_TO_CLIENT> op_status;
+    Channel<BytesAdapter, ROBOT_TO_CLIENT> telemetry;
     Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
 
     SimClockChannel<ROBOT_TO_CLIENT> sim_clock;
@@ -233,8 +232,7 @@ EndPointNode<E>::EndPointNode() :
          "lance/hopper_belt",
          "lance/hopper_act"})},
 
-    path{PARAMS_FROM_TOPIC("cardinal_perception/planned_path")},
-    op_status{PARAMS_FROM_TOPIC("lance/op_status")},
+    telemetry{PARAMS_FROM_TOPIC("lance/telemetry")},
     relay_status{PARAMS_FROM_TOPIC("lance/relay_status")},
 
     sim_clock{PARAMS_FROM_TOPIC_SIM("/clock")}

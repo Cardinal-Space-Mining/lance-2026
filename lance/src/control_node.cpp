@@ -38,14 +38,12 @@
 *******************************************************************************/
 
 #include <chrono>
+#include <iostream>
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/float64.hpp>
 #include <sensor_msgs/msg/joy.hpp>
-#include <sensor_msgs/msg/joint_state.hpp>
 
 #include <csm_metrics/profiling.hpp>
 
@@ -53,15 +51,14 @@
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
 
-#include "robot/core/robot_math.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/control/robot_controller.hpp"
+#include "robot/telemetry/telemetry.hpp"
 
 
 #define ROBOT_TOPIC(subtopic) "lance/" subtopic
 #define TALON_CTRL_PUB_QOS                                               \
     rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
-#define HOPPER_JOINT_NAME "hopper_joint"
 
 using namespace std::chrono_literals;
 using namespace util::ros_aliases;
@@ -73,11 +70,11 @@ class RobotControlNode : public rclcpp::Node
     using JoyState = util::JoyState;
     using GenericPubMap = util::GenericPubMap;
 
-    using BoolMsg = std_msgs::msg::Bool;
-    using Int32Msg = std_msgs::msg::Int32;
-    using Float64Msg = std_msgs::msg::Float64;
     using JoyMsg = sensor_msgs::msg::Joy;
-    using JointStateMsg = sensor_msgs::msg::JointState;
+    using Int32Msg = std_msgs::msg::Int32;
+
+public:
+    RobotControlNode();
 
 protected:
     struct TalonPubSub
@@ -86,16 +83,10 @@ protected:
         SharedSub<TalonInfoMsg> info_sub;
     };
 
-public:
-    RobotControlNode();
-
-private:
-    void publishHopperJoint();
-    void publishCollectionState();
-
 private:
     GenericPubMap pub_map;
     RobotController robot_controller;
+    TelemetrySerializer telemetry;
 
     TalonPubSub track_right_pub_sub;
     TalonPubSub track_left_pub_sub;
@@ -134,6 +125,7 @@ RobotControlNode::RobotControlNode() :
     Node{"robot_control"},
     pub_map{*this, "", rclcpp::SensorDataQoS{}},
     robot_controller{*this, this->pub_map},
+    telemetry{*this, 1.f},
 
     INIT_TALON_PUB_SUB(track_right, track_right),
     INIT_TALON_PUB_SUB(track_left, track_left),
@@ -180,57 +172,13 @@ RobotControlNode::RobotControlNode() :
             this->hopper_actuator_pub_sub.ctrl_pub->publish(
                 commands.hopper_actuator);
 
-            this->publishHopperJoint();
-            this->publishCollectionState();
+            this->telemetry.update(commands, this->robot_controller);
 
             PROFILING_NOTIFY_ALWAYS(iterate_control);
             PROFILING_FLUSH();
         })}
 {
     std::cout << "LANCE-" << LANCE << " controller initialized!" << std::endl;
-}
-
-void RobotControlNode::publishHopperJoint()
-{
-    JointStateMsg joint_msg;
-    joint_msg.header = this->robot_motor_status.hopper_actuator.header;
-    joint_msg.name.push_back(HOPPER_JOINT_NAME);
-    joint_msg.position.push_back(
-        lance::linearActuatorToJointAngle(
-            this->robot_motor_status.getHopperActNormalizedValue()));
-    this->pub_map.publish("joint_states", joint_msg);
-}
-void RobotControlNode::publishCollectionState()
-{
-    const HopperState& hopper_state = this->robot_controller.hopperState();
-
-    this->pub_map.publish(
-        "collection_state/is_full_volume",
-        BoolMsg{}.set__data(hopper_state.isVolCapacity()));
-    this->pub_map.publish(
-        "collection_state/is_full_occ",
-        BoolMsg{}.set__data(hopper_state.isBeltCapacity()));
-    this->pub_map.publish(
-        "collection_state/volume",
-        Float64Msg{}.set__data(hopper_state.volume()));
-    this->pub_map.publish(
-        "collection_state/mining_target",
-        Float64Msg{}.set__data(hopper_state.miningTargetMotorPosition()));
-    this->pub_map.publish(
-        "collection_state/offload_target",
-        Float64Msg{}.set__data(hopper_state.offloadTargetMotorPosition()));
-    this->pub_map.publish(
-        "collection_state/belt_pos_m",
-        Float64Msg{}.set__data(hopper_state.beltPosMeters()));
-    this->pub_map.publish(
-        "collection_state/high_pos_m",
-        Float64Msg{}.set__data(hopper_state.startPosMeters()));
-    this->pub_map.publish(
-        "collection_state/low_pos_m",
-        Float64Msg{}.set__data(hopper_state.endPosMeters()));
-    this->pub_map.publish(
-        "collection_state/belt_usage_m",
-        Float64Msg{}.set__data(hopper_state.beltUsageMeters()));
 }
 
 

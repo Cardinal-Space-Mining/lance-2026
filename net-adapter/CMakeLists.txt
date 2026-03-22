@@ -71,21 +71,21 @@ ament_target_dependencies(adapters_core
 add_executable(robot_endpoint
     "src/robot_endpoint.cpp")
 target_link_libraries(robot_endpoint
-    adapters_core
+    adapters_core)
     # csm_metrics::profiling
-    zenohcxx::zenohc)
-ament_target_dependencies(robot_endpoint
-    rclcpp)
+    # zenohcxx::zenohc)
+# ament_target_dependencies(robot_endpoint
+#     rclcpp)
     # csm_metrics)
 
 add_executable(client_endpoint
     "src/client_endpoint.cpp")
 target_link_libraries(client_endpoint
-    adapters_core
+    adapters_core)
     # csm_metrics::profiling
-    zenohcxx::zenohc)
-ament_target_dependencies(client_endpoint
-    rclcpp)
+    # zenohcxx::zenohc)
+# ament_target_dependencies(client_endpoint
+#     rclcpp)
     # csm_metrics)
 
 # --- Export -------------------------------------------------------------------

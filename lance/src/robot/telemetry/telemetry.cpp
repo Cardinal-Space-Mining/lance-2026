@@ -37,10 +37,12 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "serialization.hpp"
+#include "telemetry.hpp"
 
 #include <cstdint>
+#include <sstream>
 
+#include "util/time_cvt.hpp"
 #include "util/ros_utils.hpp"
 #include "util/mem_helpers.hpp"
 
@@ -79,8 +81,8 @@ enum class ControllerType : uint8_t
 {
     INVALID_ID = 0,
 
-    AUTO,
     TELEOP,
+    AUTO,
 
     AUTO_MINING,
     AUTO_OFFLOAD,
@@ -91,16 +93,18 @@ enum class ControllerType : uint8_t
     TRAVERSAL
 };
 
+#define AS_U8(x) static_cast<uint8_t>(x)
 
 
 // --- Serializer --------------------------------------------------------------
 
-TelemetrySerializer::TelemetrySerializer(RclNode& node) :
+TelemetrySerializer::TelemetrySerializer(
+    RclNode& node,
+    float pub_throttle_freq) :
     pub{node.create_publisher<BytesMsg>(
         TELEMETRY_TOPIC,
         rclcpp::SensorDataQoS{})},
-    throttled_pub_freq{
-        declare_and_get_param(node, "telemetry/throttled_pub_freq", 1.f)}
+    throttled_pub_freq{pub_throttle_freq}
 {
 }
 
@@ -148,7 +152,7 @@ void TelemetrySerializer::addMotorCommands(
     bytes.resize(bytes.size() + RESERVE_SIZE);
     Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
 
-    writeAndIncrement(ptr, static_cast<uint8_t>(TelemetryType::MOTOR_CTRL));
+    writeAndIncrement(ptr, AS_U8(TelemetryType::MOTOR_CTRL));
 
 #define WRITE_MOTOR(m)                                       \
     writeAndIncrement(ptr, motor_commands.m.mode);           \
@@ -167,14 +171,14 @@ void TelemetrySerializer::addArenaTf(Bytes& bytes, const TfCache& tf_cache)
 {
     constexpr size_t RESERVE_SIZE = (sizeof(uint8_t) + (sizeof(float) * 7));
 
-    if (tf_cache.hasTf(ARENA_TO_ODOM_TF) && this->filterFreq(this->last_tf_pub))
+    if (tf_cache.hasTf(ODOM_TO_ARENA_TF) && this->filterFreq(this->last_tf_pub))
     {
-        const auto* tf = tf_cache.getTf(ARENA_TO_ODOM_TF);
+        const auto* tf = tf_cache.getTf(ODOM_TO_ARENA_TF);
 
         bytes.resize(bytes.size() + RESERVE_SIZE);
         Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
 
-        writeAndIncrement(ptr, static_cast<uint8_t>(TelemetryType::ARENA_TF));
+        writeAndIncrement(ptr, AS_U8(TelemetryType::ARENA_TF));
 
         writeAndIncrement(ptr, tf->pose.vec.x());
         writeAndIncrement(ptr, tf->pose.vec.y());
@@ -195,15 +199,12 @@ void TelemetrySerializer::addCollectionState(
     bytes.resize(bytes.size() + RESERVE_SIZE);
     Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
 
-    writeAndIncrement(
-        ptr,
-        static_cast<uint8_t>(TelemetryType::COLLECTION_STATE));
+    writeAndIncrement(ptr, AS_U8(TelemetryType::COLLECTION_STATE));
 
     const HopperState& hopper_state = collection_state.getHopperState();
 
-    const uint8_t bool_fields =
-        static_cast<uint8_t>(hopper_state.isVolCapacity()) |
-        (static_cast<uint8_t>(hopper_state.isBeltCapacity()) << 1);
+    const uint8_t bool_fields = AS_U8(hopper_state.isVolCapacity()) |
+                                (AS_U8(hopper_state.isBeltCapacity()) << 1);
     writeAndIncrement(ptr, bool_fields);
 
     writeAsAndIncrement<float>(ptr, hopper_state.volume());
@@ -224,7 +225,7 @@ void TelemetrySerializer::addControlState(
         return;
     }
 
-    bytes.push_back(static_cast<uint8_t>(TelemetryType::CTRL_STATE));
+    bytes.push_back(AS_U8(TelemetryType::CTRL_STATE));
 
     switch (robot_controller.control_mode)
     {
@@ -246,6 +247,41 @@ void TelemetrySerializer::addControlState(
     }
 }
 
+void TelemetrySerializer::addTeleopController(
+    Bytes& bytes,
+    const TeleopController& controller)
+{
+    using Op = TeleopController::Operation;
+
+    // TODO: pack these
+    bytes.push_back(AS_U8(ControllerType::TELEOP));
+    bytes.push_back(AS_U8(controller.op_mode));
+
+    switch (controller.op_mode)
+    {
+        case Op::ASSISTED_MINING:
+        case Op::PRESET_MINING:
+        {
+            this->addMiningController(bytes, controller.mining_controller);
+            break;
+        }
+        case Op::ASSISTED_OFFLOAD:
+        case Op::PRESET_OFFLOAD:
+        {
+            this->addOffloadController(bytes, controller.offload_controller);
+            break;
+        }
+        case Op::AUTO_TRAVERSAL:
+        {
+            this->addTravController(bytes, controller.traversal_controller);
+            break;
+        }
+        default:
+        {
+        }
+    }
+}
+
 void TelemetrySerializer::addAutoController(
     Bytes& bytes,
     const AutoController& controller)
@@ -253,8 +289,8 @@ void TelemetrySerializer::addAutoController(
     using Stage = AutoController::Stage;
 
     // TODO: pack these into the same byte (*reliably*)
-    bytes.push_back(static_cast<uint8_t>(ControllerType::AUTO));
-    bytes.push_back(static_cast<uint8_t>(controller.stage));
+    bytes.push_back(AS_U8(ControllerType::AUTO));
+    bytes.push_back(AS_U8(controller.stage));
 
     switch (controller.stage)
     {
@@ -291,41 +327,6 @@ void TelemetrySerializer::addAutoController(
     }
 }
 
-void TelemetrySerializer::addTeleopController(
-    Bytes& bytes,
-    const TeleopController& controller)
-{
-    using Op = TeleopController::Operation;
-
-    // TODO: pack these
-    bytes.push_back(static_cast<uint8_t>(ControllerType::TELEOP));
-    bytes.push_back(static_cast<uint8_t>(controller.op_mode));
-
-    switch (controller.op_mode)
-    {
-        case Op::ASSISTED_MINING:
-        case Op::PRESET_MINING:
-        {
-            this->addMiningController(bytes, controller.mining_controller);
-            break;
-        }
-        case Op::ASSISTED_OFFLOAD:
-        case Op::PRESET_OFFLOAD:
-        {
-            this->addOffloadController(bytes, controller.offload_controller);
-            break;
-        }
-        case Op::AUTO_TRAVERSAL:
-        {
-            this->addTravController(bytes, controller.traversal_controller);
-            break;
-        }
-        default:
-        {
-        }
-    }
-}
-
 void TelemetrySerializer::addAutoMiningController(
     Bytes& bytes,
     const AutoMiningController& controller)
@@ -333,8 +334,8 @@ void TelemetrySerializer::addAutoMiningController(
     using Stage = AutoMiningController::Stage;
 
     // TODO: pack these
-    bytes.push_back(static_cast<uint8_t>(ControllerType::AUTO_MINING));
-    bytes.push_back(static_cast<uint8_t>(controller.stage));
+    bytes.push_back(AS_U8(ControllerType::AUTO_MINING));
+    bytes.push_back(AS_U8(controller.stage));
 
     // TODO: push planned swath
 
@@ -363,8 +364,8 @@ void TelemetrySerializer::addAutoOffloadController(
     using Stage = AutoOffloadController::Stage;
 
     // TODO: pack these
-    bytes.push_back(static_cast<uint8_t>(ControllerType::AUTO_OFFLOAD));
-    bytes.push_back(static_cast<uint8_t>(controller.stage));
+    bytes.push_back(AS_U8(ControllerType::AUTO_OFFLOAD));
+    bytes.push_back(AS_U8(controller.stage));
 
     // TODO: push planned zone
 
@@ -390,11 +391,9 @@ void TelemetrySerializer::addMiningController(
     Bytes& bytes,
     const MiningController& controller)
 {
-    // using Stage = MiningController::Stage;
-
     // TODO: pack these
-    bytes.push_back(static_cast<uint8_t>(ControllerType::MINING));
-    bytes.push_back(static_cast<uint8_t>(controller.stage));
+    bytes.push_back(AS_U8(ControllerType::MINING));
+    bytes.push_back(AS_U8(controller.stage));
 
     bytes.resize(bytes.size() + sizeof(float));
     write(
@@ -406,11 +405,9 @@ void TelemetrySerializer::addOffloadController(
     Bytes& bytes,
     const OffloadController& controller)
 {
-    // using Stage = OffloadController::Stage;
-
     // TODO: pack these
-    bytes.push_back(static_cast<uint8_t>(ControllerType::OFFLOAD));
-    bytes.push_back(static_cast<uint8_t>(controller.stage));
+    bytes.push_back(AS_U8(ControllerType::OFFLOAD));
+    bytes.push_back(AS_U8(controller.stage));
 
     bytes.resize(bytes.size() + sizeof(float));
     write(
@@ -422,22 +419,18 @@ void TelemetrySerializer::addLocController(
     Bytes& bytes,
     const LocalizationController& controller)
 {
-    // using Stage = LocalizationController::Stage;
-
     // TODO: pack these
-    bytes.push_back(static_cast<uint8_t>(ControllerType::LOCALIZATION));
-    bytes.push_back(static_cast<uint8_t>(controller.stage));
+    bytes.push_back(AS_U8(ControllerType::LOCALIZATION));
+    bytes.push_back(AS_U8(controller.stage));
 }
 
 void TelemetrySerializer::addTravController(
     Bytes& bytes,
     const TraversalController& controller)
 {
-    // using Stage = TraversalController::State;
-
     // TODO: pack these
-    bytes.push_back(static_cast<uint8_t>(ControllerType::TRAVERSAL));
-    bytes.push_back(static_cast<uint8_t>(controller.state));
+    bytes.push_back(AS_U8(ControllerType::TRAVERSAL));
+    bytes.push_back(AS_U8(controller.state));
 
     if (controller.last_path.get() && this->filterFreq(this->last_path_pub))
     {
@@ -453,7 +446,7 @@ void TelemetrySerializer::addTravController(
         bytes.resize(bytes.size() + reserve_size);
         Byte* ptr = (bytes.end() - reserve_size).base();
 
-        writeAndIncrement(ptr, static_cast<uint8_t>(poses.size()));
+        writeAndIncrement(ptr, static_cast<uint32_t>(poses.size()));
 
         for (const auto& p : poses)
         {
@@ -468,53 +461,61 @@ void TelemetrySerializer::addTravController(
 
 // --- Deserializer ------------------------------------------------------------
 
-TelemetryDeserializer::TelemetryDeserializer(RclNode& node) :
-    pub_map{node, "/lance", rclcpp::SensorDataQoS{}},
+TelemetryDeserializer::TelemetryDeserializer(RclNode& node, TfCache& tf_cache) :
+    pub_map{node, "lance", rclcpp::SensorDataQoS{}},
+    tf_cache{tf_cache},
     tf_broadcaster{node},
     rcl_clock{node.get_clock()},
     sub{node.create_subscription<BytesMsg>(
         TELEMETRY_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })},
-    odom_frame_id{},
-    arena_frame_id{}
+        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })}
 {
 }
+
+
+TelemetryDeserializer::GenericPubMap& TelemetryDeserializer::getPubMap()
+{
+    return this->pub_map;
+}
+
 
 void TelemetryDeserializer::accept(const BytesMsg& msg)
 {
     this->ctrl_chain.clear();
+    this->tf_cache.refresh();
 
     const Byte* ptr = msg.data.data();
+    const Byte* const end_ptr = msg.data.end().base();
     bool ok = true;
-    while (ok && ptr < msg.data.end().base())
+    while (ok && ptr < end_ptr)
     {
-        uint8_t id = static_cast<uint8_t>(TelemetryType::INVALID_ID);
+        uint8_t id = AS_U8(TelemetryType::INVALID_ID);
         readAndIncrement(ptr, id);
 
         switch (id)
         {
-            case static_cast<uint8_t>(TelemetryType::MOTOR_CTRL):
+            case AS_U8(TelemetryType::MOTOR_CTRL):
             {
-                ok &= this->pubMotorCommands(ptr);
+                ok &= this->pubMotorCommands(ptr, end_ptr);
                 break;
             }
-            case static_cast<uint8_t>(TelemetryType::ARENA_TF):
+            case AS_U8(TelemetryType::ARENA_TF):
             {
-                ok &= this->pubArenaTf(ptr);
+                ok &= this->pubArenaTf(ptr, end_ptr);
                 break;
             }
-            case static_cast<uint8_t>(TelemetryType::COLLECTION_STATE):
+            case AS_U8(TelemetryType::COLLECTION_STATE):
             {
-                ok &= this->pubCollectionState(ptr);
+                ok &= this->pubCollectionState(ptr, end_ptr);
                 break;
             }
-            case static_cast<uint8_t>(TelemetryType::CTRL_STATE):
+            case AS_U8(TelemetryType::CTRL_STATE):
             {
-                ok &= this->pubControlState(ptr);
+                ok &= this->pubControlState(ptr, end_ptr);
                 break;
             }
-            case static_cast<uint8_t>(TelemetryType::INVALID_ID):
+            case AS_U8(TelemetryType::INVALID_ID):
             default:
             {
                 ok = false;
@@ -522,11 +523,34 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
         }
     }
 
-    // publish ctrl state strings from chain
+    if (this->ctrl_chain.empty())
+    {
+        this->pub_map.publish<std_msgs::msg::String>("op_status", "Disabled");
+    }
+    else
+    {
+        std::ostringstream ss;
+        ss << this->ctrl_chain.front();
+        for (size_t i = 1; i < this->ctrl_chain.size(); i++)
+        {
+            ss << " : " << this->ctrl_chain[i];
+        }
+
+        this->pub_map.publish<std_msgs::msg::String>("op_status", ss.str());
+    }
 }
 
-bool TelemetryDeserializer::pubMotorCommands(ReadPtr ptr)
+
+#define EXIT_IF_INSUFFICIENT_SIZE(x) \
+    if (ptr + (x) > end)             \
+    {                                \
+        return false;                \
+    }
+
+bool TelemetryDeserializer::pubMotorCommands(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE((sizeof(uint8_t) + sizeof(float)) * 5)
+
     constexpr char const* MOTOR_CTRL_TOPICS[] = {
         "track_right/ctrl",
         "track_left/ctrl",
@@ -547,8 +571,10 @@ bool TelemetryDeserializer::pubMotorCommands(ReadPtr ptr)
     return true;
 }
 
-bool TelemetryDeserializer::pubArenaTf(ReadPtr ptr)
+bool TelemetryDeserializer::pubArenaTf(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(float) * 7);
+
     geometry_msgs::msg::TransformStamped msg;
 
     readAsAndIncrement<float>(ptr, msg.transform.translation.x);
@@ -559,17 +585,29 @@ bool TelemetryDeserializer::pubArenaTf(ReadPtr ptr)
     readAsAndIncrement<float>(ptr, msg.transform.rotation.y);
     readAsAndIncrement<float>(ptr, msg.transform.rotation.z);
 
-    msg.child_frame_id = this->odom_frame_id;
-    msg.header.frame_id = this->arena_frame_id;
-    msg.header.stamp = this->rcl_clock->now();
+    msg.child_frame_id = this->tf_cache.odom_frame_id;
+    msg.header.frame_id = this->tf_cache.arena_frame_id;
+
+    // NOTE: this is a really stupid hack to deal with the way that perception
+    // republishes old alignment transforms (only a problem when running a sim)
+    if (this->tf_cache.hasTf(ARENA_TO_ODOM_TF))
+    {
+        msg.header.stamp = toTimeMsg(this->tf_cache.getStamp(ARENA_TO_ODOM_TF));
+    }
+    else
+    {
+        msg.header.stamp = this->rcl_clock->now();
+    }
 
     this->tf_broadcaster.sendTransform(msg);
 
     return true;
 }
 
-bool TelemetryDeserializer::pubCollectionState(ReadPtr ptr)
+bool TelemetryDeserializer::pubCollectionState(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + (sizeof(float) * 7))
+
     constexpr char const* FLOAT_TOPICS[] = {
         "collection_state/volume",
         "collection_state/mining_target",
@@ -600,22 +638,24 @@ bool TelemetryDeserializer::pubCollectionState(ReadPtr ptr)
     return true;
 }
 
-bool TelemetryDeserializer::pubControlState(ReadPtr ptr)
+bool TelemetryDeserializer::pubControlState(BytePtrRef ptr, BytePtr end)
 {
-    uint8_t ctrl_id = static_cast<uint8_t>(ControllerType::INVALID_ID);
+    EXIT_IF_INSUFFICIENT_SIZE(1)
+
+    uint8_t ctrl_id = AS_U8(ControllerType::INVALID_ID);
     readAndIncrement(ptr, ctrl_id);
 
-    switch(ctrl_id)
+    switch (ctrl_id)
     {
-        case static_cast<uint8_t>(ControllerType::TELEOP):
+        case AS_U8(ControllerType::TELEOP):
         {
             this->ctrl_chain.push_back("Teleop");
-            return this->pubTeleopController(ptr);
+            return this->pubTeleopController(ptr, end);
         }
-        case static_cast<uint8_t>(ControllerType::AUTO):
+        case AS_U8(ControllerType::AUTO):
         {
             this->ctrl_chain.push_back("Auto");
-            return this->pubAutoController(ptr);
+            return this->pubAutoController(ptr, end);
         }
         default:
         {
@@ -624,45 +664,333 @@ bool TelemetryDeserializer::pubControlState(ReadPtr ptr)
     }
 }
 
-bool TelemetryDeserializer::pubAutoController(ReadPtr ptr)
+bool TelemetryDeserializer::pubDerivedController(BytePtrRef ptr, BytePtr end)
 {
-    // uint8_t 
+    EXIT_IF_INSUFFICIENT_SIZE(1)
+
+    uint8_t ctrl_id = AS_U8(ControllerType::INVALID_ID);
+    readAndIncrement(ptr, ctrl_id);
+
+    switch (ctrl_id)
+    {
+        case AS_U8(ControllerType::TELEOP):
+        {
+            return this->pubTeleopController(ptr, end);
+        }
+        case AS_U8(ControllerType::AUTO):
+        {
+            return this->pubAutoController(ptr, end);
+        }
+        case AS_U8(ControllerType::AUTO_MINING):
+        {
+            return this->pubAutoMiningController(ptr, end);
+        }
+        case AS_U8(ControllerType::AUTO_OFFLOAD):
+        {
+            return this->pubAutoOffloadController(ptr, end);
+        }
+        case AS_U8(ControllerType::MINING):
+        {
+            return this->pubMiningController(ptr, end);
+        }
+        case AS_U8(ControllerType::OFFLOAD):
+        {
+            return this->pubOffloadController(ptr, end);
+        }
+        case AS_U8(ControllerType::LOCALIZATION):
+        {
+            return this->pubLocController(ptr, end);
+        }
+        case AS_U8(ControllerType::TRAVERSAL):
+        {
+            return this->pubTravController(ptr, end);
+        }
+        default:
+        {
+        }
+    }
+
+    return false;
 }
 
-bool TelemetryDeserializer::pubTeleopController(ReadPtr ptr)
+bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(1)
 
+    constexpr char const* OP_TAGS[] = {
+        "Manual",
+        "Assisted Mining",
+        "Assisted Offload",
+        "Preset Mining",
+        "Preset Offload",
+        "Assisted Trav"};
+
+    using Op = TeleopController::Operation;
+
+    uint8_t stage_id;
+    readAndIncrement(ptr, stage_id);
+
+    switch (stage_id)
+    {
+        case AS_U8(Op::ASSISTED_MINING):
+        case AS_U8(Op::PRESET_MINING):
+        case AS_U8(Op::ASSISTED_OFFLOAD):
+        case AS_U8(Op::PRESET_OFFLOAD):
+        case AS_U8(Op::AUTO_TRAVERSAL):
+        {
+            this->ctrl_chain.push_back(OP_TAGS[stage_id]);
+
+            // All these operations chain a controller which should be read
+            return this->pubDerivedController(ptr, end);
+        }
+        case AS_U8(Op::MANUAL):
+        {
+            this->ctrl_chain.push_back(OP_TAGS[stage_id]);
+
+            // Manual mode doesn't add any additional data, directly return
+            return true;
+        }
+        default:
+        {
+        }
+    }
+
+    return false;
 }
 
-bool TelemetryDeserializer::pubAutoMiningController(ReadPtr ptr)
+bool TelemetryDeserializer::pubAutoController(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(1)
 
+    constexpr char const* STAGE_TAGS[] = {
+        "Localize",
+        "Trav To Mining",
+        "Auto Mining",
+        "Trav To Offload",
+        "Auto Offload"};
+
+    using Stage = AutoController::Stage;
+
+    uint8_t stage_id;
+    readAndIncrement(ptr, stage_id);
+
+    switch (stage_id)
+    {
+        case AS_U8(Stage::LOCALIZATION):
+        case AS_U8(Stage::TRAVERSE_TO_MINING):
+        case AS_U8(Stage::TRAVERSE_TO_OFFLOAD):
+        case AS_U8(Stage::MINING):
+        case AS_U8(Stage::OFFLOAD):
+        {
+            this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+
+            // All stages chain another controller
+            return this->pubDerivedController(ptr, end);
+        }
+        default:
+        {
+        }
+    }
+
+    return false;
 }
 
-bool TelemetryDeserializer::pubAutoOffloadController(ReadPtr ptr)
+bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(1)
 
+    constexpr char const* STAGE_TAGS[] =
+        {"Initializing", "Planning", "Traversing", "Mining", "Finished"};
+
+    using Stage = AutoMiningController::Stage;
+
+    uint8_t stage_id;
+    readAndIncrement(ptr, stage_id);
+
+    // TODO: extract planned swath
+
+    switch (stage_id)
+    {
+        case AS_U8(Stage::TRAVERSING):
+        case AS_U8(Stage::MINING):
+        {
+            this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+
+            // These options chain another controller
+            return this->pubDerivedController(ptr, end);
+        }
+        case AS_U8(Stage::INITIALIZATION):
+        case AS_U8(Stage::PLANNING):
+        case AS_U8(Stage::FINISHED):
+        {
+            this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+
+            // These stages do not
+            return true;
+        }
+        default:
+        {
+        }
+    }
+
+    return false;
 }
 
-bool TelemetryDeserializer::pubMiningController(ReadPtr ptr)
+bool TelemetryDeserializer::pubAutoOffloadController(
+    BytePtrRef ptr,
+    BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(1)
 
+    constexpr char const* STAGE_TAGS[] =
+        {"Initializing", "Planning", "Traversing", "Offloading", "Finished"};
+
+    using Stage = AutoOffloadController::Stage;
+
+    uint8_t stage_id;
+    readAndIncrement(ptr, stage_id);
+
+    // TODO: extract planned zone
+
+    switch (stage_id)
+    {
+        case AS_U8(Stage::TRAVERSING):
+        case AS_U8(Stage::OFFLOADING):
+        {
+            this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+
+            // Read the next chained controller
+            return this->pubDerivedController(ptr, end);
+        }
+        case AS_U8(Stage::INITIALIZATION):
+        case AS_U8(Stage::PLANNING):
+        case AS_U8(Stage::FINISHED):
+        {
+            this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+
+            // Nothing more to read
+            return true;
+        }
+        default:
+        {
+        }
+    }
+
+    return false;
 }
 
-bool TelemetryDeserializer::pubOffloadController(ReadPtr ptr)
+bool TelemetryDeserializer::pubMiningController(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(1)
 
+    constexpr char const* STAGE_TAGS[] =
+        {"Initializing", "Lowering", "Excavating", "Raising", "Finished"};
+
+    uint8_t stage_id;
+    readAndIncrement(ptr, stage_id);
+
+    if (stage_id < (sizeof(STAGE_TAGS) / sizeof(*STAGE_TAGS)))
+    {
+        this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+    }
+
+    return true;
 }
 
-bool TelemetryDeserializer::pubLocController(ReadPtr ptr)
+bool TelemetryDeserializer::pubOffloadController(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(1)
 
+    constexpr char const* STAGE_TAGS[] = {
+        "Initializing",
+        "Backing Up",
+        "Raising",
+        "Offloading",
+        "Lowering",
+        "Finished"};
+
+    uint8_t stage_id;
+    readAndIncrement(ptr, stage_id);
+
+    if (stage_id < (sizeof(STAGE_TAGS) / sizeof(*STAGE_TAGS)))
+    {
+        this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+    }
+
+    return true;
 }
 
-bool TelemetryDeserializer::pubTravController(ReadPtr ptr)
+bool TelemetryDeserializer::pubLocController(BytePtrRef ptr, BytePtr end)
 {
+    EXIT_IF_INSUFFICIENT_SIZE(1)
 
+    constexpr char const* STAGE_TAGS[] = {
+        "Initializing",
+        "Searching",
+        "Align Heading",
+        "Adjust Range",
+        "Finished"};
+
+    uint8_t stage_id;
+    readAndIncrement(ptr, stage_id);
+
+    if (stage_id < (sizeof(STAGE_TAGS) / sizeof(*STAGE_TAGS)))
+    {
+        this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+    }
+
+    return true;
 }
 
+bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
+{
+    EXIT_IF_INSUFFICIENT_SIZE(1)
+
+    constexpr char const* STAGE_TAGS[] = {
+        "Initializing",
+        "Tracking Path",
+        "Reorienting",
+        "Finished"};
+
+    uint8_t val;
+    readAndIncrement(ptr, val);
+
+    const uint8_t stage_id = (val & 0x7f);
+    if (stage_id < (sizeof(STAGE_TAGS) / sizeof(*STAGE_TAGS)))
+    {
+        this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+    }
+
+    // highest bit gets set when path data is written next
+    if (val & 0x80 && ptr)
+    {
+        EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint32_t))
+
+        uint32_t n_pts;
+        readAndIncrement(ptr, n_pts);
+
+        EXIT_IF_INSUFFICIENT_SIZE(sizeof(float) * 3 * n_pts)
+
+        if (n_pts)
+        {
+            nav_msgs::msg::Path msg;
+            msg.header.frame_id = this->tf_cache.odom_frame_id;
+            msg.header.stamp = this->rcl_clock->now();
+
+            msg.poses.resize(n_pts);
+            for (auto& p : msg.poses)
+            {
+                p.header = msg.header;
+                readAsAndIncrement<float>(ptr, p.pose.position.x);
+                readAsAndIncrement<float>(ptr, p.pose.position.y);
+                readAsAndIncrement<float>(ptr, p.pose.position.z);
+            }
+
+            this->pub_map.publish("traversal_path", msg);
+        }
+    }
+
+    return true;
+}
 
 };  // namespace lance

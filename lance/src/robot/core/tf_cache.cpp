@@ -54,6 +54,17 @@ TfCache::TfCache(rclcpp::Node& node, const RobotParams& params) :
     tf_buffer{node.get_clock()}
 {
 }
+TfCache::TfCache(
+    rclcpp::Node& node,
+    const std::string& arena_frame_id,
+    const std::string& odom_frame_id,
+    const std::string& robot_frame_id) :
+    arena_frame_id{arena_frame_id},
+    odom_frame_id{odom_frame_id},
+    robot_frame_id{robot_frame_id},
+    tf_buffer{node.get_clock()}
+{
+}
 
 void TfCache::refresh()
 {

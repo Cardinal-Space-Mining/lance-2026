@@ -199,7 +199,6 @@ void TeleopController::iterate(
     }
 
     this->handleClickedPoint(false);
-    this->publishState();
 }
 
 bool TeleopController::handleGlobalInputs(const JoyState& joy)
@@ -336,21 +335,6 @@ void TeleopController::handleTeleopInputs(
         }
         commands.setHopperActPercent(hopper_act_scalar);
     }
-}
-
-void TeleopController::publishState()
-{
-    static constexpr char const* OP_STRINGS[] = {
-        "Teleop Manual",
-        "Teleop Assisted Mining",
-        "Teleop Assisted Offload",
-        "Teleop Preset Mining",
-        "Teleop Preset Offload",
-        "Teleop Auto Traversal"};
-
-    this->pub_map.publish<std_msgs::msg::String, std::string>(
-        "lance/op_status",
-        OP_STRINGS[static_cast<size_t>(this->op_mode)]);
 }
 
 };  // namespace lance

@@ -58,6 +58,7 @@ namespace lance
 class LocalizationController
 {
     friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
 
     using RclNode = rclcpp::Node;
     using SetBoolSrv = std_srvs::srv::SetBool;

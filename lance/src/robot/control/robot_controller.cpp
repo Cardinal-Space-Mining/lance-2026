@@ -155,12 +155,8 @@ void RobotController::iterate(
             this->auto_controller.iterate(filtered_status, commands);
             break;
         }
-        case ControlMode::DISABLED:
-        {
-            this->pub_map.publish<std_msgs::msg::String, std::string>(
-                "lance/op_status",
-                "Disabled");
-        }
+        default:
+        {}
     }
 }
 
