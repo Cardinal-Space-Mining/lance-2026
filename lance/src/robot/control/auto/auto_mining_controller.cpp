@@ -38,16 +38,22 @@
 *******************************************************************************/
 
 #include "auto_mining_controller.hpp"
-#include "mining_planner.hpp"
+
 #include <Eigen/Core>
 
-std::function<float(float, float, float)> perception_eval_fn = [](float x, float y, float heading_deg) {
+#include "mining_planner.hpp"
+
+
+std::function<float(float, float, float)> perception_eval_fn =
+    [](float x, float y, float heading_deg)
+{
     // Temporary until perception service/client exists.
     // Replace with service call to perception when implemented.
     (void)x;
     (void)heading_deg;
     return std::max(0.0f, 10.0f - y);
 };
+
 
 namespace lance
 {
@@ -62,11 +68,7 @@ AutoMiningController::AutoMiningController(
     mining_controller{controllers.mining_controller},
 
     // Creates my implementation of the mining planner
-    mining_planner{
-        perception_eval_fn,
-        params,
-        this->params.mining_zone_bounds
-    }
+    mining_planner{perception_eval_fn, params, this->params.mining_zone_bounds}
 {
     (void)node;
 }
@@ -99,33 +101,37 @@ void AutoMiningController::iterate(
             if (false)  // *if not finished planning*
             {
                 // call query service, wait for response, determine best option
-                
+
                 break;
-                
-
-
-        
             }
+
             Eigen::Vector2f target_pos;
             Eigen::Vector2f target_dir;
 
             // I don't know how to do the query service, but the update_mapped_matrices() would call that a bunch of times
             // I don't think it would have to be called here because it really only needs to be called once (or very periodically)
-                // it saves the results in a matrix that is used later on
-            
+            // it saves the results in a matrix that is used later on
+
             // Wouldn't be a bad idea to check the best path it gives you one more time though
-                // The final ouput is sorted so the top has the highest quality
+            // The final ouput is sorted so the top has the highest quality
 
             DirectedMiningPaths paths = mining_planner.final_output();
-            if (paths.empty()) {
-                std::cout << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
+            if (paths.empty())
+            {
+                std::cout
+                    << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
                 this->stage = Stage::FINISHED;
                 break;
             }
-            else {
-                std::pair<Eigen::Vector2f,Eigen::Vector2f> base_output = paths.at(0).get_path_coordinates_in_world_frame(params.track_Width);
-                target_pos = base_output.first; // has the coords of where to start
-                target_dir = base_output.second; // has 1,0 -1,0 0,-1 or 0,1 depending on the path it is going
+            else
+            {
+                std::pair<Eigen::Vector2f, Eigen::Vector2f> base_output =
+                    paths.at(0).get_path_coordinates_in_world_frame(
+                        params.track_Width);
+                // has the coords of where to start
+                target_pos = base_output.first;
+                // has 1,0 -1,0 0,-1 or 0,1 depending on the path it is going
+                target_dir = base_output.second;
             }
 
             // placeholder for testing
@@ -177,6 +183,7 @@ void AutoMiningController::iterate(
         }
     }
 }
+
 };  // namespace lance
 
 

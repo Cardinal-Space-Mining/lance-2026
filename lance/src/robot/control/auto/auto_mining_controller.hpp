@@ -40,12 +40,11 @@
 #pragma once
 
 #include "robot/core/robot_params.hpp"
+#include "robot/core/mining_planner.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
 
 #include "robot/control/shared/shared_controllers.hpp"
-
-#include "mining_planner.hpp"
 
 
 namespace lance
@@ -87,6 +86,9 @@ protected:
     };
 
 protected:
+    float evalMiningDistance(float x, float y, float heading_deg) const;
+
+protected:
     GenericPubMap& pub_map;
     const RobotParams& params;
 
@@ -94,7 +96,6 @@ protected:
 
     TraversalController& traversal_controller;
     MiningController& mining_controller;
-    float evalMiningDistance(float x, float y, float heading_deg) const;
 };
 
 };  // namespace lance
