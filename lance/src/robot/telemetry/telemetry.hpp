@@ -52,7 +52,6 @@
 #include "util/pub_map.hpp"
 
 #include "robot/core/tf_cache.hpp"
-#include "robot/core/motor_interface.hpp"
 #include "robot/control/robot_controller.hpp"
 
 
@@ -85,12 +84,11 @@ public:
     TelemetrySerializer(RclNode& node, float pub_throttle_freq);
 
 public:
-    void update(const RobotMotorCommands&, const RobotController&);
+    void update(const RobotController&);
 
 protected:
     bool filterFreq(time_point&);
 
-    void addMotorCommands(Bytes&, const RobotMotorCommands&);
     void addArenaTf(Bytes&, const TfCache&);
     void addCollectionState(Bytes&, const CollectionState&);
     void addControlState(Bytes&, const RobotController&);
@@ -131,7 +129,6 @@ protected:
     void accept(const BytesMsg&);
 
 protected:
-    bool pubMotorCommands(BytePtrRef, BytePtr);
     bool pubArenaTf(BytePtrRef, BytePtr);
     bool pubCollectionState(BytePtrRef, BytePtr);
     bool pubControlState(BytePtrRef, BytePtr);

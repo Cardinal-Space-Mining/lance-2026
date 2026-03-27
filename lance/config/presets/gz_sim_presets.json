@@ -160,7 +160,6 @@
                 "robot_tf": "lance",
                 "joy_node": "enabled",
                 "robot_status": "enabled",
-                "robot_control": "lance1_ksc_sim",
                 "mission_control": "lance1_ksc_sim",
                 "redux": "client_dev_1_sim",
                 "perception": "lance1_sim",
@@ -173,7 +172,6 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance1_ucf_right_ms",
-                "robot_control": "lance1_ucf_right_sim",
                 "mission_control": "lance1_ucf_right_sim"
             }
         },
@@ -183,7 +181,6 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance1_ucf_left_ms",
-                "robot_control": "lance1_ucf_left_sim",
                 "mission_control": "lance1_ucf_left_sim"
             }
         },
@@ -195,7 +192,6 @@
                 "robot_tf": "lance2",
                 "joy_node": "enabled",
                 "robot_status": "enabled",
-                "robot_control": "lance2_ksc_sim",
                 "mission_control": "lance2_ksc_sim",
                 "redux": "client_dev_1_sim",
                 "perception": "lance2_sim",
@@ -208,7 +204,6 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance2_ucf_right_ms",
-                "robot_control": "lance2_ucf_right_sim",
                 "mission_control": "lance2_ucf_right_sim"
             }
         },
@@ -218,7 +213,6 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance2_ucf_left_ms",
-                "robot_control": "lance2_ucf_left_sim",
                 "mission_control": "lance2_ucf_left_sim"
             }
         }

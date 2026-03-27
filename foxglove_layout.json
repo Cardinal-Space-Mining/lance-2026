@@ -130,9 +130,9 @@
     "3D!wl899f": {
       "cameraState": {
         "perspective": false,
-        "distance": 8.362406704381613,
-        "phi": 69.56369047692286,
-        "thetaOffset": 89.8468105858876,
+        "distance": 7.169718448170314,
+        "phi": 0.7725894871752053,
+        "thetaOffset": 91.00560887294469,
         "targetOffset": [
           0,
           0,
@@ -227,6 +227,14 @@
           "gradient": [
             "#00caffff",
             "#ff00ffff"
+          ],
+          "lineWidth": 0.1
+        },
+        "/lance/traversal_path": {
+          "visible": true,
+          "gradient": [
+            "#ff00b5ff",
+            "#00f3ffff"
           ],
           "lineWidth": 0.1
         }
@@ -383,7 +391,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/info.position",
-          "enabled": true,
+          "enabled": false,
           "color": "#5cd6a9"
         },
         {
@@ -395,13 +403,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/collection_state/belt_usage_m.data",
-          "enabled": true,
+          "enabled": false,
           "color": "#a395e2"
         }
       ],
       "showXAxisLabels": true,
       "showYAxisLabels": true,
-      "showLegend": true,
+      "showLegend": false,
       "legendDisplay": "floating",
       "showPlotValuesInLegend": true,
       "isSynced": true,
@@ -594,13 +602,13 @@
     "3D!18yg16o": {
       "cameraState": {
         "perspective": true,
-        "distance": 8.80253337298892,
-        "phi": 8.286216851434741,
-        "thetaOffset": 25.704288499255156,
+        "distance": 8.362406704381648,
+        "phi": 5.52141499262802,
+        "thetaOffset": -139.38773586903528,
         "targetOffset": [
-          1.0769504752232626,
-          -0.09111328206670344,
-          -3.4860165477495006e-17
+          -0.37689614062994564,
+          -2.9071774719985553,
+          1.83336581754239e-24
         ],
         "target": [
           0,
@@ -828,13 +836,13 @@
     "3D!3qwg4qu": {
       "cameraState": {
         "perspective": true,
-        "distance": 8.80253337298892,
-        "phi": 8.286216851434741,
-        "thetaOffset": 25.704288499255156,
+        "distance": 8.362406704381648,
+        "phi": 5.52141499262802,
+        "thetaOffset": -139.38773586903528,
         "targetOffset": [
-          1.0769504752232626,
-          -0.09111328206670344,
-          -3.4860165477495006e-17
+          -0.37689614062994564,
+          -2.9071774719985553,
+          1.83336581754239e-24
         ],
         "target": [
           0,
@@ -1108,13 +1116,13 @@
     "3D!hllzd3": {
       "cameraState": {
         "perspective": true,
-        "distance": 8.80253337298892,
-        "phi": 8.286216851434741,
-        "thetaOffset": 25.704288499255156,
+        "distance": 8.362406704381648,
+        "phi": 5.52141499262802,
+        "thetaOffset": -139.38773586903528,
         "targetOffset": [
-          1.0769504752232626,
-          -0.09111328206670344,
-          -3.4860165477495006e-17
+          -0.37689614062994564,
+          -2.9071774719985553,
+          1.83336581754239e-24
         ],
         "target": [
           0,
@@ -1350,13 +1358,13 @@
     "3D!q6dbn4": {
       "cameraState": {
         "perspective": true,
-        "distance": 8.80253337298892,
-        "phi": 8.286216851434741,
-        "thetaOffset": 25.704288499255156,
+        "distance": 8.362406704381648,
+        "phi": 5.52141499262802,
+        "thetaOffset": -139.38773586903528,
         "targetOffset": [
-          1.0769504752232626,
-          -0.09111328206670344,
-          -3.4860165477495006e-17
+          -0.37689614062994564,
+          -2.9071774719985553,
+          1.83336581754239e-24
         ],
         "target": [
           0,
@@ -5644,6 +5652,73 @@
     "RawMessages!432nadh": {
       "topicPath": "/lance/telemetry"
     },
+    "Plot!8zai14": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/track_right/ctrl_telem.value",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "e2f6e388-5238-44ba-bde8-69950b421d27"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/track_right/ctrl.value",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "6baaadba-e56e-421f-945c-991ae59967b6"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/collection_state/volume.data",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "9af55371-0a48-4958-89f0-64459a00d8e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/trencher/ctrl.value",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "id": "e2476013-5a00-430d-99ed-7181962acdf2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/trencher/ctrl_telem.value",
+          "enabled": true,
+          "color": "#61cbff",
+          "id": "43192fca-e26f-44bb-a6d0-7950a6f11adc"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/track_left/ctrl.value",
+          "enabled": true,
+          "color": "#a395e2",
+          "id": "de501f5d-3d8b-42f7-98d6-eb787557b3d1"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/track_left/ctrl_telem.value",
+          "enabled": true,
+          "color": "#cad660",
+          "id": "7294dede-c17f-4149-b4e3-f20d56282af8"
+        }
+      ],
+      "showPlotValuesInLegend": true
+    },
+    "StateTransitions!3v4cn7r": {
+      "paths": [
+        {
+          "value": "/lance/op_status.data",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
+        }
+      ],
+      "isSynced": true
+    },
     "Tab!1nwcji4": {
       "activeTabIdx": 0,
       "tabs": [
@@ -6089,7 +6164,17 @@
         },
         {
           "title": "",
-          "layout": "RawMessages!432nadh"
+          "layout": {
+            "first": "RawMessages!432nadh",
+            "second": {
+              "first": "Plot!8zai14",
+              "second": "StateTransitions!3v4cn7r",
+              "direction": "column",
+              "splitPercentage": 69.31974122721036
+            },
+            "direction": "column",
+            "splitPercentage": 20.259496639049555
+          }
         }
       ]
     }

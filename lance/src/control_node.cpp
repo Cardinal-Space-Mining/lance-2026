@@ -172,7 +172,7 @@ RobotControlNode::RobotControlNode() :
             this->hopper_actuator_pub_sub.ctrl_pub->publish(
                 commands.hopper_actuator);
 
-            this->telemetry.update(commands, this->robot_controller);
+            this->telemetry.update(this->robot_controller);
 
             PROFILING_NOTIFY_ALWAYS(iterate_control);
             PROFILING_FLUSH();

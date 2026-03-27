@@ -71,7 +71,6 @@ enum class TelemetryType : uint8_t
 {
     INVALID_ID = 0,
 
-    MOTOR_CTRL,
     ARENA_TF,
     COLLECTION_STATE,
     CTRL_STATE
@@ -108,14 +107,11 @@ TelemetrySerializer::TelemetrySerializer(
 {
 }
 
-void TelemetrySerializer::update(
-    const RobotMotorCommands& motor_commands,
-    const RobotController& robot_controller)
+void TelemetrySerializer::update(const RobotController& robot_controller)
 {
     BytesMsg msg;
     Bytes& bytes = msg.data;
 
-    this->addMotorCommands(bytes, motor_commands);
     this->addArenaTf(bytes, robot_controller.tf_cache);
     this->addCollectionState(bytes, robot_controller.collection_state);
     this->addControlState(bytes, robot_controller);
@@ -141,35 +137,11 @@ bool TelemetrySerializer::filterFreq(time_point& tp)
 }
 
 
-void TelemetrySerializer::addMotorCommands(
-    Bytes& bytes,
-    const RobotMotorCommands& motor_commands)
-{
-    constexpr size_t RESERVE_SIZE =
-        (sizeof(uint8_t) +
-         (sizeof(TalonCtrlMsg::_mode_type) + sizeof(float)) * 5);
-
-    bytes.resize(bytes.size() + RESERVE_SIZE);
-    Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
-
-    writeAndIncrement(ptr, AS_U8(TelemetryType::MOTOR_CTRL));
-
-#define WRITE_MOTOR(m)                                       \
-    writeAndIncrement(ptr, motor_commands.m.mode);           \
-    writeAsAndIncrement<float>(ptr, motor_commands.m.value);
-
-    WRITE_MOTOR(track_right)
-    WRITE_MOTOR(track_left)
-    WRITE_MOTOR(trencher)
-    WRITE_MOTOR(hopper_belt)
-    WRITE_MOTOR(hopper_actuator)
-
-#undef WRITE_MOTOR
-}
-
 void TelemetrySerializer::addArenaTf(Bytes& bytes, const TfCache& tf_cache)
 {
     constexpr size_t RESERVE_SIZE = (sizeof(uint8_t) + (sizeof(float) * 7));
+
+    // TODO: consider sending odom as well (to verify remote localization health)
 
     if (tf_cache.hasTf(ODOM_TO_ARENA_TF) && this->filterFreq(this->last_tf_pub))
     {
@@ -180,13 +152,13 @@ void TelemetrySerializer::addArenaTf(Bytes& bytes, const TfCache& tf_cache)
 
         writeAndIncrement(ptr, AS_U8(TelemetryType::ARENA_TF));
 
-        writeAndIncrement(ptr, tf->pose.vec.x());
-        writeAndIncrement(ptr, tf->pose.vec.y());
-        writeAndIncrement(ptr, tf->pose.vec.z());
-        writeAndIncrement(ptr, tf->pose.quat.w());
-        writeAndIncrement(ptr, tf->pose.quat.x());
-        writeAndIncrement(ptr, tf->pose.quat.y());
-        writeAndIncrement(ptr, tf->pose.quat.z());
+        writeAsAndIncrement<float>(ptr, tf->pose.vec.x());
+        writeAsAndIncrement<float>(ptr, tf->pose.vec.y());
+        writeAsAndIncrement<float>(ptr, tf->pose.vec.z());
+        writeAsAndIncrement<float>(ptr, tf->pose.quat.w());
+        writeAsAndIncrement<float>(ptr, tf->pose.quat.x());
+        writeAsAndIncrement<float>(ptr, tf->pose.quat.y());
+        writeAsAndIncrement<float>(ptr, tf->pose.quat.z());
     }
 }
 
@@ -495,11 +467,6 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
 
         switch (id)
         {
-            case AS_U8(TelemetryType::MOTOR_CTRL):
-            {
-                ok &= this->pubMotorCommands(ptr, end_ptr);
-                break;
-            }
             case AS_U8(TelemetryType::ARENA_TF):
             {
                 ok &= this->pubArenaTf(ptr, end_ptr);
@@ -546,30 +513,6 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
     {                                \
         return false;                \
     }
-
-bool TelemetryDeserializer::pubMotorCommands(BytePtrRef ptr, BytePtr end)
-{
-    EXIT_IF_INSUFFICIENT_SIZE((sizeof(uint8_t) + sizeof(float)) * 5)
-
-    constexpr char const* MOTOR_CTRL_TOPICS[] = {
-        "track_right/ctrl",
-        "track_left/ctrl",
-        "trencher/ctrl",
-        "hopper_belt/ctrl",
-        "hopper_act/ctrl"};
-
-    for (const char* TOPIC : MOTOR_CTRL_TOPICS)
-    {
-        TalonCtrlMsg msg;
-
-        readAndIncrement(ptr, msg.mode);
-        readAsAndIncrement<float>(ptr, msg.value);
-
-        this->pub_map.publish(TOPIC, msg);
-    }
-
-    return true;
-}
 
 bool TelemetryDeserializer::pubArenaTf(BytePtrRef ptr, BytePtr end)
 {
@@ -881,7 +824,7 @@ bool TelemetryDeserializer::pubAutoOffloadController(
 
 bool TelemetryDeserializer::pubMiningController(BytePtrRef ptr, BytePtr end)
 {
-    EXIT_IF_INSUFFICIENT_SIZE(1)
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + sizeof(float))
 
     constexpr char const* STAGE_TAGS[] =
         {"Initializing", "Lowering", "Excavating", "Raising", "Finished"};
@@ -894,12 +837,15 @@ bool TelemetryDeserializer::pubMiningController(BytePtrRef ptr, BytePtr end)
         this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
     }
 
+    float remaining_trav_dist;
+    readAndIncrement(ptr, remaining_trav_dist);
+
     return true;
 }
 
 bool TelemetryDeserializer::pubOffloadController(BytePtrRef ptr, BytePtr end)
 {
-    EXIT_IF_INSUFFICIENT_SIZE(1)
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + sizeof(float))
 
     constexpr char const* STAGE_TAGS[] = {
         "Initializing",
@@ -916,6 +862,9 @@ bool TelemetryDeserializer::pubOffloadController(BytePtrRef ptr, BytePtr end)
     {
         this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
     }
+
+    float remaining_trav_dist;
+    readAndIncrement(ptr, remaining_trav_dist);
 
     return true;
 }
@@ -962,7 +911,7 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
     }
 
     // highest bit gets set when path data is written next
-    if (val & 0x80 && ptr)
+    if (val & 0x80)
     {
         EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint32_t))
 
