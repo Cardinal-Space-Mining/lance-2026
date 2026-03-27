@@ -37,110 +37,115 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
+#include <limits>
 #include <chrono>
 
-#include <rclcpp/rclcpp.hpp>
+#include "util/pub_map.hpp"
+#include "util/joy_utils.hpp"
 
-#include <std_msgs/msg/int32.hpp>
-#include <std_srvs/srv/set_bool.hpp>
-
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_status.hpp"
-
-
-using namespace std::chrono;
-using namespace std::chrono_literals;
-
-using namespace util::ros_aliases;
-using namespace lance;
+#include "robot/core/robot_math.hpp"
+#include "robot/core/hid_bindings.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/core/collection_state.hpp"
 
 
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+namespace lance
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetBoolSrv = std_srvs::srv::SetBool;
+
+class MiningController
+{
+    friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
+
+    using JoyState = util::JoyState;
+    using GenericPubMap = util::GenericPubMap;
 
 public:
-    RobotStatusServer() :
-        Node("robot_status"),
+    MiningController(
+        GenericPubMap&,
+        const RobotParams&,
+        const HopperState&);
+    ~MiningController() = default;
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        set_teleop_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_teleop_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
-                                            : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        set_auto_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_auto_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode =
-                    req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        test_mode_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_test_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_opts = static_cast<uint8_t>(
-                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
-    {
-    }
+public:
+    /* Restart the routine. If traversal distance is provided,
+     * the command will track the travelled distance and end if
+     * the traversal distance is exceeded. */
+    void initialize(float traversal_dist_m = 0.f);
+    /* Check if the command is finished, either as a result
+     * of being cancelled or automatically shutting down
+     * due to a stop state. */
+    bool isFinished();
+    /* Mark the command as cancelled, i.e. it will no longer be
+     * executed. */
+    void setCancelled();
+
+    /* Update the remaining traversal distance. */
+    void setRemaining(float traversal_dist_m);
+    /* Set whether the hopper model should be used to determine finished state. */
+    void setUseHopperModel(bool enabled);
+
+    /* Iterate the controller in "full auto" mode (no user input). */
+    void iterate(
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+    /* Iterate the controller in "assisted" mode (user input). */
+    void iterate(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
 protected:
-    inline int32_t getFeedTime()
+    enum class Stage
     {
-        return ControlStatus::format(
-            this->ctrl_mode,
-            this->ctrl_opts,
-            WATCHDOG_TELEOP_FEED_TIME,
-            WATCHDOG_AUTO_FEED_TIME);
-    }
+        INITIALIZATION,
+        LOWERING,
+        TRAVERSING,
+        RAISING,
+        FINISHED
+    };
+
+    struct TraversalState
+    {
+        void init(float remaining_dist = 0.f);
+        void setRemaining(float remaining_dist);
+        void updateOdom(float odom);
+        bool hasRemaining() const;
+        float remaining() const;
+
+    private:
+        float remaining_dist{0.f};
+        float prev_odom{0.f};
+    };
+    struct BeltDutyCycleState
+    {
+        void setMoved();
+        void setStopped();
+        bool canMove(float thresh_s);
+
+    private:
+        std::chrono::system_clock::time_point prev_belt_stop_time;
+        bool belt_moving{false};
+    };
 
 protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetBoolSrv> set_teleop_srv;
-    SharedSrv<SetBoolSrv> set_auto_srv;
-    SharedSrv<SetBoolSrv> test_mode_srv;
-    RclTimer watchdog_timer;
+    void iterate(
+        const JoyState* joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
-    ControlMode ctrl_mode{ControlMode::DISABLED};
-    uint8_t ctrl_opts{0};
+protected:
+    GenericPubMap& pub_map;
+    const RobotParams& params;
+    const HopperState& hopper_state;
+
+    Stage stage{Stage::FINISHED};
+    TraversalState traversal_state{};
+    BeltDutyCycleState belt_duty_cycle{};
+    bool using_hopper_model{true};
 };
 
-
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
-
-    return 0;
-}
+};  // namespace lance

@@ -40,7 +40,8 @@
                 "/lance/hopper_belt/faults",
                 "/lance/hopper_belt/info",
                 "/lance/hopper_act/faults",
-                "/lance/hopper_act/info"
+                "/lance/hopper_act/info",
+                "/lance/telemetry"
             ]
         },
 
@@ -132,6 +133,8 @@
                 "/collection_state/low_pos_m",
                 "/collection_state/belt_usage_m",
 
+                "/cardinal_perception/planned_path",
+
                 "/cardinal_perception/trace_notifications",
                 "/rosout"
             ]
@@ -180,6 +183,8 @@
                 "/collection_state/high_pos_m",
                 "/collection_state/low_pos_m",
                 "/collection_state/belt_usage_m",
+
+                "/cardinal_perception/planned_path",
 
                 "/cardinal_perception/trace_notifications",
                 "/rosout"

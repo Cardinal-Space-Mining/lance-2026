@@ -80,7 +80,7 @@ struct identity
 template<typename T>
 inline void declare_param(
     rclcpp::Node* node,
-    const std::string param_name,
+    const std::string& param_name,
     T& param,
     const typename identity<T>::type& default_value)
 {
@@ -96,7 +96,7 @@ inline void declare_param(
 template<typename T>
 inline void declare_param(
     rclcpp::Node& node,
-    const std::string param_name,
+    const std::string& param_name,
     T& param,
     const typename identity<T>::type& default_value)
 {
@@ -112,7 +112,7 @@ inline void declare_param(
 template<typename T>
 inline T declare_and_get_param(
     rclcpp::Node& node,
-    const std::string param_name,
+    const std::string& param_name,
     const T& default_value)
 {
     try
