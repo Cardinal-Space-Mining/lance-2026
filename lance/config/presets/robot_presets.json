@@ -12,7 +12,7 @@
                 "phoenix6_driver": "enabled",
                 "robot_control": "lance1_ksc",
                 "redux": "robot",
-                "multiscan_driver": "net1",
+                "multiscan_driver": "net2",
                 "perception": "lance1_headless",
                 "bag_record": "telemetry"
             }

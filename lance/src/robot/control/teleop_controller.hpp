@@ -37,110 +37,85 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
+#pragma once
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <std_msgs/msg/int32.hpp>
-#include <std_srvs/srv/set_bool.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_status.hpp"
+#include "util/pub_map.hpp"
+#include "util/joy_utils.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
 
-
-using namespace std::chrono;
-using namespace std::chrono_literals;
-
-using namespace util::ros_aliases;
-using namespace lance;
+#include "shared/shared_controllers.hpp"
 
 
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+namespace lance
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetBoolSrv = std_srvs::srv::SetBool;
+
+class TeleopController
+{
+    friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
+
+    using RclNode = rclcpp::Node;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
+    using JoyState = util::JoyState;
+    using GenericPubMap = util::GenericPubMap;
+
+    template<typename T>
+    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
 
 public:
-    RobotStatusServer() :
-        Node("robot_status"),
+    TeleopController(
+        RclNode&,
+        GenericPubMap&,
+        const RobotParams&,
+        SharedControllerCollection&);
+    ~TeleopController() = default;
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        set_teleop_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_teleop_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
-                                            : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        set_auto_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_auto_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode =
-                    req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        test_mode_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_test_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_opts = static_cast<uint8_t>(
-                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
-    {
-    }
+public:
+    void initialize();
+    void setCancelled();
+
+    void iterate(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
 protected:
-    inline int32_t getFeedTime()
+    enum class Operation
     {
-        return ControlStatus::format(
-            this->ctrl_mode,
-            this->ctrl_opts,
-            WATCHDOG_TELEOP_FEED_TIME,
-            WATCHDOG_AUTO_FEED_TIME);
-    }
+        MANUAL = 0,
+        ASSISTED_MINING,
+        ASSISTED_OFFLOAD,
+        PRESET_MINING,
+        PRESET_OFFLOAD,
+        AUTO_TRAVERSAL
+    };
 
 protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetBoolSrv> set_teleop_srv;
-    SharedSrv<SetBoolSrv> set_auto_srv;
-    SharedSrv<SetBoolSrv> test_mode_srv;
-    RclTimer watchdog_timer;
+    bool handleGlobalInputs(const JoyState& joy);
+    bool handleClickedPoint(bool can_apply);
+    void handleTeleopInputs(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
-    ControlMode ctrl_mode{ControlMode::DISABLED};
-    uint8_t ctrl_opts{0};
+protected:
+    GenericPubMap& pub_map;
+    const RobotParams& params;
+
+    RclSubPtr<PointStampedMsg> clicked_point_sub;
+    PointStampedMsg::ConstSharedPtr clicked_point;
+
+    Operation op_mode{Operation::MANUAL};
+    float driving_rps_scalar;
+
+    MiningController& mining_controller;
+    OffloadController& offload_controller;
+    TraversalController& traversal_controller;
 };
 
-
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
-
-    return 0;
-}
+};  // namespace lance

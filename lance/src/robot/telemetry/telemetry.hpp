@@ -37,110 +37,122 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
 #include <chrono>
+#include <string>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <std_msgs/msg/int32.hpp>
-#include <std_srvs/srv/set_bool.hpp>
+#include <tf2_ros/transform_broadcaster.hpp>
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_status.hpp"
+#include <net_adapter/msg/bytes.hpp>
 
+#include "util/pub_map.hpp"
 
-using namespace std::chrono;
-using namespace std::chrono_literals;
-
-using namespace util::ros_aliases;
-using namespace lance;
+#include "robot/core/tf_cache.hpp"
+#include "robot/control/robot_controller.hpp"
 
 
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+namespace lance
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetBoolSrv = std_srvs::srv::SetBool;
 
+class TelemetryBase
+{
 public:
-    RobotStatusServer() :
-        Node("robot_status"),
+    using RclNode = rclcpp::Node;
+    using BytesMsg = net_adapter::msg::Bytes;
+    using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
+    using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        set_teleop_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_teleop_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
-                                            : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        set_auto_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_auto_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode =
-                    req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        test_mode_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_test_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_opts = static_cast<uint8_t>(
-                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
-    {
-    }
+    using Bytes = BytesMsg::_data_type;
+    using Byte = Bytes::value_type;
+    using BytePtr = const Byte*;
+    using BytePtrRef = const Byte*&;
 
-protected:
-    inline int32_t getFeedTime()
-    {
-        return ControlStatus::format(
-            this->ctrl_mode,
-            this->ctrl_opts,
-            WATCHDOG_TELEOP_FEED_TIME,
-            WATCHDOG_AUTO_FEED_TIME);
-    }
-
-protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetBoolSrv> set_teleop_srv;
-    SharedSrv<SetBoolSrv> set_auto_srv;
-    SharedSrv<SetBoolSrv> test_mode_srv;
-    RclTimer watchdog_timer;
-
-    ControlMode ctrl_mode{ControlMode::DISABLED};
-    uint8_t ctrl_opts{0};
+    static constexpr char const* TELEMETRY_TOPIC = "lance/telemetry";
 };
 
 
-int main(int argc, char** argv)
+class TelemetrySerializer : public TelemetryBase
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
+    using steady_clock = std::chrono::steady_clock;
+    using time_point = steady_clock::time_point;
 
-    return 0;
-}
+public:
+    TelemetrySerializer(RclNode& node, float pub_throttle_freq);
+
+public:
+    void update(const RobotController&);
+
+protected:
+    bool filterFreq(time_point&);
+
+    void addArenaTf(Bytes&, const TfCache&);
+    void addCollectionState(Bytes&, const CollectionState&);
+    void addControlState(Bytes&, const RobotController&);
+
+    void addTeleopController(Bytes&, const TeleopController&);
+    void addAutoController(Bytes&, const AutoController&);
+    void addAutoMiningController(Bytes&, const AutoMiningController&);
+    void addAutoOffloadController(Bytes&, const AutoOffloadController&);
+    void addMiningController(Bytes&, const MiningController&);
+    void addOffloadController(Bytes&, const OffloadController&);
+    void addLocController(Bytes&, const LocalizationController&);
+    void addTravController(Bytes&, const TraversalController&);
+
+protected:
+    BytesSharedPub pub;
+
+    time_point last_tf_pub, last_path_pub;
+
+    const float throttled_pub_freq;
+};
+
+
+class TelemetryDeserializer : public TelemetryBase
+{
+    using GenericPubMap = util::GenericPubMap;
+    using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
+    using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
+
+public:
+    TelemetryDeserializer(
+        RclNode& node,
+        TfCache& tf_cache);
+
+public:
+    GenericPubMap& getPubMap();
+
+protected:
+    void accept(const BytesMsg&);
+
+protected:
+    bool pubArenaTf(BytePtrRef, BytePtr);
+    bool pubCollectionState(BytePtrRef, BytePtr);
+    bool pubControlState(BytePtrRef, BytePtr);
+
+    bool pubDerivedController(BytePtrRef, BytePtr);
+
+    bool pubTeleopController(BytePtrRef, BytePtr);
+    bool pubAutoController(BytePtrRef, BytePtr);
+    bool pubAutoMiningController(BytePtrRef, BytePtr);
+    bool pubAutoOffloadController(BytePtrRef, BytePtr);
+    bool pubMiningController(BytePtrRef, BytePtr);
+    bool pubOffloadController(BytePtrRef, BytePtr);
+    bool pubLocController(BytePtrRef, BytePtr);
+    bool pubTravController(BytePtrRef, BytePtr);
+
+protected:
+    GenericPubMap pub_map;
+    TfCache& tf_cache;
+    Tf2Broadcaster tf_broadcaster;
+    ConstSharedClock rcl_clock;
+
+    BytesSharedSub sub;
+
+    std::vector<std::string> ctrl_chain;
+};
+
+};  // namespace lance

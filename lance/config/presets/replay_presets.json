@@ -30,9 +30,8 @@
             {
                 "bag_play": "rerun",
                 "robot_tf": "lance",
-                "robot_control": "lance1_ksc_sim",
+                "mission_control": "lance1_ksc_sim",
                 "perception": "lance1_sim",
-                "zone_viz": "ksc",
                 "foxglove_bridge": "all"
             }
         },
@@ -41,8 +40,7 @@
             "pragma:derived": "rerun_lance1_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance1_ucf_right_sim",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance1_ucf_right_sim"
             }
         },
         "rerun_lance1_ucf_left":
@@ -50,8 +48,7 @@
             "pragma:derived": "rerun_lance1_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance1_ucf_left_sim",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance1_ucf_left_sim"
             }
         },
 
@@ -61,9 +58,8 @@
             {
                 "bag_play": "rerun",
                 "robot_tf": "lance2",
-                "robot_control": "lance2_ksc_sim",
+                "mission_control": "lance2_ksc_sim",
                 "perception": "lance2_sim",
-                "zone_viz": "ksc",
                 "foxglove_bridge": "all"
             }
         },
@@ -72,8 +68,7 @@
             "pragma:derived": "rerun_lance2_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance2_ucf_right_sim",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance2_ucf_right_sim"
             }
         },
         "rerun_lance2_ucf_left":
@@ -81,8 +76,7 @@
             "pragma:derived": "rerun_lance2_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance2_ucf_left_sim",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance2_ucf_left_sim"
             }
         }
     }
