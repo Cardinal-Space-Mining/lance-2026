@@ -109,14 +109,8 @@ public:
     const float auto_traversal_angular_kp;
     const float auto_traversal_min_theta_window;
 
-    const float track_Width = 1;// 0.5-0.75
-    const float full_Width = 1.0;
-    const float track_to_center = full_Width/2;
+    // RENAME BUT LEAVE
     const float min_zone_length = 1.1; // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet
-    const float min_path_length = 2; // 2 The minimum length that the robot should be mining for, if the mining distance is less than this, it will not save that path
-    // MUST KEEP AN EYE ON ROBOT_LENGTH/TRACK_WIDTH BECAUSE IF IT IS JUST OVER THEN IT COULD REDUCE LEAVE WAY TOO MUCH CLEARANCE AND WASTE MINING SECTIONS
-    const float robot_length = .99;
-    const int sections_to_exclude_for_robot_clearance = (int)(robot_length / track_Width)+1; // How many sections to exclude from the end of a mining path to ensure the robot can fit in the spot without hitting
 
 public:
     RobotParams(rclcpp::Node&);

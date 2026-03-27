@@ -64,13 +64,18 @@ AutoMiningController::AutoMiningController(
     SharedControllerCollection& controllers) :
     pub_map{pub_map},
     params{params},
+    mining_planner{params, perception_eval_fn},
+    mining_eval_client{node.create_client<UpdateMiningEvalSrv>(
+        "/cardinal_perception/update_mining_eval")},
+    mining_eval_sub{node.create_subscription<MiningEvalResultsMsg>(
+        "/cardinal_perception/mining_eval_results",
+        rclcpp::SensorDataQoS{},
+        [this](
+            const MiningEvalResults::ConstSharedPtr&
+                msg) { this->eval_results = msg; })},
     traversal_controller{controllers.traversal_controller},
-    mining_controller{controllers.mining_controller},
-
-    // Creates my implementation of the mining planner
-    mining_planner{perception_eval_fn, params, this->params.mining_zone_bounds}
+    mining_controller{controllers.mining_controller}
 {
-    (void)node;
 }
 
 void AutoMiningController::initialize() { this->stage = Stage::INITIALIZATION; }
@@ -91,31 +96,29 @@ void AutoMiningController::iterate(
         case Stage::INITIALIZATION:
         {
             this->stage = Stage::PLANNING;
-
-            // This will update the mining planner's internal matrices based on the current state of the world as perceived by the robot. It should be called periodically to ensure the planner has up-to-date information, but for now we will call it once at the beginning of the routine.
-            mining_planner.update_mapped_matrices();
             [[fallthrough]];
         }
         case Stage::PLANNING:
         {
-            if (false)  // *if not finished planning*
-            {
-                // call query service, wait for response, determine best option
+            // 1. generate target evals
+            // 2. geometry converter to build eval list
+            // 3. >>
+            this->mining_eval_client->async_send_request(
+                req,
+                [](rclcpp::Client<UpdateMiningSrv>::SharedFuture f){ /* Use the response here! */ } );
+            // 4. update planner accordingly >>
 
-                break;
-            }
+            // This will update the mining planner's internal matrices based on the current state of the world as perceived by the robot. It should be called periodically to ensure the planner has up-to-date information, but for now we will call it once at the beginning of the routine.
+            mining_planner.updateMappedMatrices();
 
-            Eigen::Vector2f target_pos;
-            Eigen::Vector2f target_dir;
-
-            // I don't know how to do the query service, but the update_mapped_matrices() would call that a bunch of times
+            // I don't know how to do the query service, but the updateMappedMatrices() would call that a bunch of times
             // I don't think it would have to be called here because it really only needs to be called once (or very periodically)
             // it saves the results in a matrix that is used later on
 
             // Wouldn't be a bad idea to check the best path it gives you one more time though
             // The final ouput is sorted so the top has the highest quality
 
-            DirectedMiningPaths paths = mining_planner.final_output();
+            const DirectedMiningPaths& paths = mining_planner.finalOutput();
             if (paths.empty())
             {
                 std::cout
@@ -125,31 +128,17 @@ void AutoMiningController::iterate(
             }
             else
             {
-                std::pair<Eigen::Vector2f, Eigen::Vector2f> base_output =
-                    paths.at(0).get_path_coordinates_in_world_frame(
-                        params.track_Width);
-                // has the coords of where to start
-                target_pos = base_output.first;
-                // has 1,0 -1,0 0,-1 or 0,1 depending on the path it is going
-                target_dir = base_output.second;
+                // first has coords of where to start, second has (1,0), (-1, 0), (0, -1),
+                // or (0, 1) depend on the direction it is going
+                const DirectedMiningPath::MiningSwath& swath =
+                    paths.front().getPathCoordinatesInWorldFrame();
+
+                // init with planned destination
+                this->traversal_controller.initializePoint(
+                    swath.first,
+                    swath.second);
             }
 
-            // placeholder for testing
-            // Eigen::Vector2f target_pos = this->params.mining_zone_bounds.min() +
-            //                              Eigen::Vector2f::Constant(0.8f);
-            // Eigen::Vector2f target_pos = Eigen::Vector2f{0.f, 0.f};  // this should be set based on query result
-
-            // Eigen::Vector2f target_pos = Eigen::Vector2f{
-            //     this->params.mining_zone_bounds.max().x() - 0.8f,
-            //     this->params.mining_zone_bounds.min().y() + 0.8f};  // this should be set based on query result
-            // Eigen::Vector2f target_pos = Eigen::Vector2f{
-            //     this->params.mining_zone_bounds.max().x()-this->params.mining_zone_bounds.sizes().x()/2.f,
-            //     this->params.mining_zone_bounds.min().y() + 0.8f};  // this should be set based on query result
-
-            // Eigen::Vector2f target_dir{-1.f, 0.f};
-
-            // init with planned destination
-            this->traversal_controller.initializePoint(target_pos, target_dir);
             this->stage = Stage::TRAVERSING;
             [[fallthrough]];
         }
