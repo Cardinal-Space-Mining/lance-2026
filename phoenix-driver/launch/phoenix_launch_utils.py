@@ -14,7 +14,6 @@ def flatten_motors(config):
       motors: [ {name:..., kP:...}, {...}, ... ]
     into a flat dict:
       motors:
-        num_motors: N
         names: [ "track_left", ... ]
         motor.track_left.controller: "FX"
         motor.track_left.kP: 0.4

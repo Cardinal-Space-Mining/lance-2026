@@ -40,6 +40,8 @@
         "pragma:default": null,
         "enabled":
         {
+            "info_pub_rate_ms": 50,
+            "fault_pub_rate_ms": 250,
             "diagnostics_port": 0,
             "canbus": "canable_A",
             "motors":[

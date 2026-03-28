@@ -36,16 +36,8 @@
 *   limitations under the License.                                             *
 *                                                                              *
 *******************************************************************************/
+#include "lance2_phx6_driver.hpp"
 
-#include <atomic>
-#include <chrono>
-#include <cmath>
-#include <functional>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <thread>
 #include <vector>
 #include <algorithm>
 
@@ -65,95 +57,206 @@ using namespace util;
 using namespace util::ros_aliases;
 using namespace std::chrono_literals;
 
-class Phoenix6Driver : public rclcpp::Node
-{
-    using Int32Msg = std_msgs::msg::Int32;
-
-    struct RclTalonFX
-    {
-        TalonFX motor;
-        SharedPub<TalonInfoMsg> info_pub;
-        SharedPub<TalonFaultsMsg> faults_pub;
-        SharedSub<TalonCtrlMsg> ctrl_sub;
-    };
-
-    struct RclTalonFXS
-    {
-        TalonFXS motor;
-        SharedPub<TalonInfoMsg> info_pub;
-        SharedPub<TalonFaultsMsg> faults_pub;
-        SharedSub<TalonCtrlMsg> ctrl_sub;
-    };
-
-public:
-    Phoenix6Driver();
-    ~Phoenix6Driver();
-
-private:
-    void initPhx();
-
-    template <typename RclMotor>
-    void initMotor(RclMotor& rcl_motor);
-
-    void feed_watchdog_status(int32_t status);
-
-    void pub_motor_info_cb();
-    void pub_motor_fault_cb();
-
-    template <typename RclMotor>
-    void execute_ctrl(typename RclMotor::MotorType& motor, const TalonCtrlMsg& msg);
-
-private:
-    RclTalonFX track_right;
-    RclTalonFX track_left;
-    RclTalonFX trencher;
-    RclTalonFX hopper_belt;
-    RclTalonFXS hopper_act_left;
-    RclTalonFXS hopper_act_right;
-
-    SharedSub<Int32Msg> watchdog_status_sub;
-
-    RclTimer info_pub_timer;
-    RclTimer fault_pub_timer;
-
-    bool is_disabled = false;
-};
-
 Phoenix6Driver::Phoenix6Driver() :
-    Node{"phoenix6_driver"},
+    Node("phoenix6_driver"),
+    PHX_BUS(declare_and_get_param(
+        *this,
+        "can_interface",
+        std::string("canable_A"))),
+    diagnostic_server_port(declare_and_get_param(*this, "diagnostics_port", 0)),
+    watchdog_status_sub{this->create_subscription<Int32Msg>(
+        "lance/watchdog_status",
+        rclcpp::SensorDataQoS{},
+        [this](const Int32Msg& msg) { this->feedWatchdogStatus(msg.data); })},
+    info_pub_timer{this->create_wall_timer(
+        declare_and_get_param(*this, "info_pub_rate_ms", 50) * 1ms,
+        [this]() { this->pubMotorInfo_cb(); })},
+    fault_pub_timer{this->create_wall_timer(
+        declare_and_get_param(*this, "info_fault_rate_ms", 250) * 1ms,
+        [this]() { this->pubMotorFault_cb(); })}
+{
+    // --- Get motors params-------------------------------------------------------------
+    auto motor_names =
+        declare_and_get_param<std::vector<std::string>>(*this, "names", {});
+    for (auto name : motor_names)
     {
-        this->initPhx();
+        const std::string param_prefix = "motors." + name + ".";
+
+        std::string controller = declare_and_get_param<std::string>(
+            *this,
+            param_prefix + "controller",
+            "");
+        int id = declare_and_get_param(*this, param_prefix + "id", -1);
+
+        if (controller.empty() || id == -1)
+        {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Motor %s is missing required parameters",
+                name.c_str());
+            continue;
+        }
+
+        std::string follower = declare_and_get_param<std::string>(
+            *this,
+            param_prefix + "follower",
+            "");
+        std::string sensor = declare_and_get_param<std::string>(
+            *this,
+            param_prefix + "sensor",
+            "");
+
+        RclMotorConfig params;
+
+        declare_param(*this, param_prefix + "kP", params.kP, 0.2);
+        declare_param(*this, param_prefix + "kI", params.kI, 0.05);
+        declare_param(*this, param_prefix + "kD", params.kD, 0.0001);
+        declare_param(*this, param_prefix + "kV", params.kV, 0.12);
+        declare_param(
+            *this,
+            param_prefix + "neutral_deadband",
+            params.neutral_deadband,
+            0.05);
+        declare_param(
+            *this,
+            param_prefix + "neutral_brake",
+            params.neutral_brake,
+            false);
+        declare_param(
+            *this,
+            param_prefix + "stator_current_limit",
+            params.stator_current_limit,
+            30.0);
+        declare_param(
+            *this,
+            param_prefix + "supply_current_limit",
+            params.supply_current_limit,
+            20.0);
+        declare_param(
+            *this,
+            param_prefix + "voltage_limit",
+            params.voltage_limit,
+            12.0);
+
+        if (controller == "FX")
+        {
+            FX_motors.emplace_back(
+                std::make_unique<RclMotor<TalonFX>>(
+                    this,
+                    name,
+                    id,
+                    follower,
+                    sensor,
+                    params,
+                    PHX_BUS));
+        }
+        else if (controller == "FXS")
+        {
+            FXS_motors.emplace_back(
+                std::make_unique<RclMotor<TalonFXS>>(
+                    this,
+                    name,
+                    id,
+                    follower,
+                    sensor,
+                    params,
+                    PHX_BUS));
+        }
+        else
+        {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Motor %s has unknown controller type: %s",
+                name.c_str(),
+                controller.c_str());
+        }
     }
 
-void Phoenix6Driver::initPhx()
-{
+    // --- Init phoenix -------------------------------------------------------------
 
+    if (diagnostic_server_port > 0)
+    {
+        c_Phoenix_Diagnostics_Create_On_Port(diagnostic_server_port);
+    }
+    else
+    {
+        // this might not be needed
+        c_Phoenix_Diagnostics_SetSecondsToStart(-1);
+    }
 }
 
-template <typename RclMotor>
-void Phoenix6Driver::initMotor(RclMotor& rcl_motor)
+void Phoenix6Driver::feedWatchdogStatus(int32_t status)
 {
-
+    /* Watchdog feed decoding:
+     * POSTIVE feed time --> enabled
+     * ZERO feed time --> disabled
+     * NEGATIVE feed time --> autonomous */
+    const int32_t timeout_ms = status / 1000;
+    if (timeout_ms == 0)
+    {
+        for (auto& m : this->FX_motors)
+        {
+            m->motor.SetControl(phx6::controls::NeutralOut{});
+        }
+        for (auto& m : this->FXS_motors)
+        {
+            m->motor.SetControl(phx6::controls::NeutralOut{});
+        }
+        is_disabled = true;
+    }
+    else
+    {
+        ctre::phoenix::unmanaged::FeedEnable(std::abs(timeout_ms));
+        is_disabled = false;
+    }
 }
 
-
-void Phoenix6Driver::feed_watchdog_status(int32_t status)
+void Phoenix6Driver::pubMotorInfo_cb()
 {
-
+    TalonInfoMsg info_msg{};
+    info_msg.header.stamp = this->get_clock()->now();
+    for (auto& m : this->FX_motors)
+    {
+        info_msg << m->motor;
+        info_msg.status |= static_cast<uint8_t>(!is_disabled);
+        m->info_pub->publish(info_msg);
+    }
+    for (auto& m : this->FXS_motors)
+    {
+        info_msg << m->motor;
+        info_msg.status |= static_cast<uint8_t>(!is_disabled);
+        m->info_pub->publish(info_msg);
+    }
 }
 
-void Phoenix6Driver::pub_motor_info_cb()
+void Phoenix6Driver::pubMotorFault_cb()
 {
+    TalonFaultsMsg faults_msg{};
+    faults_msg.header.stamp = this->get_clock()->now();
 
+    for (auto& m : this->FX_motors)
+    {
+        faults_msg << m->motor;
+        m->faults_pub->publish(faults_msg);
+    }
+    for (auto& m : this->FXS_motors)
+    {
+        faults_msg << m->motor;
+        m->faults_pub->publish(faults_msg);
+    }
 }
 
-void Phoenix6Driver::pub_motor_fault_cb()
+int main(int argc, char** argv)
 {
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<Phoenix6Driver>();
+    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix6) has started");
 
+    rclcpp::spin(node);
+
+    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix6) shutting down...");
+    rclcpp::shutdown();
+
+    return EXIT_SUCCESS;
 }
 
-template <typename RclMotor>
-void execute_ctrl(typename RclMotor::MotorType& motor, const TalonCtrlMsg& msg);
-{
-
-}
