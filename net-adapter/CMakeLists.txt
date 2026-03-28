@@ -21,6 +21,8 @@ find_package(Eigen3 REQUIRED)
 find_package(zenohc REQUIRED)
 find_package(zenohcxx REQUIRED)
 
+find_package(zstd REQUIRED)
+
 # --- Presets ------------------------------------------------------------------
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
@@ -54,7 +56,8 @@ add_library(adapters_core STATIC
 target_link_libraries(adapters_core
     ${${PROJECT_NAME}_custom_types}
     Eigen3::Eigen
-    zenohcxx::zenohc)
+    zenohcxx::zenohc
+    zstd::libzstd_shared)
 ament_target_dependencies(adapters_core
     rclcpp
     std_msgs

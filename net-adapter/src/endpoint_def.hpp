@@ -88,6 +88,8 @@ private:
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
     using BytesAdapter = GenericAdapter<net_adapter::msg::Bytes>;
+    using BytesAdapterCompressed =
+        GenericAdapter<net_adapter::msg::Bytes, true>;
 
 private:
     template<typename AdapterT, DataFlow D>
@@ -189,7 +191,7 @@ private:
 
     TalonDataChannelsGroup<ROBOT_TO_CLIENT> talon_data;
 
-    Channel<BytesAdapter, ROBOT_TO_CLIENT> telemetry;
+    Channel<BytesAdapterCompressed, ROBOT_TO_CLIENT> telemetry;
     Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
 
     SimClockChannel<ROBOT_TO_CLIENT> sim_clock;

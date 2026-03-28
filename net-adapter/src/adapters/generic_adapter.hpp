@@ -45,15 +45,15 @@
 #include "base_adapter.hpp"
 
 
-template<typename MsgT>
-class GenericAdapter : public BaseAdapter<MsgT, GenericAdapter<MsgT>>
+template<typename MsgT, bool Compress = false>
+class GenericAdapter : public BaseAdapter<MsgT, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, Compress>
 {
-    friend typename BaseAdapter<MsgT, GenericAdapter<MsgT>>::BaseT;
+    friend typename BaseAdapter<MsgT, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, Compress>::BaseT;
 
-    using typename BaseAdapter<MsgT, GenericAdapter<MsgT>>::BaseT;
-    using typename BaseAdapter<MsgT, GenericAdapter<MsgT>>::SubStateT;
-    using typename BaseAdapter<MsgT, GenericAdapter<MsgT>>::PubStateT;
-    using typename BaseAdapter<MsgT, GenericAdapter<MsgT>>::ByteBuffer;
+    using typename BaseAdapter<MsgT, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, Compress>::BaseT;
+    using typename BaseAdapter<MsgT, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, Compress>::SubStateT;
+    using typename BaseAdapter<MsgT, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, Compress>::PubStateT;
+    using typename BaseAdapter<MsgT, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, GenericAdapter<MsgT, Compress>, Compress>::ByteBuffer;
 
 protected:
     GenericAdapter(rclcpp::Node&);
@@ -70,13 +70,13 @@ private:
 
 // ---
 
-template<typename M>
-GenericAdapter<M>::GenericAdapter(rclcpp::Node& n) : BaseT{n}
+template<typename M, bool C>
+GenericAdapter<M, C>::GenericAdapter(rclcpp::Node& n) : BaseT{n}
 {
 }
 
-template<typename M>
-bool GenericAdapter<M>::serializeMsg(
+template<typename M, bool C>
+bool GenericAdapter<M, C>::serializeMsg(
     ByteBuffer& bytes,
     const M& msg,
     SubStateT& state)
@@ -100,8 +100,8 @@ bool GenericAdapter<M>::serializeMsg(
     return true;
 }
 
-template<typename M>
-bool GenericAdapter<M>::deserializeMsg(
+template<typename M, bool C>
+bool GenericAdapter<M, C>::deserializeMsg(
     M& msg,
     const ByteBuffer& bytes,
     PubStateT& state)

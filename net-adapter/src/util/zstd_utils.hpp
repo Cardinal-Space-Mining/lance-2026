@@ -18,7 +18,7 @@
 *                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
 *                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
 *                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXX+   .;$$$$$$                   *
 *              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
 *               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
 *                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
@@ -39,47 +39,77 @@
 
 #pragma once
 
-#include <chrono>
+#include <vector>
+#include <cstdint>
 
-#include <nav_msgs/msg/path.hpp>
+#include <zstd.h>
 
-#include "base_adapter.hpp"
-#include "../util/filtering.hpp"
-
-
-class PathAdapterPubState
+namespace util
 {
-    friend class PathAdapter;
 
-public:
-    PathAdapterPubState(rclcpp::Node&);
-
-protected:
-    const std::string path_frame_id;
-};
-
-class PathAdapterSubState : public FrequencyFilter
+/* Compresses buf in-place using zstd. The zstd frame header stores the
+ * original size, so no manual prefix is needed.
+ *
+ * level follows zstd conventions: 1 = fastest, 3 = default (good balance),
+ * 6+ = better ratio at increasing CPU cost. */
+inline bool zstdCompress(std::vector<uint8_t>& buf, int level = ZSTD_CLEVEL_DEFAULT)
 {
-    friend class PathAdapter;
+    if (buf.empty())
+    {
+        return true;
+    }
 
-public:
-    PathAdapterSubState(rclcpp::Node&);
-};
+    const size_t dst_cap = ZSTD_compressBound(buf.size());
+    std::vector<uint8_t> tmp(dst_cap);
 
-class PathAdapter :
-    public BaseAdapter<
-        nav_msgs::msg::Path,
-        PathAdapter,
-        PathAdapterPubState,
-        PathAdapterSubState,
-        true>  // Enable compression
+    const size_t compressed =
+        ZSTD_compress(tmp.data(), dst_cap, buf.data(), buf.size(), level);
+
+    if (ZSTD_isError(compressed))
+    {
+        return false;
+    }
+
+    tmp.resize(compressed);
+    buf = std::move(tmp);
+    return true;
+}
+
+/* Decompresses buf in-place. Reads original size from the zstd frame header. */
+inline bool zstdDecompress(std::vector<uint8_t>& buf)
 {
-    friend BaseT;
+    if (buf.empty())
+    {
+        return true;
+    }
 
-protected:
-    PathAdapter(rclcpp::Node&);
+    const unsigned long long orig_size =
+        ZSTD_getFrameContentSize(buf.data(), buf.size());
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+    if (orig_size == ZSTD_CONTENTSIZE_ERROR ||
+        orig_size == ZSTD_CONTENTSIZE_UNKNOWN)
+    {
+        return false;
+    }
+
+    if (orig_size == 0)
+    {
+        buf.clear();
+        return true;
+    }
+
+    std::vector<uint8_t> tmp(static_cast<size_t>(orig_size));
+
+    const size_t result =
+        ZSTD_decompress(tmp.data(), static_cast<size_t>(orig_size), buf.data(), buf.size());
+
+    if (ZSTD_isError(result))
+    {
+        return false;
+    }
+
+    buf = std::move(tmp);
+    return true;
+}
+
+}  // namespace util

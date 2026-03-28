@@ -64,7 +64,8 @@ class MS136ScanAdapter :
         sensor_msgs::msg::PointCloud2,
         MS136ScanAdapter,
         MS136ScanAdapterPubState,
-        void>
+        void,
+        true>  // Enable compression
 {
     friend BaseT;
 
@@ -83,7 +84,8 @@ class MS136SimScanAdapter :
         sensor_msgs::msg::PointCloud2,
         MS136SimScanAdapter,
         MS136ScanAdapterPubState,
-        void>
+        void,
+        true>  // Enable compression
 {
     friend BaseT;
 
