@@ -37,110 +37,87 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
+#pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
-#include <std_msgs/msg/int32.hpp>
-#include <std_srvs/srv/set_bool.hpp>
-
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_status.hpp"
+#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
+#include <phoenix_ros_driver/msg/talon_info.hpp>
 
 
-using namespace std::chrono;
-using namespace std::chrono_literals;
+using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
+using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
 
-using namespace util::ros_aliases;
-using namespace lance;
-
-
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+namespace lance
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetBoolSrv = std_srvs::srv::SetBool;
 
-public:
-    RobotStatusServer() :
-        Node("robot_status"),
+/** Contains TalonInfo for each motor */
+struct RobotMotorStatus
+{
+    TalonInfoMsg track_right;
+    TalonInfoMsg track_left;
+    TalonInfoMsg trencher;
+    TalonInfoMsg hopper_belt;
+    TalonInfoMsg hopper_actuator;
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        set_teleop_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_teleop_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
-                                            : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        set_auto_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_auto_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode =
-                    req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        test_mode_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_test_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_opts = static_cast<uint8_t>(
-                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
+    inline double getHopperActNormalizedValue() const
     {
+        return this->hopper_actuator.position / 1000.;
     }
-
-protected:
-    inline int32_t getFeedTime()
-    {
-        return ControlStatus::format(
-            this->ctrl_mode,
-            this->ctrl_opts,
-            WATCHDOG_TELEOP_FEED_TIME,
-            WATCHDOG_AUTO_FEED_TIME);
-    }
-
-protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetBoolSrv> set_teleop_srv;
-    SharedSrv<SetBoolSrv> set_auto_srv;
-    SharedSrv<SetBoolSrv> test_mode_srv;
-    RclTimer watchdog_timer;
-
-    ControlMode ctrl_mode{ControlMode::DISABLED};
-    uint8_t ctrl_opts{0};
 };
 
-
-int main(int argc, char** argv)
+/** Contains TalonCtrl for each motor */
+struct RobotMotorCommands
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
+    TalonCtrlMsg track_right;
+    TalonCtrlMsg track_left;
+    TalonCtrlMsg trencher;
+    TalonCtrlMsg hopper_belt;
+    TalonCtrlMsg hopper_actuator;
 
-    return 0;
-}
+    inline void setTracksVelocity(double left_rps, double right_rps)
+    {
+        this->track_left.set__mode(TalonCtrlMsg::VELOCITY).set__value(left_rps);
+        this->track_right.set__mode(TalonCtrlMsg::VELOCITY)
+            .set__value(right_rps);
+    }
+    inline void setTrencherVelocity(double rps)
+    {
+        this->trencher.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
+    }
+    inline void setHopperBeltVelocity(double rps)
+    {
+        this->hopper_belt.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
+    }
+    inline void setHopperActPercent(double percent)
+    {
+        this->hopper_actuator.set__mode(TalonCtrlMsg::PERCENT_OUTPUT)
+            .set__value(percent);
+    }
+
+    inline void disableTracks()
+    {
+        this->track_left.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+        this->track_right.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+    inline void disableTrencher()
+    {
+        this->trencher.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+    inline void disableHopperBelt()
+    {
+        this->hopper_belt.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+    inline void disableHopperAct()
+    {
+        this->hopper_actuator.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
+    }
+
+    inline void disableAll()
+    {
+        this->disableTracks();
+        this->disableTrencher();
+        this->disableHopperBelt();
+        this->disableHopperAct();
+    }
+};
+
+};  // namespace lance

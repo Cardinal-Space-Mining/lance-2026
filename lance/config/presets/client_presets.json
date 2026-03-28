@@ -10,9 +10,8 @@
                 "robot_tf": "lance",
                 "joy_node": "enabled",
                 "robot_status": "enabled",
-                "robot_control": "lance1_ksc",
+                "mission_control": "lance1_ksc",
                 "redux": "client_panda",
-                "zone_viz": "ksc",
                 "perception": "lance1",
                 "foxglove_bridge": "all",
                 "bag_record": "all"
@@ -23,8 +22,7 @@
             "pragma:derived": "lance1_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance1_ucf_right",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance1_ucf_right"
             }
         },
         "lance1_ucf_left":
@@ -32,8 +30,7 @@
             "pragma:derived": "lance1_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance1_ucf_left",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance1_ucf_left"
             }
         },
 
@@ -44,9 +41,8 @@
                 "robot_tf": "lance2",
                 "joy_node": "enabled",
                 "robot_status": "enabled",
-                "robot_control": "lance2_ksc",
+                "mission_control": "lance2_ksc",
                 "redux": "client_mac_wifi",
-                "zone_viz": "ksc",
                 "perception": "lance2",
                 "foxglove_bridge": "all",
                 "bag_record": "all"
@@ -57,8 +53,7 @@
             "pragma:derived": "lance2_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance2_ucf_right",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance2_ucf_right"
             }
         },
         "lance2_ucf_left":
@@ -66,8 +61,7 @@
             "pragma:derived": "lance2_ksc",
             "pragma:action_overrides":
             {
-                "robot_control": "lance2_ucf_left",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance2_ucf_left"
             }
         }
     }

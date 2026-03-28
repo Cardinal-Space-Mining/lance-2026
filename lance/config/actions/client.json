@@ -17,30 +17,85 @@
         "enabled": {}
     },
 
-    "zone_viz":
+    "mission_control":
     {
         "pragma:default": null,
 
-        "ksc":
+        "lance1_ksc":
         {
-            "frame_id": "${ id.arena_frame }",
+            "controller": 1,
+
+            "odom_frame_id": "${ id.odom_frame }",
+            "arena_frame_id": "${ id.arena_frame }",
+            "robot_frame_id": "${ id.robot_frame }",
             "arena_bounds": "${ zone.ksc.arena }",
             "mining_zone_bounds": "${ zone.ksc.mining }",
             "offload_zone_bounds": "${ zone.ksc.offload }"
         },
-        "ucf_right":
+        "lance1_ucf_right":
         {
-            "frame_id": "${ id.arena_frame }",
+            "pragma:derived": "lance1_ksc",
+
             "arena_bounds": "${ zone.ucf_right.arena }",
             "mining_zone_bounds": "${ zone.ucf_right.mining }",
             "offload_zone_bounds": "${ zone.ucf_right.offload }"
         },
-        "ucf_left":
+        "lance1_ucf_left":
         {
-            "frame_id": "${ id.arena_frame }",
+            "pragma:derived": "lance1_ksc",
+
             "arena_bounds": "${ zone.ucf_left.arena }",
             "mining_zone_bounds": "${ zone.ucf_left.mining }",
             "offload_zone_bounds": "${ zone.ucf_left.offload }"
+        },
+
+        "lance2_ksc":
+        {
+            "pragma:derived": "lance1_ksc",
+            "controller": 2
+        },
+        "lance2_ucf_right":
+        {
+            "pragma:derived": "lance1_ucf_right",
+            "controller": 2
+        },
+        "lance2_ucf_left":
+        {
+            "pragma:derived": "lance1_ucf_left",
+            "controller": 2
+        },
+
+
+        "lance1_ksc_sim":
+        {
+            "pragma:derived": "lance1_ksc",
+            "use_sim_time": true
+        },
+        "lance1_ucf_right_sim":
+        {
+            "pragma:derived": "lance1_ucf_right",
+            "use_sim_time": true
+        },
+        "lance1_ucf_left_sim":
+        {
+            "pragma:derived": "lance1_ucf_left",
+            "use_sim_time": true
+        },
+
+        "lance2_ksc_sim":
+        {
+            "pragma:derived": "lance2_ksc",
+            "use_sim_time": true
+        },
+        "lance2_ucf_right_sim":
+        {
+            "pragma:derived": "lance2_ucf_right",
+            "use_sim_time": true
+        },
+        "lance2_ucf_left_sim":
+        {
+            "pragma:derived": "lance2_ucf_left",
+            "use_sim_time": true
         }
     }
 }

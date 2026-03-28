@@ -49,16 +49,16 @@
 
 #include <std_msgs/msg/int8.hpp>
 #include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/string.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
+
+#include <net_adapter/msg/bytes.hpp>
 
 #include "util/ros_utils.hpp"
 #include "util/zenoh_utils.hpp"
 #include "util/delay_queue.hpp"
 
 #include "adapters/joy_adapter.hpp"
-#include "adapters/path_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
 #include "adapters/generic_adapter.hpp"
 #include "adapters/ms136_imu_adapter.hpp"
@@ -84,10 +84,10 @@ public:
 private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
-    using StdStringAdapter = GenericAdapter<std_msgs::msg::String>;
     using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
+    using BytesAdapter = GenericAdapter<net_adapter::msg::Bytes>;
 
 private:
     template<typename AdapterT, DataFlow D>
@@ -140,13 +140,14 @@ private:
     };
 
     template<DataFlow D>
-    class TalonFBChannelsGroup
+    class TalonDataChannelsGroup
     {
         using InfoChannelT = Channel<TalonInfoAdapter, D>;
+        using CtrlsChannelT = Channel<TalonCtrlAdapter, D>;
         using FaultsChannelT = Channel<TalonFaultsAdapter, D>;
 
     public:
-        TalonFBChannelsGroup(
+        TalonDataChannelsGroup(
             rclcpp::Node& node,
             zenoh::Session& zsh,
             const std::vector<std::string>& topics,
@@ -155,6 +156,7 @@ private:
 
     private:
         std::vector<InfoChannelT> info_channels;
+        std::vector<CtrlsChannelT> ctrl_channels;
         std::vector<FaultsChannelT> faults_channels;
     };
 
@@ -185,10 +187,9 @@ private:
     MS136ScanChannel<ROBOT_TO_CLIENT> lidar_scan;
     Channel<MS136ImuAdapter, ROBOT_TO_CLIENT> imu;
 
-    TalonFBChannelsGroup<ROBOT_TO_CLIENT> talon_feedback;
+    TalonDataChannelsGroup<ROBOT_TO_CLIENT> talon_data;
 
-    Channel<PathAdapter, ROBOT_TO_CLIENT> path;
-    Channel<StdStringAdapter, ROBOT_TO_CLIENT> op_status;
+    Channel<BytesAdapter, ROBOT_TO_CLIENT> telemetry;
     Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
 
     SimClockChannel<ROBOT_TO_CLIENT> sim_clock;
@@ -226,15 +227,14 @@ EndPointNode<E>::EndPointNode() :
     lidar_scan{PARAMS_FROM_TOPIC_SIM("multiscan/lidar_scan")},
     imu{PARAMS_FROM_TOPIC("multiscan/imu")},
 
-    talon_feedback{PARAMS_FROM_TOPICS(
+    talon_data{PARAMS_FROM_TOPICS(
         {"lance/track_left",
          "lance/track_right",
          "lance/trencher",
          "lance/hopper_belt",
          "lance/hopper_act"})},
 
-    path{PARAMS_FROM_TOPIC("cardinal_perception/planned_path")},
-    op_status{PARAMS_FROM_TOPIC("lance/op_status")},
+    telemetry{PARAMS_FROM_TOPIC("lance/telemetry")},
     relay_status{PARAMS_FROM_TOPIC("lance/relay_status")},
 
     sim_clock{PARAMS_FROM_TOPIC_SIM("/clock")}
@@ -260,12 +260,12 @@ EndPointNode<E>::MS136ScanChannel<D>::MS136ScanChannel(
     bool is_sim,
     DelayQueue* dq)
 {
-    using SimChennelT = Channel<MS136SimScanAdapter, D>;
+    using SimChannelT = Channel<MS136SimScanAdapter, D>;
     using LiveChannelT = Channel<MS136ScanAdapter, D>;
 
     if (is_sim)
     {
-        this->data = std::make_shared<SimChennelT>(node, zsh, topic, qos, dq);
+        this->data = std::make_shared<SimChannelT>(node, zsh, topic, qos, dq);
     }
     else
     {
@@ -293,7 +293,7 @@ EndPointNode<E>::SimClockChannel<D>::SimClockChannel(
 
 template<EndPoint E>
 template<DataFlow D>
-EndPointNode<E>::TalonFBChannelsGroup<D>::TalonFBChannelsGroup(
+EndPointNode<E>::TalonDataChannelsGroup<D>::TalonDataChannelsGroup(
     rclcpp::Node& node,
     zenoh::Session& zsh,
     const std::vector<std::string>& topics,
@@ -301,11 +301,14 @@ EndPointNode<E>::TalonFBChannelsGroup<D>::TalonFBChannelsGroup(
     DelayQueue* dq)
 {
     this->info_channels.reserve(topics.size());
+    this->ctrl_channels.reserve(topics.size());
     this->faults_channels.reserve(topics.size());
     for (const std::string& base_topic : topics)
     {
         this->info_channels
             .emplace_back(node, zsh, (base_topic + "/info"), qos, dq);
+        this->ctrl_channels
+            .emplace_back(node, zsh, (base_topic + "/ctrl"), qos, dq);
         this->faults_channels
             .emplace_back(node, zsh, (base_topic + "/faults"), qos, dq);
     }

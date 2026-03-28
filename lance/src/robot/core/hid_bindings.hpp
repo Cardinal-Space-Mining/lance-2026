@@ -37,110 +37,47 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
+#pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
-#include <std_msgs/msg/int32.hpp>
-#include <std_srvs/srv/set_bool.hpp>
-
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_status.hpp"
+#include "hid_constants.hpp"
+#include "util/joy_utils.hpp"
 
 
-using namespace std::chrono;
-using namespace std::chrono_literals;
-
-using namespace util::ros_aliases;
-using namespace lance;
-
-
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-
-
-class RobotStatusServer : public rclcpp::Node
+namespace Bindings
 {
-    using Int32Msg = std_msgs::msg::Int32;
-    using SetBoolSrv = std_srvs::srv::SetBool;
+using namespace util;
+using namespace LogitechController;
 
-public:
-    RobotStatusServer() :
-        Node("robot_status"),
+using DisableAllActionsButton = StaticJoyButton<Buttons::A>;
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
-            rclcpp::SensorDataQoS{})},
-        set_teleop_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_teleop_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
-                                            : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        set_auto_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_auto_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_mode =
-                    req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
-                resp->success = true;
-            })},
-        test_mode_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_test_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
-            {
-                this->ctrl_opts = static_cast<uint8_t>(
-                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
-                resp->success = true;
-            })},
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
-            [this]()
-            {
-                this->watchdog_status_pub->publish(
-                    Int32Msg{}.set__data(this->getFeedTime()));
-            })}
-    {
-    }
+using TeleopLowSpeedButton = StaticJoyButton<Buttons::B>;
+using TeleopMediumSpeedButton = StaticJoyButton<Buttons::Y>;
+using TeleopHighSpeedButton = StaticJoyButton<Buttons::X>;
 
-protected:
-    inline int32_t getFeedTime()
-    {
-        return ControlStatus::format(
-            this->ctrl_mode,
-            this->ctrl_opts,
-            WATCHDOG_TELEOP_FEED_TIME,
-            WATCHDOG_AUTO_FEED_TIME);
-    }
+using TeleopDriveXAxis = StaticJoyAxis<Axes::LEFTX>;
+using TeleopDriveYAxis = StaticJoyAxis<Axes::LEFTY>;
 
-protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetBoolSrv> set_teleop_srv;
-    SharedSrv<SetBoolSrv> set_auto_srv;
-    SharedSrv<SetBoolSrv> test_mode_srv;
-    RclTimer watchdog_timer;
+using TeleopTrencherSpeedAxis = StaticJoyAxis<Axes::R_TRIGGER>;
+using TeleopTrencherInvertButton = StaticJoyButton<Buttons::RB>;
 
-    ControlMode ctrl_mode{ControlMode::DISABLED};
-    uint8_t ctrl_opts{0};
-};
+using TeleopHopperSpeedAxis = StaticJoyAxis<Axes::L_TRIGGER>;
+using TeleopHopperInvertButton = StaticJoyButton<Buttons::LB>;
+using TeleopHopperActuateAxis = StaticJoyAxis<Axes::RIGHTY>;
 
+using AssistedMiningToggleButton = StaticJoyButton<Buttons::L_STICK>;
+using AssistedOffloadToggleButton = StaticJoyButton<Buttons::R_STICK>;
 
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
+using PresetMiningInitButton = StaticJoyButton<Buttons::BACK>;
+using PresetOffloadInitButton = StaticJoyButton<Buttons::START>;
 
-    return 0;
-}
+using ToggleTraversalCursorMode = StaticJoyButton<Buttons::LOGITECH>;
+
+// using PresetMiningStartButton =
+//     StaticJoyPov<Axes::DPAD_U_D, Axes::DPAD_K::DPAD_UP>;
+// using PresetMiningStopButton =
+//     StaticJoyPov<Axes::DPAD_U_D, Axes::DPAD_K::DPAD_DOWN>;
+// using PresetOffloadStartButton =
+//     StaticJoyPov<Axes::DPAD_R_L, Axes::DPAD_K::DPAD_RIGHT>;
+// using PresetOffloadStopButton =
+//     StaticJoyPov<Axes::DPAD_R_L, Axes::DPAD_K::DPAD_LEFT>;
+};  // namespace Bindings
