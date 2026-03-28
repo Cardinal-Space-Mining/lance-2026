@@ -47,9 +47,9 @@
             "motors":[
                 {
                     "name": "track_right",
-                    "can_id": "0",
+                    "can_id": 0,
                     "controller": "FX",
-                    "follower": "",
+                    "follows": "",
                     "sensor": "",
 
                     "kP": 0.4,
@@ -64,9 +64,9 @@
                 },
                 {
                     "name": "track_left",
-                    "can_id": "1",
+                    "can_id": 1,
                     "controller": "FX",
-                    "follower": "",
+                    "follows": "",
                     "sensor": "",
 
                     "kP": 0.4,
@@ -81,9 +81,9 @@
                 },
                 {
                     "name": "trencher",
-                    "can_id": "2",
+                    "can_id": 2,
                     "controller": "FX",
-                    "follower": "",
+                    "follows": "",
                     "sensor": "",
 
                     "kP": 0.4,
@@ -98,9 +98,9 @@
                 },
                 {
                     "name": "hopper_belt",
-                    "can_id": "3",
+                    "can_id": 3,
                     "controller": "FX",
-                    "follower": "",
+                    "follows": "",
                     "sensor": "",
 
                     "kP": 0.4,
@@ -115,9 +115,9 @@
                 },
                 {
                     "name": "hopper_act_left",
-                    "can_id": "4",
+                    "can_id": 4,
                     "controller": "FXS",
-                    "follower": "",
+                    "follows": "",
                     "sensor": "",
 
                     "kP": 0.4,
@@ -132,7 +132,7 @@
                 },
                 {
                     "name": "hopper_act_right",
-                    "can_id": "5",
+                    "can_id": 5,
                     "controller": "FXS",
                     "follows": "hopper_act_left",
                     "sensor": "",

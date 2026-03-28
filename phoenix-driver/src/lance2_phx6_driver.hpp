@@ -88,7 +88,7 @@ class Phoenix6Driver : public rclcpp::Node
             rclcpp::Node* node,
             const std::string& name,
             int id,
-            const std::string& follower,
+            int followsId,
             const std::string& sensor,
             const RclMotorConfig& config,
             const CANBus& bus);
@@ -128,7 +128,7 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
     rclcpp::Node* node,
     const std::string& name,
     int id,
-    const std::string& follower,
+    int followsId,
     const std::string& sensor,
     const RclMotorConfig& config,
     const CANBus& bus) :
@@ -147,24 +147,67 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
 {
     // --- Init motor -------------------------------------------------------------
     if constexpr (std::is_same_v<MotorType, TalonFX>)
-    {   
-        // TODO init TalonFX-specific settings
+    {
+        TalonFXConfiguration config = buildMotorConfig(
+            config.kP,
+            config.kI,
+            config.kD,
+            config.kV,
+            config.neutral_deadband,
+            config.neutral_brake,
+            config.stator_current_limit,
+            config.supply_current_limit,
+            config.voltage_limit);
+
+        motor.getConfigurator().Apply(config);
+
+        if (followsId != -1)
+        {
+            ctre::phoenix6::controls::Follower followerCtrl(follower_id, false);
+            motor.SetControl(followerCtrl);
+        }
     }
     else if constexpr (std::is_same_v<MotorType, TalonFXS>)
     {
-        // TODO init TalonFXS-specific settings
+        TalonFXSConfiguration config = buildMotorConfig(
+            config.kP,
+            config.kI,
+            config.kD,
+            config.kV,
+            config.neutral_deadband,
+            config.neutral_brake,
+            config.stator_current_limit,
+            config.supply_current_limit,
+            config.voltage_limit);
+
+        // TalonFXS supports external sensors — configure feedback source if provided
+        if (!sensor.empty())
+        {
+            //TODO Implement sensor config for FXS
+        }
+
+        motor.getConfigurator().Apply(config);
+
+        if (followsId != -1)
+        {
+            ctre::phoenix6::controls::Follower followerCtrl(follower_id, false);
+            motor.SetControl(followerCtrl);
+        }
     }
 }
 
 template<typename MotorType>
 void Phoenix6Driver::RclMotor<MotorType>::executeCtrl(const TalonCtrlMsg& msg)
 {
-    if constexpr (std::is_same_v<MotorType, TalonFX>)
-    {
-        // TODO convert TalonCtrlMsg to TalonFX control commands and execute
-    }
-    else if constexpr (std::is_same_v<MotorType, TalonFXS>)
-    {
-        // TODO convert TalonCtrlMsg to TalonFXS control commands and execute
-    }
+    motor << msg;
+
+    // TODO possible add dynamic load gains, or FOC
+    // TODO add new functionality for seprate slot for pos control
+
+    // if constexpr (std::is_same_v<MotorType, TalonFX>)
+    // {
+    // }
+    // else if constexpr (std::is_same_v<MotorType, TalonFXS>)
+    // {
+    // }
 }

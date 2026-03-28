@@ -78,6 +78,16 @@ Phoenix6Driver::Phoenix6Driver() :
     // --- Get motors params-------------------------------------------------------------
     auto motor_names =
         declare_and_get_param<std::vector<std::string>>(*this, "names", {});
+
+    std::unordered_map<std::string, int> ids;
+    for (auto name : motor_names)
+    {
+        const std::string param_prefix = "motors." + name + ".";
+        int id = declare_and_get_param(*this, param_prefix + "id", -1);
+
+        ids.emplace(name, id);
+    }
+
     for (auto name : motor_names)
     {
         const std::string param_prefix = "motors." + name + ".";
@@ -97,10 +107,11 @@ Phoenix6Driver::Phoenix6Driver() :
             continue;
         }
 
-        std::string follower = declare_and_get_param<std::string>(
+        std::string follows = declare_and_get_param<std::string>(
             *this,
-            param_prefix + "follower",
+            param_prefix + "follows",
             "");
+        int followsId = follows.empty() ? -1 : ids.at(follows);
         std::string sensor = declare_and_get_param<std::string>(
             *this,
             param_prefix + "sensor",
@@ -145,7 +156,7 @@ Phoenix6Driver::Phoenix6Driver() :
                     this,
                     name,
                     id,
-                    follower,
+                    followsId,
                     sensor,
                     params,
                     bus));
@@ -157,7 +168,7 @@ Phoenix6Driver::Phoenix6Driver() :
                     this,
                     name,
                     id,
-                    follower,
+                    followsId,
                     sensor,
                     params,
                     bus));
