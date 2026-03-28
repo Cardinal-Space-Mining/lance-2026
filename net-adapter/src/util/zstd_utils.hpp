@@ -47,69 +47,106 @@
 namespace util
 {
 
-/* Compresses buf in-place using zstd. The zstd frame header stores the
- * original size, so no manual prefix is needed.
- *
- * level follows zstd conventions: 1 = fastest, 3 = default (good balance),
+/* level follows zstd conventions: 1 = fastest, 3 = default (good balance),
  * 6+ = better ratio at increasing CPU cost. */
-inline bool zstdCompress(std::vector<uint8_t>& buf, int level = ZSTD_CLEVEL_DEFAULT)
+class ZstdCCtx
 {
-    if (buf.empty())
+public:
+    ZstdCCtx() : ctx{ZSTD_createCCtx()} {}
+    ~ZstdCCtx() { ZSTD_freeCCtx(ctx); }
+    ZstdCCtx(const ZstdCCtx&) = delete;
+    ZstdCCtx& operator=(const ZstdCCtx&) = delete;
+
+    /* Compresses buf in-place. The zstd frame header stores the original size,
+     * so no manual prefix is needed. */
+    bool compress(std::vector<uint8_t>& buf, int level = ZSTD_CLEVEL_DEFAULT)
     {
+        if (buf.empty())
+        {
+            return true;
+        }
+
+        const size_t dst_cap = ZSTD_compressBound(buf.size());
+        std::vector<uint8_t> tmp(dst_cap);
+
+        const size_t compressed = ZSTD_compressCCtx(
+            ctx,
+            tmp.data(),
+            dst_cap,
+            buf.data(),
+            buf.size(),
+            level);
+
+        if (ZSTD_isError(compressed))
+        {
+            return false;
+        }
+
+        tmp.resize(compressed);
+        buf = std::move(tmp);
         return true;
     }
 
-    const size_t dst_cap = ZSTD_compressBound(buf.size());
-    std::vector<uint8_t> tmp(dst_cap);
+private:
+    ZSTD_CCtx* ctx;
+};
 
-    const size_t compressed =
-        ZSTD_compress(tmp.data(), dst_cap, buf.data(), buf.size(), level);
-
-    if (ZSTD_isError(compressed))
-    {
-        return false;
-    }
-
-    tmp.resize(compressed);
-    buf = std::move(tmp);
-    return true;
-}
-
-/* Decompresses buf in-place. Reads original size from the zstd frame header. */
-inline bool zstdDecompress(std::vector<uint8_t>& buf)
+class ZstdDCtx
 {
-    if (buf.empty())
+public:
+    ZstdDCtx() : ctx{ZSTD_createDCtx()} {}
+    ~ZstdDCtx() { ZSTD_freeDCtx(ctx); }
+    ZstdDCtx(const ZstdDCtx&) = delete;
+    ZstdDCtx& operator=(const ZstdDCtx&) = delete;
+
+    /* Decompresses buf in-place. Reads original size from the zstd frame header. */
+    bool decompress(std::vector<uint8_t>& buf)
     {
+        if (buf.empty())
+        {
+            return true;
+        }
+
+        const unsigned long long orig_size =
+            ZSTD_getFrameContentSize(buf.data(), buf.size());
+
+        if (orig_size == ZSTD_CONTENTSIZE_ERROR ||
+            orig_size == ZSTD_CONTENTSIZE_UNKNOWN)
+        {
+            return false;
+        }
+
+        if (orig_size == 0)
+        {
+            buf.clear();
+            return true;
+        }
+
+        std::vector<uint8_t> tmp(static_cast<size_t>(orig_size));
+
+        const size_t result = ZSTD_decompressDCtx(
+            ctx,
+            tmp.data(),
+            static_cast<size_t>(orig_size),
+            buf.data(),
+            buf.size());
+
+        if (ZSTD_isError(result))
+        {
+            return false;
+        }
+
+        buf = std::move(tmp);
         return true;
     }
 
-    const unsigned long long orig_size =
-        ZSTD_getFrameContentSize(buf.data(), buf.size());
+private:
+    ZSTD_DCtx* ctx;
+};
 
-    if (orig_size == ZSTD_CONTENTSIZE_ERROR ||
-        orig_size == ZSTD_CONTENTSIZE_UNKNOWN)
-    {
-        return false;
-    }
-
-    if (orig_size == 0)
-    {
-        buf.clear();
-        return true;
-    }
-
-    std::vector<uint8_t> tmp(static_cast<size_t>(orig_size));
-
-    const size_t result =
-        ZSTD_decompress(tmp.data(), static_cast<size_t>(orig_size), buf.data(), buf.size());
-
-    if (ZSTD_isError(result))
-    {
-        return false;
-    }
-
-    buf = std::move(tmp);
-    return true;
-}
+// Used to not have any runtime hit for adapters that opt out of compression
+struct ZstdNoCtx
+{
+};
 
 }  // namespace util

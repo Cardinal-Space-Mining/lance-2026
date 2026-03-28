@@ -102,6 +102,9 @@ public:
 
     private:
         SubStateT state;
+        [[no_unique_address]]
+        std::conditional_t<Compress, util::ZstdCCtx, util::ZstdNoCtx>
+            compress_ctx;  // compression context if Compress, else zero size
         ZenohPub zpub;
         RosSub rsub;
     };
@@ -121,6 +124,9 @@ public:
 
     private:
         PubStateT state;
+        [[no_unique_address]]
+        std::conditional_t<Compress, util::ZstdDCtx, util::ZstdNoCtx>
+            decompress_ctx;  // decompression context if Compress, else zero size
         RosPub rpub;
         ZenohSub zsub;
     };
@@ -198,7 +204,7 @@ BaseAdapter<M, D, P, S, C>::Subscriber::Subscriber(
 
             if constexpr (C)
             {
-                if (!util::zstdCompress(bytes))
+                if (!this->compress_ctx.compress(bytes))
                 {
                     RCLCPP_ERROR_THROTTLE(
                         logger,
@@ -245,7 +251,7 @@ BaseAdapter<M, D, P, S, C>::Publisher::Publisher(
             ByteBuffer bytes = sample.get_payload().as_vector();
             if constexpr (C)
             {
-                if (!util::zstdDecompress(bytes))
+                if (!this->decompress_ctx.decompress(bytes))
                 {
                     RCLCPP_ERROR_THROTTLE(
                         logger,
