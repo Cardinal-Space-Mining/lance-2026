@@ -51,15 +51,15 @@
 #include <ctre/phoenix6/unmanaged/Unmanaged.hpp>
 
 #include "ros_utils.hpp"
-#include "phx6_utils.hpp"
+#include "lance2_phx6_utils.hpp"
 
 using namespace util;
 using namespace util::ros_aliases;
 using namespace std::chrono_literals;
 
 Phoenix6Driver::Phoenix6Driver() :
-    Node("phoenix6_driver"),
-    PHX_BUS(declare_and_get_param(
+    Node("lance2_phoenix6_driver"),
+    bus(declare_and_get_param(
         *this,
         "can_interface",
         std::string("canable_A"))),
@@ -69,7 +69,7 @@ Phoenix6Driver::Phoenix6Driver() :
         rclcpp::SensorDataQoS{},
         [this](const Int32Msg& msg) { this->feedWatchdogStatus(msg.data); })},
     info_pub_timer{this->create_wall_timer(
-        declare_and_get_param(*this, "info_pub_rate_ms", 50) * 1ms,
+        declare_and_get_param(*this, "info_pub_rate_mexts", 50) * 1ms,
         [this]() { this->pubMotorInfo_cb(); })},
     fault_pub_timer{this->create_wall_timer(
         declare_and_get_param(*this, "info_fault_rate_ms", 250) * 1ms,
@@ -148,7 +148,7 @@ Phoenix6Driver::Phoenix6Driver() :
                     follower,
                     sensor,
                     params,
-                    PHX_BUS));
+                    bus));
         }
         else if (controller == "FXS")
         {
@@ -160,7 +160,7 @@ Phoenix6Driver::Phoenix6Driver() :
                     follower,
                     sensor,
                     params,
-                    PHX_BUS));
+                    bus));
         }
         else
         {
@@ -183,6 +183,11 @@ Phoenix6Driver::Phoenix6Driver() :
         // this might not be needed
         c_Phoenix_Diagnostics_SetSecondsToStart(-1);
     }
+}
+
+Phoenix6Driver::~Phoenix6Driver()
+{
+    c_Phoenix_Diagnostics_Dispose();
 }
 
 void Phoenix6Driver::feedWatchdogStatus(int32_t status)
@@ -259,4 +264,3 @@ int main(int argc, char** argv)
 
     return EXIT_SUCCESS;
 }
-

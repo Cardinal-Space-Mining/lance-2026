@@ -50,7 +50,7 @@
 #include <ctre/phoenix6/unmanaged/Unmanaged.hpp>
 
 #include "ros_utils.hpp"
-#include "phx6_utils.hpp"
+#include "lance2_phx6_utils.hpp"
 
 using namespace util;
 using namespace util::ros_aliases;
@@ -107,7 +107,7 @@ private:
     void pubMotorFault_cb();
 
 private:
-    CANBus PHX_BUS;
+    CANBus bus;
     int diagnostic_server_port;
 
     std::vector<std::unique_ptr<RclMotor<TalonFX>>> FX_motors;

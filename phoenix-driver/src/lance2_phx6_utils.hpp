@@ -56,6 +56,7 @@ using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
 using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
 using TalonFaultsMsg = phoenix_ros_driver::msg::TalonFaults;
 
+using phx6::CANBus;
 using phx6::hardware::Pigeon2;
 using phx6::hardware::TalonFX;
 using phx6::hardware::TalonFXS;
@@ -72,28 +73,26 @@ using phx6::signals::NeutralModeValue;
 using phx6::signals::InvertedValue;
 using phx6::signals::FeedbackSensorSourceValue;
 
-
-// --- Config Helpers ----------------------------------------------------------eu
-
-inline TalonFXConfiguration buildFXConfig(
+template <typename Config_T>
+inline Config_T buildMotorConfig(
     double kP,
     double kI,
     double kD,
     double kV,
     double neutral_deadband,
-    int neutral_mode,
-    int invert_mode,
+    bool neutral_brake,
     double stator_current_limit = 0.,
     double supply_current_limit = 0.,
     double voltage_limit = 0.)
 {
-    return TalonFXConfiguration{}
+    return Config_T{}
         .WithSlot0(Slot0Configs{}.WithKP(kP).WithKI(kI).WithKD(kD).WithKV(kV))
         .WithMotorOutput(
             MotorOutputConfigs{}
                 .WithDutyCycleNeutralDeadband(neutral_deadband)
-                .WithNeutralMode(neutral_mode)
-                .WithInverted(invert_mode))
+                .WithNeutralMode(neutral_brake
+                    ? NeutralModeValue::Brake
+                    : NeutralModeValue::Coast))
         .WithFeedback(
             FeedbackConfigs{}.WithFeedbackSensorSource(
                 FeedbackSensorSourceValue::RotorSensor))
@@ -104,9 +103,9 @@ inline TalonFXConfiguration buildFXConfig(
                 .WithStatorCurrentLimitEnable(stator_current_limit > 0.)
                 .WithSupplyCurrentLimit(
                     units::current::ampere_t{supply_current_limit})
-                .WithSupplyCurrentLimitEnable(supply_current_limit >= 0.))
+                .WithSupplyCurrentLimitEnable(supply_current_limit > 0.))
         .WithVoltage(
-            (voltage_limit >= 0.)
+            (voltage_limit > 0.)
                 ? VoltageConfigs{}
                       .WithPeakForwardVoltage(
                           units::voltage::volt_t{voltage_limit})
@@ -124,7 +123,7 @@ inline TalonInfoMsg& serializeTalonInfoNoStatus(TalonInfoMsg& info, TalonT& m)
         std::is_same<TalonT, TalonFX>::value ||
         std::is_same<TalonT, TalonFXS>::value);
 
-    info.position = m.GetPosition().GetValueAsDouble();eu
+    info.position = m.GetPosition().GetValueAsDouble();
     info.velocity = m.GetVelocity().GetValueAsDouble();
     info.acceleration = m.GetAcceleration().GetValueAsDouble();
 

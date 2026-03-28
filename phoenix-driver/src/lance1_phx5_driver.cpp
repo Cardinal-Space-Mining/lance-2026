@@ -51,7 +51,7 @@
 #include <ctre/phoenix/unmanaged/Unmanaged.h>
 
 #include "ros_utils.hpp"
-#include "phx5_utils.hpp"
+#include "lance1_phx5_utils.hpp"
 
 
 using namespace util;
@@ -107,9 +107,7 @@ private:
 
 
 Phoenix5Driver::Phoenix5Driver() :
-    Node{
-        "phoenix5_driver"
-},
+    Node{"lance1_phoenix5_driver"},
     hopper_act{
         .motor{
             DEFAULT_MOTOR_CAN_ID,
