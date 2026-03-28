@@ -39,21 +39,6 @@
 
 #include "auto_mining_controller.hpp"
 
-#include <Eigen/Core>
-
-#include "mining_planner.hpp"
-
-
-std::function<float(float, float, float)> perception_eval_fn =
-    [](float x, float y, float heading_deg)
-{
-    // Temporary until perception service/client exists.
-    // Replace with service call to perception when implemented.
-    (void)x;
-    (void)heading_deg;
-    return std::max(0.0f, 10.0f - y);
-};
-
 
 namespace lance
 {
@@ -64,15 +49,7 @@ AutoMiningController::AutoMiningController(
     SharedControllerCollection& controllers) :
     pub_map{pub_map},
     params{params},
-    mining_planner{params, perception_eval_fn},
-    mining_eval_client{node.create_client<UpdateMiningEvalSrv>(
-        "/cardinal_perception/update_mining_eval")},
-    mining_eval_sub{node.create_subscription<MiningEvalResultsMsg>(
-        "/cardinal_perception/mining_eval_results",
-        rclcpp::SensorDataQoS{},
-        [this](
-            const MiningEvalResults::ConstSharedPtr&
-                msg) { this->eval_results = msg; })},
+    mining_planner{params},
     traversal_controller{controllers.traversal_controller},
     mining_controller{controllers.mining_controller}
 {
@@ -103,9 +80,9 @@ void AutoMiningController::iterate(
             // 1. generate target evals
             // 2. geometry converter to build eval list
             // 3. >>
-            this->mining_eval_client->async_send_request(
-                req,
-                [](rclcpp::Client<UpdateMiningSrv>::SharedFuture f){ /* Use the response here! */ } );
+            // this->mining_eval_client->async_send_request(
+            //     req,
+            //     [](rclcpp::Client<UpdateMiningSrv>::SharedFuture f){ /* Use the response here! */ } );
             // 4. update planner accordingly >>
 
             // This will update the mining planner's internal matrices based on the current state of the world as perceived by the robot. It should be called periodically to ensure the planner has up-to-date information, but for now we will call it once at the beginning of the routine.
@@ -118,7 +95,8 @@ void AutoMiningController::iterate(
             // Wouldn't be a bad idea to check the best path it gives you one more time though
             // The final ouput is sorted so the top has the highest quality
 
-            const DirectedMiningPaths& paths = mining_planner.finalOutput();
+            const MiningPlanner::DirectedMiningPaths& paths =
+                mining_planner.finalOutput();
             if (paths.empty())
             {
                 std::cout

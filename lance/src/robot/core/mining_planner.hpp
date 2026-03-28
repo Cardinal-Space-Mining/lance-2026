@@ -61,22 +61,21 @@ enum class MiningDirection
 };
 
 
-// Struct to represent a mining path with its direction and associated matrix for distance calculation
+// Struct to represent a mining path with its direction and associated matrix for
+// distance calculation
 class DirectedMiningPath
 {
 public:
     using Vec2i = Eigen::Vector2i;
     using Vec2f = Eigen::Vector2f;
     using MiningPath = std::pair<Vec2i, Vec2i>;
-    using MiningPaths = std::vector<MiningPath>;
     using MiningSwath = std::pair<Vec2f, Vec2f>;
 
 public:
     DirectedMiningPath(
         MiningPath p,
         MiningDirection dir,
-        const Eigen::MatrixXf* mat,
-        const RobotParams& robot_params);
+        const Eigen::MatrixXf* mat);
 
 public:
     float getDistance() const;
@@ -89,7 +88,7 @@ public:
 
     bool adjustForRobotClearance();
 
-    MiningSwath getPathCoordinatesInWorldFrame(float cell_size) const;
+    MiningSwath getPathCoordinatesInWorldFrame() const;
 
     float getRecalculatedDistance() const;
 
@@ -100,7 +99,6 @@ private:
     MiningPath path;
     MiningDirection direction;
     const Eigen::MatrixXf* matrix;
-    const RobotParams& m_robot_params;
     float distance = -1.0;
 };
 
@@ -108,13 +106,12 @@ private:
 
 class MiningPlanner
 {
+public:
     using Box2f = Eigen::AlignedBox2f;
-    using DirectedMiningPaths = std::vector<class DirectedMiningPath>;
+    using DirectedMiningPaths = std::vector<DirectedMiningPath>;
 
 public:
-    MiningPlanner(
-        const RobotParams& robot_params
-        std::function<float(float, float, float)> perception_eval);
+    MiningPlanner(const RobotParams& robot_params);
 
 public:
     void updateMappedMatrices();
@@ -123,32 +120,23 @@ public:
     void markMiningOnMatrix(const DirectedMiningPath& path);
 
 private:
-    void sortPathsByQuality(
-        DirectedMiningPaths& paths,
-        const Eigen::MatrixXi& previously_mined_locations);
-
-    void populatePlannedMiningPaths(
-        DirectedMiningPaths& dir_mining_paths,
-        const Eigen::MatrixXf& mat,
-        MiningDirection mining_dir);
-
-    void removeSectionsForRobotClearance(
-        DirectedMiningPaths& dir_mining_paths);
-
     // Helper function to populate a strip map for a given direction
     void populdateStripMap(
         Eigen::MatrixXf& strip_map,
-        int primary_dim,
-        int secondary_dim,
-        MiningDirection direction,
-        std::function<float(float, float, float)> perception_eval);
+        MiningDirection direction);
+
+    void appendPlannedMiningPaths(
+        const Eigen::MatrixXf& mat,
+        MiningDirection mining_dir);
+
+    void sortPathsByQuality();
+    void removeSectionsForRobotClearance();
 
 private:
-    RobotParams& m_robot_params;
-    std::function<float(float, float, float)> perception_eval;
-    Box2f mining_zone_bounds;
+    const RobotParams& robot_params;
 
-    // The direction is the way the the robot would be moving in reference to the base frame which is MiningDirection::DOWN
+    // The direction is the way the the robot would be moving in reference to the
+    // base frame which is MiningDirection::DOWN
     Eigen::MatrixXf strip_map_up;
     Eigen::MatrixXf strip_map_down;
     Eigen::MatrixXf strip_map_left;
@@ -159,8 +147,6 @@ private:
 
     int mapped_matrix_width;
     int mapped_matrix_height;
-    int horizontal_matrix_width;
-    int horizontal_matrix_height;
 
     const float previously_mined_penalty = 0.1f;
 };

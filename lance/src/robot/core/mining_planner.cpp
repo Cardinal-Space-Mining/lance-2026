@@ -71,12 +71,10 @@ constexpr int NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE = static_cast<int>(
 DirectedMiningPath::DirectedMiningPath(
     MiningPath p,
     MiningDirection dir,
-    const Eigen::MatrixXf* mat,
-    const RobotParams& robot_params) :
+    const Eigen::MatrixXf* mat) :
     path(std::move(p)),
     direction(dir),
     matrix(mat),
-    m_robot_params(robot_params)
 {
     distance = this->getRecalculatedDistance(path, matrix);
 }
@@ -181,7 +179,8 @@ bool DirectedMiningPath::adjustForRobotClearance()
         return false;
     }
     distance = this->getRecalculatedDistance();
-    // std::cout << "got new distance " << distance << " for point " << path.first.x() << ", " << path.first.y() << " to " << path.second.x() << ", " << path.second.y() << " after clearance adjustment: ";
+    // std::cout << "got new distance " << distance << " for point " << path.first.x() << ", "
+    // << path.first.y() << " to " << path.second.x() << ", " << path.second.y() << " after clearance adjustment: ";
 
     return distance >= 0.0f;
 }
@@ -193,8 +192,6 @@ DirectedMiningPath::MiningSwath
 
 #define CELL_SIZE TRACK_WIDTH_M_<float>
 
-    // Eigen::Vector2f target_pos = this->params.mining_zone_bounds.max() - Eigen::Vector2f::Constant(0.8f);
-    // Eigen::Vector2f target_dir{0.f, 1.f};
     float stdX = p.first.y() * CELL_SIZE;
     float stdY = p.first.x() * CELL_SIZE;
     Eigen::Vector2f target_pos;
@@ -251,12 +248,16 @@ MiningPath DirectedMiningPath::toBaseCoordinates() const
     switch (direction)
     {
         case MiningDirection::DOWN:
+        {
             break;
+        }
         case MiningDirection::UP:
+        {
             // std::swap(p.first, p.second);
             p.first.x() = matrix->rows() - 1 - p.first.x();
             p.second.x() = matrix->rows() - 1 - p.second.x();
             break;
+        }
         case MiningDirection::RIGHT:
         {
             p.first = Eigen::Vector2i(p.first.y(), p.first.x());
@@ -269,13 +270,16 @@ MiningPath DirectedMiningPath::toBaseCoordinates() const
             break;
         }
         case MiningDirection::LEFT:
+        {
             p.first = Eigen::Vector2i(p.first.y(), p.first.x());
             p.second = Eigen::Vector2i(p.second.y(), p.second.x());
             std::swap(p.first, p.second);
-            // You want to use the rows because left basically a transpose of down so it needs cols of down which is rows of left
+            // You want to use the rows because left basically a transpose of down
+            // so it needs cols of down which is rows of left
             p.first.y() = matrix->rows() - 1 - p.first.y();
             p.second.y() = matrix->rows() - 1 - p.second.y();
             break;
+        }
     }
 
     if (p.first.x() > p.second.x() ||
@@ -291,17 +295,14 @@ MiningPath DirectedMiningPath::toBaseCoordinates() const
 
 
 
-MiningPlanner(
-    const RobotParams& robot_params,
-    std::function<float(float, float, float)> perception_eval) :
-    m_robot_params(robot_params),
-    perception_eval(perception_eval),
-    mining_zone_bounds{robot_params.mining_zone_bounds}
+MiningPlanner(const RobotParams& robot_params) : robot_params(robot_params),
 {
-    mapped_matrix_width =
-        (int)(mining_zone_bounds.max().x() / TRACK_SEPARATION_M_<float>);
-    mapped_matrix_height =
-        (int)(mining_zone_bounds.max().y() / TRACK_SEPARATION_M_<float>);
+    this->mapped_matrix_width = static_cast<int>(
+        this->robot_params.mining_zone_bounds.max().x() /
+        TRACK_SEPARATION_M_<float>);
+    this->mapped_matrix_height = static_cast<int>(
+        this->robot_params.mining_zone_bounds.max().y() /
+        TRACK_SEPARATION_M_<float>);
 
     // UP/DOWN are (width, height) = (5, 4)
     strip_map_up =
@@ -320,101 +321,107 @@ MiningPlanner(
 }
 
 
-void MiningPlanner::markMiningOnMatrix(const DirectedMiningPath& path)
+void MiningPlanner::updateMappedMatrices()
 {
-    path.markMiningOnMatrix(times_mined_count_matrix);
+    // This function is used to populate the 4 strip maps based on the perception
+    // evaluation function. It doesn't need to be called very often but could
+    // be to refresh data
+    this->populdateStripMap(strip_map_up, MiningDirection::UP);
+    this->populdateStripMap(strip_map_down, MiningDirection::DOWN);
+    this->populdateStripMap(strip_map_left, MiningDirection::LEFT);
+    this->populdateStripMap(strip_map_right, MiningDirection::RIGHT);
 }
 
 const DirectedMiningPaths& MiningPlanner::finalOutput()
 {
-    DirectedMiningPaths vertical_up_paths;
-    DirectedMiningPaths vertical_down_paths;
-    DirectedMiningPaths horizontal_left_paths;
-    DirectedMiningPaths horizontal_right_paths;
-    populatePlannedMiningPaths(
-        vertical_up_paths,
-        strip_map_up,
-        MiningDirection::UP);
-    populatePlannedMiningPaths(
-        vertical_down_paths,
-        strip_map_down,
-        MiningDirection::DOWN);
-    populatePlannedMiningPaths(
-        horizontal_left_paths,
-        strip_map_left,
-        MiningDirection::LEFT);
-    populatePlannedMiningPaths(
-        horizontal_right_paths,
-        strip_map_right,
-        MiningDirection::RIGHT);
+    this->all_mining_paths.clear();
 
-    DirectedMiningPaths all_mining_paths = vertical_up_paths;
-    all_mining_paths.insert(
-        all_mining_paths.end(),
-        vertical_down_paths.begin(),
-        vertical_down_paths.end());
-    all_mining_paths.insert(
-        all_mining_paths.end(),
-        horizontal_left_paths.begin(),
-        horizontal_left_paths.end());
-    all_mining_paths.insert(
-        all_mining_paths.end(),
-        horizontal_right_paths.begin(),
-        horizontal_right_paths.end());
+    this->appendPlannedMiningPaths(strip_map_up, MiningDirection::UP);
+    this->appendPlannedMiningPaths(strip_map_down, MiningDirection::DOWN);
+    this->appendPlannedMiningPaths(strip_map_left, MiningDirection::LEFT);
+    this->appendPlannedMiningPaths(strip_map_right, MiningDirection::RIGHT);
 
-    removeSectionsForRobotClearance(all_mining_paths);
-    sortPathsByQuality(all_mining_paths, times_mined_count_matrix);
+    this->removeSectionsForRobotClearance();
+    this->sortPathsByQuality();
 
     return all_mining_paths;
 }
 
-void MiningPlanner::updateMappedMatrices()
+void MiningPlanner::markMiningOnMatrix(const DirectedMiningPath& path)
 {
-    // This function is used to populate the 4 strip maps based on the perception evaluation function. It doesn't need to be called very often but could be to refresh data
-    populdateStripMap(
-        strip_map_up,
-        mapped_matrix_width,
-        mapped_matrix_height,
-        MiningDirection::UP,
-        perception_eval);
-    populdateStripMap(
-        strip_map_down,
-        mapped_matrix_width,
-        mapped_matrix_height,
-        MiningDirection::DOWN,
-        perception_eval);
-    populdateStripMap(
-        strip_map_left,
-        mapped_matrix_height,
-        mapped_matrix_width,
-        MiningDirection::LEFT,
-        perception_eval);
-    populdateStripMap(
-        strip_map_right,
-        mapped_matrix_height,
-        mapped_matrix_width,
-        MiningDirection::RIGHT,
-        perception_eval);
+    path.markMiningOnMatrix(this->times_mined_count_matrix);
 }
 
-void MiningPlanner::sortPathsByQuality(
-    DirectedMiningPaths& paths,
-    const Eigen::MatrixXi& previously_mined_locations)
+
+// Helper function to populate a strip map for a given direction
+void MiningPlanner::populdateStripMap(
+    Eigen::MatrixXf& strip_map,
+    MiningDirection direction);
 {
-    std::sort(
-        paths.begin(),
-        paths.end(),
-        [&previously_mined_locations](
-            const DirectedMiningPath& a,
-            const DirectedMiningPath& b)
+    int primary_dim, secondary_dim;
+    float angle;
+    switch (direction)
+    {
+        case MiningDirection::UP:
+        case MiningDirection::DOWN:
         {
-            return a.getQuality(previously_mined_locations) >
-                   b.getQuality(previously_mined_locations);
-        });
+            primary_dim = this->mapped_matrix_width;
+            secondary_dim = this->mapped_matrix_height;
+            angle = 90.f;
+            break;
+        }
+        case MiningDirection::LEFT:
+        case MiningDirection::RIGHT:
+        {
+            primary_dim = this->mapped_matrix_height;
+            secondary_dim = this->mapped_matrix_width;
+            angle = 0.f;
+            break;
+        }
+    }
+
+    for (int i = 0; i < secondary_dim; i++)
+    {
+        float secondary_pos = i * TRACK_SEPARATION_M_<float>;
+
+        int row = 0;
+        while (row < primary_dim)
+        {
+            float primary_pos = row * TRACK_SEPARATION_M_<float>;
+            // float distance = perception_eval(secondary_pos, primary_pos, angle);
+            float distance = 0.f;
+            int cells_clear = (int)(distance / TRACK_SEPARATION_M_<float>);
+
+            for (int j = row; j < primary_dim; j++)
+            {
+                float distance_to_cell_end =
+                    (j - row + 1) * TRACK_SEPARATION_M_<float>;
+                if (distance >= distance_to_cell_end)
+                {
+                    strip_map(j, i) = 1.0f;
+                }
+                else
+                {
+                    float distance_to_cell_start =
+                        (j - row) * TRACK_SEPARATION_M_<float>;
+                    if (distance <= distance_to_cell_start)
+                    {
+                        strip_map(j, i) = 0.0f;
+                    }
+                    else
+                    {
+                        strip_map(j, i) = (distance - distance_to_cell_start) /
+                                          TRACK_SEPARATION_M_<float>;
+                    }
+                    break;
+                }
+            }
+            row += cells_clear + 1;
+        }
+    }
 }
 
-void MiningPlanner::populatePlannedMiningPaths(
-    DirectedMiningPaths& dir_mining_paths,
+void MiningPlanner::appendPlannedMiningPaths(
     const Eigen::MatrixXf& mat,
     MiningDirection mining_dir)
 {
@@ -447,13 +454,12 @@ void MiningPlanner::populatePlannedMiningPaths(
                 DirectedMiningPath dir_mining_path(
                     possible_path,
                     mining_dir,
-                    &mat,
-                    m_robot_params);
+                    &mat);
 
-                if (get_distance_for_path(dir_mining_path) >=
-                    m_robot_params.min_zone_length)
+                if (dir_mining_path.getDistance() >=
+                    robot_params.min_zone_length)
                 {
-                    dir_mining_paths.push_back(dir_mining_path);
+                    this->all_mining_paths.push_back(dir_mining_path);
                 }
                 a = b;
             }
@@ -469,71 +475,28 @@ void MiningPlanner::populatePlannedMiningPaths(
     // }
 }
 
-void MiningPlanner::removeSectionsForRobotClearance(
-    DirectedMiningPaths& dir_mining_paths)
+void MiningPlanner::sortPathsByQuality()
 {
-    for (int i = dir_mining_paths.size() - 1; i >= 0; --i)
+    std::sort(
+        this->all_mining_paths.begin(),
+        this->all_mining_paths.end(),
+        [this](const DirectedMiningPath& a, const DirectedMiningPath& b)
+        {
+            return a.getQuality(this->times_mined_count_matrix) >
+                   b.getQuality(this->times_mined_count_matrix);
+        });
+}
+
+void MiningPlanner::removeSectionsForRobotClearance()
+{
+    for (int i = this->all_mining_paths.size() - 1; i >= 0; --i)
     {
         // std::cout << "\n=== Adjusting Path for Robot Clearance ===\n";
         // dir_mining_paths[i].print();
-        if (!dir_mining_paths[i].adjustForRobotClearance())
+        if (!this->all_mining_paths[i].adjustForRobotClearance())
         {
             // std::cout << "Path removed.\n";
-            dir_mining_paths.erase(dir_mining_paths.begin() + i);
-        }
-    }
-}
-
-
-// Helper function to populate a strip map for a given direction
-void MiningPlanner::populdateStripMap(
-    Eigen::MatrixXf& strip_map,
-    int primary_dim,
-    int secondary_dim,
-    MiningDirection direction,
-    std::function<float(float, float, float)> perception_eval)
-{
-    float angle =
-        (direction == MiningDirection::UP || direction == MiningDirection::DOWN)
-            ? 90.0f
-            : 0.0f;
-
-    for (int i = 0; i < secondary_dim; i++)
-    {
-        float secondary_pos = i * TRACK_SEPARATION_M_<float>;
-
-        int row = 0;
-        while (row < primary_dim)
-        {
-            float primary_pos = row * TRACK_SEPARATION_M;
-            float distance = perception_eval(secondary_pos, primary_pos, angle);
-            int cells_clear = (int)(distance / TRACK_SEPARATION_M_<float>);
-
-            for (int j = row; j < primary_dim; j++)
-            {
-                float distance_to_cell_end =
-                    (j - row + 1) * TRACK_SEPARATION_M_<float>;
-                if (distance >= distance_to_cell_end)
-                {
-                    strip_map(j, i) = 1.0f;
-                }
-                else
-                {
-                    float distance_to_cell_start =
-                        (j - row) * TRACK_SEPARATION_M_<float>;
-                    if (distance <= distance_to_cell_start)
-                    {
-                        strip_map(j, i) = 0.0f;
-                    }
-                    else
-                    {
-                        strip_map(j, i) = (distance - distance_to_cell_start) /
-                                          TRACK_SEPARATION_M_<float>;
-                    }
-                    break;
-                }
-            }
-            row += cells_clear + 1;
+            this->all_mining_paths.erase(this->all_mining_paths.begin() + i);
         }
     }
 }
