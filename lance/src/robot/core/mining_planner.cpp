@@ -69,14 +69,14 @@ constexpr int NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE = static_cast<int>(
 
 
 DirectedMiningPath::DirectedMiningPath(
-    MiningPath p,
+    DirectedMiningPath::MiningPath p,
     MiningDirection dir,
     const Eigen::MatrixXf* mat) :
     path(std::move(p)),
     direction(dir),
-    matrix(mat),
+    matrix(mat)
 {
-    distance = this->getRecalculatedDistance(path, matrix);
+    distance = this->getRecalculatedDistance();
 }
 
 float DirectedMiningPath::getDistance() const { return distance; }
@@ -190,7 +190,7 @@ DirectedMiningPath::MiningSwath
 {
     MiningPath p = toBaseCoordinates();
 
-#define CELL_SIZE TRACK_WIDTH_M_<float>
+#define CELL_SIZE TRACK_SEPARATION_M_<float>
 
     float stdX = p.first.y() * CELL_SIZE;
     float stdY = p.first.x() * CELL_SIZE;
@@ -236,12 +236,13 @@ float DirectedMiningPath::getRecalculatedDistance() const
     if (end.x() != start.x())
     {
         return std::abs(
-            end.x() - start.x() + 1 - (1 - (*mat)(end.x(), end.y())));
+            end.x() - start.x() + 1 - (1 - (*matrix)(end.x(), end.y())));
     }
-    return std::abs(end.y() - start.y() + 1 - (1 - (*mat)(end.x(), end.y())));
+    return std::abs(
+        end.y() - start.y() + 1 - (1 - (*matrix)(end.x(), end.y())));
 }
 
-MiningPath DirectedMiningPath::toBaseCoordinates() const
+DirectedMiningPath::MiningPath DirectedMiningPath::toBaseCoordinates() const
 {
     MiningPath p = path;
 
@@ -295,44 +296,122 @@ MiningPath DirectedMiningPath::toBaseCoordinates() const
 
 
 
-MiningPlanner(const RobotParams& robot_params) : robot_params(robot_params),
+MiningPlanner::MiningPlanner(const RobotParams& robot_params) :
+    robot_params(robot_params)
 {
-    this->mapped_matrix_width = static_cast<int>(
-        this->robot_params.mining_zone_bounds.max().x() /
-        TRACK_SEPARATION_M_<float>);
-    this->mapped_matrix_height = static_cast<int>(
-        this->robot_params.mining_zone_bounds.max().y() /
-        TRACK_SEPARATION_M_<float>);
+    // Now that I have taken off part of full width and max length to avoid the hitting the walls,
+        // The up and down, left and right must be done separately since the offsets are opposite
 
+    float actual_mining_x_length = (mining_zone_x_length - this->max_length) * 2.0f;
+    float actual_mining_y_length = (mining_zone_y_length - this->full_width) * 2.0f;
+
+    int x_divisions = static_cast<int>(actual_mining_x_length / TRACK_SEPARATION_M_<float>);
+    int y_divisions = static_cast<int>(actual_mining_y_length / TRACK_SEPARATION_M_<float>);
+    
     // UP/DOWN are (width, height) = (5, 4)
     strip_map_up =
-        Eigen::MatrixXf::Zero(mapped_matrix_width, mapped_matrix_height);
+        Eigen::MatrixXf::Zero(x_divisions, y_divisions);
     strip_map_down =
-        Eigen::MatrixXf::Zero(mapped_matrix_width, mapped_matrix_height);
+        Eigen::MatrixXf::Zero(x_divisions, y_divisions);
+
+    actual_mining_x_length = (mining_zone_x_length - this->full_width) * 2.0f;
+    actual_mining_y_length = (mining_zone_y_length - this->max_length) * 2.0f;
+
+    x_divisions = static_cast<int>(actual_mining_x_length / TRACK_SEPARATION_M_<float>);
+    y_divisions = static_cast<int>(actual_mining_y_length / TRACK_SEPARATION_M_<float>);
 
     // LEFT/RIGHT are swapped: (height, width) = (4, 5)
     strip_map_left =
-        Eigen::MatrixXf::Zero(mapped_matrix_height, mapped_matrix_width);
+        Eigen::MatrixXf::Zero(y_divisions, x_divisions);
     strip_map_right =
-        Eigen::MatrixXf::Zero(mapped_matrix_height, mapped_matrix_width);
+        Eigen::MatrixXf::Zero(y_divisions, x_divisions);
 
-    times_mined_count_matrix =
-        Eigen::MatrixXi::Zero(mapped_matrix_width, mapped_matrix_height);
+    times_mined_count_matrix = // same dimensions as the down strip map since it's the base coordinates
+        Eigen::MatrixXi::Zero(x_divisions, y_divisions);
 }
 
 
-void MiningPlanner::updateMappedMatrices()
+void MiningPlanner::updateMappedMatrices(const std::vector<float>* mining_eval_distances)
 {
+    // take the output from the perception eval (mining_eval_distances) and put all the data into the 4 strips in order
+    int mining_eval_index = 0;
+
+    // first strip_map_up
+
+    for (int x = 0; x < strip_map_up.rows(); x++) {
+        for (int y = 0; y < strip_map_up.cols(); y++){
+            // Up
+            strip_map_up(x, strip_map_up.cols()-y-1) = (*mining_eval_distances)[mining_eval_index];
+            mining_eval_index++;
+
+            // Down
+            strip_map_down(x, y) = (*mining_eval_distances)[mining_eval_index];
+            mining_eval_index++;
+
+        }
+    }
+
+    for (int x = 0; x < strip_map_left.rows(); x++) {
+        for (int y = 0; y < strip_map_left.cols(); y++){
+            // Right
+            strip_map_right(x, y) = (*mining_eval_distances)[mining_eval_index];
+            mining_eval_index++;
+            // starting_vectors.push_back(Pose2f(
+            //     starting_corner_x + x * TRACK_SEPARATION_M_<float>,
+            //     starting_corner_y + y * TRACK_SEPARATION_M_<float>,
+            //     0.0f));
+            // Left
+            strip_map_left(x, y) = (*mining_eval_distances)[mining_eval_index];
+            mining_eval_index++;
+            // starting_vectors.push_back(Pose2f(
+            //     starting_corner_x + (x + 1) * RACK_SEPARATION_M_<float>,
+            //     starting_corner_y + y * TRACK_SEPARATION_M_<float>,
+            //     180.0f));
+        }
+    }
+    
+
+    for (int i = 0; i < strip_map_up.rows(); i++)
+    {
+        for (int j = 0; j < strip_map_up.cols(); j++)
+        {
+            int index = i * strip_map_up.cols() + j;
+   
+    for (int i = 0; i < strip_map_left.rows(); i++)
+    {
+        for (int j = 0; j < strip_map_left.cols(); j++)
+        {
+            int index = strip_map_up.size() + strip_map_down.size() + i * strip_map_left.cols() + j;
+            if (index < mining_eval_distances->size())
+            {
+                strip_map_left(i, j) = (*mining_eval_distances)[index];
+            }
+        }
+    }
+    for (int i = 0; i < strip_map_right.rows(); i++)
+    {
+        for (int j = 0; j < strip_map_right.cols(); j++)
+        {
+            int index = strip_map_up.size() + strip_map_down.size() + strip_map_left.size() + i * strip_map_right.cols() + j;
+            if (index < mining_eval_distances->size())
+            {
+                strip_map_right(i, j) = (*mining_eval_distances)[index];
+            }
+        }
+    }
+}
     // This function is used to populate the 4 strip maps based on the perception
     // evaluation function. It doesn't need to be called very often but could
     // be to refresh data
-    this->populdateStripMap(strip_map_up, MiningDirection::UP);
-    this->populdateStripMap(strip_map_down, MiningDirection::DOWN);
-    this->populdateStripMap(strip_map_left, MiningDirection::LEFT);
-    this->populdateStripMap(strip_map_right, MiningDirection::RIGHT);
-}
 
-const DirectedMiningPaths& MiningPlanner::finalOutput()
+
+//     this->populateStripMap(strip_map_up, MiningDirection::UP);
+//     this->populateStripMap(strip_map_down, MiningDirection::DOWN);
+//     this->populateStripMap(strip_map_left, MiningDirection::LEFT);
+//     this->populateStripMap(strip_map_right, MiningDirection::RIGHT);
+// }
+}
+const MiningPlanner::DirectedMiningPaths& MiningPlanner::finalOutput()
 {
     this->all_mining_paths.clear();
 
@@ -353,73 +432,160 @@ void MiningPlanner::markMiningOnMatrix(const DirectedMiningPath& path)
 }
 
 
-// Helper function to populate a strip map for a given direction
-void MiningPlanner::populdateStripMap(
-    Eigen::MatrixXf& strip_map,
-    MiningDirection direction);
-{
-    int primary_dim, secondary_dim;
-    float angle;
-    switch (direction)
-    {
-        case MiningDirection::UP:
-        case MiningDirection::DOWN:
-        {
-            primary_dim = this->mapped_matrix_width;
-            secondary_dim = this->mapped_matrix_height;
-            angle = 90.f;
-            break;
-        }
-        case MiningDirection::LEFT:
-        case MiningDirection::RIGHT:
-        {
-            primary_dim = this->mapped_matrix_height;
-            secondary_dim = this->mapped_matrix_width;
-            angle = 0.f;
-            break;
-        }
-    }
+const std::vector<MiningPlanner::Pose2f>& MiningPlanner::getStartingLocations() {
+    // Gets the starting locations based on the box2f mining zone and the two offsets full_width and max_length
 
-    for (int i = 0; i < secondary_dim; i++)
-    {
-        float secondary_pos = i * TRACK_SEPARATION_M_<float>;
+    float mining_zone_x_length = (this->robot_params.mining_zone_bounds.max().x()-this->robot_params.mining_zone_bounds.min().x());
+    float mining_zone_y_length = (this->robot_params.mining_zone_bounds.max().y()-this->robot_params.mining_zone_bounds.min().y());
 
-        int row = 0;
-        while (row < primary_dim)
-        {
-            float primary_pos = row * TRACK_SEPARATION_M_<float>;
-            // float distance = perception_eval(secondary_pos, primary_pos, angle);
-            float distance = 0.f;
-            int cells_clear = (int)(distance / TRACK_SEPARATION_M_<float>);
+    static std::vector<MiningPlanner::Pose2f> starting_vectors;
+    starting_vectors.clear();
 
-            for (int j = row; j < primary_dim; j++)
-            {
-                float distance_to_cell_end =
-                    (j - row + 1) * TRACK_SEPARATION_M_<float>;
-                if (distance >= distance_to_cell_end)
-                {
-                    strip_map(j, i) = 1.0f;
-                }
-                else
-                {
-                    float distance_to_cell_start =
-                        (j - row) * TRACK_SEPARATION_M_<float>;
-                    if (distance <= distance_to_cell_start)
-                    {
-                        strip_map(j, i) = 0.0f;
-                    }
-                    else
-                    {
-                        strip_map(j, i) = (distance - distance_to_cell_start) /
-                                          TRACK_SEPARATION_M_<float>;
-                    }
-                    break;
-                }
-            }
-            row += cells_clear + 1;
+    // First do the pos_x and neg_x - In theory you could remove one of the max_lengths for each 
+        // because you could have the robot mine all the way but for now just remove both to be save
+    float actual_mining_x_length = (mining_zone_x_length - this->max_length) * 2.0f;
+    float actual_mining_y_length = (mining_zone_y_length - this->full_width) * 2.0f;
+
+    float starting_corner_x = this->robot_params.mining_zone_bounds.min().x()+this->full_width;
+    float starting_corner_y = this->robot_params.mining_zone_bounds.min().y()+this->max_length;
+
+    int x_divisions = static_cast<int>(actual_mining_x_length / TRACK_SEPARATION_M_<float>);
+    int y_divisions = static_cast<int>(actual_mining_y_length / TRACK_SEPARATION_M_<float>);
+    
+
+
+    // NEED TO FIGURE OUT WHICH WAY I WANT THE MATRICES TO FACE AND COORDINATE SYSTEM
+    // CURRENTLY I DO X, Y FOR UP/DOWN BUT THAT DOESN'T FEEL RIGHT
+    // RIGHT DOWN HERE IT SEEMS TO DO THE OPPOSITE AND IN
+    // Areas to do 
+        /*
+            updateMappedMatrices
+            getStartingLocations
+            constructor where the strip maps are initialized and the dimensions are calculated
+        
+        Once all of those are done I will export this and run tests on it
+        
+        */
+
+    for (int x = 0; x < x_divisions; x++) {
+        for (int y = 0; y < y_divisions; y++){
+            // Up
+            starting_vectors.push_back(Pose2f(
+                starting_corner_x + x * TRACK_SEPARATION_M_<float>,
+                starting_corner_y + y * TRACK_SEPARATION_M_<float>,
+                90.0f));
+
+            // Down
+            starting_vectors.push_back(Pose2f(
+                starting_corner_x + x * TRACK_SEPARATION_M_<float>,
+                starting_corner_y + (y + 1) * TRACK_SEPARATION_M_<float>,
+                270.0f));
+
         }
     }
+
+    // Now do the pos_y and neg_y
+    actual_mining_x_length = (mining_zone_x_length - this->full_width) * 2.0f;
+    actual_mining_y_length = (mining_zone_y_length - this->max_length) * 2.0f;
+
+    starting_corner_x = this->robot_params.mining_zone_bounds.min().x()+this->max_length;
+    starting_corner_y = this->robot_params.mining_zone_bounds.min().y()+this->full_width;
+
+    x_divisions = static_cast<int>(actual_mining_x_length / TRACK_SEPARATION_M_<float>);
+    y_divisions = static_cast<int>(actual_mining_y_length / TRACK_SEPARATION_M_<float>);
+
+    for (int x = 0; x < x_divisions; x++) {
+        for (int y = 0; y < y_divisions; y++){
+            // Right
+            starting_vectors.push_back(Pose2f(
+                starting_corner_x + x * TRACK_SEPARATION_M_<float>,
+                starting_corner_y + y * TRACK_SEPARATION_M_<float>,
+                0.0f));
+            // Left
+            starting_vectors.push_back(Pose2f(
+                starting_corner_x + (x + 1) * RACK_SEPARATION_M_<float>,
+                starting_corner_y + y * TRACK_SEPARATION_M_<float>,
+                180.0f));
+        }
+    }
+    return starting_vectors;
+
 }
+
+
+
+void MiningPlanner::populateStripMap(Eigen::MatrixXf& strip_map, MiningDirection direction)
+{
+    // This function will take
+}
+
+// Helper function to populate a strip map for a given direction
+// void MiningPlanner::populateStripMap(
+//     Eigen::MatrixXf& strip_map,
+//     MiningDirection direction)
+// {
+//     int primary_dim, secondary_dim;
+//     float angle;
+//     switch (direction)
+//     {
+//         case MiningDirection::UP:
+//         case MiningDirection::DOWN:
+//         {
+//             primary_dim = this->mapped_matrix_width;
+//             secondary_dim = this->mapped_matrix_height;
+//             angle = 90.f;
+//             break;
+//         }
+//         case MiningDirection::LEFT:
+//         case MiningDirection::RIGHT:
+//         {
+//             primary_dim = this->mapped_matrix_height;
+//             secondary_dim = this->mapped_matrix_width;
+//             angle = 0.f;
+//             break;
+//         }
+//     }
+
+//     for (int i = 0; i < secondary_dim; i++)
+//     {
+//         float secondary_pos = i * TRACK_SEPARATION_M_<float>;
+
+//         int row = 0;
+//         while (row < primary_dim)
+//         {
+//             float primary_pos = row * TRACK_SEPARATION_M_<float>;
+//             // float distance = perception_eval(secondary_pos, primary_pos, angle);
+//             float distance = 0.f;
+//             int cells_clear = (int)(distance / TRACK_SEPARATION_M_<float>);
+
+//             for (int j = row; j < primary_dim; j++)
+//             {
+//                 float distance_to_cell_end =
+//                     (j - row + 1) * TRACK_SEPARATION_M_<float>;
+//                 if (distance >= distance_to_cell_end)
+//                 {
+//                     strip_map(j, i) = 1.0f;
+//                 }
+//                 else
+//                 {
+//                     float distance_to_cell_start =
+//                         (j - row) * TRACK_SEPARATION_M_<float>;
+//                     if (distance <= distance_to_cell_start)
+//                     {
+//                         strip_map(j, i) = 0.0f;
+//                     }
+//                     else
+//                     {
+//                         strip_map(j, i) = (distance - distance_to_cell_start) /
+//                                           TRACK_SEPARATION_M_<float>;
+//                     }
+//                     break;
+//                 }
+//             }
+//             row += cells_clear + 1;
+//         }
+//     }
+// }
 
 void MiningPlanner::appendPlannedMiningPaths(
     const Eigen::MatrixXf& mat,
@@ -448,7 +614,7 @@ void MiningPlanner::appendPlannedMiningPaths(
                 {
                     b++;
                 }
-                MiningPath possible_path =
+                DirectedMiningPath::MiningPath possible_path =
                     std::pair(Eigen::Vector2i(a, i), Eigen::Vector2i(b - 1, i));
 
                 DirectedMiningPath dir_mining_path(

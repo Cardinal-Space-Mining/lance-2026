@@ -100,6 +100,7 @@ private:
     MiningDirection direction;
     const Eigen::MatrixXf* matrix;
     float distance = -1.0;
+    static constexpr float previously_mined_penalty = 0.1f;
 };
 
 
@@ -109,6 +110,7 @@ class MiningPlanner
 public:
     using Box2f = Eigen::AlignedBox2f;
     using DirectedMiningPaths = std::vector<DirectedMiningPath>;
+    using Pose2f = Eigen::Vector3f;
 
 public:
     MiningPlanner(const RobotParams& robot_params);
@@ -120,8 +122,10 @@ public:
     void markMiningOnMatrix(const DirectedMiningPath& path);
 
 private:
+    const std::vector<Pose2f>& getStartingLocations();
+    
     // Helper function to populate a strip map for a given direction
-    void populdateStripMap(
+    void populateStripMap(
         Eigen::MatrixXf& strip_map,
         MiningDirection direction);
 
@@ -145,10 +149,11 @@ private:
 
     DirectedMiningPaths all_mining_paths;
 
-    int mapped_matrix_width;
-    int mapped_matrix_height;
+    // int mapped_matrix_width;
+    // int mapped_matrix_height;
 
-    const float previously_mined_penalty = 0.1f;
+    const float full_width = 1; // edge of track to other far edge
+    const float max_length = 1.5;// the max length from the middle of the robot to the front and back
 };
 
 };  // namespace lance

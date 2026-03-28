@@ -71,6 +71,7 @@ set(lance_core_srcs
     "src/robot/core/tf_cache.cpp"
     "src/robot/core/robot_params.cpp"
     "src/robot/core/collection_state.cpp"
+    "src/robot/core/mining_planner.cpp"
     "src/robot/control/robot_controller.cpp"
     "src/robot/control/teleop_controller.cpp"
     "src/robot/control/auto/auto_controller.cpp"
