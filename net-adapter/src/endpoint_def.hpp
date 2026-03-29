@@ -87,9 +87,7 @@ private:
     using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
     using PointStampedAdapter =
         GenericAdapter<geometry_msgs::msg::PointStamped>;
-    using BytesAdapter = GenericAdapter<net_adapter::msg::Bytes>;
-    using BytesAdapterCompressed =
-        GenericAdapter<net_adapter::msg::Bytes, true>;
+    using BytesAdapterCompressed = GenericAdapter<net_adapter::msg::Bytes, 15>;
 
 private:
     template<typename AdapterT, DataFlow D>

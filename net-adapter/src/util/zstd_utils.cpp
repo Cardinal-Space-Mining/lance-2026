@@ -18,7 +18,7 @@
 *                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
 *                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
 *                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXX+     .;$$$$$$                   *
 *              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
 *               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
 *                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
@@ -37,41 +37,85 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
-
-#include <sensor_msgs/msg/imu.hpp>
-
-#include "base_adapter.hpp"
+#include "zstd_utils.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace util
 {
-    friend class MS136ImuAdapter;
 
-public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+ZstdCompressor::ZstdCompressor() : ctx{ZSTD_createCCtx()} {}
+ZstdCompressor::~ZstdCompressor() { ZSTD_freeCCtx(ctx); }
 
-protected:
-    const std::string lidar_frame_id;
-};
-
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
+bool ZstdCompressor::compress(std::vector<uint8_t>& buf, int level)
 {
-    friend BaseT;
+    if (buf.empty())
+    {
+        return true;
+    }
 
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
+    const size_t dst_cap = ZSTD_compressBound(buf.size());
+    std::vector<uint8_t> tmp(dst_cap);
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+    const size_t compressed = ZSTD_compressCCtx(
+        ctx,
+        tmp.data(),
+        dst_cap,
+        buf.data(),
+        buf.size(),
+        level);
+
+    if (ZSTD_isError(compressed))
+    {
+        return false;
+    }
+
+    tmp.resize(compressed);
+    buf = std::move(tmp);
+    return true;
+}
+
+
+ZstdDecompressor::ZstdDecompressor() : ctx{ZSTD_createDCtx()} {}
+ZstdDecompressor::~ZstdDecompressor() { ZSTD_freeDCtx(ctx); }
+
+bool ZstdDecompressor::decompress(std::vector<uint8_t>& buf)
+{
+    if (buf.empty())
+    {
+        return true;
+    }
+
+    const unsigned long long orig_size =
+        ZSTD_getFrameContentSize(buf.data(), buf.size());
+
+    if (orig_size == ZSTD_CONTENTSIZE_ERROR ||
+        orig_size == ZSTD_CONTENTSIZE_UNKNOWN)
+    {
+        return false;
+    }
+
+    if (orig_size == 0)
+    {
+        buf.clear();
+        return true;
+    }
+
+    std::vector<uint8_t> tmp(static_cast<size_t>(orig_size));
+
+    const size_t result = ZSTD_decompressDCtx(
+        ctx,
+        tmp.data(),
+        static_cast<size_t>(orig_size),
+        buf.data(),
+        buf.size());
+
+    if (ZSTD_isError(result))
+    {
+        return false;
+    }
+
+    buf = std::move(tmp);
+    return true;
+}
+
+};  // namespace util

@@ -47,6 +47,7 @@ rosidl_get_typesupport_target(${PROJECT_NAME}_custom_types
 
 # --- Common -------------------------------------------------------------------
 add_library(adapters_core STATIC
+    "src/util/zstd_utils.cpp"
     "src/util/delay_queue.cpp"
     "src/adapters/joy_adapter.cpp"
     "src/adapters/ms136_imu_adapter.cpp"
