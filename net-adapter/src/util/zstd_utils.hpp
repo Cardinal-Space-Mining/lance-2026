@@ -18,7 +18,7 @@
 *                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
 *                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
 *                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXX+     .;$$$$$$                   *
 *              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
 *               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
 *                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
@@ -39,39 +39,59 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <vector>
+#include <cstdint>
 
-#include "base_adapter.hpp"
+#include <zstd.h>
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace util
 {
-    friend class MS136ImuAdapter;
+
+/* level follows zstd conventions: 1 = fastest, 3 = default (good balance),
+ * 6+ = better ratio at increasing CPU cost. */
+class ZstdCompressor
+{
+public:
+    ZstdCompressor();
+    ~ZstdCompressor();
+
+    ZstdCompressor(const ZstdCompressor&) = delete;
+
+    ZstdCompressor& operator=(const ZstdCompressor&) = delete;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+    /* Compresses buf in-place. The zstd frame header stores the original size,
+     * so no manual prefix is needed. */
+    bool compress(std::vector<uint8_t>& buf, int level = ZSTD_CLEVEL_DEFAULT);
 
-protected:
-    const std::string lidar_frame_id;
+private:
+    ZSTD_CCtx* ctx;
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
+
+class ZstdDecompressor
 {
-    friend BaseT;
+public:
+    ZstdDecompressor();
+    ~ZstdDecompressor();
 
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
+    ZstdDecompressor(const ZstdDecompressor&) = delete;
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+    ZstdDecompressor& operator=(const ZstdDecompressor&) = delete;
+
+public:
+    /* Decompresses buf in-place. Reads original size from the zstd frame header. */
+    bool decompress(std::vector<uint8_t>& buf);
+
+private:
+    ZSTD_DCtx* ctx;
 };
+
+
+// Used to not have any runtime hit for adapters that opt out of compression
+struct ZstdNoCompression
+{
+};
+
+}  // namespace util

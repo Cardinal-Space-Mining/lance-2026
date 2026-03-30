@@ -59,6 +59,7 @@ class JoyAdapter :
     public BaseAdapter<
         sensor_msgs::msg::Joy,
         JoyAdapter,
+        0,
         void,
         JoyAdapterSubState>
 {
