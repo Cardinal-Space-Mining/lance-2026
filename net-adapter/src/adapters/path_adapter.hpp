@@ -70,6 +70,7 @@ class PathAdapter :
     public BaseAdapter<
         nav_msgs::msg::Path,
         PathAdapter,
+        15,
         PathAdapterPubState,
         PathAdapterSubState>
 {
