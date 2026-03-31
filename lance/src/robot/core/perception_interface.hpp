@@ -65,6 +65,7 @@ class MiningEvalInterface
     using UpdateMiningEvalSrv = cardinal_perception::srv::UpdateMiningEvalMode;
     using MiningEvalResultsMsg = cardinal_perception::msg::MiningEvalResults;
 
+public:
     // vec.x() -> x, vec.y() -> y, vec.z() -> theta (radians)
     using Pose2f = Eigen::Vector3f;
 
@@ -80,13 +81,16 @@ public:
     const std::vector<float>* getDists() const;
 
 protected:
+    void updateResult(const MiningEvalResultsMsg::ConstSharedPtr& msg);
+
+protected:
     const RobotParams& params;
     ConstSharedClock rcl_clock;
 
     RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
     RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
 
-    MiningEvalResultsMsg::ConstSharedPtr eval_results{ nullptr };
+    MiningEvalResultsMsg::UniquePtr eval_results{ nullptr };
     int32_t eval_id{ -1 };
 
 };
