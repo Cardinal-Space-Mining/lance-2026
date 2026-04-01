@@ -39,107 +39,53 @@
 
 #pragma once
 
-#include <chrono>
+#include <rclcpp/rclcpp.hpp>
 
-#include "util/joy_utils.hpp"
+#include <Eigen/Core>
+
+#include <cardinal_perception/msg/mining_eval_results.hpp>
+#include <cardinal_perception/srv/update_mining_eval_mode.hpp>
+
+#include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
 
 
 namespace lance
 {
 
-class MiningController
+class MiningEvalInterface : public util::UsingRosAliases
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
-
-    using JoyState = util::JoyState;
+    using UpdateMiningEvalSrv = cardinal_perception::srv::UpdateMiningEvalMode;
+    using MiningEvalResultsMsg = cardinal_perception::msg::MiningEvalResults;
 
 public:
-    MiningController(
-        const RobotParams&,
-        const HopperState&);
-    ~MiningController() = default;
+    // vec.x() -> x, vec.y() -> y, vec.z() -> theta (radians)
+    using Pose2f = Eigen::Vector3f;
 
 public:
-    /* Restart the routine. If traversal distance is provided,
-     * the command will track the travelled distance and end if
-     * the traversal distance is exceeded. */
-    void initialize(float traversal_dist_m = 0.f);
-    /* Check if the command is finished, either as a result
-     * of being cancelled or automatically shutting down
-     * due to a stop state. */
-    bool isFinished();
-    /* Mark the command as cancelled, i.e. it will no longer be
-     * executed. */
-    void setCancelled();
+    MiningEvalInterface(RclNode&, const RobotParams&);
 
-    /* Update the remaining traversal distance. */
-    void setRemaining(float traversal_dist_m);
-    /* Set whether the hopper model should be used to determine finished state. */
-    void setUseHopperModel(bool enabled);
+public:
+    void queryArenaFrame(const std::vector<Pose2f>& poses);
+    void queryRobotFrame();
+    void cancelQuery();
 
-    /* Iterate the controller in "full auto" mode (no user input). */
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-    /* Iterate the controller in "assisted" mode (user input). */
-    void iterate(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    bool hasResult() const;
+    const std::vector<float>* getDists() const;
 
 protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        LOWERING,
-        TRAVERSING,
-        RAISING,
-        FINISHED
-    };
-
-protected:
-    struct TraversalState
-    {
-        void init(float remaining_dist = 0.f);
-        void setRemaining(float remaining_dist);
-        void updateOdom(float odom);
-        bool hasRemaining() const;
-        float remaining() const;
-
-    private:
-        float remaining_dist{0.f};
-        float prev_odom{0.f};
-    };
-    struct BeltDutyCycleState
-    {
-        void setMoved();
-        void setStopped();
-        bool canMove(float thresh_s);
-
-    private:
-        std::chrono::system_clock::time_point prev_belt_stop_time;
-        bool belt_moving{false};
-    };
-
-protected:
-    void iterate(
-        const JoyState* joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    void updateResult(const MiningEvalResultsMsg::ConstSharedPtr& msg);
 
 protected:
     const RobotParams& params;
-    const HopperState& hopper_state;
+    RclClock::ConstSharedPtr rcl_clock;
 
-    TraversalState traversal_state{};
-    BeltDutyCycleState belt_duty_cycle{};
+    RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
+    RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
 
-    Stage stage{Stage::FINISHED};
-    bool using_hopper_model{true};
+    MiningEvalResultsMsg::UniquePtr eval_results{ nullptr };
+    int32_t eval_id{ -1 };
+
 };
 
-};  // namespace lance
+};

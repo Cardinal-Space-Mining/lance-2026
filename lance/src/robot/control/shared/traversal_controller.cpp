@@ -44,24 +44,11 @@
 #include <sstream>
 #include <iostream>
 
-#include <geometry_msgs/msg/pose_stamped.hpp>
-
 #include "util/geometry.hpp"
-#include "util/time_cvt.hpp"
-
 #include "robot/core/robot_math.hpp"
-#include "robot/core/hid_bindings.hpp"
 
 
-#define PERCEPTION_PATH_TOPIC "/cardinal_perception/planned_path"
-#define PERCEPTION_PPLAN_CONTROL_TOPIC          \
-    "/cardinal_perception/update_path_planning"
-
-using system_clock = std::chrono::system_clock;
 using namespace util::geom::cvt::ops;
-
-using Iso3f = Eigen::Isometry3f;
-using Quatf = Eigen::Quaternionf;
 
 
 /* Compute the radius-per-max-corner-deviation coefficient for a junction
@@ -80,30 +67,22 @@ namespace lance
 {
 
 TraversalController::TraversalController(
-    RclNode& node,
-    GenericPubMap& pub_map,
     const RobotParams& params,
-    const TfCache& tf_cache) :
-    pub_map{pub_map},
+    SensingInterfaces& sensing_interfaces) :
     params{params},
-    tf_cache{tf_cache},
-    path_sub{node.create_subscription<PathMsg>(
-        PERCEPTION_PATH_TOPIC,
-        rclcpp::SensorDataQoS{},
-        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
-    pplan_control_client{
-        node.create_client<UpdatePathPlanSrv>(PERCEPTION_PPLAN_CONTROL_TOPIC)}
+    tf_cache{sensing_interfaces.tf_cache},
+    pplan_interface{sensing_interfaces.path_plan_interface}
 {
 }
 
 void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
 {
-    this->last_path = nullptr;
+    this->pplan_interface.clearPath();
     this->arena_dest_direction = dir.normalized();
     this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
                                                      : DestinationType::POINT;
 
-    this->initPlanningService(Vec3f{dest.x(), dest.y(), 0.f});
+    this->pplan_interface.init(Vec3f{dest.x(), dest.y(), 0.f});
 
     this->state = State::INITIALIZATION;
 }
@@ -111,11 +90,11 @@ void TraversalController::initializePoint(
     const PointStampedMsg& dest,
     const Vec2f& dir)
 {
-    this->last_path = nullptr;
+    this->pplan_interface.clearPath();
     this->arena_dest_direction = dir.normalized();
     this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
                                                      : DestinationType::POINT;
-    this->initPlanningService(dest);
+    this->pplan_interface.init(dest);
 
     this->state = State::INITIALIZATION;
 }
@@ -123,13 +102,13 @@ void TraversalController::initializeZone(
     const Vec2f& dest_min,
     const Vec2f& dest_max)
 {
-    this->last_path = nullptr;
+    this->pplan_interface.clearPath();
     this->arena_dest_zone.min() = dest_min;
     this->arena_dest_zone.max() = dest_max;
     this->arena_dest_direction = Vec2f::Zero();
     this->destination_type = DestinationType::ZONE;
 
-    this->initPlanningService(
+    this->pplan_interface.init(
         Vec3f{
             (dest_min.x() + dest_max.x()) * 0.5f,
             (dest_min.y() + dest_max.y()) * 0.5f,
@@ -145,7 +124,7 @@ bool TraversalController::isFinished()
 
 void TraversalController::setCancelled()
 {
-    this->stopPlanningService();
+    this->pplan_interface.cancel();
 
     this->state = State::FINISHED;
 }
@@ -167,7 +146,7 @@ void TraversalController::iterate(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
-            if (!this->last_path)
+            if (!this->pplan_interface.hasPath())
             {
                 break;
             }
@@ -201,44 +180,9 @@ void TraversalController::iterate(
         }
         case State::FINISHED:
         {
-            this->stopPlanningService();
+            this->pplan_interface.cancel();
         }
     }
-}
-
-void TraversalController::initPlanningService(const Vec3f& arena_dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header.frame_id = this->params.arena_frame_id;
-    req->target.header.stamp = util::toTimeMsg(system_clock::now());
-    req->target.pose.position.x = arena_dest.x();
-    req->target.pose.position.y = arena_dest.y();
-    req->target.pose.position.z = arena_dest.z();
-    req->completed = false;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void TraversalController::initPlanningService(const PointStampedMsg& dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header = dest.header;
-    req->target.pose.position = dest.point;
-    req->completed = false;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void TraversalController::stopPlanningService()
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->completed = true;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
 }
 
 
@@ -256,20 +200,26 @@ bool TraversalController::iterateTraversal(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+    const PathMsg* path = this->pplan_interface.getPath();
+    if(!path)
+    {
+        return false;
+    }
+
     // 1. OBTAIN KEYPOINTS RELATIVE TO BASE LINK -------------------------------
     std::vector<Vec2f> keypoints;
-    keypoints.resize(this->last_path->poses.size());
+    keypoints.resize(path->poses.size());
 
-    if (this->last_path->header.frame_id != this->params.robot_frame_id)
+    if (path->header.frame_id != this->params.robot_frame_id)
     {
         const auto* tf =
-            this->tf_cache.getTf(this->last_path->header.frame_id, ROBOT_FRAME);
+            this->tf_cache.getTf(path->header.frame_id, ROBOT_FRAME);
         if (tf)
         {
             Vec3f tmp;
             for (size_t i = 0; i < keypoints.size(); i++)
             {
-                const auto& pt = this->last_path->poses[i].pose.position;
+                const auto& pt = path->poses[i].pose.position;
                 keypoints[i] = (tf->tf * (tmp << pt)).template head<2>();
             }
         }
@@ -282,7 +232,7 @@ bool TraversalController::iterateTraversal(
     {
         for (size_t i = 0; i < keypoints.size(); i++)
         {
-            const auto& pt = this->last_path->poses[i].pose.position;
+            const auto& pt = path->poses[i].pose.position;
             keypoints[i].x() = static_cast<float>(pt.x);
             keypoints[i].y() = static_cast<float>(pt.y);
         }

@@ -39,25 +39,13 @@
 
 #pragma once
 
-#include <string>
-
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include <rclcpp/rclcpp.hpp>
-
-#include <nav_msgs/msg/path.hpp>
-
-#include <geometry_msgs/msg/point_stamped.hpp>
-
-#include <cardinal_perception/srv/update_path_planning_mode.hpp>
-
-#include "util/pub_map.hpp"
-#include "util/joy_utils.hpp"
-
-#include "robot/core/tf_cache.hpp"
+#include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
 
 
 namespace lance
@@ -68,29 +56,17 @@ class TraversalController
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
-    using RclNode = rclcpp::Node;
-    using PathMsg = nav_msgs::msg::Path;
-    using PointStampedMsg = geometry_msgs::msg::PointStamped;
-    using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
-    using JoyState = util::JoyState;
-    using GenericPubMap = util::GenericPubMap;
-
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
-    template<typename T>
-    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
+    using PathMsg = PathPlanInterface::PathMsg;
+    using PointStampedMsg = PathPlanInterface::PointStampedMsg;
 
     using Vec2f = Eigen::Vector2f;
     using Vec3f = Eigen::Vector3f;
-    using Quatf = Eigen::Quaternionf;
     using Box2f = Eigen::AlignedBox2f;
 
 public:
     TraversalController(
-        RclNode&,
-        GenericPubMap&,
         const RobotParams&,
-        const TfCache&);
+        SensingInterfaces&);
     ~TraversalController() = default;
 
 public:
@@ -125,10 +101,6 @@ protected:
     };
 
 protected:
-    void initPlanningService(const Vec3f&);
-    void initPlanningService(const PointStampedMsg&);
-    void stopPlanningService();
-
     bool iterateTraversal(
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
@@ -150,16 +122,12 @@ protected:
         float& Vr_prev);
 
 protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
     const TfCache& tf_cache;
-
-    RclSubPtr<PathMsg> path_sub;
-    RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
+    PathPlanInterface& pplan_interface;
 
     State state{State::FINISHED};
 
-    PathMsg::ConstSharedPtr last_path{nullptr};
     Box2f arena_dest_zone{};
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};

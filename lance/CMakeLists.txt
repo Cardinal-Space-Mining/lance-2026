@@ -68,10 +68,8 @@ ament_target_dependencies(robot_status
 
 # --- Common Lib ---------------------------------------------------------------
 set(lance_core_srcs
-    "src/robot/core/tf_cache.cpp"
     "src/robot/core/robot_params.cpp"
     "src/robot/core/collection_state.cpp"
-    "src/robot/core/mining_planner.cpp"
     "src/robot/control/robot_controller.cpp"
     "src/robot/control/teleop_controller.cpp"
     "src/robot/control/auto/auto_controller.cpp"
@@ -81,7 +79,13 @@ set(lance_core_srcs
     "src/robot/control/shared/offload_controller.cpp"
     "src/robot/control/shared/traversal_controller.cpp"
     "src/robot/control/shared/localization_controller.cpp"
-    "src/robot/telemetry/telemetry.cpp")
+    "src/robot/sensing/tf_cache.cpp"
+    "src/robot/sensing/path_plan.cpp"
+    "src/robot/sensing/mining_eval.cpp"
+    "src/robot/sensing/reflector_hint.cpp"
+    # "src/robot/planning/mining_planner.cpp"
+    "src/robot/telemetry/serializer.cpp"
+    "src/robot/telemetry/deserializer.cpp")
 set(lance_core_libs
     Eigen3::Eigen)
 set(lance_core_ament_deps

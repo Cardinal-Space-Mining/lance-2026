@@ -45,35 +45,30 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/transform_listener.hpp>
-
 #include <sensor_msgs/msg/joint_state.hpp>
 
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include "util/ros_utils.hpp"
 
-#include "robot/core/tf_cache.hpp"
 #include "robot/core/robot_math.hpp"
+#include "robot/core/ros_interface.hpp"
 #include "robot/core/motor_interface.hpp"
-#include "robot/telemetry/telemetry.hpp"
+#include "robot/sensing/tf_cache.hpp"
+#include "robot/telemetry/deserializer.hpp"
 
-
-#define HOPPER_JOINT_NAME "hopper_joint"
 
 using namespace std::chrono_literals;
 
 using namespace util;
 using namespace lance;
-using namespace util::ros_aliases;
 
 
-class ClientNode : public rclcpp::Node
+class ClientNode : public rclcpp::Node, public UsingRosAliases
 {
     using MarkerMsg = visualization_msgs::msg::Marker;
     using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
     using JointStateMsg = sensor_msgs::msg::JointState;
-    using Tf2Listener = tf2_ros::TransformListener;
 
 public:
     ClientNode();
@@ -83,12 +78,11 @@ protected:
 
 private:
     TfCache tf_cache;
-    Tf2Listener tf_listener;
     TelemetryDeserializer telemetry;
 
-    SharedSub<TalonInfoMsg> hopper_info_sub;
-    SharedPub<MarkerArrayMsg> markers_pub;
-    RclTimer markers_pub_timer;
+    RclSubPtr<TalonInfoMsg> hopper_info_sub;
+    RclPubPtr<MarkerArrayMsg> markers_pub;
+    RclTimer::SharedPtr markers_pub_timer;
 
     MarkerArrayMsg markers;
 };
@@ -102,22 +96,21 @@ ClientNode::ClientNode() :
         declare_and_get_param<std::string>(*this, "arena_frame_id", "map"),
         declare_and_get_param<std::string>(*this, "odom_frame_id", "odom"),
         declare_and_get_param<std::string>(*this, "robot_frame_id", "robot")},
-    tf_listener{this->tf_cache.getBuffer(), this},
     telemetry{*this, this->tf_cache},
     hopper_info_sub{this->create_subscription<TalonInfoMsg>(
-        "lance/hopper_act/info",
+        TALON_INFO_TOPIC("hopper_act"),
         rclcpp::SensorDataQoS{},
         [this](const TalonInfoMsg& info)
         {
             JointStateMsg msg;
             msg.header = info.header;
-            msg.name.push_back(HOPPER_JOINT_NAME);
+            msg.name.push_back(lance::HOPPER_JOINT_NAME);
             msg.position.push_back(
                 lance::linearActuatorToJointAngle(info.position / 1000.));
             this->telemetry.getPubMap().publish("joint_states", msg);
         })},
     markers_pub{this->create_publisher<MarkerArrayMsg>(
-        "arena_zones",
+        lance::ARENA_ZONES_TOPIC,
         rclcpp::SensorDataQoS{})},
     markers_pub_timer{this->create_wall_timer(
         1s,
@@ -160,6 +153,7 @@ void ClientNode::initMarkers()
     ADD_MARKER("arena_bounds", "arena", 1.f, 1.f, 1.f, 0.f);
     ADD_MARKER("mining_zone_bounds", "zones", 0.8f, 0.4f, 0.f, 0.5f);
     ADD_MARKER("offload_zone_bounds", "zones", 0.f, 0.2f, 0.8f, 0.3f);
+    ADD_MARKER("construction_zone_bounds", "zones", 0.1f, 0.9f, 0.2f, 0.1f);
 
 #undef ADD_MARKER
 }

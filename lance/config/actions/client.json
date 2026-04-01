@@ -28,9 +28,11 @@
             "odom_frame_id": "${ id.odom_frame }",
             "arena_frame_id": "${ id.arena_frame }",
             "robot_frame_id": "${ id.robot_frame }",
+
             "arena_bounds": "${ zone.ksc.arena }",
             "mining_zone_bounds": "${ zone.ksc.mining }",
-            "offload_zone_bounds": "${ zone.ksc.offload }"
+            "offload_zone_bounds": "${ zone.ksc.offload }",
+            "construction_zone_bounds": "${ zone.ksc.construction }"
         },
         "lance1_ucf_right":
         {
@@ -38,7 +40,8 @@
 
             "arena_bounds": "${ zone.ucf_right.arena }",
             "mining_zone_bounds": "${ zone.ucf_right.mining }",
-            "offload_zone_bounds": "${ zone.ucf_right.offload }"
+            "offload_zone_bounds": "${ zone.ucf_right.offload }",
+            "construction_zone_bounds": "${ zone.ucf_right.construction }"
         },
         "lance1_ucf_left":
         {
@@ -46,7 +49,8 @@
 
             "arena_bounds": "${ zone.ucf_left.arena }",
             "mining_zone_bounds": "${ zone.ucf_left.mining }",
-            "offload_zone_bounds": "${ zone.ucf_left.offload }"
+            "offload_zone_bounds": "${ zone.ucf_left.offload }",
+            "construction_zone_bounds": "${ zone.ucf_left.construction }"
         },
 
         "lance2_ksc":

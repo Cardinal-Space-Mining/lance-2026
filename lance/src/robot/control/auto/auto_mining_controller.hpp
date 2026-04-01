@@ -39,16 +39,13 @@
 
 #pragma once
 
-#include <cardinal_perception/msg/mining_eval_results.hpp>
-#include <cardinal_perception/srv/update_mining_eval_mode.hpp>
-
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
-#include "robot/core/mining_planner.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
-
 #include "robot/control/shared/shared_controllers.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
+// #include "robot/planning/mining_planner.hpp"
 
 
 namespace lance
@@ -59,19 +56,10 @@ class AutoMiningController
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
-    using GenericPubMap = util::GenericPubMap;
-    using UpdateMiningEvalSrv = cardinal_perception::srv::UpdateMiningEvalMode;
-    using MiningEvalResultsMsg = cardinal_perception::msg::MiningEvalResults;
-
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
-    template<typename T>
-    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
-
 public:
     AutoMiningController(
-        GenericPubMap&,
         const RobotParams&,
+        SensingInterfaces&,
         SharedControllerCollection&);
     ~AutoMiningController() = default;
 
@@ -95,22 +83,16 @@ protected:
     };
 
 protected:
-    float evalMiningDistance(float x, float y, float heading_deg) const;
-
-protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
-    MiningPlanner mining_planner;
-
-    RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
-    RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
-
-    Stage stage{Stage::FINISHED};
-
-    MiningEvalResultsMsg::ConstSharedPtr eval_results{ nullptr };
+    SensingInterfaces& sensing_interfaces;
 
     TraversalController& traversal_controller;
     MiningController& mining_controller;
+
+    // MiningPlanner mining_planner;
+
+    Stage stage{Stage::FINISHED};
+
 };
 
 };  // namespace lance

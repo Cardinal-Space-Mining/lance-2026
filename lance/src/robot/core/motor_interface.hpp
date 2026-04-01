@@ -43,11 +43,12 @@
 #include <phoenix_ros_driver/msg/talon_info.hpp>
 
 
+namespace lance
+{
+
 using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
 using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
 
-namespace lance
-{
 
 /** Contains TalonInfo for each motor */
 struct RobotMotorStatus

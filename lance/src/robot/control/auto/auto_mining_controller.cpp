@@ -44,14 +44,14 @@ namespace lance
 {
 
 AutoMiningController::AutoMiningController(
-    GenericPubMap& pub_map,
     const RobotParams& params,
+    SensingInterfaces& sensing_interfaces,
     SharedControllerCollection& controllers) :
-    pub_map{pub_map},
     params{params},
-    mining_planner{params},
+    sensing_interfaces{sensing_interfaces},
     traversal_controller{controllers.traversal_controller},
     mining_controller{controllers.mining_controller}
+// mining_planner{params}
 {
 }
 
@@ -77,6 +77,7 @@ void AutoMiningController::iterate(
         }
         case Stage::PLANNING:
         {
+            // -----------------------------------------------------------------
             // 1. generate target evals
             // 2. geometry converter to build eval list
             // 3. >>
@@ -86,7 +87,7 @@ void AutoMiningController::iterate(
             // 4. update planner accordingly >>
 
             // This will update the mining planner's internal matrices based on the current state of the world as perceived by the robot. It should be called periodically to ensure the planner has up-to-date information, but for now we will call it once at the beginning of the routine.
-            mining_planner.updateMappedMatrices();
+            // mining_planner.updateMappedMatrices();
 
             // I don't know how to do the query service, but the updateMappedMatrices() would call that a bunch of times
             // I don't think it would have to be called here because it really only needs to be called once (or very periodically)
@@ -95,27 +96,34 @@ void AutoMiningController::iterate(
             // Wouldn't be a bad idea to check the best path it gives you one more time though
             // The final ouput is sorted so the top has the highest quality
 
-            const MiningPlanner::DirectedMiningPaths& paths =
-                mining_planner.finalOutput();
-            if (paths.empty())
-            {
-                std::cout
-                    << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
-                this->stage = Stage::FINISHED;
-                break;
-            }
-            else
-            {
-                // first has coords of where to start, second has (1,0), (-1, 0), (0, -1),
-                // or (0, 1) depend on the direction it is going
-                const DirectedMiningPath::MiningSwath& swath =
-                    paths.front().getPathCoordinatesInWorldFrame();
+            // const MiningPlanner::DirectedMiningPaths& paths =
+            //     mining_planner.finalOutput();
+            // if (paths.empty())
+            // {
+            //     std::cout
+            //         << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
+            //     this->stage = Stage::FINISHED;
+            //     break;
+            // }
+            // else
+            // {
+            //     // first has coords of where to start, second has (1,0), (-1, 0), (0, -1),
+            //     // or (0, 1) depend on the direction it is going
+            //     const DirectedMiningPath::MiningSwath& swath =
+            //         paths.front().getPathCoordinatesInWorldFrame();
 
-                // init with planned destination
-                this->traversal_controller.initializePoint(
-                    swath.first,
-                    swath.second);
-            }
+            //     // init with planned destination
+            //     this->traversal_controller.initializePoint(
+            //         swath.first,
+            //         swath.second);
+            // }
+            // -----------------------------------------------------------------
+
+            // init with planned destination
+            this->traversal_controller.initializePoint(
+                this->params.mining_zone_bounds.max() -
+                    Eigen::Vector2f::Constant(0.8f),
+                Eigen::Vector2f{0.f, -1.f});
 
             this->stage = Stage::TRAVERSING;
             [[fallthrough]];
@@ -130,18 +138,25 @@ void AutoMiningController::iterate(
 
             // initialize with query result
             this->mining_controller.initialize(0.f);
+            this->sensing_interfaces.mining_eval_interface.queryRobotFrame();
             this->stage = Stage::MINING;
             [[fallthrough]];
         }
         case Stage::MINING:
         {
-            // this->mining_controller.setRemaining(); // <-- update remaining distance
+            if (this->sensing_interfaces.mining_eval_interface.hasResult())
+            {
+                this->mining_controller.setRemaining(
+                    this->sensing_interfaces.mining_eval_interface.getDists()
+                        ->front());
+            }
             this->mining_controller.iterate(motor_status, commands);
             if (!this->mining_controller.isFinished())
             {
                 break;
             }
 
+            this->sensing_interfaces.mining_eval_interface.cancelQuery();
             this->stage = Stage::FINISHED;
             [[fallthrough]];
         }
@@ -152,10 +167,3 @@ void AutoMiningController::iterate(
 }
 
 };  // namespace lance
-
-
-
-
-// pkill -f "gz sim|gzserver|gzclient|foxglove|parameter_bridge|lance1_controller|lance2_controller|perception_node" || true
-
-// cd /home/brandon/lance-ws && pkill -f "gz sim|lance2_controller|parameter_bridge|foxglove_bridge|perception_node" || true && unset AMENT_PREFIX_PATH CMAKE_PREFIX_PATH COLCON_PREFIX_PATH && source /opt/ros/jazzy/setup.bash && colcon build --symlink-install --packages-select lance --cmake-clean-first && source /home/brandon/lance-ws/install/setup.bash && pkill -f "gz sim|gzserver|gzclient|foxglove|parameter_bridge|lance1_controller|lance2_controller|perception_node" || true

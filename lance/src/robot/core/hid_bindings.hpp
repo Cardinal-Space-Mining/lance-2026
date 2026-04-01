@@ -39,8 +39,9 @@
 
 #pragma once
 
-#include "hid_constants.hpp"
 #include "util/joy_utils.hpp"
+
+#include "hid_constants.hpp"
 
 
 namespace Bindings

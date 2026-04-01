@@ -41,7 +41,6 @@
 
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
-
 #include "robot/control/shared/shared_controllers.hpp"
 
 
@@ -53,11 +52,8 @@ class AutoOffloadController
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
-    using GenericPubMap = util::GenericPubMap;
-
 public:
     AutoOffloadController(
-        GenericPubMap&,
         const RobotParams&,
         SharedControllerCollection&);
     ~AutoOffloadController() = default;
@@ -82,13 +78,12 @@ protected:
     };
 
 protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
-
-    Stage stage{Stage::FINISHED};
 
     TraversalController& traversal_controller;
     OffloadController& offload_controller;
+
+    Stage stage{Stage::FINISHED};
 };
 
 };  // namespace lance

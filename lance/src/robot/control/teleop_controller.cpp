@@ -40,9 +40,7 @@
 #include "teleop_controller.hpp"
 
 #include "robot/core/hid_bindings.hpp"
-
-
-#define FG_CLICKED_POINT_TOPIC "/clicked_point"
+#include "robot/core/ros_interface.hpp"
 
 
 namespace lance
@@ -50,21 +48,21 @@ namespace lance
 
 TeleopController::TeleopController(
     RclNode& node,
-    GenericPubMap& pub_map,
     const RobotParams& params,
+    SensingInterfaces& sensing_interfaces,
     SharedControllerCollection& controllers) :
-    pub_map{pub_map},
     params{params},
+    sensing_interfaces{sensing_interfaces},
+    mining_controller{controllers.mining_controller},
+    offload_controller{controllers.offload_controller},
+    traversal_controller{controllers.traversal_controller},
     clicked_point_sub{node.create_subscription<PointStampedMsg>(
-        FG_CLICKED_POINT_TOPIC,
+        lance::CLICKED_POINT_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const PointStampedMsg::ConstSharedPtr& msg)
         { this->clicked_point = msg; })},
     driving_rps_scalar{
-        params.driving_medium_scalar * params.tracks_max_velocity_rps},
-    mining_controller{controllers.mining_controller},
-    offload_controller{controllers.offload_controller},
-    traversal_controller{controllers.traversal_controller}
+        params.driving_medium_scalar * params.tracks_max_velocity_rps}
 {
 }
 
@@ -116,8 +114,17 @@ void TeleopController::iterate(
     {
         case Operation::ASSISTED_MINING:
         {
+            if (this->sensing_interfaces.mining_eval_interface.hasResult())
+            {
+                this->mining_controller.setRemaining(
+                    this->sensing_interfaces.mining_eval_interface.getDists()
+                        ->front());
+            }
             this->mining_controller.iterate(joy, motor_status, commands);
-            command_finished = this->mining_controller.isFinished();
+            if ((command_finished = this->mining_controller.isFinished()))
+            {
+                this->sensing_interfaces.mining_eval_interface.cancelQuery();
+            }
             break;
         }
         case Operation::ASSISTED_OFFLOAD:
@@ -256,6 +263,7 @@ void TeleopController::handleTeleopInputs(
     if (AssistedMiningToggleButton::wasPressed(joy))
     {
         this->mining_controller.initialize();
+        this->sensing_interfaces.mining_eval_interface.queryRobotFrame();
         this->op_mode = Operation::ASSISTED_MINING;
         return;
     }

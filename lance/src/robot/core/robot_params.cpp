@@ -196,6 +196,15 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     assert(buff.size() > 1);
     this->offload_zone_bounds.max().x() = static_cast<float>(buff[0]);
     this->offload_zone_bounds.max().y() = static_cast<float>(buff[1]);
+
+    declare_param(node, "construction_zone_bounds.min", buff, {0., 0.});
+    assert(buff.size() > 1);
+    this->construction_zone_bounds.min().x() = static_cast<float>(buff[0]);
+    this->construction_zone_bounds.min().y() = static_cast<float>(buff[1]);
+    declare_param(node, "construction_zone_bounds.max", buff, {0., 0.});
+    assert(buff.size() > 1);
+    this->construction_zone_bounds.max().x() = static_cast<float>(buff[0]);
+    this->construction_zone_bounds.max().y() = static_cast<float>(buff[1]);
 }
 
 };  // namespace lance

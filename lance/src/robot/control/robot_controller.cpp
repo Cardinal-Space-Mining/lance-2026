@@ -54,19 +54,15 @@ inline constexpr int transition_v = encodeTransition(FromV, ToV);
 namespace lance
 {
 
-RobotController::RobotController(RclNode& node, GenericPubMap& pub_map) :
-    pub_map{pub_map},
+RobotController::RobotController(RclNode& node) :
     params{node},
-    tf_cache{node, this->params},
-    tf_listener{tf_cache.getBuffer(), &node},
+    sensing_interfaces{node, params},
     shared_controllers{
-        node,
-        pub_map,
         params,
-        collection_state.getHopperState(),
-        tf_cache},
-    auto_controller{pub_map, params, shared_controllers},
-    teleop_controller{node, pub_map, params, shared_controllers}
+        this->collection_state.getHopperState(),
+        this->sensing_interfaces},
+    auto_controller{params, sensing_interfaces, shared_controllers},
+    teleop_controller{node, params, sensing_interfaces, shared_controllers}
 {
     this->collection_state.setParams(
         this->params.collection_model_initial_volume_liters,
@@ -83,9 +79,9 @@ const HopperState& RobotController::hopperState() const
 
 const RobotParams& RobotController::getParams() const { return this->params; }
 
-const RobotController::Tf2Buffer& RobotController::getTfBuffer() const
+const TfCache::Tf2Buffer& RobotController::getTfBuffer() const
 {
-    return this->tf_cache.getBuffer();
+    return this->sensing_interfaces.tf_cache.getBuffer();
 }
 
 void RobotController::iterate(
@@ -97,7 +93,7 @@ void RobotController::iterate(
     const RobotMotorStatus& filtered_status =
         this->handleTestModeStateInjection(motor_status, ctrl_status);
     this->collection_state.update(filtered_status);
-    this->tf_cache.refresh();
+    this->sensing_interfaces.tf_cache.refresh();
 
     const ControlMode prev_mode = this->control_mode;
     this->control_mode = ControlStatus::getMode(ctrl_status);

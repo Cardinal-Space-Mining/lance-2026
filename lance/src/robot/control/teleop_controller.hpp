@@ -43,10 +43,11 @@
 
 #include <geometry_msgs/msg/point_stamped.hpp>
 
-#include "util/pub_map.hpp"
 #include "util/joy_utils.hpp"
+#include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
 
 #include "shared/shared_controllers.hpp"
 
@@ -54,24 +55,19 @@
 namespace lance
 {
 
-class TeleopController
+class TeleopController : public util::UsingRosAliases
 {
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
-    using RclNode = rclcpp::Node;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using JoyState = util::JoyState;
-    using GenericPubMap = util::GenericPubMap;
-
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
 
 public:
     TeleopController(
         RclNode&,
-        GenericPubMap&,
         const RobotParams&,
+        SensingInterfaces&,
         SharedControllerCollection&);
     ~TeleopController() = default;
 
@@ -104,18 +100,18 @@ protected:
         RobotMotorCommands& commands);
 
 protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
+    SensingInterfaces& sensing_interfaces;
+
+    MiningController& mining_controller;
+    OffloadController& offload_controller;
+    TraversalController& traversal_controller;
 
     RclSubPtr<PointStampedMsg> clicked_point_sub;
     PointStampedMsg::ConstSharedPtr clicked_point;
 
     Operation op_mode{Operation::MANUAL};
     float driving_rps_scalar;
-
-    MiningController& mining_controller;
-    OffloadController& offload_controller;
-    TraversalController& traversal_controller;
 };
 
 };  // namespace lance

@@ -39,24 +39,54 @@
 
 #pragma once
 
-#include <chrono>
-#include <string>
-#include <vector>
+#include <cstdint>
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/transform_broadcaster.hpp>
-
 #include <net_adapter/msg/bytes.hpp>
-
-#include "util/pub_map.hpp"
-
-#include "robot/core/tf_cache.hpp"
-#include "robot/control/robot_controller.hpp"
 
 
 namespace lance
 {
+
+/* --- Telemetry Specification ---
+ * All telemetry is packaged into a binary blob and sent from the robot
+ * to the client-side decoder, where it is decoded and publishers are used as
+ * needed.
+ * The telemetry blob consists of any number of packets, each of which starts
+ * with an id (TelemetryType) followed by the packet data, whose size can vary.
+ * As such, it is the responsiblity of each individual (per telemetry type)
+ * decoder to read the correct length of bytes after it's id appears in the
+ * blob.
+ * The control state telemetry type itself encapsulates another layer which
+ * works similarly to this - that is, each controller may recursively contain
+ * other controller states. The encoding and decoding process should work
+ * recursively to handle decoding the overall state properly. */
+
+enum class TelemetryType : uint8_t
+{
+    INVALID_ID = 0,
+
+    ARENA_TF,
+    COLLECTION_STATE,
+    CTRL_STATE
+};
+
+enum class ControllerType : uint8_t
+{
+    INVALID_ID = 0,
+
+    TELEOP,
+    AUTO,
+
+    AUTO_MINING,
+    AUTO_OFFLOAD,
+
+    MINING,
+    OFFLOAD,
+    LOCALIZATION,
+    TRAVERSAL
+};
 
 class TelemetryBase
 {
@@ -70,89 +100,6 @@ public:
     using Byte = Bytes::value_type;
     using BytePtr = const Byte*;
     using BytePtrRef = const Byte*&;
-
-    static constexpr char const* TELEMETRY_TOPIC = "lance/telemetry";
-};
-
-
-class TelemetrySerializer : public TelemetryBase
-{
-    using steady_clock = std::chrono::steady_clock;
-    using time_point = steady_clock::time_point;
-
-public:
-    TelemetrySerializer(RclNode& node, float pub_throttle_freq);
-
-public:
-    void update(const RobotController&);
-
-protected:
-    bool filterFreq(time_point&);
-
-    void addArenaTf(Bytes&, const TfCache&);
-    void addCollectionState(Bytes&, const CollectionState&);
-    void addControlState(Bytes&, const RobotController&);
-
-    void addTeleopController(Bytes&, const TeleopController&);
-    void addAutoController(Bytes&, const AutoController&);
-    void addAutoMiningController(Bytes&, const AutoMiningController&);
-    void addAutoOffloadController(Bytes&, const AutoOffloadController&);
-    void addMiningController(Bytes&, const MiningController&);
-    void addOffloadController(Bytes&, const OffloadController&);
-    void addLocController(Bytes&, const LocalizationController&);
-    void addTravController(Bytes&, const TraversalController&);
-
-protected:
-    BytesSharedPub pub;
-
-    time_point last_tf_pub, last_path_pub;
-
-    const float throttled_pub_freq;
-};
-
-
-class TelemetryDeserializer : public TelemetryBase
-{
-    using GenericPubMap = util::GenericPubMap;
-    using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
-    using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
-
-public:
-    TelemetryDeserializer(
-        RclNode& node,
-        TfCache& tf_cache);
-
-public:
-    GenericPubMap& getPubMap();
-
-protected:
-    void accept(const BytesMsg&);
-
-protected:
-    bool pubArenaTf(BytePtrRef, BytePtr);
-    bool pubCollectionState(BytePtrRef, BytePtr);
-    bool pubControlState(BytePtrRef, BytePtr);
-
-    bool pubDerivedController(BytePtrRef, BytePtr);
-
-    bool pubTeleopController(BytePtrRef, BytePtr);
-    bool pubAutoController(BytePtrRef, BytePtr);
-    bool pubAutoMiningController(BytePtrRef, BytePtr);
-    bool pubAutoOffloadController(BytePtrRef, BytePtr);
-    bool pubMiningController(BytePtrRef, BytePtr);
-    bool pubOffloadController(BytePtrRef, BytePtr);
-    bool pubLocController(BytePtrRef, BytePtr);
-    bool pubTravController(BytePtrRef, BytePtr);
-
-protected:
-    GenericPubMap pub_map;
-    TfCache& tf_cache;
-    Tf2Broadcaster tf_broadcaster;
-    ConstSharedClock rcl_clock;
-
-    BytesSharedSub sub;
-
-    std::vector<std::string> ctrl_chain;
 };
 
 };  // namespace lance

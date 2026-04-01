@@ -99,6 +99,7 @@ public:
 
     Box2f mining_zone_bounds;
     Box2f offload_zone_bounds;
+    Box2f construction_zone_bounds;
 
     const float auto_traversal_max_track_velocity_mps;
     const float auto_traversal_max_track_acceleration_mpss;
@@ -110,7 +111,7 @@ public:
     const float auto_traversal_min_theta_window;
 
     // RENAME BUT LEAVE
-    const float min_zone_length = 1.1; // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet
+    // const float min_zone_length = 1.1; // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet
 
 public:
     RobotParams(rclcpp::Node&);

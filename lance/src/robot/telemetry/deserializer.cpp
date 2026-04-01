@@ -37,409 +37,29 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "telemetry.hpp"
-
-#include <cstdint>
-#include <sstream>
+#include "deserializer.hpp"
 
 #include "util/time_cvt.hpp"
-#include "util/ros_utils.hpp"
 #include "util/mem_helpers.hpp"
+#include "robot/core/ros_interface.hpp"
+#include "robot/control/robot_controller.hpp"
 
 
 using namespace util;
+
+#define AS_U8(x) static_cast<uint8_t>(x)
 
 
 namespace lance
 {
 
-/* --- Telemetry Specification ---
- * All telemetry is packaged into a binary blob and sent from the robot
- * to the client-side decoder, where it is decoded and publishers are used as
- * needed.
- * The telemetry blob consists of any number of packets, each of which starts
- * with an id (TelemetryType) followed by the packet data, whose size can vary.
- * As such, it is the responsiblity of each individual (per telemetry type)
- * decoder to read the correct length of bytes after it's id appears in the
- * blob.
- * The control state telemetry type itself encapsulates another layer which
- * works similarly to this - that is, each controller may recursively contain
- * other controller states. The encoding and decoding process should work
- * recursively to handle decoding the overall state properly. */
-
-enum class TelemetryType : uint8_t
-{
-    INVALID_ID = 0,
-
-    ARENA_TF,
-    COLLECTION_STATE,
-    CTRL_STATE
-};
-
-enum class ControllerType : uint8_t
-{
-    INVALID_ID = 0,
-
-    TELEOP,
-    AUTO,
-
-    AUTO_MINING,
-    AUTO_OFFLOAD,
-
-    MINING,
-    OFFLOAD,
-    LOCALIZATION,
-    TRAVERSAL
-};
-
-#define AS_U8(x) static_cast<uint8_t>(x)
-
-
-// --- Serializer --------------------------------------------------------------
-
-TelemetrySerializer::TelemetrySerializer(
-    RclNode& node,
-    float pub_throttle_freq) :
-    pub{node.create_publisher<BytesMsg>(
-        TELEMETRY_TOPIC,
-        rclcpp::SensorDataQoS{})},
-    throttled_pub_freq{pub_throttle_freq}
-{
-}
-
-void TelemetrySerializer::update(const RobotController& robot_controller)
-{
-    BytesMsg msg;
-    Bytes& bytes = msg.data;
-
-    this->addArenaTf(bytes, robot_controller.tf_cache);
-    this->addCollectionState(bytes, robot_controller.collection_state);
-    this->addControlState(bytes, robot_controller);
-
-    this->pub->publish(msg);
-}
-
-
-bool TelemetrySerializer::filterFreq(time_point& tp)
-{
-    const time_point t = steady_clock::now();
-    const auto d =
-        std::chrono::duration_cast<std::chrono::milliseconds>(t - tp);
-    const auto f = std::chrono::milliseconds(
-        static_cast<int64_t>(1000.f / this->throttled_pub_freq));
-
-    if (d >= f)
-    {
-        tp = t;
-        return true;
-    }
-    return false;
-}
-
-
-void TelemetrySerializer::addArenaTf(Bytes& bytes, const TfCache& tf_cache)
-{
-    constexpr size_t RESERVE_SIZE = (sizeof(uint8_t) + (sizeof(float) * 7));
-
-    // TODO: consider sending odom as well (to verify remote localization health)
-
-    if (tf_cache.hasTf(ODOM_TO_ARENA_TF) && this->filterFreq(this->last_tf_pub))
-    {
-        const auto* tf = tf_cache.getTf(ODOM_TO_ARENA_TF);
-
-        bytes.resize(bytes.size() + RESERVE_SIZE);
-        Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
-
-        writeAndIncrement(ptr, AS_U8(TelemetryType::ARENA_TF));
-
-        writeAsAndIncrement<float>(ptr, tf->pose.vec.x());
-        writeAsAndIncrement<float>(ptr, tf->pose.vec.y());
-        writeAsAndIncrement<float>(ptr, tf->pose.vec.z());
-        writeAsAndIncrement<float>(ptr, tf->pose.quat.w());
-        writeAsAndIncrement<float>(ptr, tf->pose.quat.x());
-        writeAsAndIncrement<float>(ptr, tf->pose.quat.y());
-        writeAsAndIncrement<float>(ptr, tf->pose.quat.z());
-    }
-}
-
-void TelemetrySerializer::addCollectionState(
-    Bytes& bytes,
-    const CollectionState& collection_state)
-{
-    constexpr size_t RESERVE_SIZE = (sizeof(uint8_t) * 2 + (sizeof(float) * 7));
-
-    bytes.resize(bytes.size() + RESERVE_SIZE);
-    Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
-
-    writeAndIncrement(ptr, AS_U8(TelemetryType::COLLECTION_STATE));
-
-    const HopperState& hopper_state = collection_state.getHopperState();
-
-    const uint8_t bool_fields = AS_U8(hopper_state.isVolCapacity()) |
-                                (AS_U8(hopper_state.isBeltCapacity()) << 1);
-    writeAndIncrement(ptr, bool_fields);
-
-    writeAsAndIncrement<float>(ptr, hopper_state.volume());
-    writeAsAndIncrement<float>(ptr, hopper_state.beltPosMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.startPosMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.endPosMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.beltUsageMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.miningTargetMotorPosition());
-    writeAsAndIncrement<float>(ptr, hopper_state.offloadTargetMotorPosition());
-}
-
-void TelemetrySerializer::addControlState(
-    Bytes& bytes,
-    const RobotController& robot_controller)
-{
-    if (robot_controller.control_mode == ControlMode::DISABLED)
-    {
-        return;
-    }
-
-    bytes.push_back(AS_U8(TelemetryType::CTRL_STATE));
-
-    switch (robot_controller.control_mode)
-    {
-        case ControlMode::TELEOPERATED:
-        {
-            this->addTeleopController(
-                bytes,
-                robot_controller.teleop_controller);
-            break;
-        }
-        case ControlMode::AUTONOMOUS:
-        {
-            this->addAutoController(bytes, robot_controller.auto_controller);
-            break;
-        }
-        default:
-        {
-        }
-    }
-}
-
-void TelemetrySerializer::addTeleopController(
-    Bytes& bytes,
-    const TeleopController& controller)
-{
-    using Op = TeleopController::Operation;
-
-    // TODO: pack these
-    bytes.push_back(AS_U8(ControllerType::TELEOP));
-    bytes.push_back(AS_U8(controller.op_mode));
-
-    switch (controller.op_mode)
-    {
-        case Op::ASSISTED_MINING:
-        case Op::PRESET_MINING:
-        {
-            this->addMiningController(bytes, controller.mining_controller);
-            break;
-        }
-        case Op::ASSISTED_OFFLOAD:
-        case Op::PRESET_OFFLOAD:
-        {
-            this->addOffloadController(bytes, controller.offload_controller);
-            break;
-        }
-        case Op::AUTO_TRAVERSAL:
-        {
-            this->addTravController(bytes, controller.traversal_controller);
-            break;
-        }
-        default:
-        {
-        }
-    }
-}
-
-void TelemetrySerializer::addAutoController(
-    Bytes& bytes,
-    const AutoController& controller)
-{
-    using Stage = AutoController::Stage;
-
-    // TODO: pack these into the same byte (*reliably*)
-    bytes.push_back(AS_U8(ControllerType::AUTO));
-    bytes.push_back(AS_U8(controller.stage));
-
-    switch (controller.stage)
-    {
-        case Stage::LOCALIZATION:
-        {
-            this->addLocController(bytes, controller.localization_controller);
-            break;
-        }
-        case Stage::TRAVERSE_TO_MINING:
-        {
-            this->addTravController(bytes, controller.traversal_controller);
-            break;
-        }
-        case Stage::MINING:
-        {
-            this->addAutoMiningController(bytes, controller.mining_controller);
-            break;
-        }
-        case Stage::TRAVERSE_TO_OFFLOAD:
-        {
-            this->addTravController(bytes, controller.traversal_controller);
-            break;
-        }
-        case Stage::OFFLOAD:
-        {
-            this->addAutoOffloadController(
-                bytes,
-                controller.offload_controller);
-            break;
-        }
-        default:
-        {
-        }
-    }
-}
-
-void TelemetrySerializer::addAutoMiningController(
-    Bytes& bytes,
-    const AutoMiningController& controller)
-{
-    using Stage = AutoMiningController::Stage;
-
-    // TODO: pack these
-    bytes.push_back(AS_U8(ControllerType::AUTO_MINING));
-    bytes.push_back(AS_U8(controller.stage));
-
-    // TODO: push planned swath
-
-    switch (controller.stage)
-    {
-        case Stage::TRAVERSING:
-        {
-            this->addTravController(bytes, controller.traversal_controller);
-            break;
-        }
-        case Stage::MINING:
-        {
-            this->addMiningController(bytes, controller.mining_controller);
-            break;
-        }
-        default:
-        {
-        }
-    }
-}
-
-void TelemetrySerializer::addAutoOffloadController(
-    Bytes& bytes,
-    const AutoOffloadController& controller)
-{
-    using Stage = AutoOffloadController::Stage;
-
-    // TODO: pack these
-    bytes.push_back(AS_U8(ControllerType::AUTO_OFFLOAD));
-    bytes.push_back(AS_U8(controller.stage));
-
-    // TODO: push planned zone
-
-    switch (controller.stage)
-    {
-        case Stage::TRAVERSING:
-        {
-            this->addTravController(bytes, controller.traversal_controller);
-            break;
-        }
-        case Stage::OFFLOADING:
-        {
-            this->addOffloadController(bytes, controller.offload_controller);
-            break;
-        }
-        default:
-        {
-        }
-    }
-}
-
-void TelemetrySerializer::addMiningController(
-    Bytes& bytes,
-    const MiningController& controller)
-{
-    // TODO: pack these
-    bytes.push_back(AS_U8(ControllerType::MINING));
-    bytes.push_back(AS_U8(controller.stage));
-
-    bytes.resize(bytes.size() + sizeof(float));
-    write(
-        (bytes.end() - sizeof(float)).base(),
-        controller.traversal_state.remaining());
-}
-
-void TelemetrySerializer::addOffloadController(
-    Bytes& bytes,
-    const OffloadController& controller)
-{
-    // TODO: pack these
-    bytes.push_back(AS_U8(ControllerType::OFFLOAD));
-    bytes.push_back(AS_U8(controller.stage));
-
-    bytes.resize(bytes.size() + sizeof(float));
-    write(
-        (bytes.end() - sizeof(float)).base(),
-        controller.traversal_state.remaining());
-}
-
-void TelemetrySerializer::addLocController(
-    Bytes& bytes,
-    const LocalizationController& controller)
-{
-    // TODO: pack these
-    bytes.push_back(AS_U8(ControllerType::LOCALIZATION));
-    bytes.push_back(AS_U8(controller.stage));
-}
-
-void TelemetrySerializer::addTravController(
-    Bytes& bytes,
-    const TraversalController& controller)
-{
-    // TODO: pack these
-    bytes.push_back(AS_U8(ControllerType::TRAVERSAL));
-    bytes.push_back(AS_U8(controller.state));
-
-    if (controller.last_path.get() && this->filterFreq(this->last_path_pub))
-    {
-        // controller.state only holds 5ish values so use the highest bit of
-        // that byte to signal if path is present or not
-        bytes.back() |= 0x80;
-
-        const auto& poses = controller.last_path->poses;
-
-        const size_t reserve_size =
-            (poses.size() * (sizeof(float) * 3) + sizeof(uint32_t));
-
-        bytes.resize(bytes.size() + reserve_size);
-        Byte* ptr = (bytes.end() - reserve_size).base();
-
-        writeAndIncrement(ptr, static_cast<uint32_t>(poses.size()));
-
-        for (const auto& p : poses)
-        {
-            writeAsAndIncrement<float>(ptr, p.pose.position.x);
-            writeAsAndIncrement<float>(ptr, p.pose.position.y);
-            writeAsAndIncrement<float>(ptr, p.pose.position.z);
-        }
-    }
-}
-
-
-
-// --- Deserializer ------------------------------------------------------------
-
 TelemetryDeserializer::TelemetryDeserializer(RclNode& node, TfCache& tf_cache) :
-    pub_map{node, "lance", rclcpp::SensorDataQoS{}},
+    pub_map{node, "", rclcpp::SensorDataQoS{}},
     tf_cache{tf_cache},
     tf_broadcaster{node},
     rcl_clock{node.get_clock()},
     sub{node.create_subscription<BytesMsg>(
-        TELEMETRY_TOPIC,
+        lance::TELEMETRY_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })}
 {
@@ -492,7 +112,9 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
 
     if (this->ctrl_chain.empty())
     {
-        this->pub_map.publish<std_msgs::msg::String>("op_status", "Disabled");
+        this->pub_map.publish<std_msgs::msg::String>(
+            lance::OP_STATUS_TOPIC,
+            "Disabled");
     }
     else
     {
@@ -503,7 +125,9 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
             ss << " : " << this->ctrl_chain[i];
         }
 
-        this->pub_map.publish<std_msgs::msg::String>("op_status", ss.str());
+        this->pub_map.publish<std_msgs::msg::String>(
+            lance::OP_STATUS_TOPIC,
+            ss.str());
     }
 }
 
@@ -552,22 +176,22 @@ bool TelemetryDeserializer::pubCollectionState(BytePtrRef ptr, BytePtr end)
     EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + (sizeof(float) * 7))
 
     constexpr char const* FLOAT_TOPICS[] = {
-        "collection_state/volume",
-        "collection_state/mining_target",
-        "collection_state/offload_target",
-        "collection_state/belt_pos_m",
-        "collection_state/high_pos_m",
-        "collection_state/low_pos_m",
-        "collection_state/belt_usage_m"};
+        COLLECTION_STATE_TOPIC("volume"),
+        COLLECTION_STATE_TOPIC("mining_target"),
+        COLLECTION_STATE_TOPIC("offload_target"),
+        COLLECTION_STATE_TOPIC("belt_pos_m"),
+        COLLECTION_STATE_TOPIC("high_pos_m"),
+        COLLECTION_STATE_TOPIC("low_pos_m"),
+        COLLECTION_STATE_TOPIC("belt_usage_m")};
 
     uint8_t bool_fields{0};
     readAndIncrement(ptr, bool_fields);
 
     this->pub_map.publish<std_msgs::msg::Bool>(
-        "collection_state/is_full_volume",
+        COLLECTION_STATE_TOPIC("is_full_volume"),
         static_cast<bool>(bool_fields & 0x1));
     this->pub_map.publish<std_msgs::msg::Bool>(
-        "collection_state/is_full_occ",
+        COLLECTION_STATE_TOPIC("is_full_occ"),
         static_cast<bool>(bool_fields & 0x2));
 
     for (const char* TOPIC : FLOAT_TOPICS)
@@ -935,7 +559,7 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
                 readAsAndIncrement<float>(ptr, p.pose.position.z);
             }
 
-            this->pub_map.publish("traversal_path", msg);
+            this->pub_map.publish(lance::TRAVERSAL_PATH_TOPIC, msg);
         }
     }
 

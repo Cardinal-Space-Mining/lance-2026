@@ -39,107 +39,49 @@
 
 #pragma once
 
-#include <chrono>
-
-#include "util/joy_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-
-
 namespace lance
 {
 
-class MiningController
-{
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+#define ROBOT_TOPIC(subtopic)      "lance/" subtopic
+#define PERCEPTION_TOPIC(subtopic) "cardinal_perception/" subtopic
+#define TALON_CTRL_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/ctrl")
+#define TALON_INFO_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/info")
+#define COLLECTION_STATE_TOPIC(subtopic)      \
+    ROBOT_TOPIC("collection_state/" subtopic)
 
-    using JoyState = util::JoyState;
+#define CONSTEXPR_STR constexpr inline char const*
 
-public:
-    MiningController(
-        const RobotParams&,
-        const HopperState&);
-    ~MiningController() = default;
+CONSTEXPR_STR JOY_TOPIC = "/joy";
+CONSTEXPR_STR CLICKED_POINT_TOPIC = "/clicked_point";
+CONSTEXPR_STR WATCHDOG_TOPIC = ROBOT_TOPIC("watchdog_status");
+CONSTEXPR_STR SET_TELEOP_TOPIC = ROBOT_TOPIC("set_teleop_mode");
+CONSTEXPR_STR SET_AUTO_TOPIC = ROBOT_TOPIC("set_auto_mode");
+CONSTEXPR_STR SET_TEST_TOPIC = ROBOT_TOPIC("set_test_mode");
+CONSTEXPR_STR TELEMETRY_TOPIC = ROBOT_TOPIC("telemetry");
+CONSTEXPR_STR OP_STATUS_TOPIC = ROBOT_TOPIC("op_status");
+CONSTEXPR_STR TRAVERSAL_PATH_TOPIC = ROBOT_TOPIC("traversal_path");
+CONSTEXPR_STR ARENA_ZONES_TOPIC = "arena_zones";
 
-public:
-    /* Restart the routine. If traversal distance is provided,
-     * the command will track the travelled distance and end if
-     * the traversal distance is exceeded. */
-    void initialize(float traversal_dist_m = 0.f);
-    /* Check if the command is finished, either as a result
-     * of being cancelled or automatically shutting down
-     * due to a stop state. */
-    bool isFinished();
-    /* Mark the command as cancelled, i.e. it will no longer be
-     * executed. */
-    void setCancelled();
+CONSTEXPR_STR HOPPER_JOINT_NAME = "hopper_joint";
 
-    /* Update the remaining traversal distance. */
-    void setRemaining(float traversal_dist_m);
-    /* Set whether the hopper model should be used to determine finished state. */
-    void setUseHopperModel(bool enabled);
 
-    /* Iterate the controller in "full auto" mode (no user input). */
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-    /* Iterate the controller in "assisted" mode (user input). */
-    void iterate(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+CONSTEXPR_STR PERCEPTION_LFD_CONTROL_SRV_TOPIC =
+    PERCEPTION_TOPIC("set_global_alignment");
+CONSTEXPR_STR PERCEPTION_REFLECTOR_HINT_TOPIC =
+    PERCEPTION_TOPIC("reflector_hint");
 
-protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        LOWERING,
-        TRAVERSING,
-        RAISING,
-        FINISHED
-    };
+CONSTEXPR_STR PERCEPTION_UPDATE_MINING_EVAL_SRV_TOPIC =
+    PERCEPTION_TOPIC("update_mining_eval");
+CONSTEXPR_STR PERCEPTION_MINING_EVAL_RESULTS_TOPIC =
+    PERCEPTION_TOPIC("mining_eval_results");
 
-protected:
-    struct TraversalState
-    {
-        void init(float remaining_dist = 0.f);
-        void setRemaining(float remaining_dist);
-        void updateOdom(float odom);
-        bool hasRemaining() const;
-        float remaining() const;
+CONSTEXPR_STR PERCEPTION_PATH_TOPIC = PERCEPTION_TOPIC("planned_path");
+CONSTEXPR_STR PERCEPTION_PPLAN_CONTROL_TOPIC =
+    PERCEPTION_TOPIC("update_path_planning");
 
-    private:
-        float remaining_dist{0.f};
-        float prev_odom{0.f};
-    };
-    struct BeltDutyCycleState
-    {
-        void setMoved();
-        void setStopped();
-        bool canMove(float thresh_s);
+#undef CONSTEXPR_STR
 
-    private:
-        std::chrono::system_clock::time_point prev_belt_stop_time;
-        bool belt_moving{false};
-    };
-
-protected:
-    void iterate(
-        const JoyState* joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    const RobotParams& params;
-    const HopperState& hopper_state;
-
-    TraversalState traversal_state{};
-    BeltDutyCycleState belt_duty_cycle{};
-
-    Stage stage{Stage::FINISHED};
-    bool using_hopper_model{true};
-};
+#define TALON_CTRL_PUBSUB_QOS                                            \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
 };  // namespace lance

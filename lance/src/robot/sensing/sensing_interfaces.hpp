@@ -39,60 +39,31 @@
 
 #pragma once
 
-#include <Eigen/Core>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <cardinal_perception/msg/mining_eval_results.hpp>
-#include <cardinal_perception/srv/update_mining_eval_mode.hpp>
-
-#include "robot_params.hpp"
+#include "tf_cache.hpp"
+#include "path_plan.hpp"
+#include "mining_eval.hpp"
+#include "reflector_hint.hpp"
 
 
 namespace lance
 {
 
-class MiningEvalInterface
+class SensingInterfaces : public util::UsingRosAliases
 {
-    using RclNode = rclcpp::Node;
-    using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
-
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
-    template<typename T>
-    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
-
-    using UpdateMiningEvalSrv = cardinal_perception::srv::UpdateMiningEvalMode;
-    using MiningEvalResultsMsg = cardinal_perception::msg::MiningEvalResults;
+public:
+    TfCache tf_cache;
+    PathPlanInterface path_plan_interface;
+    MiningEvalInterface mining_eval_interface;
+    ReflectorHintInterface reflector_hint_interface;
 
 public:
-    // vec.x() -> x, vec.y() -> y, vec.z() -> theta (radians)
-    using Pose2f = Eigen::Vector3f;
-
-public:
-    MiningEvalInterface(RclNode&, const RobotParams&) = default;
-
-public:
-    void queryArenaFrame(const std::vector<Pose2f>& poses);
-    void queryRobotFrame();
-    void cancelQuery();
-
-    bool hasResult() const;
-    const std::vector<float>* getDists() const;
-
-protected:
-    void updateResult(const MiningEvalResultsMsg::ConstSharedPtr& msg);
-
-protected:
-    const RobotParams& params;
-    ConstSharedClock rcl_clock;
-
-    RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
-    RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
-
-    MiningEvalResultsMsg::UniquePtr eval_results{ nullptr };
-    int32_t eval_id{ -1 };
-
+    SensingInterfaces(RclNode& node, const RobotParams& params) :
+        tf_cache{node, params},
+        path_plan_interface{node, params},
+        mining_eval_interface{node, params},
+        reflector_hint_interface{node}
+    {
+    }
 };
 
-};
+};  // namespace lance

@@ -37,109 +37,72 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "path_plan.hpp"
 
-#include <chrono>
-
-#include "util/joy_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
+#include "robot/core/ros_interface.hpp"
 
 
 namespace lance
 {
 
-class MiningController
+PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
+    params{params},
+    rcl_clock{node.get_clock()},
+    path_sub{node.create_subscription<PathMsg>(
+        lance::PERCEPTION_PATH_TOPIC,
+        rclcpp::SensorDataQoS{},
+        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
+    pplan_control_client{node.create_client<UpdatePathPlanSrv>(
+        lance::PERCEPTION_PPLAN_CONTROL_TOPIC)}
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+}
 
-    using JoyState = util::JoyState;
 
-public:
-    MiningController(
-        const RobotParams&,
-        const HopperState&);
-    ~MiningController() = default;
+void PathPlanInterface::init(const Vec3f& arena_dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header.frame_id = this->params.arena_frame_id;
+    req->target.header.stamp = this->rcl_clock->now();
+    req->target.pose.position.x = arena_dest.x();
+    req->target.pose.position.y = arena_dest.y();
+    req->target.pose.position.z = arena_dest.z();
+    req->completed = false;
 
-public:
-    /* Restart the routine. If traversal distance is provided,
-     * the command will track the travelled distance and end if
-     * the traversal distance is exceeded. */
-    void initialize(float traversal_dist_m = 0.f);
-    /* Check if the command is finished, either as a result
-     * of being cancelled or automatically shutting down
-     * due to a stop state. */
-    bool isFinished();
-    /* Mark the command as cancelled, i.e. it will no longer be
-     * executed. */
-    void setCancelled();
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void PathPlanInterface::init(const PointStampedMsg& dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header = dest.header;
+    req->target.pose.position = dest.point;
+    req->completed = false;
 
-    /* Update the remaining traversal distance. */
-    void setRemaining(float traversal_dist_m);
-    /* Set whether the hopper model should be used to determine finished state. */
-    void setUseHopperModel(bool enabled);
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void PathPlanInterface::cancel()
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->completed = true;
 
-    /* Iterate the controller in "full auto" mode (no user input). */
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-    /* Iterate the controller in "assisted" mode (user input). */
-    void iterate(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    this->pplan_control_client->async_send_request(
+        req,
+        [this](RclClient<UpdatePathPlanSrv>::SharedFuture)
+        { this->last_path = nullptr; });
+}
 
-protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        LOWERING,
-        TRAVERSING,
-        RAISING,
-        FINISHED
-    };
+bool PathPlanInterface::hasPath() const
+{
+    return this->last_path.operator bool();
+}
+const PathPlanInterface::PathMsg* PathPlanInterface::getPath() const
+{
+    return this->last_path ? this->last_path.get() : nullptr;
+}
 
-protected:
-    struct TraversalState
-    {
-        void init(float remaining_dist = 0.f);
-        void setRemaining(float remaining_dist);
-        void updateOdom(float odom);
-        bool hasRemaining() const;
-        float remaining() const;
-
-    private:
-        float remaining_dist{0.f};
-        float prev_odom{0.f};
-    };
-    struct BeltDutyCycleState
-    {
-        void setMoved();
-        void setStopped();
-        bool canMove(float thresh_s);
-
-    private:
-        std::chrono::system_clock::time_point prev_belt_stop_time;
-        bool belt_moving{false};
-    };
-
-protected:
-    void iterate(
-        const JoyState* joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    const RobotParams& params;
-    const HopperState& hopper_state;
-
-    TraversalState traversal_state{};
-    BeltDutyCycleState belt_duty_cycle{};
-
-    Stage stage{Stage::FINISHED};
-    bool using_hopper_model{true};
-};
+void PathPlanInterface::clearPath() { this->last_path.reset(); }
 
 };  // namespace lance

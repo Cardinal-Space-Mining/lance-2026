@@ -46,10 +46,8 @@ namespace lance
 {
 
 AutoOffloadController::AutoOffloadController(
-    GenericPubMap& pub_map,
     const RobotParams& params,
     SharedControllerCollection& controllers) :
-    pub_map{pub_map},
     params{params},
     traversal_controller{controllers.traversal_controller},
     offload_controller{controllers.offload_controller}

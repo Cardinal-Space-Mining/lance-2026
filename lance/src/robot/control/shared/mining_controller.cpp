@@ -39,15 +39,18 @@
 
 #include "mining_controller.hpp"
 
+#include <limits>
+
+#include "robot/core/robot_math.hpp"
+#include "robot/core/hid_bindings.hpp"
+
 
 namespace lance
 {
 
 MiningController::MiningController(
-    GenericPubMap& pub_map,
     const RobotParams& params,
     const HopperState& hopper_state) :
-    pub_map{pub_map},
     params{params},
     hopper_state{hopper_state}
 {

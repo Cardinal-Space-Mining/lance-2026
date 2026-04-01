@@ -40,15 +40,11 @@
 #include "localization_controller.hpp"
 
 #include <cmath>
-// #include <iostream>
 
 #include <Eigen/Core>
 
 #include "robot/core/robot_math.hpp"
 
-
-#define PERCEPTION_REFLECTOR_HINT_TOPIC "/cardinal_perception/reflector_hint"
-#define PERCEPTION_LFD_CONTROL_TOPIC    "/cardinal_perception/set_global_alignment"
 
 using Vec2f = Eigen::Vector2f;
 
@@ -57,27 +53,18 @@ namespace lance
 {
 
 LocalizationController::LocalizationController(
-    RclNode& node,
-    GenericPubMap& pub_map,
     const RobotParams& params,
-    const TfCache& tf_cache) :
-    pub_map{pub_map},
+    SensingInterfaces& sensing_interfaces) :
     params{params},
-    tf_cache{tf_cache},
-    hint_sub{node.create_subscription<ReflectorHintMsg>(
-        PERCEPTION_REFLECTOR_HINT_TOPIC,
-        rclcpp::SensorDataQoS{},
-        [this](const ReflectorHintMsg::ConstSharedPtr& msg)
-        { this->last_hint = msg; })},
-    lfd_control_client{
-        node.create_client<SetBoolSrv>(PERCEPTION_LFD_CONTROL_TOPIC)}
+    tf_cache{sensing_interfaces.tf_cache},
+    refl_hint_interface{sensing_interfaces.reflector_hint_interface}
 {
 }
 
 void LocalizationController::initialize()
 {
     this->stage = Stage::INITIALIZATION;
-    this->last_hint = nullptr;
+    this->refl_hint_interface.clearHint();
 }
 
 bool LocalizationController::isFinished()
@@ -88,7 +75,7 @@ bool LocalizationController::isFinished()
 void LocalizationController::setCancelled()
 {
     this->stage = Stage::FINISHED;
-    this->setLfdControl(false);
+    this->refl_hint_interface.setEnableSrv(false);
 }
 
 void LocalizationController::iterate(
@@ -133,14 +120,15 @@ void LocalizationController::iterate(
                 break;
             }
 
-            this->setLfdControl(true);
+            this->refl_hint_interface.setEnableSrv(true);
             this->stage = Stage::SEARCHING;
             [[fallthrough]];
         }
         case Stage::SEARCHING:
         {
-            if (!this->last_hint ||
-                this->last_hint->samples < MIN_SEARCH_SAMPLES)
+            if (!this->refl_hint_interface.hasHint() ||
+                this->refl_hint_interface.getLatestHint()->samples <
+                    MIN_SEARCH_SAMPLES)
             {
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
@@ -160,7 +148,8 @@ void LocalizationController::iterate(
         case Stage::ALIGN_HEADING:
         {
             // centroid in robot reference frame
-            const auto& pt = this->last_hint->centroid;
+            const auto& pt =
+                this->refl_hint_interface.getLatestHint()->centroid;
             const Vec2f rel{
                 static_cast<float>(pt.point.x),
                 static_cast<float>(pt.point.y)};
@@ -189,7 +178,8 @@ void LocalizationController::iterate(
         case Stage::ADJUST_RANGE:
         {
             // centroid in robot reference frame
-            const auto& pt = this->last_hint->centroid;
+            const auto& pt =
+                this->refl_hint_interface.getLatestHint()->centroid;
 
             const float range =
                 static_cast<float>(std::hypot(pt.point.x, pt.point.y));
@@ -223,21 +213,12 @@ void LocalizationController::iterate(
         }
         case Stage::FINISHED:
         {
-            this->setLfdControl(false);
+            this->refl_hint_interface.setEnableSrv(false);
         }
     }
 
 #undef V_max
 #undef A_max
-}
-
-void LocalizationController::setLfdControl(bool enabled)
-{
-    auto req = std::make_shared<SetBoolSrv::Request>();
-    req->data = enabled;
-    this->lfd_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<SetBoolSrv>::SharedFuture) {});
 }
 
 };  // namespace lance

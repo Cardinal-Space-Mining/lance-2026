@@ -37,15 +37,11 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "perception_interface.hpp"
+#include "mining_eval.hpp"
 
-#include "robot_math.hpp"
+#include "robot/core/robot_math.hpp"
+#include "robot/core/ros_interface.hpp"
 
-
-#define PERCEPTION_UPDATE_MINING_EVAL_SRV_TOPIC \
-    "/cardinal_perception/update_mining_eval"
-#define PERCEPTION_MINING_EVAL_RESULTS_TOPIC   \
-    "/cardinal_perception/mining_eval_results"
 
 using namespace lance::geom;
 
@@ -58,13 +54,13 @@ MiningEvalInterface::MiningEvalInterface(
     const RobotParams& params) :
     params{params},
     rcl_clock{node.get_clock()},
-    mining_eval_client{node.create_client<UpdateMiningEvalSrv>(
-        PERCEPTION_UPDATE_MINING_EVAL_SRV_TOPIC)},
     mining_eval_sub{node.create_subscription<MiningEvalResultsMsg>(
-        PERCEPTION_MINING_EVAL_RESULTS_TOPIC,
+        lance::PERCEPTION_MINING_EVAL_RESULTS_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const MiningEvalResults::ConstSharedPtr& msg)
-        { this->updateResult(msg); })}
+        [this](const MiningEvalResultsMsg::ConstSharedPtr& msg)
+        { this->updateResult(msg); })},
+    mining_eval_client{node.create_client<UpdateMiningEvalSrv>(
+        lance::PERCEPTION_UPDATE_MINING_EVAL_SRV_TOPIC)}
 {
 }
 
@@ -109,7 +105,7 @@ void MiningEvalInterface::queryArenaFrame(const std::vector<Pose2f>& poses)
     this->mining_eval_client->async_send_request(
         req,
         [this](rclcpp::Client<UpdateMiningEvalSrv>::SharedFuture f)
-        { this->eval_id = f->query_id; });
+        { this->eval_id = f.get()->query_id; });
 }
 
 void MiningEvalInterface::queryRobotFrame()
@@ -134,7 +130,7 @@ void MiningEvalInterface::queryRobotFrame()
     this->mining_eval_client->async_send_request(
         req,
         [this](rclcpp::Client<UpdateMiningEvalSrv>::SharedFuture f)
-        { this->eval_id = f->query_id; });
+        { this->eval_id = f.get()->query_id; });
 }
 
 void MiningEvalInterface::cancelQuery()
@@ -146,7 +142,7 @@ void MiningEvalInterface::cancelQuery()
     this->eval_id = -1;
     this->mining_eval_client->async_send_request(
         req,
-        [](rclcpp::Client<UpdateMiningEvalSrv>::SharedFuture f) {});
+        [](rclcpp::Client<UpdateMiningEvalSrv>::SharedFuture) {});
 }
 
 bool MiningEvalInterface::hasResult() const
