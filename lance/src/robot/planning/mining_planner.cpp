@@ -39,7 +39,8 @@
 
 #include "mining_planner.hpp"
 
-#include "robot_math.hpp"
+#include "robot/model/dynamics.hpp"
+#include "robot/model/geometry.hpp"
 
 
 namespace lance

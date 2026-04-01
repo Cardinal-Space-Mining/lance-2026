@@ -51,9 +51,9 @@
 
 #include "util/ros_utils.hpp"
 
-#include "robot/core/robot_math.hpp"
 #include "robot/core/ros_interface.hpp"
 #include "robot/core/motor_interface.hpp"
+#include "robot/model/dynamics.hpp"
 #include "robot/sensing/tf_cache.hpp"
 #include "robot/telemetry/deserializer.hpp"
 

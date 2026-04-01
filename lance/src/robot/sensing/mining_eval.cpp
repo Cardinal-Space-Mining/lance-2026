@@ -39,7 +39,6 @@
 
 #include "mining_eval.hpp"
 
-#include "robot/core/robot_math.hpp"
 #include "robot/core/ros_interface.hpp"
 
 

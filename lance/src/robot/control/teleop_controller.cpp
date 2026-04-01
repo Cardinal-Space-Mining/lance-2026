@@ -41,6 +41,7 @@
 
 #include "robot/core/hid_bindings.hpp"
 #include "robot/core/ros_interface.hpp"
+#include "robot/model/geometry.hpp"
 
 
 namespace lance
@@ -114,11 +115,29 @@ void TeleopController::iterate(
     {
         case Operation::ASSISTED_MINING:
         {
-            if (this->sensing_interfaces.mining_eval_interface.hasResult())
+            const bool eval_has_result =
+                this->sensing_interfaces.mining_eval_interface.hasResult();
+            const bool has_tf =
+                this->sensing_interfaces.tf_cache.hasTf(ROBOT_TO_ARENA_TF);
+            if (eval_has_result || has_tf)
             {
-                this->mining_controller.setRemaining(
-                    this->sensing_interfaces.mining_eval_interface.getDists()
-                        ->front());
+                float remaining = std::numeric_limits<float>::max();
+                if (eval_has_result)
+                {
+                    remaining = this->sensing_interfaces.mining_eval_interface
+                                    .getDists()
+                                    ->front();
+                }
+                if (has_tf)
+                {
+                    remaining = std::min(
+                        remaining,
+                        lance::geom::distToBounds(
+                            *this->sensing_interfaces.tf_cache.getTf(
+                                ROBOT_TO_ARENA_TF),
+                            this->params.mining_zone_bounds));
+                }
+                this->mining_controller.setRemaining(remaining);
             }
             this->mining_controller.iterate(joy, motor_status, commands);
             if ((command_finished = this->mining_controller.isFinished()))

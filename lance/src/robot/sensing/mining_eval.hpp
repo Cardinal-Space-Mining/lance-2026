@@ -48,6 +48,7 @@
 
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
+#include "robot/model/geometry.hpp"
 
 
 namespace lance
@@ -60,7 +61,7 @@ class MiningEvalInterface : public util::UsingRosAliases
 
 public:
     // vec.x() -> x, vec.y() -> y, vec.z() -> theta (radians)
-    using Pose2f = Eigen::Vector3f;
+    using Pose2f = lance::geom::Pose2f;
 
 public:
     MiningEvalInterface(RclNode&, const RobotParams&);

@@ -39,8 +39,8 @@
 
 #include "offload_controller.hpp"
 
-#include "robot/core/robot_math.hpp"
 #include "robot/core/hid_bindings.hpp"
+#include "robot/model/dynamics.hpp"
 
 
 namespace lance

@@ -63,8 +63,8 @@
 
 // #include "util/pub_map.hpp"
 #include "util/ros_utils.hpp"
-#include "robot/core/robot_math.hpp"
 #include "robot/core/ros_interface.hpp"
+#include "robot/model/dynamics.hpp"
 
 
 using namespace util;

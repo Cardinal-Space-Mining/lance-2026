@@ -39,6 +39,7 @@
 
 #include "tf_cache.hpp"
 
+#include "util/geometry.hpp"
 #include "util/time_cvt.hpp"
 
 

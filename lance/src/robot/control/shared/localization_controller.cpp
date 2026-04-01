@@ -43,7 +43,8 @@
 
 #include <Eigen/Core>
 
-#include "robot/core/robot_math.hpp"
+#include "robot/model/dynamics.hpp"
+#include "robot/model/kinematics.hpp"
 
 
 using Vec2f = Eigen::Vector2f;
@@ -197,7 +198,7 @@ void LocalizationController::iterate(
                     lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
                 const float Vd_max = (A_max * Dt);
                 const float V_target =
-                    kmx::maxStartVel(0.f, abs_range_error, A_max) *
+                    util::kmx::maxStartVel(0.f, abs_range_error, A_max) *
                     (std::signbit(range_error) ? -1.f : 1.f);
                 const float V = std::clamp(
                     V_target,

@@ -45,7 +45,8 @@
 #include <iostream>
 
 #include "util/geometry.hpp"
-#include "robot/core/robot_math.hpp"
+#include "robot/model/dynamics.hpp"
+#include "robot/model/kinematics.hpp"
 
 
 using namespace util::geom::cvt::ops;
@@ -356,14 +357,14 @@ bool TraversalController::iterateReorient(
 
     // angular velocity proportional to error, clamped to parmertarized max
     // const float W = std::clamp((theta * W_Kp), -W_max, W_max);
-    const float W = std::min(kmx::maxStartVel(0.f, theta_abs, MAX_ANGULAR_DECELL), W_max) *
+    const float W = std::min(util::kmx::maxStartVel(0.f, theta_abs, MAX_ANGULAR_DECELL), W_max) *
                     (std::signbit(theta) ? -1.f : 1.f);
 
     const float Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(0.f, W);
     const float Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(0.f, W);
 
     float Vl_out, Vr_out;
-    kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
+    util::kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
 
     commands.setTracksVelocity(
         lance::groundMpsToTrackMotorRps(Vl_out),
@@ -410,7 +411,7 @@ void TraversalController::runStanley(
         // accelerate to full velocity if roughly pointed straight at target
         const float Va = (std::fabs(theta) < theta_V) ? V_max : 0.f;
         // TODO: backpropegation max velocity
-        const float Vb = kmx::maxStartVel(0.f, S.norm(), A_max);
+        const float Vb = util::kmx::maxStartVel(0.f, S.norm(), A_max);
         // apply minimum of two velocities, and clamp initially to min/max
         // acceleration diffs
         const float Vc =
@@ -427,7 +428,7 @@ void TraversalController::runStanley(
         {
             const float max_target_vel = std::min(V_max, V_prev + Vd_max);
             const float max_decell_dist =
-                kmx::decellDist(max_target_vel, A_max);
+                util::kmx::decellDist(max_target_vel, A_max);
             Vec2f pt_a = Vec2f::Zero();
             float sum_dist = 0.f;
             for (size_t i = (seg_proj_t < 0.f ? seg_beg_idx : seg_end_idx);
@@ -457,13 +458,13 @@ void TraversalController::runStanley(
                         // that our acceleration limit is respected
                         Vb = std::min(
                             Vb,
-                            kmx::maxStartVel((r * W_max), sum_dist, A_max));
+                            util::kmx::maxStartVel((r * W_max), sum_dist, A_max));
                     }
                     else
                     {
                         Vb = std::min(
                             Vb,
-                            kmx::maxStartVel(0.f, sum_dist, A_max));
+                            util::kmx::maxStartVel(0.f, sum_dist, A_max));
                     }
                 }
             }
@@ -521,7 +522,7 @@ void TraversalController::runStanley(
 
     // 4. Apply per-track V, A limits ------------------------------------------
     float Vl_out, Vr_out;
-    kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
+    util::kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
 
     // 5. Apply ----------------------------------------------------------------
     commands.setTracksVelocity(

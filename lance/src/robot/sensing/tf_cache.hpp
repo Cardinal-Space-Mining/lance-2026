@@ -47,10 +47,10 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.hpp>
 
-#include "util/geometry.hpp"
 #include "util/time_cvt.hpp"
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
+#include "robot/model/geometry.hpp"
 
 
 namespace lance
@@ -91,7 +91,7 @@ class TfCache : public util::UsingRosAliases
 public:
     using Tf2Buffer = tf2_ros::Buffer;
     using Tf2Listener = tf2_ros::TransformListener;
-    using PoseTf = util::geom::PoseTf3f;
+    using PoseTf = lance::geom::PoseTf3f;
 
 public:
     const std::string arena_frame_id;
