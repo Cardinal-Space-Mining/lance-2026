@@ -95,6 +95,7 @@ set(lance_core_ament_deps
     nav_msgs
     sensor_msgs
     geometry_msgs
+    visualization_msgs
     tf2_ros
     tf2_geometry_msgs
     net_adapter
@@ -182,8 +183,7 @@ endif()
 # --- Mission Control ----------------------------------------------------------
 set(mission_control_srcs
     "src/client_node.cpp")
-set(mission_control_ament_deps
-    visualization_msgs)         # rest of deps included from core lib
+set(mission_control_ament_deps)     # rest of deps included from core lib
 
 if(BUILD_LANCE1)
     add_executable(lance1_mission_control

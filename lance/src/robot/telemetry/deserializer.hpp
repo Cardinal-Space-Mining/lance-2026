@@ -44,6 +44,8 @@
 
 #include <tf2_ros/transform_broadcaster.hpp>
 
+#include <visualization_msgs/msg/marker_array.hpp>
+
 #include "util/pub_map.hpp"
 #include "robot/sensing/tf_cache.hpp"
 
@@ -58,6 +60,9 @@ class TelemetryDeserializer : public TelemetryBase
     using GenericPubMap = util::GenericPubMap;
     using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
     using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
+
+    using MarkerMsg = visualization_msgs::msg::Marker;
+    using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 
 public:
     TelemetryDeserializer(RclNode& node, TfCache& tf_cache);
@@ -85,6 +90,10 @@ protected:
     bool pubTravController(BytePtrRef, BytePtr);
 
 protected:
+    void addMiningMarker(float);
+    void addOffloadMarker(float);
+
+protected:
     GenericPubMap pub_map;
     TfCache& tf_cache;
     Tf2Broadcaster tf_broadcaster;
@@ -93,6 +102,7 @@ protected:
     BytesSharedSub sub;
 
     std::vector<std::string> ctrl_chain;
+    MarkerArrayMsg markers;
 };
 
 };  // namespace lance

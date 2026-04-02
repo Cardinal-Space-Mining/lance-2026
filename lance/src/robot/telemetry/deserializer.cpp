@@ -39,13 +39,17 @@
 
 #include "deserializer.hpp"
 
+#include "util/geometry.hpp"
 #include "util/time_cvt.hpp"
 #include "util/mem_helpers.hpp"
 #include "robot/core/ros_interface.hpp"
+#include "robot/model/geometry.hpp"
 #include "robot/control/robot_controller.hpp"
 
 
 using namespace util;
+using namespace util::geom::cvt::ops;
+using namespace lance::geom;
 
 #define AS_U8(x) static_cast<uint8_t>(x)
 
@@ -75,6 +79,7 @@ TelemetryDeserializer::GenericPubMap& TelemetryDeserializer::getPubMap()
 void TelemetryDeserializer::accept(const BytesMsg& msg)
 {
     this->ctrl_chain.clear();
+    this->markers.markers.clear();
     this->tf_cache.refresh();
 
     const Byte* ptr = msg.data.data();
@@ -128,6 +133,11 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
         this->pub_map.publish<std_msgs::msg::String>(
             lance::OP_STATUS_TOPIC,
             ss.str());
+    }
+
+    if (!this->markers.markers.empty())
+    {
+        this->pub_map.publish(lance::ROBOT_MARKERS_TOPIC, this->markers);
     }
 }
 
@@ -463,6 +473,7 @@ bool TelemetryDeserializer::pubMiningController(BytePtrRef ptr, BytePtr end)
 
     float remaining_trav_dist;
     readAndIncrement(ptr, remaining_trav_dist);
+    this->addMiningMarker(remaining_trav_dist);
 
     return true;
 }
@@ -489,6 +500,7 @@ bool TelemetryDeserializer::pubOffloadController(BytePtrRef ptr, BytePtr end)
 
     float remaining_trav_dist;
     readAndIncrement(ptr, remaining_trav_dist);
+    this->addOffloadMarker(remaining_trav_dist);
 
     return true;
 }
@@ -564,6 +576,56 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
     }
 
     return true;
+}
+
+
+void TelemetryDeserializer::addMiningMarker(float dist)
+{
+    if (!this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+    {
+        return;
+    }
+
+    MarkerMsg& marker = this->markers.markers.emplace_back();
+
+    marker.header.frame_id = this->tf_cache.arena_frame_id;
+    marker.header.stamp = this->rcl_clock->now();
+
+    marker.ns = "robot";
+    marker.id = 1;
+    marker.type = MarkerMsg::CUBE;
+    marker.action = MarkerMsg::ADD;
+    marker.lifetime = rclcpp::Duration(0, 100000000);
+
+    marker.color.r = 1.f;
+    marker.color.g = 0.f;
+    marker.color.b = 0.f;
+    marker.color.a = 0.5f;
+
+    marker.scale.x = dist;
+    marker.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;
+    marker.scale.z = lance::geom::PRIMARY_COLLISION_ZONE_HEIGHT;
+
+    const PoseTf3f* p = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+    const Quatf flattened_q = lance::geom::flattenToYaw(p->pose.quat);
+    const Vec3f pos_off =
+        flattened_q * Vec3f{
+                          lance::geom::FOOTPRINT_X_MAX_<float> + (dist / 2.f),
+                          0.f,
+                          lance::geom::PRIMARY_COLLISION_ZONE_Z_<float>};
+
+    marker.pose.position.x = p->pose.vec.x() + pos_off.x();
+    marker.pose.position.y = p->pose.vec.y() + pos_off.y();
+    marker.pose.position.z = p->pose.vec.z() + pos_off.z();
+    marker.pose.orientation.w = flattened_q.w();
+    marker.pose.orientation.x = flattened_q.x();
+    marker.pose.orientation.y = flattened_q.y();
+    marker.pose.orientation.z = flattened_q.z();
+}
+
+void TelemetryDeserializer::addOffloadMarker(float dist)
+{
+    (void)dist;
 }
 
 };  // namespace lance

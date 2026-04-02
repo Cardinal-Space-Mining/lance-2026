@@ -62,7 +62,12 @@ bool AutoMiningController::isFinished()
     return this->stage == Stage::FINISHED;
 }
 
-void AutoMiningController::setCancelled() { this->stage = Stage::FINISHED; }
+void AutoMiningController::setCancelled()
+{
+    // TODO: need to shutdown sub-controllers if they are running!
+    // (ex. traveral needs to cancel pathing service)
+    this->stage = Stage::FINISHED;
+}
 
 void AutoMiningController::iterate(
     const RobotMotorStatus& motor_status,

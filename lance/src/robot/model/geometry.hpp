@@ -135,16 +135,39 @@ using Box3f = Eigen::AlignedBox3f;
 
 
 template<typename T>
-constexpr inline T quatToYaw(const Quat<T>& q)
+inline T quatToYaw(const Quat<T>& q)
 {
-    return std::atan2(
-        (2 * (q.w() * q.z() + q.x() * q.y())),
-        (1 - 2 * (q.y() * q.y() + q.z() * q.z())));
+    return (q.w() * q.w() + q.z() * q.z()) < static_cast<T>(1e-6)
+               ? 0
+               : std::remainder(
+                     2 * std::atan2(q.z(), q.w()),
+                     std::numbers::pi_v<T> * 2);
+}
+template<typename T>
+constexpr inline Quat<T> flattenToYaw(const Quat<T>& q)
+{
+    const T sq_mag = (q.w() * q.w() + q.z() * q.z());
+    return sq_mag < static_cast<T>(1e-6)
+               ? Quat<T>::Identity()
+               : Quat<T>{q.w(), 0, 0, q.z()}.normalized();
 }
 template<typename T>
 constexpr inline Pose2<T> flattenPose(const Pose3<T>& p)
 {
     return Pose2<T>{p.vec.x(), p.vec.y(), quatToYaw(p.quat)};
+}
+template<typename T>
+constexpr inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
+{
+    Pose3<T> p3;
+    p3.vec.x() = p.x();
+    p3.vec.y() = p.y();
+    p3.vec.z() = z;
+    p3.quat.w() = std::cos(p.z() / 2);
+    p3.quat.x() = 0;
+    p3.quat.y() = 0;
+    p3.quat.z() = std::sin(p.z() / 2);
+    return p3;
 }
 
 /* Obtain the headroom that the robot could travel before reaching the zone 
@@ -153,18 +176,18 @@ constexpr inline Pose2<T> flattenPose(const Pose3<T>& p)
 template<typename T>
 constexpr inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
 {
-    if(b.contains(p.template head<2>()))
+    if (b.contains(p.template head<2>()))
     {
         const T dx = std::cos(p.z());
         const T dy = std::sin(p.z());
         T tx = std::numeric_limits<T>::max();
         T ty = std::numeric_limits<T>::max();
 
-        if(std::abs(dx) > 1e-6)
+        if (std::abs(dx) > 1e-6)
         {
             tx = ((dx > 0 ? b.max().x() : b.min().x()) - p.x()) / dx;
         }
-        if(std::abs(dy) > 1e-6)
+        if (std::abs(dy) > 1e-6)
         {
             ty = ((dy > 0 ? b.max().y() : b.min().y()) - p.y()) / dy;
         }

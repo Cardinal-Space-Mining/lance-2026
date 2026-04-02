@@ -64,7 +64,12 @@ bool AutoOffloadController::isFinished()
     return this->stage == Stage::FINISHED;
 }
 
-void AutoOffloadController::setCancelled() { this->stage = Stage::FINISHED; }
+void AutoOffloadController::setCancelled()
+{
+    // TODO: need to shutdown sub-controllers if they are running!
+    // (ex. traveral needs to cancel pathing service)
+    this->stage = Stage::FINISHED;
+}
 
 void AutoOffloadController::iterate(
     const RobotMotorStatus& motor_status,
