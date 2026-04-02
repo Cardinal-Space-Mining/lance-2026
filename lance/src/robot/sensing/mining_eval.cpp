@@ -39,6 +39,9 @@
 
 #include "mining_eval.hpp"
 
+// #include <sstream>
+// #include <iostream>
+
 #include "robot/core/ros_interface.hpp"
 
 
@@ -159,6 +162,9 @@ const std::vector<float>* MiningEvalInterface::getDists() const
 void MiningEvalInterface::updateResult(
     const MiningEvalResultsMsg::ConstSharedPtr& msg)
 {
+    // std::ostringstream out;
+    // out << "MEI Updated qid "
+    //           << msg->query_id << " : [ ";
     if (!this->eval_results)
     {
         this->eval_results = std::make_unique<MiningEvalResultsMsg>();
@@ -170,7 +176,11 @@ void MiningEvalInterface::updateResult(
     {
         this->eval_results->ranges.push_back(
             r - PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float>);
+        // out << this->eval_results->ranges.back() << ", ";
     }
+
+    // out << "]";
+    // std::cout << out.str() << std::endl;
 }
 
 };  // namespace lance

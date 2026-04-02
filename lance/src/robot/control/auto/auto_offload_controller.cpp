@@ -66,8 +66,22 @@ bool AutoOffloadController::isFinished()
 
 void AutoOffloadController::setCancelled()
 {
-    // TODO: need to shutdown sub-controllers if they are running!
-    // (ex. traveral needs to cancel pathing service)
+    switch (this->stage)
+    {
+        case Stage::TRAVERSING:
+        {
+            this->traversal_controller.setCancelled();
+            break;
+        }
+        case Stage::OFFLOADING:
+        {
+            this->traversal_controller.setCancelled();
+            break;
+        }
+        default:
+        {
+        }
+    }
     this->stage = Stage::FINISHED;
 }
 
