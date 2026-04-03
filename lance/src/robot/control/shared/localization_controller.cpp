@@ -86,22 +86,9 @@ void LocalizationController::iterate(
 #define Dt    (this->params.iteration_period_seconds)
 #define V_max (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
-    // #define W_max (this->params.auto_traversal_max_angular_velocity_rps)
-
-    // TODO: parameters
-    constexpr uint32_t MIN_SEARCH_SAMPLES = 100U;
-    constexpr double SEARCHING_ANGULAR_VEL = 0.5;
-    constexpr double ALIGNING_ANGULAR_VEL = 0.25;
-    constexpr float ALIGNMENT_ANGULAR_THRESH =
-        2.f * (std::numbers::pi_v<float> / 180.f);
-    constexpr float RANGE_TARGET = 1.05f;
-    constexpr float RANGE_THRESH = 0.05f;
 
     // if at any point the full localization transform is established,
     // the command is finished
-    // TODO: TF lookup timestamps are wildly inconsistent when using gazebo -
-    //      the workaround for now is to just query the alignment tf and not the full tf,
-    //      although we should really be checking to make sure we have full localization
     if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         this->stage = Stage::FINISHED;
@@ -114,7 +101,7 @@ void LocalizationController::iterate(
         case Stage::INITIALIZATION:
         {
             if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_traversal_target)
+                this->params.hopper_actuator_traversal_target_val)
             {
                 commands.setHopperActPercent(
                     this->params.hopper_actuator_max_speed);
@@ -129,17 +116,20 @@ void LocalizationController::iterate(
         {
             if (!this->refl_hint_interface.hasHint() ||
                 this->refl_hint_interface.getLatestHint()->samples <
-                    MIN_SEARCH_SAMPLES)
+                    static_cast<uint32_t>(
+                        this->params.auto_localization_min_num_search_samples))
             {
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
                         lance::bodyDynamicsToLeftTrackVelocityMps(
-                            0.,
-                            SEARCHING_ANGULAR_VEL)),
+                            0.f,
+                            this->params
+                                .auto_localization_search_angular_velocity_rps)),
                     lance::groundMpsToTrackMotorRps(
                         lance::bodyDynamicsToRightTrackVelocityMps(
-                            0.,
-                            SEARCHING_ANGULAR_VEL)));
+                            0.f,
+                            this->params
+                                .auto_localization_search_angular_velocity_rps)));
                 break;
             }
 
@@ -156,19 +146,21 @@ void LocalizationController::iterate(
                 static_cast<float>(pt.point.y)};
 
             const float sin_heading = rel.normalized().y();
-            if (std::abs(sin_heading) > std::sin(ALIGNMENT_ANGULAR_THRESH))
+            if (std::abs(sin_heading) >
+                std::sin(
+                    this->params.auto_localization_align_angular_thresh_deg *
+                    (std::numbers::pi_v<float> / 180.f)))
             {
                 const float s = sin_heading > 0.f ? 1.f : -1.f;
+                const float W =
+                    this->params.auto_localization_align_angular_velocity_rps *
+                    s;
 
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
-                        lance::bodyDynamicsToLeftTrackVelocityMps(
-                            0.,
-                            ALIGNING_ANGULAR_VEL * s)),
+                        lance::bodyDynamicsToLeftTrackVelocityMps(0.f, W)),
                     lance::groundMpsToTrackMotorRps(
-                        lance::bodyDynamicsToRightTrackVelocityMps(
-                            0.,
-                            ALIGNING_ANGULAR_VEL * s)));
+                        lance::bodyDynamicsToRightTrackVelocityMps(0.f, W)));
 
                 break;
             }
@@ -184,9 +176,10 @@ void LocalizationController::iterate(
 
             const float range =
                 static_cast<float>(std::hypot(pt.point.x, pt.point.y));
-            const float range_error = (range - RANGE_TARGET);
+            const float range_error =
+                (range - this->params.auto_localization_range_target_m);
             const float abs_range_error = std::abs(range_error);
-            if (abs_range_error > RANGE_THRESH)
+            if (abs_range_error > this->params.auto_localization_range_thresh_m)
             {
                 const float Vl_prev =
                     static_cast<float>(lance::trackMotorRpsToGroundMps(

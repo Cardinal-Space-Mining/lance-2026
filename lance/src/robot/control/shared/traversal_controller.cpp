@@ -141,7 +141,7 @@ void TraversalController::iterate(
         case State::INITIALIZATION:
         {
             if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_traversal_target)
+                this->params.hopper_actuator_traversal_target_val)
             {
                 commands.setHopperActPercent(
                     this->params.hopper_actuator_max_speed);
@@ -195,6 +195,7 @@ void TraversalController::iterate(
 #define V_max       (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max       (this->params.auto_traversal_max_track_acceleration_mpss)
 #define W_max       (this->params.auto_traversal_max_angular_velocity_rps)
+#define Al_max      (this->params.auto_traversal_max_angular_accel_rpss)
 #define V_delta_max (A_max * Dt)
 
 bool TraversalController::iterateTraversal(
@@ -202,7 +203,7 @@ bool TraversalController::iterateTraversal(
     RobotMotorCommands& commands)
 {
     const PathMsg* path = this->pplan_interface.getPath();
-    if(!path)
+    if (!path)
     {
         return false;
     }
@@ -246,7 +247,7 @@ bool TraversalController::iterateTraversal(
         case DestinationType::POSE:
         {
             if (keypoints.back().norm() <=
-                this->params.auto_traversal_keypoint_thresh_m)
+                this->params.auto_traversal_destination_thresh_m)
             {
                 commands.disableTracks();
                 return true;
@@ -315,10 +316,6 @@ bool TraversalController::iterateReorient(
 {
     (void)motor_status;
 
-    constexpr float TARGETTING_THETA_EPSILON =
-        0.5f * (std::numbers::pi_v<float> / 180.f);
-    constexpr float MAX_ANGULAR_DECELL = 0.5f;
-
     switch (this->destination_type)
     {
         case DestinationType::POINT:
@@ -350,15 +347,17 @@ bool TraversalController::iterateReorient(
     const float theta = std::atan2(target.y(), target.x());
     const float theta_abs = std::abs(theta);
 
-    if (theta_abs < TARGETTING_THETA_EPSILON)
+    if (theta_abs < this->params.auto_traversal_align_angular_thresh_deg *
+                        (std::numbers::pi_v<float> / 180.f))
     {
         return true;
     }
 
     // angular velocity proportional to error, clamped to parmertarized max
     // const float W = std::clamp((theta * W_Kp), -W_max, W_max);
-    const float W = std::min(util::kmx::maxStartVel(0.f, theta_abs, MAX_ANGULAR_DECELL), W_max) *
-                    (std::signbit(theta) ? -1.f : 1.f);
+    const float W =
+        std::min(util::kmx::maxStartVel(0.f, theta_abs, Al_max), W_max) *
+        (std::signbit(theta) ? -1.f : 1.f);
 
     const float Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(0.f, W);
     const float Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(0.f, W);
@@ -384,7 +383,7 @@ void TraversalController::runStanley(
     RobotMotorCommands& commands)
 {
     // 1. Aliases --------------------------------------------------------------
-    const float theta_V = this->params.auto_traversal_min_theta_window *
+    const float theta_V = this->params.auto_traversal_min_theta_window_deg *
                           (std::numbers::pi_v<float> / 180.f);
     const float KR_inv = -std::log(0.5f) / K2;
     const float Vd_max = V_delta_max;
@@ -458,7 +457,10 @@ void TraversalController::runStanley(
                         // that our acceleration limit is respected
                         Vb = std::min(
                             Vb,
-                            util::kmx::maxStartVel((r * W_max), sum_dist, A_max));
+                            util::kmx::maxStartVel(
+                                (r * W_max),
+                                sum_dist,
+                                A_max));
                     }
                     else
                     {

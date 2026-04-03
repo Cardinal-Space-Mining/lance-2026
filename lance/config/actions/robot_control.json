@@ -49,11 +49,11 @@
 
             "collection_model":
             {
-                "initial_volume_liters": 0.6,
-                "capacity_volume_liters": 25.0,
+                "initial_volume_liters": 10.0,
+                "capacity_volume_liters": 40.0,
                 "initial_belt_footprint_meters": 0.2,
-                "belt_capacity_meters": 0.6,
-                "belt_offload_length_meters": 0.7
+                "belt_capacity_meters": 0.7,
+                "belt_offload_length_meters": 0.8
             },
 
             "preset_mining_traversal_dist_meters": 0.25,
@@ -63,16 +63,28 @@
             "odom_frame_id": "${ id.odom_frame }",
             "arena_frame_id": "${ id.arena_frame }",
 
+            "auto_localization":
+            {
+                "min_num_search_samples": 100,
+                "search_angular_velocity_rps": 0.5,
+                "align_angular_velocity_rps": 0.25,
+                "align_angular_thresh_deg": 2.0,
+                "range_target_m": 1.05,
+                "range_thresh_m": 0.05
+            },
+
             "auto_traversal":
             {
-                "max_track_velocity_mps": 0.25,
-                "max_track_acceleration_mpss": 0.25,
-                "max_angular_velocity_radps": 0.8,
-                "keypoint_thresh_m": 0.03,
-                "max_path_deviation_m": 0.05,
+                "max_track_velocity_mps": 0.35,
+                "max_track_acceleration_mpss": 1.0,
+                "max_angular_velocity_rps": 0.8,
+                "max_angular_accel_rpss": 0.5,
+                "destination_thresh_m": 0.03,
+                "max_path_deviation_m": 0.02,
                 "stanley_k_coeff": 0.8,
                 "angular_kp": 1.5,
-                "min_theta_window_deg": 2.0
+                "min_theta_window_deg": 2.0,
+                "align_angular_thresh_deg": 0.5
             },
 
             "mining_zone_bounds": "${ zone.ksc.mining }",
@@ -83,10 +95,28 @@
         {
             "pragma:derived": "lance2",
             "controller": 1,
-            "auto_traversal.max_track_velocity_mps": 0.35,
-            "auto_traversal.max_track_acceleration_mpss": 1.0,
-            "auto_traversal.max_path_deviation_m": 0.02,
-            "stanley_k_coeff": 1.5
+
+            "collection_model":
+            {
+                "initial_volume_liters": 6.0,
+                "capacity_volume_liters": 25.0,
+                "initial_belt_footprint_meters": 0.2,
+                "belt_capacity_meters": 0.6,
+                "belt_offload_length_meters": 0.7
+            },
+            "auto_traversal":
+            {
+                "max_track_velocity_mps": 0.35,
+                "max_track_acceleration_mpss": 1.0,
+                "max_angular_velocity_rps": 0.8,
+                "max_angular_accel_rpss": 0.5,
+                "destination_thresh_m": 0.03,
+                "max_path_deviation_m": 0.02,
+                "stanley_k_coeff": 0.8,
+                "angular_kp": 1.5,
+                "min_theta_window_deg": 2.0,
+                "align_angular_thresh_deg": 0.5
+            }
         },
 
         "lance2_sim":

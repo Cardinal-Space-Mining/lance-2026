@@ -73,11 +73,11 @@ public:
     const float hopper_actuator_plunge_speed;
     const float hopper_actuator_extract_speed;
 
-    const float hopper_actuator_offload_target;
-    const float hopper_actuator_traversal_target;
-    const float hopper_actuator_transport_target;
-    const float hopper_actuator_mining_target;
-    const float hopper_actuator_mining_min;
+    const float hopper_actuator_offload_target_val;
+    const float hopper_actuator_traversal_target_val;
+    const float hopper_actuator_transport_target_val;
+    const float hopper_actuator_mining_target_val;
+    const float hopper_actuator_mining_min_val;
     const float hopper_actuator_targetting_thresh;
 
     const float hopper_belt_mining_duty_cycle_base_seconds;
@@ -101,14 +101,23 @@ public:
     Box2f offload_zone_bounds;
     Box2f construction_zone_bounds;
 
+    const int auto_localization_min_num_search_samples;
+    const float auto_localization_search_angular_velocity_rps;
+    const float auto_localization_align_angular_velocity_rps;
+    const float auto_localization_align_angular_thresh_deg;
+    const float auto_localization_range_target_m;
+    const float auto_localization_range_thresh_m;
+
     const float auto_traversal_max_track_velocity_mps;
     const float auto_traversal_max_track_acceleration_mpss;
     const float auto_traversal_max_angular_velocity_rps;
-    const float auto_traversal_keypoint_thresh_m;
+    const float auto_traversal_max_angular_accel_rpss;
+    const float auto_traversal_destination_thresh_m;
     const float auto_traversal_max_path_deviation_m;
     const float auto_traversal_stanley_k_coeff;
     const float auto_traversal_angular_kp;
-    const float auto_traversal_min_theta_window;
+    const float auto_traversal_min_theta_window_deg;
+    const float auto_traversal_align_angular_thresh_deg;
 
     // RENAME BUT LEAVE
     // const float min_zone_length = 1.1; // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet

@@ -175,12 +175,12 @@ void MiningController::iterate(
         {
             const double hopper_act_val =
                 motor_status.getHopperActNormalizedValue();
-            if (hopper_act_val > this->params.hopper_actuator_mining_target)
+            if (hopper_act_val > this->params.hopper_actuator_mining_target_val)
             {
                 commands.setTrencherVelocity(
                     this->params.trencher_mining_velocity_rps);
                 if (hopper_act_val >
-                    this->params.hopper_actuator_traversal_target)
+                    this->params.hopper_actuator_traversal_target_val)
                 {
                     commands.setHopperActPercent(
                         -this->params.hopper_actuator_max_speed);
@@ -209,7 +209,7 @@ void MiningController::iterate(
                 float trencher_target =
                     this->params.trencher_mining_velocity_rps;
                 float hopper_act_target =
-                    this->params.hopper_actuator_mining_target;
+                    this->params.hopper_actuator_mining_target_val;
                 float tracks_target = this->params.tracks_mining_velocity_rps;
                 float hopper_belt_target = 0.f;
 
@@ -252,17 +252,17 @@ void MiningController::iterate(
                                 hopper_act_target +=
                                     raw *
                                     (this->params
-                                         .hopper_actuator_transport_target -
+                                         .hopper_actuator_transport_target_val -
                                      this->params
-                                         .hopper_actuator_mining_target);
+                                         .hopper_actuator_mining_target_val);
                             }
                             else if (raw < 0.f)
                             {
                                 hopper_act_target +=
                                     raw *
                                     (this->params
-                                         .hopper_actuator_mining_target -
-                                     this->params.hopper_actuator_mining_min);
+                                         .hopper_actuator_mining_target_val -
+                                     this->params.hopper_actuator_mining_min_val);
                             }
                         }
                     }
@@ -330,7 +330,7 @@ void MiningController::iterate(
         case Stage::RAISING:
         {
             if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_transport_target)
+                this->params.hopper_actuator_transport_target_val)
             {
                 commands.setTrencherVelocity(
                     this->params.trencher_mining_velocity_rps);

@@ -48,163 +48,91 @@ using namespace util;
 namespace lance
 {
 
+#define INIT_PARAM(name, val, type)                        \
+    name { declare_and_get_param<type>(node, #name, val) }
+
+#define INIT_PARAM2(name1, name2, val, type)                      \
+    name1##_##name2                                               \
+    {                                                             \
+        declare_and_get_param<type>(node, #name1 "." #name2, val) \
+    }
+
 RobotParams::RobotParams(rclcpp::Node& node) :
-    default_stick_deadzone{
-        declare_and_get_param(node, "default_stick_deadzone", 0.05f)},
-    driving_magnitude_deadzone{
-        declare_and_get_param(node, "driving_magnitude_deadzone", 0.1f)},
-    driving_low_scalar{declare_and_get_param(node, "driving_low_scalar", 0.3f)},
-    driving_medium_scalar{
-        declare_and_get_param(node, "driving_medium_scalar", 0.7f)},
-    driving_high_scalar{
-        declare_and_get_param(node, "driving_high_scalar", 1.f)},
+    INIT_PARAM(default_stick_deadzone, 0.05f, float),
+    INIT_PARAM(driving_magnitude_deadzone, 0.1f, float),
+    INIT_PARAM(driving_low_scalar, 0.3f, float),
+    INIT_PARAM(driving_medium_scalar, 0.7f, float),
+    INIT_PARAM(driving_high_scalar, 1.f, float),
 
-    trencher_max_velocity_rps{
-        declare_and_get_param(node, "trencher.max_velocity_rps", 80.f)},
-    trencher_mining_velocity_rps{
-        declare_and_get_param(node, "trencher.mining_velocity_rps", 80.f)},
-    hopper_belt_max_velocity_rps{
-        declare_and_get_param(node, "hopper_belt.max_velocity_rps", 45.f)},
-    hopper_belt_mining_velocity_rps{
-        declare_and_get_param(node, "hopper_belt.mining_velocity_rps", 10.f)},
-    tracks_max_velocity_rps{
-        declare_and_get_param(node, "tracks.max_velocity_rps", 125.f)},
-    tracks_mining_velocity_rps{
-        declare_and_get_param(node, "tracks.mining_velocity_rps", 8.f)},
-    tracks_mining_adjustment_range_rps{
-        declare_and_get_param(node, "tracks.mining_adjustment_range_rps", 6.f)},
-    tracks_offload_velocity_rps{
-        declare_and_get_param(node, "tracks.offload_velocity_rps", 30.f)},
+    INIT_PARAM2(trencher, max_velocity_rps, 80.f, float),
+    INIT_PARAM2(trencher, mining_velocity_rps, 80.f, float),
+    INIT_PARAM2(hopper_belt, max_velocity_rps, 45.f, float),
+    INIT_PARAM2(hopper_belt, mining_velocity_rps, 10.f, float),
+    INIT_PARAM2(tracks, max_velocity_rps, 125.f, float),
+    INIT_PARAM2(tracks, mining_velocity_rps, 8.f, float),
+    INIT_PARAM2(tracks, mining_adjustment_range_rps, 6.f, float),
+    INIT_PARAM2(tracks, offload_velocity_rps, 30.f, float),
 
-    hopper_actuator_max_speed{
-        declare_and_get_param(node, "hopper_actuator.max_speed", 1.f)},
-    hopper_actuator_plunge_speed{
-        declare_and_get_param(node, "hopper_actuator.plunge_speed", 0.4f)},
-    hopper_actuator_extract_speed{
-        declare_and_get_param(node, "hopper_actuator.extract_speed", 0.8f)},
+    INIT_PARAM2(hopper_actuator, max_speed, 1.f, float),
+    INIT_PARAM2(hopper_actuator, plunge_speed, 0.4f, float),
+    INIT_PARAM2(hopper_actuator, extract_speed, 0.8f, float),
 
-    hopper_actuator_offload_target{declare_and_get_param(
-        node,
-        "hopper_actuator.offload_target_val",
-        0.95f)},
-    hopper_actuator_traversal_target{declare_and_get_param(
-        node,
-        "hopper_actuator.traversal_target_val",
-        0.6f)},
-    hopper_actuator_transport_target{declare_and_get_param(
-        node,
-        "hopper_actuator.transport_target_val",
-        0.55f)},
-    hopper_actuator_mining_target{declare_and_get_param(
-        node,
-        "hopper_actuator.mining_target_val",
-        0.21f)},
-    hopper_actuator_mining_min{
-        declare_and_get_param(node, "hopper_actuator.mining_min_val", 0.03f)},
-    hopper_actuator_targetting_thresh{declare_and_get_param(
-        node,
-        "hopper_actuator.targetting_thresh",
-        0.01f)},
+    INIT_PARAM2(hopper_actuator, offload_target_val, 0.95f, float),
+    INIT_PARAM2(hopper_actuator, traversal_target_val, 0.6f, float),
+    INIT_PARAM2(hopper_actuator, transport_target_val, 0.55f, float),
+    INIT_PARAM2(hopper_actuator, mining_target_val, 0.21f, float),
+    INIT_PARAM2(hopper_actuator, mining_min_val, 0.03f, float),
+    INIT_PARAM2(hopper_actuator, targetting_thresh, 0.01f, float),
 
-    hopper_belt_mining_duty_cycle_base_seconds{declare_and_get_param(
-        node,
-        "hopper_belt.mining_duty_cycle_base_seconds",
-        1.f)},
+    INIT_PARAM2(hopper_belt, mining_duty_cycle_base_seconds, 1.f, float),
 
-    collection_model_initial_volume_liters{declare_and_get_param(
-        node,
-        "collection_model.initial_volume_liters",
-        5.f)},
-    collection_model_capacity_volume_liters{declare_and_get_param(
-        node,
-        "collection_model.capacity_volume_liters",
-        25.f)},
-    collection_model_initial_belt_footprint_meters{declare_and_get_param(
-        node,
-        "collection_model.initial_belt_footprint_meters",
-        0.2f)},
-    collection_model_belt_capacity_meters{declare_and_get_param(
-        node,
-        "collection_model.belt_capacity_meters",
-        0.6f)},
-    collection_model_belt_offload_length_meters{declare_and_get_param(
-        node,
-        "collection_model.belt_offload_length_meters",
-        0.7f)},
+    INIT_PARAM2(collection_model, initial_volume_liters, 5.f, float),
+    INIT_PARAM2(collection_model, capacity_volume_liters, 25.f, float),
+    INIT_PARAM2(collection_model, initial_belt_footprint_meters, 0.2f, float),
+    INIT_PARAM2(collection_model, belt_capacity_meters, 0.6f, float),
+    INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
 
-    preset_mining_traversal_dist_meters{declare_and_get_param(
-        node,
-        "preset_mining_traversal_dist_meters",
-        0.25f)},
-    preset_offload_backup_dist_meters{declare_and_get_param(
-        node,
-        "preset_offload_backup_dist_meters",
-        0.25f)},
+    INIT_PARAM(preset_mining_traversal_dist_meters, 0.25f, float),
+    INIT_PARAM(preset_offload_backup_dist_meters, 0.25f, float),
 
-    iteration_period_seconds{
-        declare_and_get_param(node, "iteration_period_seconds", 0.05f)},
-    robot_frame_id{declare_and_get_param<std::string>(
-        node,
-        "robot_frame_id",
-        "base_link")},
-    odom_frame_id{
-        declare_and_get_param<std::string>(node, "odom_frame_id", "odom")},
-    arena_frame_id{
-        declare_and_get_param<std::string>(node, "arena_frame_id", "map")},
+    INIT_PARAM(iteration_period_seconds, 0.05f, float),
+    INIT_PARAM(robot_frame_id, "base_link", std::string),
+    INIT_PARAM(odom_frame_id, "odom", std::string),
+    INIT_PARAM(arena_frame_id, "map", std::string),
 
-    auto_traversal_max_track_velocity_mps{declare_and_get_param(
-        node,
-        "auto_traversal.max_track_velocity_mps",
-        0.25f)},
-    auto_traversal_max_track_acceleration_mpss{declare_and_get_param(
-        node,
-        "auto_traversal.max_track_acceleration_mpss",
-        0.5f)},
-    auto_traversal_max_angular_velocity_rps{declare_and_get_param(
-        node,
-        "auto_traversal.max_angular_velocity_rps",
-        1.f)},
-    auto_traversal_keypoint_thresh_m{
-        declare_and_get_param(node, "auto_traversal.keypoint_thresh_m", 0.03f)},
-    auto_traversal_max_path_deviation_m{declare_and_get_param(
-        node,
-        "auto_traversal.max_path_deviation_m",
-        0.03f)},
-    auto_traversal_stanley_k_coeff{
-        declare_and_get_param(node, "auto_traversal.stanley_k_coeff", 1.f)},
-    auto_traversal_angular_kp{
-        declare_and_get_param(node, "auto_traversal.angular_kp", 1.f)},
-    auto_traversal_min_theta_window{
-        declare_and_get_param(node, "auto_traversal.min_theta_window_deg", 1.f)}
+    INIT_PARAM2(auto_localization, min_num_search_samples, 100, int),
+    INIT_PARAM2(auto_localization, search_angular_velocity_rps, 0.5f, float),
+    INIT_PARAM2(auto_localization, align_angular_velocity_rps, 0.25f, float),
+    INIT_PARAM2(auto_localization, align_angular_thresh_deg, 2.f, float),
+    INIT_PARAM2(auto_localization, range_target_m, 1.05f, float),
+    INIT_PARAM2(auto_localization, range_thresh_m, 0.05f, float),
+
+    INIT_PARAM2(auto_traversal, max_track_velocity_mps, 0.25f, float),
+    INIT_PARAM2(auto_traversal, max_track_acceleration_mpss, 0.5f, float),
+    INIT_PARAM2(auto_traversal, max_angular_velocity_rps, 1.f, float),
+    INIT_PARAM2(auto_traversal, max_angular_accel_rpss, 0.5f, float),
+    INIT_PARAM2(auto_traversal, destination_thresh_m, 0.03f, float),
+    INIT_PARAM2(auto_traversal, max_path_deviation_m, 0.03f, float),
+    INIT_PARAM2(auto_traversal, stanley_k_coeff, 1.f, float),
+    INIT_PARAM2(auto_traversal, angular_kp, 1.f, float),
+    INIT_PARAM2(auto_traversal, min_theta_window_deg, 2.f, float),
+    INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float)
 {
     std::vector<double> buff;
 
-    declare_param(node, "mining_zone_bounds.min", buff, {0., 0.});
-    assert(buff.size() > 1);
-    this->mining_zone_bounds.min().x() = static_cast<float>(buff[0]);
-    this->mining_zone_bounds.min().y() = static_cast<float>(buff[1]);
-    declare_param(node, "mining_zone_bounds.max", buff, {0., 0.});
-    assert(buff.size() > 1);
-    this->mining_zone_bounds.max().x() = static_cast<float>(buff[0]);
-    this->mining_zone_bounds.max().y() = static_cast<float>(buff[1]);
+#define INIT_BOX2F(zone)                                         \
+    declare_param(node, #zone "_bounds.min", buff, {0., 0.});    \
+    assert(buff.size() > 1);                                     \
+    this->zone##_bounds.min().x() = static_cast<float>(buff[0]); \
+    this->zone##_bounds.min().y() = static_cast<float>(buff[1]); \
+    declare_param(node, #zone "_bounds.max", buff, {0., 0.});    \
+    assert(buff.size() > 1);                                     \
+    this->zone##_bounds.max().x() = static_cast<float>(buff[0]); \
+    this->zone##_bounds.max().y() = static_cast<float>(buff[1]);
 
-    declare_param(node, "offload_zone_bounds.min", buff, {0., 0.});
-    assert(buff.size() > 1);
-    this->offload_zone_bounds.min().x() = static_cast<float>(buff[0]);
-    this->offload_zone_bounds.min().y() = static_cast<float>(buff[1]);
-    declare_param(node, "offload_zone_bounds.max", buff, {0., 0.});
-    assert(buff.size() > 1);
-    this->offload_zone_bounds.max().x() = static_cast<float>(buff[0]);
-    this->offload_zone_bounds.max().y() = static_cast<float>(buff[1]);
-
-    declare_param(node, "construction_zone_bounds.min", buff, {0., 0.});
-    assert(buff.size() > 1);
-    this->construction_zone_bounds.min().x() = static_cast<float>(buff[0]);
-    this->construction_zone_bounds.min().y() = static_cast<float>(buff[1]);
-    declare_param(node, "construction_zone_bounds.max", buff, {0., 0.});
-    assert(buff.size() > 1);
-    this->construction_zone_bounds.max().x() = static_cast<float>(buff[0]);
-    this->construction_zone_bounds.max().y() = static_cast<float>(buff[1]);
+    INIT_BOX2F(mining_zone)
+    INIT_BOX2F(offload_zone)
+    INIT_BOX2F(construction_zone)
 }
 
 };  // namespace lance

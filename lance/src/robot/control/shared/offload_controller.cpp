@@ -161,7 +161,7 @@ void OffloadController::iterate(
         case Stage::RAISING:
         {
             if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_offload_target)
+                this->params.hopper_actuator_offload_target_val)
             {
                 commands.setHopperActPercent(
                     this->params.hopper_actuator_max_speed);
@@ -191,7 +191,7 @@ void OffloadController::iterate(
         case Stage::LOWERING:
         {
             if (motor_status.getHopperActNormalizedValue() >
-                this->params.hopper_actuator_traversal_target)
+                this->params.hopper_actuator_traversal_target_val)
             {
                 commands.setHopperActPercent(
                     -this->params.hopper_actuator_max_speed);

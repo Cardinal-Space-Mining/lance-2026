@@ -162,7 +162,7 @@ const RobotMotorStatus& RobotController::handleTestModeStateInjection(
 {
     if (ControlStatus::hasOpt<ControlOpts::TEST_MODE>(ctrl_status))
     {
-        if(ref.getHopperActNormalizedValue() < this->params.hopper_actuator_traversal_target)
+        if(ref.getHopperActNormalizedValue() < this->params.hopper_actuator_traversal_target_val)
         {
             this->filtered_status = ref;
             this->filtered_status.hopper_actuator.position = -1.;
