@@ -229,8 +229,6 @@ void TeleopController::iterate(
 
 bool TeleopController::handleGlobalInputs(const JoyState& joy)
 {
-    using namespace Bindings;
-
     if (TeleopLowSpeedButton::wasPressed(joy))
     {
         this->driving_rps_scalar = this->params.driving_low_scalar *
@@ -277,8 +275,6 @@ void TeleopController::handleTeleopInputs(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    using namespace Bindings;
-
     if (AssistedMiningToggleButton::wasPressed(joy))
     {
         this->mining_controller.initialize();

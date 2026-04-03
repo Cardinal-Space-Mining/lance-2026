@@ -151,8 +151,6 @@ void MiningController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    using namespace Bindings;
-
     if (this->stage != Stage::INITIALIZATION && joy &&
         AssistedMiningToggleButton::wasPressed(*joy))
     {

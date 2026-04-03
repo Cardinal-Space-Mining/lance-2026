@@ -113,8 +113,6 @@ void OffloadController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    using namespace Bindings;
-
     if (this->stage != Stage::INITIALIZATION && joy &&
         AssistedOffloadToggleButton::wasPressed(*joy))
     {
