@@ -298,6 +298,15 @@ constexpr inline T volumeRateToHopperFullTime(const T& vol_rate_lps)
 {
     return static_cast<T>(CONSERVATIVE_HOPPER_CAPACITY_L / vol_rate_lps);
 }
+template<typename T>
+constexpr inline T targetVolumeToSweepDistance(
+    const T& target_vol_l,
+    const T& depth_m)
+{
+    return static_cast<T>(
+        (static_cast<double>(target_vol_l) / static_cast<double>(depth_m)) /
+        (TRENCHER_WIDTH_M * LITERS_PER_M_CUBED));
+}
 
 template<typename T>
 constexpr inline T hopperBeltMotorRpsToBeltMps(const T& motor_rps)
