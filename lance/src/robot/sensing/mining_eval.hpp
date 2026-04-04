@@ -39,60 +39,54 @@
 
 #pragma once
 
+#include <rclcpp/rclcpp.hpp>
+
+#include <Eigen/Core>
+
+#include <cardinal_perception/msg/mining_eval_results.hpp>
+#include <cardinal_perception/srv/update_mining_eval_mode.hpp>
+
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include "robot/model/geometry.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+class MiningEvalInterface : public util::UsingRosAliases
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+    using UpdateMiningEvalSrv = cardinal_perception::srv::UpdateMiningEvalMode;
+    using MiningEvalResultsMsg = cardinal_perception::msg::MiningEvalResults;
 
 public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
+    // vec.x() -> x, vec.y() -> y, vec.z() -> theta (radians)
+    using Pose2f = lance::geom::Pose2f;
 
 public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
+    MiningEvalInterface(RclNode&, const RobotParams&);
 
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+public:
+    void queryArenaFrame(const std::vector<Pose2f>& poses);
+    void queryRobotFrame();
+    void cancelQuery();
+
+    bool hasResult() const;
+    const std::vector<float>* getDists() const;
 
 protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
+    void updateResult(const MiningEvalResultsMsg::ConstSharedPtr& msg);
 
 protected:
     const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
+    RclClock::ConstSharedPtr rcl_clock;
 
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
+    RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
+    RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
 
-    // MiningPlanner mining_planner;
-
-    Stage stage{Stage::FINISHED};
+    MiningEvalResultsMsg::UniquePtr eval_results{ nullptr };
+    int32_t eval_id{ -1 };
 
 };
 
-};  // namespace lance
+};

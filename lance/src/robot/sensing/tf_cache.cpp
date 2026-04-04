@@ -39,7 +39,9 @@
 
 #include "tf_cache.hpp"
 
+#include "util/geometry.hpp"
 #include "util/time_cvt.hpp"
+
 
 using namespace util::geom::cvt::ops;
 
@@ -47,22 +49,24 @@ using namespace util::geom::cvt::ops;
 namespace lance
 {
 
-TfCache::TfCache(rclcpp::Node& node, const RobotParams& params) :
+TfCache::TfCache(RclNode& node, const RobotParams& params) :
     arena_frame_id{params.arena_frame_id},
     odom_frame_id{params.odom_frame_id},
     robot_frame_id{params.robot_frame_id},
-    tf_buffer{node.get_clock()}
+    tf_buffer{node.get_clock()},
+    tf_listener{this->tf_buffer, &node}
 {
 }
 TfCache::TfCache(
-    rclcpp::Node& node,
+    RclNode& node,
     const std::string& arena_frame_id,
     const std::string& odom_frame_id,
     const std::string& robot_frame_id) :
     arena_frame_id{arena_frame_id},
     odom_frame_id{odom_frame_id},
     robot_frame_id{robot_frame_id},
-    tf_buffer{node.get_clock()}
+    tf_buffer{node.get_clock()},
+    tf_listener{this->tf_buffer, &node}
 {
 }
 

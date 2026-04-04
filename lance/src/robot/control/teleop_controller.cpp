@@ -40,9 +40,8 @@
 #include "teleop_controller.hpp"
 
 #include "robot/core/hid_bindings.hpp"
-
-
-#define FG_CLICKED_POINT_TOPIC "/clicked_point"
+#include "robot/core/ros_interface.hpp"
+#include "robot/model/geometry.hpp"
 
 
 namespace lance
@@ -50,21 +49,21 @@ namespace lance
 
 TeleopController::TeleopController(
     RclNode& node,
-    GenericPubMap& pub_map,
     const RobotParams& params,
+    SensingInterfaces& sensing_interfaces,
     SharedControllerCollection& controllers) :
-    pub_map{pub_map},
     params{params},
+    sensing_interfaces{sensing_interfaces},
+    mining_controller{controllers.mining_controller},
+    offload_controller{controllers.offload_controller},
+    traversal_controller{controllers.traversal_controller},
     clicked_point_sub{node.create_subscription<PointStampedMsg>(
-        FG_CLICKED_POINT_TOPIC,
+        lance::CLICKED_POINT_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const PointStampedMsg::ConstSharedPtr& msg)
         { this->clicked_point = msg; })},
     driving_rps_scalar{
-        params.driving_medium_scalar * params.tracks_max_velocity_rps},
-    mining_controller{controllers.mining_controller},
-    offload_controller{controllers.offload_controller},
-    traversal_controller{controllers.traversal_controller}
+        params.driving_medium_scalar * params.tracks_max_velocity_rps}
 {
 }
 
@@ -75,7 +74,6 @@ void TeleopController::setCancelled()
     switch (this->op_mode)
     {
         case Operation::ASSISTED_MINING:
-        case Operation::PRESET_MINING:
         {
             this->mining_controller.setCancelled();
             break;
@@ -109,6 +107,8 @@ void TeleopController::iterate(
         return;
     }
 
+    this->mining_controller.updateFeatures(joy);
+
     // iterate controllers... if inputs result in finish state, continue
     // to iterate manual mode below (motor commands meaningless anyway)
     bool command_finished = false;
@@ -124,12 +124,6 @@ void TeleopController::iterate(
         {
             this->offload_controller.iterate(joy, motor_status, commands);
             command_finished = this->offload_controller.isFinished();
-            break;
-        }
-        case Operation::PRESET_MINING:
-        {
-            this->mining_controller.iterate(motor_status, commands);
-            command_finished = this->mining_controller.isFinished();
             break;
         }
         case Operation::PRESET_OFFLOAD:
@@ -177,11 +171,6 @@ void TeleopController::iterate(
                 this->offload_controller.iterate(joy, motor_status, commands);
                 break;
             }
-            case Operation::PRESET_MINING:
-            {
-                this->mining_controller.iterate(motor_status, commands);
-                break;
-            }
             case Operation::PRESET_OFFLOAD:
             {
                 this->offload_controller.iterate(motor_status, commands);
@@ -203,8 +192,6 @@ void TeleopController::iterate(
 
 bool TeleopController::handleGlobalInputs(const JoyState& joy)
 {
-    using namespace Bindings;
-
     if (TeleopLowSpeedButton::wasPressed(joy))
     {
         this->driving_rps_scalar = this->params.driving_low_scalar *
@@ -251,8 +238,6 @@ void TeleopController::handleTeleopInputs(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    using namespace Bindings;
-
     if (AssistedMiningToggleButton::wasPressed(joy))
     {
         this->mining_controller.initialize();
@@ -266,13 +251,6 @@ void TeleopController::handleTeleopInputs(
         return;
     }
 
-    if (PresetMiningInitButton::wasPressed(joy))
-    {
-        this->mining_controller.initialize(
-            this->params.preset_mining_traversal_dist_meters);
-        this->op_mode = Operation::PRESET_MINING;
-        return;
-    }
     if (PresetOffloadInitButton::wasPressed(joy))
     {
         this->offload_controller.initialize(

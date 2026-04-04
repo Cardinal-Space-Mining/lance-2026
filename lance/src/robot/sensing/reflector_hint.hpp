@@ -39,60 +39,38 @@
 
 #pragma once
 
+#include <rclcpp/rclcpp.hpp>
+
+#include <std_srvs/srv/set_bool.hpp>
+
+#include <cardinal_perception/msg/reflector_hint.hpp>
+
 #include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+class ReflectorHintInterface : public util::UsingRosAliases
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+    using SetBoolSrv = std_srvs::srv::SetBool;
+    using ReflectorHintMsg = cardinal_perception::msg::ReflectorHint;
 
 public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
+    ReflectorHintInterface(RclNode&);
 
 public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
+    void setEnableSrv(bool enabled);
 
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    bool hasHint() const;
+    const ReflectorHintMsg* getLatestHint() const;
+    void clearHint();
 
-protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
+public:
+    RclSubPtr<ReflectorHintMsg> hint_sub;
+    RclClientPtr<SetBoolSrv> lfd_control_client;
 
-protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
-
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
-
-    // MiningPlanner mining_planner;
-
-    Stage stage{Stage::FINISHED};
-
+    ReflectorHintMsg::ConstSharedPtr last_hint{nullptr};
 };
 
 };  // namespace lance

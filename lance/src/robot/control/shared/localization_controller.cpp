@@ -40,15 +40,12 @@
 #include "localization_controller.hpp"
 
 #include <cmath>
-// #include <iostream>
 
 #include <Eigen/Core>
 
-#include "robot/core/robot_math.hpp"
+#include "robot/model/dynamics.hpp"
+#include "robot/model/kinematics.hpp"
 
-
-#define PERCEPTION_REFLECTOR_HINT_TOPIC "/cardinal_perception/reflector_hint"
-#define PERCEPTION_LFD_CONTROL_TOPIC    "/cardinal_perception/set_global_alignment"
 
 using Vec2f = Eigen::Vector2f;
 
@@ -57,27 +54,18 @@ namespace lance
 {
 
 LocalizationController::LocalizationController(
-    RclNode& node,
-    GenericPubMap& pub_map,
     const RobotParams& params,
-    const TfCache& tf_cache) :
-    pub_map{pub_map},
+    SensingInterfaces& sensing_interfaces) :
     params{params},
-    tf_cache{tf_cache},
-    hint_sub{node.create_subscription<ReflectorHintMsg>(
-        PERCEPTION_REFLECTOR_HINT_TOPIC,
-        rclcpp::SensorDataQoS{},
-        [this](const ReflectorHintMsg::ConstSharedPtr& msg)
-        { this->last_hint = msg; })},
-    lfd_control_client{
-        node.create_client<SetBoolSrv>(PERCEPTION_LFD_CONTROL_TOPIC)}
+    tf_cache{sensing_interfaces.tf_cache},
+    refl_hint_interface{sensing_interfaces.reflector_hint_interface}
 {
 }
 
 void LocalizationController::initialize()
 {
     this->stage = Stage::INITIALIZATION;
-    this->last_hint = nullptr;
+    this->refl_hint_interface.clearHint();
 }
 
 bool LocalizationController::isFinished()
@@ -88,7 +76,7 @@ bool LocalizationController::isFinished()
 void LocalizationController::setCancelled()
 {
     this->stage = Stage::FINISHED;
-    this->setLfdControl(false);
+    this->refl_hint_interface.setEnableSrv(false);
 }
 
 void LocalizationController::iterate(
@@ -98,22 +86,9 @@ void LocalizationController::iterate(
 #define Dt    (this->params.iteration_period_seconds)
 #define V_max (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
-    // #define W_max (this->params.auto_traversal_max_angular_velocity_rps)
-
-    // TODO: parameters
-    constexpr uint32_t MIN_SEARCH_SAMPLES = 100U;
-    constexpr double SEARCHING_ANGULAR_VEL = 0.5;
-    constexpr double ALIGNING_ANGULAR_VEL = 0.25;
-    constexpr float ALIGNMENT_ANGULAR_THRESH =
-        2.f * (std::numbers::pi_v<float> / 180.f);
-    constexpr float RANGE_TARGET = 1.05f;
-    constexpr float RANGE_THRESH = 0.05f;
 
     // if at any point the full localization transform is established,
     // the command is finished
-    // TODO: TF lookup timestamps are wildly inconsistent when using gazebo -
-    //      the workaround for now is to just query the alignment tf and not the full tf,
-    //      although we should really be checking to make sure we have full localization
     if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         this->stage = Stage::FINISHED;
@@ -126,31 +101,35 @@ void LocalizationController::iterate(
         case Stage::INITIALIZATION:
         {
             if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_traversal_target)
+                this->params.hopper_actuator_traversal_target_val)
             {
                 commands.setHopperActPercent(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
 
-            this->setLfdControl(true);
+            this->refl_hint_interface.setEnableSrv(true);
             this->stage = Stage::SEARCHING;
             [[fallthrough]];
         }
         case Stage::SEARCHING:
         {
-            if (!this->last_hint ||
-                this->last_hint->samples < MIN_SEARCH_SAMPLES)
+            if (!this->refl_hint_interface.hasHint() ||
+                this->refl_hint_interface.getLatestHint()->samples <
+                    static_cast<uint32_t>(
+                        this->params.auto_localization_min_num_search_samples))
             {
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
                         lance::bodyDynamicsToLeftTrackVelocityMps(
-                            0.,
-                            SEARCHING_ANGULAR_VEL)),
+                            0.f,
+                            this->params
+                                .auto_localization_search_angular_velocity_rps)),
                     lance::groundMpsToTrackMotorRps(
                         lance::bodyDynamicsToRightTrackVelocityMps(
-                            0.,
-                            SEARCHING_ANGULAR_VEL)));
+                            0.f,
+                            this->params
+                                .auto_localization_search_angular_velocity_rps)));
                 break;
             }
 
@@ -160,25 +139,28 @@ void LocalizationController::iterate(
         case Stage::ALIGN_HEADING:
         {
             // centroid in robot reference frame
-            const auto& pt = this->last_hint->centroid;
+            const auto& pt =
+                this->refl_hint_interface.getLatestHint()->centroid;
             const Vec2f rel{
                 static_cast<float>(pt.point.x),
                 static_cast<float>(pt.point.y)};
 
             const float sin_heading = rel.normalized().y();
-            if (std::abs(sin_heading) > std::sin(ALIGNMENT_ANGULAR_THRESH))
+            if (std::abs(sin_heading) >
+                std::sin(
+                    this->params.auto_localization_align_angular_thresh_deg *
+                    (std::numbers::pi_v<float> / 180.f)))
             {
                 const float s = sin_heading > 0.f ? 1.f : -1.f;
+                const float W =
+                    this->params.auto_localization_align_angular_velocity_rps *
+                    s;
 
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
-                        lance::bodyDynamicsToLeftTrackVelocityMps(
-                            0.,
-                            ALIGNING_ANGULAR_VEL * s)),
+                        lance::bodyDynamicsToLeftTrackVelocityMps(0.f, W)),
                     lance::groundMpsToTrackMotorRps(
-                        lance::bodyDynamicsToRightTrackVelocityMps(
-                            0.,
-                            ALIGNING_ANGULAR_VEL * s)));
+                        lance::bodyDynamicsToRightTrackVelocityMps(0.f, W)));
 
                 break;
             }
@@ -189,13 +171,15 @@ void LocalizationController::iterate(
         case Stage::ADJUST_RANGE:
         {
             // centroid in robot reference frame
-            const auto& pt = this->last_hint->centroid;
+            const auto& pt =
+                this->refl_hint_interface.getLatestHint()->centroid;
 
             const float range =
                 static_cast<float>(std::hypot(pt.point.x, pt.point.y));
-            const float range_error = (range - RANGE_TARGET);
+            const float range_error =
+                (range - this->params.auto_localization_range_target_m);
             const float abs_range_error = std::abs(range_error);
-            if (abs_range_error > RANGE_THRESH)
+            if (abs_range_error > this->params.auto_localization_range_thresh_m)
             {
                 const float Vl_prev =
                     static_cast<float>(lance::trackMotorRpsToGroundMps(
@@ -207,7 +191,7 @@ void LocalizationController::iterate(
                     lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
                 const float Vd_max = (A_max * Dt);
                 const float V_target =
-                    kmx::maxStartVel(0.f, abs_range_error, A_max) *
+                    util::kmx::maxStartVel(0.f, abs_range_error, A_max) *
                     (std::signbit(range_error) ? -1.f : 1.f);
                 const float V = std::clamp(
                     V_target,
@@ -223,21 +207,12 @@ void LocalizationController::iterate(
         }
         case Stage::FINISHED:
         {
-            this->setLfdControl(false);
+            this->refl_hint_interface.setEnableSrv(false);
         }
     }
 
 #undef V_max
 #undef A_max
-}
-
-void LocalizationController::setLfdControl(bool enabled)
-{
-    auto req = std::make_shared<SetBoolSrv::Request>();
-    req->data = enabled;
-    this->lfd_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<SetBoolSrv>::SharedFuture) {});
 }
 
 };  // namespace lance

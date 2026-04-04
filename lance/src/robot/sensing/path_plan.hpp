@@ -39,60 +39,53 @@
 
 #pragma once
 
+#include <rclcpp/rclcpp.hpp>
+
+#include <Eigen/Core>
+
+#include <nav_msgs/msg/path.hpp>
+
+#include <geometry_msgs/msg/point_stamped.hpp>
+
+#include <cardinal_perception/srv/update_path_planning_mode.hpp>
+
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+class PathPlanInterface : public util::UsingRosAliases
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+public:
+    using PathMsg = nav_msgs::msg::Path;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
+    using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
+
+    using Vec3f = Eigen::Vector3f;
 
 public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
+    PathPlanInterface(RclNode&, const RobotParams&);
 
 public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
+    void init(const Vec3f&);
+    void init(const PointStampedMsg&);
+    void cancel();
 
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
+    bool hasPath() const;
+    const PathMsg* getPath() const;
+    void clearPath();
 
 protected:
     const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
+    RclClock::ConstSharedPtr rcl_clock;
 
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
+    RclSubPtr<PathMsg> path_sub;
+    RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
 
-    // MiningPlanner mining_planner;
-
-    Stage stage{Stage::FINISHED};
+    PathMsg::ConstSharedPtr last_path{nullptr};
 
 };
 
-};  // namespace lance
+};

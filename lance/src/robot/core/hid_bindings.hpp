@@ -39,45 +39,107 @@
 
 #pragma once
 
-#include "hid_constants.hpp"
 #include "util/joy_utils.hpp"
 
 
-namespace Bindings
+struct XboxControllerMappings
 {
-using namespace util;
-using namespace LogitechController;
+    enum
+    {
+        BUTTON_A = 0,
+        BUTTON_B = 1,
+        BUTTON_X = 2,
+        BUTTON_Y = 3,
+        BUTTON_LEFT_BUMPER = 4,
+        BUTTON_RIGHT_BUMPER = 5,
+        BUTTON_LEFT_CENTER = 6,
+        BUTTON_RIGHT_CENTER = 7,
+        BUTTON_CENTER = 8,
+        BUTTON_LEFT_STICK = 9,
+        BUTTON_RIGHT_STICK = 10,
 
-using DisableAllActionsButton = StaticJoyButton<Buttons::A>;
+        NUM_BUTTONS = 11
+    };
+    enum
+    {
+        AXIS_LEFT_X = 0,
+        AXIS_LEFT_Y = 1,
+        AXIS_LEFT_TRIGGER = 2,
+        AXIS_RIGHT_X = 3,
+        AXIS_RIGHT_Y = 4,
+        AXIS_RIGHT_TRIGGER = 5,
+        AXIS_DPAD_HORIZONTAL = 6,
+        AXIS_DPAD_VERTICAL = 7,
 
-using TeleopLowSpeedButton = StaticJoyButton<Buttons::B>;
-using TeleopMediumSpeedButton = StaticJoyButton<Buttons::Y>;
-using TeleopHighSpeedButton = StaticJoyButton<Buttons::X>;
+        NUM_AXES = 8
+    };
+    enum
+    {
+        DPAD_UP_VAL = 1,
+        DPAD_DOWN_VAL = -1,
+        DPAD_LEFT_VAL = 1,
+        DPAD_RIGHT_VAL = -1
+    };
 
-using TeleopDriveXAxis = StaticJoyAxis<Axes::LEFTX>;
-using TeleopDriveYAxis = StaticJoyAxis<Axes::LEFTY>;
+    using ButtonA = util::StaticJoyButton<BUTTON_A>;
+    using ButtonB = util::StaticJoyButton<BUTTON_B>;
+    using ButtonY = util::StaticJoyButton<BUTTON_Y>;
+    using ButtonX = util::StaticJoyButton<BUTTON_X>;
 
-using TeleopTrencherSpeedAxis = StaticJoyAxis<Axes::R_TRIGGER>;
-using TeleopTrencherInvertButton = StaticJoyButton<Buttons::RB>;
+    using ButtonLeftBumper = util::StaticJoyButton<BUTTON_LEFT_BUMPER>;
+    using ButtonRightBumper = util::StaticJoyButton<BUTTON_RIGHT_BUMPER>;
+    using ButtonLeftCenter = util::StaticJoyButton<BUTTON_LEFT_CENTER>;
+    using ButtonRightCenter = util::StaticJoyButton<BUTTON_RIGHT_CENTER>;
+    using ButtonCenter = util::StaticJoyButton<BUTTON_CENTER>;
+    using ButtonLeftStick = util::StaticJoyButton<BUTTON_LEFT_STICK>;
+    using ButtonRightStick = util::StaticJoyButton<BUTTON_RIGHT_STICK>;
 
-using TeleopHopperSpeedAxis = StaticJoyAxis<Axes::L_TRIGGER>;
-using TeleopHopperInvertButton = StaticJoyButton<Buttons::LB>;
-using TeleopHopperActuateAxis = StaticJoyAxis<Axes::RIGHTY>;
+    using AxisLeftX = util::StaticJoyAxis<AXIS_LEFT_X>;
+    using AxisLeftY = util::StaticJoyAxis<AXIS_LEFT_Y>;
+    using AxisLeftTrigger = util::StaticJoyAxis<AXIS_LEFT_TRIGGER>;
+    using AxisRightX = util::StaticJoyAxis<AXIS_RIGHT_X>;
+    using AxisRightY = util::StaticJoyAxis<AXIS_RIGHT_Y>;
+    using AxisRightTrigger = util::StaticJoyAxis<AXIS_RIGHT_TRIGGER>;
 
-using AssistedMiningToggleButton = StaticJoyButton<Buttons::L_STICK>;
-using AssistedOffloadToggleButton = StaticJoyButton<Buttons::R_STICK>;
+    using DPadUp = util::StaticJoyPov<AXIS_DPAD_VERTICAL, DPAD_UP_VAL>;
+    using DPadDown = util::StaticJoyPov<AXIS_DPAD_VERTICAL, DPAD_DOWN_VAL>;
+    using DPadLeft = util::StaticJoyPov<AXIS_DPAD_HORIZONTAL, DPAD_LEFT_VAL>;
+    using DPadRight = util::StaticJoyPov<AXIS_DPAD_HORIZONTAL, DPAD_RIGHT_VAL>;
+};
 
-using PresetMiningInitButton = StaticJoyButton<Buttons::BACK>;
-using PresetOffloadInitButton = StaticJoyButton<Buttons::START>;
 
-using ToggleTraversalCursorMode = StaticJoyButton<Buttons::LOGITECH>;
+namespace lance
+{
 
-// using PresetMiningStartButton =
-//     StaticJoyPov<Axes::DPAD_U_D, Axes::DPAD_K::DPAD_UP>;
-// using PresetMiningStopButton =
-//     StaticJoyPov<Axes::DPAD_U_D, Axes::DPAD_K::DPAD_DOWN>;
-// using PresetOffloadStartButton =
-//     StaticJoyPov<Axes::DPAD_R_L, Axes::DPAD_K::DPAD_RIGHT>;
-// using PresetOffloadStopButton =
-//     StaticJoyPov<Axes::DPAD_R_L, Axes::DPAD_K::DPAD_LEFT>;
-};  // namespace Bindings
+#define Xbox XboxControllerMappings
+
+using DisableAllActionsButton = Xbox::ButtonA;
+
+using TeleopLowSpeedButton = Xbox::ButtonB;
+using TeleopMediumSpeedButton = Xbox::ButtonY;
+using TeleopHighSpeedButton = Xbox::ButtonX;
+
+using TeleopDriveXAxis = Xbox::AxisLeftX;
+using TeleopDriveYAxis = Xbox::AxisLeftY;
+
+using TeleopTrencherSpeedAxis = Xbox::AxisRightTrigger;
+using TeleopTrencherInvertButton = Xbox::ButtonRightBumper;
+
+using TeleopHopperSpeedAxis = Xbox::AxisLeftTrigger;
+using TeleopHopperInvertButton = Xbox::ButtonLeftBumper;
+using TeleopHopperActuateAxis = Xbox::AxisRightY;
+
+using AssistedMiningToggleButton = Xbox::ButtonLeftCenter;
+using AssistedOffloadToggleButton = Xbox::ButtonRightCenter;
+
+using PresetMiningInitButton = Xbox::ButtonLeftStick;
+using PresetOffloadInitButton = Xbox::ButtonRightStick;
+
+using ToggleMiningObstacleConstraintButton = Xbox::DPadUp;
+using ToggleMiningHopperConstraintButton = Xbox::DPadRight;
+using ToggleMiningZoneConstraintButton = Xbox::DPadDown;
+using ToggleMiningStallConstraintButton = Xbox::DPadLeft;
+
+#undef Xbox
+
+};  // namespace lance

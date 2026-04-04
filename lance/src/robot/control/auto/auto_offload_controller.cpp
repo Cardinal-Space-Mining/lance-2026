@@ -46,10 +46,8 @@ namespace lance
 {
 
 AutoOffloadController::AutoOffloadController(
-    GenericPubMap& pub_map,
     const RobotParams& params,
     SharedControllerCollection& controllers) :
-    pub_map{pub_map},
     params{params},
     traversal_controller{controllers.traversal_controller},
     offload_controller{controllers.offload_controller}
@@ -66,7 +64,26 @@ bool AutoOffloadController::isFinished()
     return this->stage == Stage::FINISHED;
 }
 
-void AutoOffloadController::setCancelled() { this->stage = Stage::FINISHED; }
+void AutoOffloadController::setCancelled()
+{
+    switch (this->stage)
+    {
+        case Stage::TRAVERSING:
+        {
+            this->traversal_controller.setCancelled();
+            break;
+        }
+        case Stage::OFFLOADING:
+        {
+            this->traversal_controller.setCancelled();
+            break;
+        }
+        default:
+        {
+        }
+    }
+    this->stage = Stage::FINISHED;
+}
 
 void AutoOffloadController::iterate(
     const RobotMotorStatus& motor_status,

@@ -39,60 +39,50 @@
 
 #pragma once
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include <chrono>
+
+#include "robot/control/robot_controller.hpp"
+#include "robot/sensing/tf_cache.hpp"
+
+#include "telemetry.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+class TelemetrySerializer : public TelemetryBase
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+    using steady_clock = std::chrono::steady_clock;
+    using time_point = steady_clock::time_point;
 
 public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
+    TelemetrySerializer(RclNode& node, float pub_throttle_freq);
 
 public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
-
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    void update(const RobotController&);
 
 protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
+    bool filterFreq(time_point&);
+
+    void addArenaTf(Bytes&, const TfCache&);
+    void addRobotState(Bytes&, const RobotController&);
+    void addControlState(Bytes&, const RobotController&);
+
+    void addTeleopController(Bytes&, const TeleopController&);
+    void addAutoController(Bytes&, const AutoController&);
+    void addAutoMiningController(Bytes&, const AutoMiningController&);
+    void addAutoOffloadController(Bytes&, const AutoOffloadController&);
+    void addMiningController(Bytes&, const MiningController&);
+    void addOffloadController(Bytes&, const OffloadController&);
+    void addLocController(Bytes&, const LocalizationController&);
+    void addTravController(Bytes&, const TraversalController&);
 
 protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
+    BytesSharedPub pub;
 
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
+    time_point last_tf_pub, last_path_pub;
 
-    // MiningPlanner mining_planner;
-
-    Stage stage{Stage::FINISHED};
-
+    const float throttled_pub_freq;
 };
 
 };  // namespace lance

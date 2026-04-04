@@ -39,60 +39,50 @@
 
 #pragma once
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
-
-
 namespace lance
 {
 
-class AutoMiningController
-{
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+#define ROBOT_TOPIC(subtopic)      "lance/" subtopic
+#define PERCEPTION_TOPIC(subtopic) "cardinal_perception/" subtopic
+#define TALON_CTRL_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/ctrl")
+#define TALON_INFO_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/info")
+#define COLLECTION_STATE_TOPIC(subtopic)      \
+    ROBOT_TOPIC("collection_state/" subtopic)
 
-public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
+#define CONSTEXPR_STR constexpr inline char const*
 
-public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
+CONSTEXPR_STR JOY_TOPIC = "/joy";
+CONSTEXPR_STR CLICKED_POINT_TOPIC = "/clicked_point";
+CONSTEXPR_STR WATCHDOG_TOPIC = ROBOT_TOPIC("watchdog_status");
+CONSTEXPR_STR SET_TELEOP_TOPIC = ROBOT_TOPIC("set_teleop_mode");
+CONSTEXPR_STR SET_AUTO_TOPIC = ROBOT_TOPIC("set_auto_mode");
+CONSTEXPR_STR SET_TEST_TOPIC = ROBOT_TOPIC("set_test_mode");
+CONSTEXPR_STR TELEMETRY_TOPIC = ROBOT_TOPIC("telemetry");
+CONSTEXPR_STR OP_STATUS_TOPIC = ROBOT_TOPIC("op_status");
+CONSTEXPR_STR TRAVERSAL_PATH_TOPIC = ROBOT_TOPIC("traversal_path");
+CONSTEXPR_STR ROBOT_MARKERS_TOPIC = ROBOT_TOPIC("markers");
+CONSTEXPR_STR ARENA_ZONES_TOPIC = "arena_zones";
 
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+CONSTEXPR_STR HOPPER_JOINT_NAME = "hopper_joint";
 
-protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
 
-protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
+CONSTEXPR_STR PERCEPTION_LFD_CONTROL_SRV_TOPIC =
+    PERCEPTION_TOPIC("set_global_alignment");
+CONSTEXPR_STR PERCEPTION_REFLECTOR_HINT_TOPIC =
+    PERCEPTION_TOPIC("reflector_hint");
 
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
+CONSTEXPR_STR PERCEPTION_UPDATE_MINING_EVAL_SRV_TOPIC =
+    PERCEPTION_TOPIC("update_mining_eval");
+CONSTEXPR_STR PERCEPTION_MINING_EVAL_RESULTS_TOPIC =
+    PERCEPTION_TOPIC("mining_eval_results");
 
-    // MiningPlanner mining_planner;
+CONSTEXPR_STR PERCEPTION_PATH_TOPIC = PERCEPTION_TOPIC("planned_path");
+CONSTEXPR_STR PERCEPTION_PPLAN_CONTROL_TOPIC =
+    PERCEPTION_TOPIC("update_path_planning");
 
-    Stage stage{Stage::FINISHED};
+#undef CONSTEXPR_STR
 
-};
+#define TALON_CTRL_PUBSUB_QOS                                            \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
 };  // namespace lance

@@ -46,15 +46,14 @@ namespace lance
 {
 
 AutoController::AutoController(
-    GenericPubMap& pub_map,
     const RobotParams& params,
+    SensingInterfaces& sensing_interfaces,
     SharedControllerCollection& controllers) :
-    pub_map{pub_map},
     params{params},
     localization_controller{controllers.localization_controller},
     traversal_controller{controllers.traversal_controller},
-    mining_controller{pub_map, params, controllers},
-    offload_controller{pub_map, params, controllers}
+    mining_controller{params, sensing_interfaces, controllers},
+    offload_controller{params, controllers}
 {
 }
 
@@ -154,8 +153,8 @@ void AutoController::iterate(
             }
 
             this->traversal_controller.initializeZone(
-                this->params.offload_zone_bounds.min(),
-                this->params.offload_zone_bounds.max());
+                this->params.construction_zone_bounds.min(),
+                this->params.construction_zone_bounds.max());
             this->stage = Stage::TRAVERSE_TO_OFFLOAD;
             [[fallthrough]];
         }

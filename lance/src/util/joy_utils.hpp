@@ -230,6 +230,8 @@ struct JoyPov
 template<int Idx>
 struct StaticJoyButton
 {
+    static constexpr int IDX = Idx;
+
     static inline bool rawValue(const JoyState& joy)
     {
         return joy.getRawButton(Idx);
@@ -246,6 +248,8 @@ struct StaticJoyButton
 template<int Idx>
 struct StaticJoyAxis
 {
+    static constexpr int IDX = Idx;
+
     static inline float rawValue(const JoyState& joy)
     {
         return joy.getRawAxis(Idx);
@@ -271,6 +275,9 @@ struct StaticJoyAxis
 template<int Idx, int Sgn>
 struct StaticJoyPov
 {
+    static constexpr int IDX = Idx;
+    static constexpr int VAL = Sgn;
+
     static inline bool rawValue(const JoyState& joy)
     {
         return joy.getRawPov(Idx, Sgn);

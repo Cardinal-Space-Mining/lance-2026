@@ -39,7 +39,7 @@
 
 #include "collection_state.hpp"
 
-#include "robot_math.hpp"
+#include "robot/model/dynamics.hpp"
 
 
 namespace lance

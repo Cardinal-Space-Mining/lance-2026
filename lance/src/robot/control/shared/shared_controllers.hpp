@@ -48,30 +48,25 @@
 namespace lance
 {
 
-class SharedControllerCollection
+class SharedControllerCollection : public util::UsingRosAliases
 {
-    using RclNode = rclcpp::Node;
-    using GenericPubMap = util::GenericPubMap;
-
-public:
-    inline SharedControllerCollection(
-        RclNode& node,
-        GenericPubMap& pub_map,
-        const RobotParams& params,
-        const HopperState& hopper_state,
-        const TfCache& tf_cache) :
-        mining_controller{pub_map, params, hopper_state},
-        offload_controller{pub_map, params, hopper_state},
-        traversal_controller{node, pub_map, params, tf_cache},
-        localization_controller{node, pub_map, params, tf_cache}
-    {
-    }
-
 public:
     MiningController mining_controller;
     OffloadController offload_controller;
     TraversalController traversal_controller;
     LocalizationController localization_controller;
+
+public:
+    inline SharedControllerCollection(
+        const RobotParams& params,
+        const HopperState& hopper_state,
+        SensingInterfaces& sensing_interfaces) :
+        mining_controller{params, hopper_state, sensing_interfaces},
+        offload_controller{params, hopper_state},
+        traversal_controller{params, sensing_interfaces},
+        localization_controller{params, sensing_interfaces}
+    {
+    }
 };
 
 };  // namespace lance

@@ -39,60 +39,31 @@
 
 #pragma once
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include "tf_cache.hpp"
+#include "path_plan.hpp"
+#include "mining_eval.hpp"
+#include "reflector_hint.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+class SensingInterfaces : public util::UsingRosAliases
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+public:
+    TfCache tf_cache;
+    PathPlanInterface path_plan_interface;
+    MiningEvalInterface mining_eval_interface;
+    ReflectorHintInterface reflector_hint_interface;
 
 public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
-
-public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
-
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    enum class Stage
+    SensingInterfaces(RclNode& node, const RobotParams& params) :
+        tf_cache{node, params},
+        path_plan_interface{node, params},
+        mining_eval_interface{node, params},
+        reflector_hint_interface{node}
     {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
-
-protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
-
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
-
-    // MiningPlanner mining_planner;
-
-    Stage stage{Stage::FINISHED};
-
+    }
 };
 
 };  // namespace lance

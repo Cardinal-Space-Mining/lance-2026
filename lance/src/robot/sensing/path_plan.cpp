@@ -37,62 +37,72 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "path_plan.hpp"
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include "robot/core/ros_interface.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
+    params{params},
+    rcl_clock{node.get_clock()},
+    path_sub{node.create_subscription<PathMsg>(
+        lance::PERCEPTION_PATH_TOPIC,
+        rclcpp::SensorDataQoS{},
+        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
+    pplan_control_client{node.create_client<UpdatePathPlanSrv>(
+        lance::PERCEPTION_PPLAN_CONTROL_TOPIC)}
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+}
 
-public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
 
-public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
+void PathPlanInterface::init(const Vec3f& arena_dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header.frame_id = this->params.arena_frame_id;
+    req->target.header.stamp = this->rcl_clock->now();
+    req->target.pose.position.x = arena_dest.x();
+    req->target.pose.position.y = arena_dest.y();
+    req->target.pose.position.z = arena_dest.z();
+    req->completed = false;
 
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void PathPlanInterface::init(const PointStampedMsg& dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header = dest.header;
+    req->target.pose.position = dest.point;
+    req->completed = false;
 
-protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void PathPlanInterface::cancel()
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->completed = true;
 
-protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
+    this->pplan_control_client->async_send_request(
+        req,
+        [this](RclClient<UpdatePathPlanSrv>::SharedFuture)
+        { this->last_path = nullptr; });
+}
 
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
+bool PathPlanInterface::hasPath() const
+{
+    return this->last_path.operator bool();
+}
+const PathPlanInterface::PathMsg* PathPlanInterface::getPath() const
+{
+    return this->last_path ? this->last_path.get() : nullptr;
+}
 
-    // MiningPlanner mining_planner;
-
-    Stage stage{Stage::FINISHED};
-
-};
+void PathPlanInterface::clearPath() { this->last_path.reset(); }
 
 };  // namespace lance

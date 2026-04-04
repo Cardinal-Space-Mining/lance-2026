@@ -45,10 +45,12 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.hpp>
 
-#include "robot_params.hpp"
-#include "util/geometry.hpp"
 #include "util/time_cvt.hpp"
+#include "util/ros_utils.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/model/geometry.hpp"
 
 
 namespace lance
@@ -84,11 +86,12 @@ inline constexpr KeyTf composeKeyTf(KeyFrame from, KeyFrame to)
  * updated, and the internal state won't get updated unless the refresh()
  * method is called! Use the getBuffer() method to connect the internal
  * buffer instance to an external listener. */
-class TfCache
+class TfCache : public util::UsingRosAliases
 {
 public:
     using Tf2Buffer = tf2_ros::Buffer;
-    using PoseTf = util::geom::PoseTf3f;
+    using Tf2Listener = tf2_ros::TransformListener;
+    using PoseTf = lance::geom::PoseTf3f;
 
 public:
     const std::string arena_frame_id;
@@ -96,9 +99,9 @@ public:
     const std::string robot_frame_id;
 
 public:
-    TfCache(rclcpp::Node&, const RobotParams&);
+    TfCache(RclNode&, const RobotParams&);
     TfCache(
-        rclcpp::Node&,
+        RclNode&,
         const std::string& arena_frame_id,
         const std::string& odom_frame_id,
         const std::string& robot_frame_id);
@@ -136,6 +139,7 @@ protected:
 
 protected:
     Tf2Buffer tf_buffer;
+    Tf2Listener tf_listener;
 
     TfLink arena_to_odom;
     TfLink odom_to_robot;

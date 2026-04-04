@@ -44,24 +44,12 @@
 #include <sstream>
 #include <iostream>
 
-#include <geometry_msgs/msg/pose_stamped.hpp>
-
 #include "util/geometry.hpp"
-#include "util/time_cvt.hpp"
-
-#include "robot/core/robot_math.hpp"
-#include "robot/core/hid_bindings.hpp"
+#include "robot/model/dynamics.hpp"
+#include "robot/model/kinematics.hpp"
 
 
-#define PERCEPTION_PATH_TOPIC "/cardinal_perception/planned_path"
-#define PERCEPTION_PPLAN_CONTROL_TOPIC          \
-    "/cardinal_perception/update_path_planning"
-
-using system_clock = std::chrono::system_clock;
 using namespace util::geom::cvt::ops;
-
-using Iso3f = Eigen::Isometry3f;
-using Quatf = Eigen::Quaternionf;
 
 
 /* Compute the radius-per-max-corner-deviation coefficient for a junction
@@ -80,30 +68,22 @@ namespace lance
 {
 
 TraversalController::TraversalController(
-    RclNode& node,
-    GenericPubMap& pub_map,
     const RobotParams& params,
-    const TfCache& tf_cache) :
-    pub_map{pub_map},
+    SensingInterfaces& sensing_interfaces) :
     params{params},
-    tf_cache{tf_cache},
-    path_sub{node.create_subscription<PathMsg>(
-        PERCEPTION_PATH_TOPIC,
-        rclcpp::SensorDataQoS{},
-        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
-    pplan_control_client{
-        node.create_client<UpdatePathPlanSrv>(PERCEPTION_PPLAN_CONTROL_TOPIC)}
+    tf_cache{sensing_interfaces.tf_cache},
+    pplan_interface{sensing_interfaces.path_plan_interface}
 {
 }
 
 void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
 {
-    this->last_path = nullptr;
+    this->pplan_interface.clearPath();
     this->arena_dest_direction = dir.normalized();
     this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
                                                      : DestinationType::POINT;
 
-    this->initPlanningService(Vec3f{dest.x(), dest.y(), 0.f});
+    this->pplan_interface.init(Vec3f{dest.x(), dest.y(), 0.f});
 
     this->state = State::INITIALIZATION;
 }
@@ -111,11 +91,11 @@ void TraversalController::initializePoint(
     const PointStampedMsg& dest,
     const Vec2f& dir)
 {
-    this->last_path = nullptr;
+    this->pplan_interface.clearPath();
     this->arena_dest_direction = dir.normalized();
     this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
                                                      : DestinationType::POINT;
-    this->initPlanningService(dest);
+    this->pplan_interface.init(dest);
 
     this->state = State::INITIALIZATION;
 }
@@ -123,13 +103,13 @@ void TraversalController::initializeZone(
     const Vec2f& dest_min,
     const Vec2f& dest_max)
 {
-    this->last_path = nullptr;
+    this->pplan_interface.clearPath();
     this->arena_dest_zone.min() = dest_min;
     this->arena_dest_zone.max() = dest_max;
     this->arena_dest_direction = Vec2f::Zero();
     this->destination_type = DestinationType::ZONE;
 
-    this->initPlanningService(
+    this->pplan_interface.init(
         Vec3f{
             (dest_min.x() + dest_max.x()) * 0.5f,
             (dest_min.y() + dest_max.y()) * 0.5f,
@@ -145,7 +125,7 @@ bool TraversalController::isFinished()
 
 void TraversalController::setCancelled()
 {
-    this->stopPlanningService();
+    this->pplan_interface.cancel();
 
     this->state = State::FINISHED;
 }
@@ -161,13 +141,13 @@ void TraversalController::iterate(
         case State::INITIALIZATION:
         {
             if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_traversal_target)
+                this->params.hopper_actuator_traversal_target_val)
             {
                 commands.setHopperActPercent(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
-            if (!this->last_path)
+            if (!this->pplan_interface.hasPath())
             {
                 break;
             }
@@ -201,44 +181,9 @@ void TraversalController::iterate(
         }
         case State::FINISHED:
         {
-            this->stopPlanningService();
+            this->pplan_interface.cancel();
         }
     }
-}
-
-void TraversalController::initPlanningService(const Vec3f& arena_dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header.frame_id = this->params.arena_frame_id;
-    req->target.header.stamp = util::toTimeMsg(system_clock::now());
-    req->target.pose.position.x = arena_dest.x();
-    req->target.pose.position.y = arena_dest.y();
-    req->target.pose.position.z = arena_dest.z();
-    req->completed = false;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void TraversalController::initPlanningService(const PointStampedMsg& dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header = dest.header;
-    req->target.pose.position = dest.point;
-    req->completed = false;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void TraversalController::stopPlanningService()
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->completed = true;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](rclcpp::Client<UpdatePathPlanSrv>::SharedFuture) {});
 }
 
 
@@ -250,26 +195,33 @@ void TraversalController::stopPlanningService()
 #define V_max       (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max       (this->params.auto_traversal_max_track_acceleration_mpss)
 #define W_max       (this->params.auto_traversal_max_angular_velocity_rps)
+#define Al_max      (this->params.auto_traversal_max_angular_accel_rpss)
 #define V_delta_max (A_max * Dt)
 
 bool TraversalController::iterateTraversal(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+    const PathMsg* path = this->pplan_interface.getPath();
+    if (!path)
+    {
+        return false;
+    }
+
     // 1. OBTAIN KEYPOINTS RELATIVE TO BASE LINK -------------------------------
     std::vector<Vec2f> keypoints;
-    keypoints.resize(this->last_path->poses.size());
+    keypoints.resize(path->poses.size());
 
-    if (this->last_path->header.frame_id != this->params.robot_frame_id)
+    if (path->header.frame_id != this->params.robot_frame_id)
     {
         const auto* tf =
-            this->tf_cache.getTf(this->last_path->header.frame_id, ROBOT_FRAME);
+            this->tf_cache.getTf(path->header.frame_id, ROBOT_FRAME);
         if (tf)
         {
             Vec3f tmp;
             for (size_t i = 0; i < keypoints.size(); i++)
             {
-                const auto& pt = this->last_path->poses[i].pose.position;
+                const auto& pt = path->poses[i].pose.position;
                 keypoints[i] = (tf->tf * (tmp << pt)).template head<2>();
             }
         }
@@ -282,7 +234,7 @@ bool TraversalController::iterateTraversal(
     {
         for (size_t i = 0; i < keypoints.size(); i++)
         {
-            const auto& pt = this->last_path->poses[i].pose.position;
+            const auto& pt = path->poses[i].pose.position;
             keypoints[i].x() = static_cast<float>(pt.x);
             keypoints[i].y() = static_cast<float>(pt.y);
         }
@@ -295,7 +247,7 @@ bool TraversalController::iterateTraversal(
         case DestinationType::POSE:
         {
             if (keypoints.back().norm() <=
-                this->params.auto_traversal_keypoint_thresh_m)
+                this->params.auto_traversal_destination_thresh_m)
             {
                 commands.disableTracks();
                 return true;
@@ -364,10 +316,6 @@ bool TraversalController::iterateReorient(
 {
     (void)motor_status;
 
-    constexpr float TARGETTING_THETA_EPSILON =
-        0.5f * (std::numbers::pi_v<float> / 180.f);
-    constexpr float MAX_ANGULAR_DECELL = 0.5f;
-
     switch (this->destination_type)
     {
         case DestinationType::POINT:
@@ -399,21 +347,23 @@ bool TraversalController::iterateReorient(
     const float theta = std::atan2(target.y(), target.x());
     const float theta_abs = std::abs(theta);
 
-    if (theta_abs < TARGETTING_THETA_EPSILON)
+    if (theta_abs < this->params.auto_traversal_align_angular_thresh_deg *
+                        (std::numbers::pi_v<float> / 180.f))
     {
         return true;
     }
 
     // angular velocity proportional to error, clamped to parmertarized max
     // const float W = std::clamp((theta * W_Kp), -W_max, W_max);
-    const float W = std::min(kmx::maxStartVel(0.f, theta_abs, MAX_ANGULAR_DECELL), W_max) *
-                    (std::signbit(theta) ? -1.f : 1.f);
+    const float W =
+        std::min(util::kmx::maxStartVel(0.f, theta_abs, Al_max), W_max) *
+        (std::signbit(theta) ? -1.f : 1.f);
 
     const float Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(0.f, W);
     const float Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(0.f, W);
 
     float Vl_out, Vr_out;
-    kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
+    util::kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
 
     commands.setTracksVelocity(
         lance::groundMpsToTrackMotorRps(Vl_out),
@@ -433,7 +383,7 @@ void TraversalController::runStanley(
     RobotMotorCommands& commands)
 {
     // 1. Aliases --------------------------------------------------------------
-    const float theta_V = this->params.auto_traversal_min_theta_window *
+    const float theta_V = this->params.auto_traversal_min_theta_window_deg *
                           (std::numbers::pi_v<float> / 180.f);
     const float KR_inv = -std::log(0.5f) / K2;
     const float Vd_max = V_delta_max;
@@ -460,7 +410,7 @@ void TraversalController::runStanley(
         // accelerate to full velocity if roughly pointed straight at target
         const float Va = (std::fabs(theta) < theta_V) ? V_max : 0.f;
         // TODO: backpropegation max velocity
-        const float Vb = kmx::maxStartVel(0.f, S.norm(), A_max);
+        const float Vb = util::kmx::maxStartVel(0.f, S.norm(), A_max);
         // apply minimum of two velocities, and clamp initially to min/max
         // acceleration diffs
         const float Vc =
@@ -477,7 +427,7 @@ void TraversalController::runStanley(
         {
             const float max_target_vel = std::min(V_max, V_prev + Vd_max);
             const float max_decell_dist =
-                kmx::decellDist(max_target_vel, A_max);
+                util::kmx::decellDist(max_target_vel, A_max);
             Vec2f pt_a = Vec2f::Zero();
             float sum_dist = 0.f;
             for (size_t i = (seg_proj_t < 0.f ? seg_beg_idx : seg_end_idx);
@@ -507,13 +457,16 @@ void TraversalController::runStanley(
                         // that our acceleration limit is respected
                         Vb = std::min(
                             Vb,
-                            kmx::maxStartVel((r * W_max), sum_dist, A_max));
+                            util::kmx::maxStartVel(
+                                (r * W_max),
+                                sum_dist,
+                                A_max));
                     }
                     else
                     {
                         Vb = std::min(
                             Vb,
-                            kmx::maxStartVel(0.f, sum_dist, A_max));
+                            util::kmx::maxStartVel(0.f, sum_dist, A_max));
                     }
                 }
             }
@@ -571,7 +524,7 @@ void TraversalController::runStanley(
 
     // 4. Apply per-track V, A limits ------------------------------------------
     float Vl_out, Vr_out;
-    kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
+    util::kmx::applyTrackLimits(Vl_target, Vr_target, V_max, Vl_out, Vr_out);
 
     // 5. Apply ----------------------------------------------------------------
     commands.setTracksVelocity(

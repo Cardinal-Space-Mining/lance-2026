@@ -37,62 +37,50 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "reflector_hint.hpp"
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include "robot/core/ros_interface.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+ReflectorHintInterface::ReflectorHintInterface(RclNode& node) :
+    hint_sub{node.create_subscription<ReflectorHintMsg>(
+        lance::PERCEPTION_REFLECTOR_HINT_TOPIC,
+        rclcpp::SensorDataQoS{},
+        [this](const ReflectorHintMsg::ConstSharedPtr& msg)
+        { this->last_hint = msg; })},
+    lfd_control_client{
+        node.create_client<SetBoolSrv>(lance::PERCEPTION_LFD_CONTROL_SRV_TOPIC)}
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+}
 
-public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
+void ReflectorHintInterface::setEnableSrv(bool enabled)
+{
+    auto req = std::make_shared<SetBoolSrv::Request>();
+    req->data = enabled;
+    this->lfd_control_client->async_send_request(
+        req,
+        [this, enabled](RclClient<SetBoolSrv>::SharedFuture)
+        {
+            if (!enabled)
+            {
+                this->last_hint = nullptr;
+            }
+        });
+}
 
-public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
+bool ReflectorHintInterface::hasHint() const
+{
+    return this->last_hint.operator bool();
+}
+const ReflectorHintInterface::ReflectorHintMsg*
+    ReflectorHintInterface::getLatestHint() const
+{
+    return this->last_hint ? this->last_hint.get() : nullptr;
+}
 
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
-
-protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
-
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
-
-    // MiningPlanner mining_planner;
-
-    Stage stage{Stage::FINISHED};
-
-};
+void ReflectorHintInterface::clearHint() { this->last_hint.reset(); }
 
 };  // namespace lance

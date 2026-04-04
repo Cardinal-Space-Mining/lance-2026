@@ -39,60 +39,70 @@
 
 #pragma once
 
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/core/collection_state.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include <string>
+#include <vector>
+
+#include <tf2_ros/transform_broadcaster.hpp>
+
+#include <visualization_msgs/msg/marker_array.hpp>
+
+#include "util/pub_map.hpp"
+#include "robot/sensing/tf_cache.hpp"
+
+#include "telemetry.hpp"
 
 
 namespace lance
 {
 
-class AutoMiningController
+class TelemetryDeserializer : public TelemetryBase
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+    using GenericPubMap = util::GenericPubMap;
+    using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
+    using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
+
+    using MarkerMsg = visualization_msgs::msg::Marker;
+    using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 
 public:
-    AutoMiningController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoMiningController() = default;
+    TelemetryDeserializer(RclNode& node, TfCache& tf_cache);
 
 public:
-    void initialize();
-    bool isFinished();
-    void setCancelled();
-
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    GenericPubMap& getPubMap();
 
 protected:
-    enum class Stage
-    {
-        INITIALIZATION,
-        PLANNING,
-        TRAVERSING,
-        MINING,
-        FINISHED
-    };
+    void accept(const BytesMsg&);
 
 protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
+    bool pubArenaTf(BytePtrRef, BytePtr);
+    bool pubRobotState(BytePtrRef, BytePtr);
+    bool pubControlState(BytePtrRef, BytePtr);
 
-    TraversalController& traversal_controller;
-    MiningController& mining_controller;
+    bool pubDerivedController(BytePtrRef, BytePtr);
 
-    // MiningPlanner mining_planner;
+    bool pubTeleopController(BytePtrRef, BytePtr);
+    bool pubAutoController(BytePtrRef, BytePtr);
+    bool pubAutoMiningController(BytePtrRef, BytePtr);
+    bool pubAutoOffloadController(BytePtrRef, BytePtr);
+    bool pubMiningController(BytePtrRef, BytePtr);
+    bool pubOffloadController(BytePtrRef, BytePtr);
+    bool pubLocController(BytePtrRef, BytePtr);
+    bool pubTravController(BytePtrRef, BytePtr);
 
-    Stage stage{Stage::FINISHED};
+protected:
+    void addMiningMarker(uint8_t, float);
+    void addOffloadMarker(float);
 
+protected:
+    GenericPubMap pub_map;
+    TfCache& tf_cache;
+    Tf2Broadcaster tf_broadcaster;
+    ConstSharedClock rcl_clock;
+
+    BytesSharedSub sub;
+
+    std::vector<std::string> ctrl_chain;
+    MarkerArrayMsg markers;
 };
 
 };  // namespace lance

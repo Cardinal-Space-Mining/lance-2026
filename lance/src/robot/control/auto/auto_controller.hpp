@@ -39,15 +39,11 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
-#include "util/pub_map.hpp"
 #include "util/joy_utils.hpp"
-
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
-
 #include "robot/control/shared/shared_controllers.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
 
 #include "auto_mining_controller.hpp"
 #include "auto_offload_controller.hpp"
@@ -62,12 +58,11 @@ class AutoController
     friend class TelemetryDeserializer;
 
     using JoyState = util::JoyState;
-    using GenericPubMap = util::GenericPubMap;
 
 public:
     AutoController(
-        GenericPubMap&,
         const RobotParams&,
+        SensingInterfaces&,
         SharedControllerCollection&);
     ~AutoController() = default;
 
@@ -91,16 +86,15 @@ protected:
     };
 
 protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
-
-    Stage stage{Stage::LOCALIZATION};
 
     LocalizationController& localization_controller;
     TraversalController& traversal_controller;
 
     AutoMiningController mining_controller;
     AutoOffloadController offload_controller;
+
+    Stage stage{Stage::LOCALIZATION};
 };
 
 };  // namespace lance

@@ -37,51 +37,123 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include <vector>
+#include <iostream>
+#include <stdexcept>
+#include <algorithm>
+#include <functional>
 
-// Equivalent to Xbox controller mappings
-namespace LogitechController
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
+#include "robot_params.hpp"
+
+
+namespace lance
 {
-    namespace Buttons
-    {
-        constexpr int A = 0;
-        constexpr int B = 1;
-        constexpr int X = 2;
-        constexpr int Y = 3;
-        constexpr int LB = 4;
-        constexpr int RB = 5;
-        constexpr int BACK = 6;
-        constexpr int START = 7;
-        constexpr int LOGITECH = 8;
-        constexpr int L_STICK = 9;
-        constexpr int R_STICK = 10;
 
-        constexpr int NUM_BUTTONS = 11;
-    } // namespace Buttons
+enum class MiningDirection
+{
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+};
 
-    namespace Axes
-    {
-        constexpr int LEFTX = 0;
-        constexpr int LEFTY = 1;
-        constexpr int L_TRIGGER = 2;
 
-        constexpr int RIGHTX = 3;
-        constexpr int RIGHTY = 4;
-        constexpr int R_TRIGGER = 5;
+// Struct to represent a mining path with its direction and associated matrix for
+// distance calculation
+class DirectedMiningPath
+{
+public:
+    using Vec2i = Eigen::Vector2i;
+    using Vec2f = Eigen::Vector2f;
+    using MiningPath = std::pair<Vec2i, Vec2i>;
+    using MiningSwath = std::pair<Vec2f, Vec2f>;
 
-        constexpr int DPAD_R_L = 6;
-        constexpr int DPAD_U_D = 7;
+public:
+    DirectedMiningPath(
+        MiningPath p,
+        MiningDirection dir,
+        const Eigen::MatrixXf* mat);
 
-        namespace DPAD_K
-        {
-            constexpr int DPAD_DOWN = -1;
-            constexpr int DPAD_UP = 1;
+public:
+    float getDistance() const;
 
-            constexpr int DPAD_RIGHT = -1;
-            constexpr int DPAD_LEFT = 1;
-        } // namespace DPAD_K
+    void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
-        constexpr int NUM_AXES = 8;
+    bool checkValidity() const;
 
-    } // namespace Axes
-} // namespace LogitechController
+    float getQuality(const Eigen::MatrixXi& previously_minined_locations) const;
+
+    bool adjustForRobotClearance();
+
+    MiningSwath getPathCoordinatesInWorldFrame() const;
+
+    float getRecalculatedDistance() const;
+
+private:
+    MiningPath toBaseCoordinates() const;
+
+private:
+    MiningPath path;
+    MiningDirection direction;
+    const Eigen::MatrixXf* matrix;
+    float distance = -1.0;
+    static constexpr float previously_mined_penalty = 0.1f;
+};
+
+
+
+class MiningPlanner
+{
+public:
+    using Box2f = Eigen::AlignedBox2f;
+    using DirectedMiningPaths = std::vector<DirectedMiningPath>;
+    using Pose2f = Eigen::Vector3f;
+
+public:
+    MiningPlanner(const RobotParams& robot_params);
+
+public:
+    void updateMappedMatrices();
+    const DirectedMiningPaths& finalOutput();
+
+    void markMiningOnMatrix(const DirectedMiningPath& path);
+
+private:
+    const std::vector<Pose2f>& getStartingLocations();
+    
+    // Helper function to populate a strip map for a given direction
+    void populateStripMap(
+        Eigen::MatrixXf& strip_map,
+        MiningDirection direction);
+
+    void appendPlannedMiningPaths(
+        const Eigen::MatrixXf& mat,
+        MiningDirection mining_dir);
+
+    void sortPathsByQuality();
+    void removeSectionsForRobotClearance();
+
+private:
+    const RobotParams& robot_params;
+
+    // The direction is the way the the robot would be moving in reference to the
+    // base frame which is MiningDirection::DOWN
+    Eigen::MatrixXf strip_map_up;
+    Eigen::MatrixXf strip_map_down;
+    Eigen::MatrixXf strip_map_left;
+    Eigen::MatrixXf strip_map_right;
+    Eigen::MatrixXi times_mined_count_matrix;
+
+    DirectedMiningPaths all_mining_paths;
+
+    // int mapped_matrix_width;
+    // int mapped_matrix_height;
+
+    const float full_width = 1; // edge of track to other far edge
+    const float max_length = 1.5;// the max length from the middle of the robot to the front and back
+};
+
+};  // namespace lance
