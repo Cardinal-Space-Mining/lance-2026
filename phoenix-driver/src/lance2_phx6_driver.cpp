@@ -69,10 +69,10 @@ Phoenix6Driver::Phoenix6Driver() :
         rclcpp::SensorDataQoS{},
         [this](const Int32Msg& msg) { this->feedWatchdogStatus(msg.data); })},
     info_pub_timer{this->create_wall_timer(
-        declare_and_get_param(*this, "info_pub_rate_mexts", 50) * 1ms,
+        declare_and_get_param(*this, "info_pub_rate_ms", 50) * 1ms,
         [this]() { this->pubMotorInfo_cb(); })},
     fault_pub_timer{this->create_wall_timer(
-        declare_and_get_param(*this, "info_fault_rate_ms", 250) * 1ms,
+        declare_and_get_param(*this, "fault_pub_rate_ms", 250) * 1ms,
         [this]() { this->pubMotorFault_cb(); })}
 {
     // --- Get motors params-------------------------------------------------------------
@@ -107,17 +107,43 @@ Phoenix6Driver::Phoenix6Driver() :
             continue;
         }
 
+        RclMotorConfig params;
+
         std::string follows = declare_and_get_param<std::string>(
             *this,
             param_prefix + "follows",
             "");
-        int followsId = follows.empty() ? -1 : ids.at(follows);
+        params.follows_id = follows.empty() ? -1 : ids.at(follows);
+
         std::string sensor = declare_and_get_param<std::string>(
             *this,
             param_prefix + "sensor",
             "");
 
-        RclMotorConfig params;
+        static const std::unordered_map<std::string, SensorSource> kSensorMap =
+            {
+                {        "Commutation",         SensorSource::Commutation},
+                {  "QuadratureEncoder",   SensorSource::QuadratureEncoder},
+                {  "PulseWidthEncoder",   SensorSource::PulseWidthEncoder},
+                {     "RemoteCANcoder",      SensorSource::RemoteCANcoder},
+                {      "FusedCANcoder",       SensorSource::FusedCANcoder},
+                {       "SyncCANcoder",        SensorSource::SyncCANcoder},
+                {   "RemotePigeon2Yaw",    SensorSource::RemotePigeon2Yaw},
+                { "RemotePigeon2Pitch",  SensorSource::RemotePigeon2Pitch},
+                {  "RemotePigeon2Roll",   SensorSource::RemotePigeon2Roll},
+                {"AnalogPotentiometer", SensorSource::AnalogPotentiometer},
+        };
+        auto it = kSensorMap.find(sensor);
+        if (it == kSensorMap.end())
+        {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Unknown sensor '%s' for motor %s",
+                sensor.c_str(),
+                name.c_str());
+            continue;
+        }
+        params.sensor = it->second;
 
         declare_param(*this, param_prefix + "kP", params.kP, 0.2);
         declare_param(*this, param_prefix + "kI", params.kI, 0.05);
@@ -218,7 +244,7 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
 
 {
     // Init motor
-    ConfiguratorT config = buildMotorConfig(
+    ConfigurationT phxConfig = buildMotorConfig<ConfigurationT>(
         config.kP,
         config.kI,
         config.kD,
@@ -231,15 +257,12 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
 
     if constexpr (std::is_same_v<MotorType, TalonFXS>)
     {
-        using S = Phoenix6Driver::SensorSource;
-        using V = phx6::signals::ExternalFeedbackSensorSourceValue;
-
         // configure feedback source if provided (FXS only)
-        FeedbackConfigs feedback{};
-        if (config.sensor != S::AnalogPotentiometer)
+        ExternalFeedbackConfigs feedback{};
+        if (config.sensor != Phoenix6Driver::SensorSource::AnalogPotentiometer)
         {
-            feedback.WithFeedbackSensorSource(
-                static_cast<V>(static_cast<int>(config.sensor)));
+            feedback.WithExternalFeedbackSensorSource(
+                static_cast<int>(config.sensor));
             if (config.remote_sensor_id > -1)
             {
                 feedback.WithFeedbackRemoteSensorID(config.remote_sensor_id);
@@ -247,10 +270,10 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
         }
         // else: AnalogPotentiometer uses default Commutation; position computed in publishInfo()
 
-        FXSconfig.WithFeedback(feedback);
+        phxConfig.WithExternalFeedback(feedback);
     }
 
-    motor.GetConfigurator().Apply(config);
+    motor.GetConfigurator().Apply(phxConfig);
 
     if (config.follows_id != -1)
     {
@@ -326,8 +349,8 @@ void Phoenix6Driver::pubMotorInfo_cb()
         {
             // Software handled sensor position for AnalogPotentiometer
             double v = m->motor.GetAnalogVoltage().GetValueAsDouble();
-            double raw = v / m->config.pot_max_v;
-            info_msg.position = m->config.invert_sensor ? (1.0 - raw) : raw;
+            double raw = v / m->config.pot.max_v;
+            info_msg.position = m->config.pot.invert_sensor ? (1.0 - raw) : raw;
         }
     }
 }

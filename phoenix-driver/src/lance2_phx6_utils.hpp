@@ -66,6 +66,7 @@ using phx6::configs::TalonFXSConfiguration;
 using phx6::configs::Slot0Configs;
 using phx6::configs::MotorOutputConfigs;
 using phx6::configs::FeedbackConfigs;
+using phx6::configs::ExternalFeedbackConfigs;
 using phx6::configs::CurrentLimitsConfigs;
 using phx6::configs::VoltageConfigs;
 
@@ -73,7 +74,7 @@ using phx6::signals::NeutralModeValue;
 using phx6::signals::InvertedValue;
 using phx6::signals::FeedbackSensorSourceValue;
 
-template <typename Config_T>
+template<typename Config_T>
 inline Config_T buildMotorConfig(
     double kP,
     double kI,
@@ -90,12 +91,13 @@ inline Config_T buildMotorConfig(
         .WithMotorOutput(
             MotorOutputConfigs{}
                 .WithDutyCycleNeutralDeadband(neutral_deadband)
-                .WithNeutralMode(neutral_brake
-                    ? NeutralModeValue::Brake
-                    : NeutralModeValue::Coast))
-        .WithFeedback(
-            FeedbackConfigs{}.WithFeedbackSensorSource(
-                FeedbackSensorSourceValue::RotorSensor))
+                .WithNeutralMode(
+                    neutral_brake ? NeutralModeValue::Brake
+                                  : NeutralModeValue::Coast))
+        // Feeback configs are by default rotor for FX, and commutation for FXS, which is correct
+        // .WithFeedback(
+        //     FeedbackConfigs{}.WithFeedbackSensorSource(
+        //         FeedbackSensorSourceValue::RotorSensor))
         .WithCurrentLimits(
             CurrentLimitsConfigs{}
                 .WithStatorCurrentLimit(
@@ -154,10 +156,9 @@ inline TalonInfoMsg& operator<<(TalonInfoMsg& info, TalonT& m)
         std::is_same<TalonT, TalonFXS>::value);
 
     serializeTalonInfoNoStatus(info, m);
-    info.status =
-        (static_cast<uint8_t>(m.GetDeviceEnable().GetValue().value)) |
-        (static_cast<uint8_t>(m.IsConnected()) << 1) |
-        (static_cast<uint8_t>(m.HasResetOccurred()) << 2);
+    info.status = (static_cast<uint8_t>(m.GetDeviceEnable().GetValue().value)) |
+                  (static_cast<uint8_t>(m.IsConnected()) << 1) |
+                  (static_cast<uint8_t>(m.HasResetOccurred()) << 2);
 
     return info;
 }

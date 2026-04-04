@@ -65,18 +65,18 @@ public:
     enum class SensorSource : int
     {
         // TalonFXS ExternalFeedbackSensorSourceValue passthrough
-        Commutation = V::Commutation.value,
-        QuadratureEncoder = V::QuadratureEncoder.value,
-        PulseWidthEncoder = V::PulseWidthEncoder.value,
-        RemoteCANcoder = V::RemoteCANcoder.value,
-        FusedCANcoder = V::FusedCANcoder.value,  // Pro
-        SyncCANcoder = V::SyncCANcoder.value,    // Pro
-        RemotePigeon2Yaw = V::RemotePigeon2Yaw.value,
-        RemotePigeon2Pitch = V::RemotePigeon2Pitch.value,
-        RemotePigeon2Roll = V::RemotePigeon2Roll.value,
-        FusedPigeon2Yaw = V::FusedPigeon2Yaw.value,      // Pro
-        FusedPigeon2Pitch = V::FusedPigeon2Pitch.value,  // Pro
-        FusedPigeon2Roll = V::FusedPigeon2Roll.value,    // Pro
+        Commutation = V::Commutation,
+        QuadratureEncoder = V::Quadrature,
+        PulseWidthEncoder = V::PulseWidth,
+        RemoteCANcoder = V::RemoteCANcoder,
+        FusedCANcoder = V::FusedCANcoder,  // Pro
+        SyncCANcoder = V::SyncCANcoder,    // Pro
+        RemotePigeon2Yaw = V::RemotePigeon2Yaw,
+        RemotePigeon2Pitch = V::RemotePigeon2Pitch,
+        RemotePigeon2Roll = V::RemotePigeon2Roll,
+        // FusedPigeon2Yaw = V::FusedPigeon2Yaw,      // Pro
+        // FusedPigeon2Pitch = V::FusedPigeon2Pitch,  // Pro
+        // FusedPigeon2Roll = V::FusedPigeon2Roll,    // Pro
 
         // Software handled from Gadgeteer (10 pin) input
         AnalogPotentiometer = 100,
@@ -93,9 +93,9 @@ public:
             int remote_sensor_id;  // For any sensor that requires an ID: Remote*, Fused*, or Sync*
             struct
             {
-                int pot_max_v;  // For AnalogPotentiometer sensor config
+                int max_v;
                 bool invert_sensor;
-            };
+            } pot;  // For AnalogPotentiometer sensor config
         };
 
         double kP;
@@ -118,10 +118,10 @@ public:
                 std::is_same_v<MotorType, TalonFXS>,
             "RclMotor only supports TalonFX and TalonFXS");
 
-        using ConfiguratorT = std::conditional_t<
+        using ConfigurationT = std::conditional_t<
             std::is_same_v<MotorType, TalonFX>,
-            phx6::TalonFXConfigurator,
-            phx6::TalonFXSConfigurator>;
+            phx6::configs::TalonFXConfiguration,
+            phx6::configs::TalonFXSConfiguration>;
 
         MotorType motor;
         RclMotorConfig config;
