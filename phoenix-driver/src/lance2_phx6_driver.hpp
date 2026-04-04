@@ -58,12 +58,45 @@ using namespace std::chrono_literals;
 
 class Phoenix6Driver : public rclcpp::Node
 {
+public:
     using Int32Msg = std_msgs::msg::Int32;
 
-    // Temporary parameter buffer
+    enum class SensorSource
+    {
+        // TalonFXS ExternalFeedbackSensorSourceValue passthrough
+        Commutation,
+        QuadratureEncoder,
+        PulseWidthEncoder,
+        RemoteCANcoder,
+        FusedCANcoder,  // Pro
+        SyncCANcoder,   // Pro
+        RemotePigeon2Yaw,
+        RemotePigeon2Pitch,
+        RemotePigeon2Roll,
+        FusedPigeon2Yaw,    // Pro
+        FusedPigeon2Pitch,  // Pro
+        FusedPigeon2Roll,   // Pro
+
+        // Software handled from Gadgeteer (10 pin) input
+        AnalogPotentiometer,
+    };
 
     struct RclMotorConfig
     {
+        int follows_id;
+        phx6::signals::MotorAlignmentValue alignment;
+        SensorSource sensor;
+
+        union
+        {
+            int remote_sensor_id; // For any sensor that requires an ID: Remote*, Fused*, or Sync*
+            struct
+            {
+                int pot_max_v; // For AnalogPotentiometer sensor config
+                int pot_min_v;
+            };
+        };
+
         double kP;
         double kI;
         double kD;
@@ -121,6 +154,40 @@ private:
     bool is_disabled = false;
 };
 
+// --- Helper functions ------------------------------------------------------------
+
+// Coverts from our SensorSource enum to Phoenix's ExternalFeedbackSensorSourceValue enum unless the sensor is software handled
+// Returns std::nullopt if the source is not a valid Phoenix sensor source (e.g. AnalogPotentiometer)
+static std::optional<phx6::signals::ExternalFeedbackSensorSourceValue>
+    toPhoenixSensorSource(Phoenix6Driver::SensorSource source)
+{
+    using S = Phoenix6Driver::SensorSource;
+    using V = phx6::signals::ExternalFeedbackSensorSourceValue;
+
+    static const std::unordered_map<S, V> kMap = {
+        {       S::Commutation,         V::Commutation},
+        { S::QuadratureEncoder,   V::QuadratureEncoder},
+        { S::PulseWidthEncoder,   V::PulseWidthEncoder},
+        {    S::RemoteCANcoder,      V::RemoteCANcoder},
+        {     S::FusedCANcoder,       V::FusedCANcoder},
+        {      S::SyncCANcoder,        V::SyncCANcoder},
+        {  S::RemotePigeon2Yaw,   V::RemotePigeon2_Yaw},
+        {S::RemotePigeon2Pitch, V::RemotePigeon2_Pitch},
+        { S::RemotePigeon2Roll,  V::RemotePigeon2_Roll},
+        {   S::FusedPigeon2Yaw,    V::FusedPigeon2_Yaw},
+        { S::FusedPigeon2Pitch,  V::FusedPigeon2_Pitch},
+        {  S::FusedPigeon2Roll,   V::FusedPigeon2_Roll},
+        // AnalogPotentiometer intentionally absent
+    };
+
+    auto it = kMap.find(source);
+    if (it == kMap.end())
+    {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
 // --- Implementation -------------------------------------------------------------
 
 template<typename MotorType>
@@ -128,8 +195,6 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
     rclcpp::Node* node,
     const std::string& name,
     int id,
-    int followsId,
-    const std::string& sensor,
     const RclMotorConfig& config,
     const CANBus& bus) :
     motor(id, bus),
@@ -148,7 +213,7 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
     // --- Init motor -------------------------------------------------------------
     if constexpr (std::is_same_v<MotorType, TalonFX>)
     {
-        TalonFXConfiguration config = buildMotorConfig(
+        TalonFXConfiguration FXconfig = buildMotorConfig(
             config.kP,
             config.kI,
             config.kD,
@@ -159,17 +224,19 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
             config.supply_current_limit,
             config.voltage_limit);
 
-        motor.getConfigurator().Apply(config);
+        motor.GetConfigurator().Apply(FXconfig);
 
-        if (followsId != -1)
+        if (config.follows_id != -1)
         {
-            ctre::phoenix6::controls::Follower followerCtrl(follower_id, false);
+            ctre::phoenix6::controls::Follower followerCtrl(
+                config.follows_id,
+                config.alignment);
             motor.SetControl(followerCtrl);
         }
     }
     else if constexpr (std::is_same_v<MotorType, TalonFXS>)
     {
-        TalonFXSConfiguration config = buildMotorConfig(
+        TalonFXSConfiguration FXSconfig = buildMotorConfig(
             config.kP,
             config.kI,
             config.kD,
@@ -181,16 +248,20 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
             config.voltage_limit);
 
         // TalonFXS supports external sensors — configure feedback source if provided
-        if (!sensor.empty())
+        if (toPhoenixSensorSource(config.sensor))
         {
-            //TODO Implement sensor config for FXS
+            FXSconfig.WithFeedback(
+                FeedbackConfigs{}.WithExternalSensorSource(
+                    *toPhoenixSensorSource(config.sensor)));
         }
 
-        motor.getConfigurator().Apply(config);
+        motor.GetConfigurator().Apply(FXSconfig);
 
-        if (followsId != -1)
+        if (config.follows_id != -1)
         {
-            ctre::phoenix6::controls::Follower followerCtrl(follower_id, false);
+            ctre::phoenix6::controls::Follower followerCtrl(
+                config.follows_id,
+                config.alignment);
             motor.SetControl(followerCtrl);
         }
     }
