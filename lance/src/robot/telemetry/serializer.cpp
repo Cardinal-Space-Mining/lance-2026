@@ -67,7 +67,7 @@ void TelemetrySerializer::update(const RobotController& robot_controller)
     Bytes& bytes = msg.data;
 
     this->addArenaTf(bytes, robot_controller.sensing_interfaces.tf_cache);
-    this->addCollectionState(bytes, robot_controller.collection_state);
+    this->addRobotState(bytes, robot_controller);
     this->addControlState(bytes, robot_controller);
 
     this->pub->publish(msg);
@@ -116,30 +116,31 @@ void TelemetrySerializer::addArenaTf(Bytes& bytes, const TfCache& tf_cache)
     }
 }
 
-void TelemetrySerializer::addCollectionState(
+void TelemetrySerializer::addRobotState(
     Bytes& bytes,
-    const CollectionState& collection_state)
+    const RobotController& robot_controller)
 {
-    constexpr size_t RESERVE_SIZE = (sizeof(uint8_t) * 2 + (sizeof(float) * 7));
+    constexpr size_t RESERVE_SIZE =
+        (sizeof(uint8_t) + sizeof(uint16_t) + (sizeof(float) * 2));
 
     bytes.resize(bytes.size() + RESERVE_SIZE);
     Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
 
-    writeAndIncrement(ptr, AS_U8(TelemetryType::COLLECTION_STATE));
+    writeAndIncrement(ptr, AS_U8(TelemetryType::ROBOT_STATE));
 
-    const HopperState& hopper_state = collection_state.getHopperState();
+    const HopperState& hopper_state =
+        robot_controller.collection_state.getHopperState();
+    const MiningController& mining_controller =
+        robot_controller.shared_controllers.mining_controller;
 
-    const uint8_t bool_fields = AS_U8(hopper_state.isVolCapacity()) |
-                                (AS_U8(hopper_state.isBeltCapacity()) << 1);
-    writeAndIncrement(ptr, bool_fields);
+    const uint16_t state =
+        (static_cast<uint16_t>(mining_controller.constraints) |
+         (static_cast<uint16_t>(hopper_state.isVolCapacity()) << 8) |
+         (static_cast<uint16_t>(hopper_state.isBeltCapacity()) << 9));
+    writeAndIncrement(ptr, state);
 
     writeAsAndIncrement<float>(ptr, hopper_state.volume());
-    writeAsAndIncrement<float>(ptr, hopper_state.beltPosMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.startPosMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.endPosMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.beltUsageMeters());
-    writeAsAndIncrement<float>(ptr, hopper_state.miningTargetMotorPosition());
-    writeAsAndIncrement<float>(ptr, hopper_state.offloadTargetMotorPosition());
+    writeAsAndIncrement<float>(ptr, hopper_state.beltUsagePercent());
 }
 
 void TelemetrySerializer::addControlState(
@@ -186,7 +187,6 @@ void TelemetrySerializer::addTeleopController(
     switch (controller.op_mode)
     {
         case Op::ASSISTED_MINING:
-        case Op::PRESET_MINING:
         {
             this->addMiningController(bytes, controller.mining_controller);
             break;
@@ -321,10 +321,11 @@ void TelemetrySerializer::addMiningController(
     bytes.push_back(AS_U8(ControllerType::MINING));
     bytes.push_back(AS_U8(controller.stage));
 
+    bytes.push_back(AS_U8(controller.current_constraint));
     bytes.resize(bytes.size() + sizeof(float));
     write(
         (bytes.end() - sizeof(float)).base(),
-        controller.traversal_state.remaining());
+        controller.odometry.remaining());
 }
 
 void TelemetrySerializer::addOffloadController(
@@ -358,7 +359,8 @@ void TelemetrySerializer::addTravController(
     bytes.push_back(AS_U8(ControllerType::TRAVERSAL));
     bytes.push_back(AS_U8(controller.state));
 
-    if (controller.pplan_interface.hasPath() && this->filterFreq(this->last_path_pub))
+    if (controller.pplan_interface.hasPath() &&
+        this->filterFreq(this->last_path_pub))
     {
         // controller.state only holds 5ish values so use the highest bit of
         // that byte to signal if path is present or not

@@ -75,7 +75,7 @@ protected:
 
 protected:
     bool pubArenaTf(BytePtrRef, BytePtr);
-    bool pubCollectionState(BytePtrRef, BytePtr);
+    bool pubRobotState(BytePtrRef, BytePtr);
     bool pubControlState(BytePtrRef, BytePtr);
 
     bool pubDerivedController(BytePtrRef, BytePtr);
@@ -90,7 +90,7 @@ protected:
     bool pubTravController(BytePtrRef, BytePtr);
 
 protected:
-    void addMiningMarker(float);
+    void addMiningMarker(uint8_t, float);
     void addOffloadMarker(float);
 
 protected:

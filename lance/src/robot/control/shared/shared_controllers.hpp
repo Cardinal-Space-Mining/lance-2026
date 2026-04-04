@@ -61,7 +61,7 @@ public:
         const RobotParams& params,
         const HopperState& hopper_state,
         SensingInterfaces& sensing_interfaces) :
-        mining_controller{params, hopper_state},
+        mining_controller{params, hopper_state, sensing_interfaces},
         offload_controller{params, hopper_state},
         traversal_controller{params, sensing_interfaces},
         localization_controller{params, sensing_interfaces}

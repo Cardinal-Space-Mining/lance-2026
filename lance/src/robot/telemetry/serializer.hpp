@@ -65,7 +65,7 @@ protected:
     bool filterFreq(time_point&);
 
     void addArenaTf(Bytes&, const TfCache&);
-    void addCollectionState(Bytes&, const CollectionState&);
+    void addRobotState(Bytes&, const RobotController&);
     void addControlState(Bytes&, const RobotController&);
 
     void addTeleopController(Bytes&, const TeleopController&);

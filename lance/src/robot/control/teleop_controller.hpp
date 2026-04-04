@@ -86,7 +86,6 @@ protected:
         MANUAL = 0,
         ASSISTED_MINING,
         ASSISTED_OFFLOAD,
-        PRESET_MINING,
         PRESET_OFFLOAD,
         AUTO_TRAVERSAL
     };

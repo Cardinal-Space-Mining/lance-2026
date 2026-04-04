@@ -45,6 +45,7 @@
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
 
 
 namespace lance
@@ -60,14 +61,15 @@ class MiningController
 public:
     MiningController(
         const RobotParams&,
-        const HopperState&);
+        const HopperState&,
+        SensingInterfaces&);
     ~MiningController() = default;
 
 public:
     /* Restart the routine. If traversal distance is provided,
      * the command will track the travelled distance and end if
      * the traversal distance is exceeded. */
-    void initialize(float traversal_dist_m = 0.f);
+    void initialize();
     /* Check if the command is finished, either as a result
      * of being cancelled or automatically shutting down
      * due to a stop state. */
@@ -75,11 +77,6 @@ public:
     /* Mark the command as cancelled, i.e. it will no longer be
      * executed. */
     void setCancelled();
-
-    /* Update the remaining traversal distance. */
-    void setRemaining(float traversal_dist_m);
-    /* Set whether the hopper model should be used to determine finished state. */
-    void setUseHopperModel(bool enabled);
 
     /* Iterate the controller in "full auto" mode (no user input). */
     void iterate(
@@ -91,6 +88,8 @@ public:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
+    void updateFeatures(const JoyState& joy);
+
 protected:
     enum class Stage
     {
@@ -100,9 +99,18 @@ protected:
         RAISING,
         FINISHED
     };
+    enum Constraint : uint8_t
+    {
+        NONE = 0,
+        STALL_EVENT = (1 << 0),
+        OBSTACLE = (1 << 1),
+        HOPPER_MODEL = (1 << 2),
+        ZONE_BOUNDARY = (1 << 3),
+        ALL = (STALL_EVENT | OBSTACLE | HOPPER_MODEL | ZONE_BOUNDARY)
+    };
 
 protected:
-    struct TraversalState
+    struct ConstrainedOdometry
     {
         void init(float remaining_dist = 0.f);
         void setRemaining(float remaining_dist);
@@ -126,6 +134,7 @@ protected:
     };
 
 protected:
+    void updateConstraints(const RobotMotorStatus&);
     void iterate(
         const JoyState* joy,
         const RobotMotorStatus& motor_status,
@@ -134,12 +143,16 @@ protected:
 protected:
     const RobotParams& params;
     const HopperState& hopper_state;
+    const TfCache& tf_cache;
+    MiningEvalInterface& mining_eval_interface;
 
-    TraversalState traversal_state{};
+    ConstrainedOdometry odometry{};
     BeltDutyCycleState belt_duty_cycle{};
 
     Stage stage{Stage::FINISHED};
-    bool using_hopper_model{true};
+    uint8_t constraints{Constraint::ALL};
+
+    Constraint current_constraint{Constraint::NONE};
 };
 
 };  // namespace lance

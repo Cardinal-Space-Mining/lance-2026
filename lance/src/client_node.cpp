@@ -151,8 +151,8 @@ void ClientNode::initMarkers()
         marker.color.a = A;                                          \
     }
     ADD_MARKER("arena_bounds", "arena", 1.f, 1.f, 1.f, 0.f);
-    ADD_MARKER("mining_zone_bounds", "zones", 0.8f, 0.4f, 0.f, 0.5f);
-    ADD_MARKER("offload_zone_bounds", "zones", 0.f, 0.2f, 0.8f, 0.3f);
+    ADD_MARKER("mining_zone_bounds", "zones", 0.8f, 0.4f, 0.f, 0.2f);
+    ADD_MARKER("offload_zone_bounds", "zones", 0.f, 0.2f, 0.8f, 0.2f);
     ADD_MARKER("construction_zone_bounds", "zones", 0.1f, 0.9f, 0.2f, 0.1f);
 
 #undef ADD_MARKER

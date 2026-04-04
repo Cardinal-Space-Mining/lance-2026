@@ -50,30 +50,30 @@ namespace lance
 
 MiningController::MiningController(
     const RobotParams& params,
-    const HopperState& hopper_state) :
+    const HopperState& hopper_state,
+    SensingInterfaces& sensing_interfaces) :
     params{params},
-    hopper_state{hopper_state}
+    hopper_state{hopper_state},
+    tf_cache{sensing_interfaces.tf_cache},
+    mining_eval_interface{sensing_interfaces.mining_eval_interface}
 {
 }
 
-void MiningController::initialize(float traversal_dist_m)
+void MiningController::initialize()
 {
     this->stage = Stage::INITIALIZATION;
-    this->traversal_state.init(traversal_dist_m);
+
+    this->mining_eval_interface.queryRobotFrame();
+    this->odometry.init();
 }
 
 bool MiningController::isFinished() { return this->stage == Stage::FINISHED; }
 
-void MiningController::setCancelled() { this->stage = Stage::FINISHED; }
-
-void MiningController::setRemaining(float traversal_dist_m)
+void MiningController::setCancelled()
 {
-    this->traversal_state.setRemaining(traversal_dist_m);
-}
+    this->stage = Stage::FINISHED;
 
-void MiningController::setUseHopperModel(bool enabled)
-{
-    this->using_hopper_model = enabled;
+    this->mining_eval_interface.cancelQuery();
 }
 
 void MiningController::iterate(
@@ -91,8 +91,28 @@ void MiningController::iterate(
     this->iterate(&joy, motor_status, commands);
 }
 
+void MiningController::updateFeatures(const JoyState& joy)
+{
+    if (ToggleMiningStallConstraintButton::wasPressed(joy))
+    {
+        this->constraints ^= Constraint::STALL_EVENT;
+    }
+    if (ToggleMiningObstacleConstraintButton::wasPressed(joy))
+    {
+        this->constraints ^= Constraint::OBSTACLE;
+    }
+    if (ToggleMiningHopperConstraintButton::wasPressed(joy))
+    {
+        this->constraints ^= Constraint::HOPPER_MODEL;
+    }
+    if (ToggleMiningZoneConstraintButton::wasPressed(joy))
+    {
+        this->constraints ^= Constraint::ZONE_BOUNDARY;
+    }
+}
 
-void MiningController::TraversalState::init(float remaining_dist)
+
+void MiningController::ConstrainedOdometry::init(float remaining_dist)
 {
     if (remaining_dist <= 0.f)
     {
@@ -104,11 +124,11 @@ void MiningController::TraversalState::init(float remaining_dist)
     }
     this->prev_odom = std::numeric_limits<float>::infinity();
 }
-void MiningController::TraversalState::setRemaining(float remaining_dist)
+void MiningController::ConstrainedOdometry::setRemaining(float remaining_dist)
 {
     this->remaining_dist = remaining_dist;
 }
-void MiningController::TraversalState::updateOdom(float odom)
+void MiningController::ConstrainedOdometry::updateOdom(float odom)
 {
     if (!std::isinf(this->remaining_dist) && !std::isinf(this->prev_odom))
     {
@@ -116,11 +136,11 @@ void MiningController::TraversalState::updateOdom(float odom)
     }
     this->prev_odom = odom;
 }
-bool MiningController::TraversalState::hasRemaining() const
+bool MiningController::ConstrainedOdometry::hasRemaining() const
 {
     return this->remaining_dist > 0.f;
 }
-float MiningController::TraversalState::remaining() const
+float MiningController::ConstrainedOdometry::remaining() const
 {
     return this->remaining_dist;
 }
@@ -146,23 +166,87 @@ bool MiningController::BeltDutyCycleState::canMove(float thresh_s)
 }
 
 
+void MiningController::updateConstraints(const RobotMotorStatus& motor_status)
+{
+    this->odometry.updateOdom(
+        static_cast<float>(lance::trackMotorRpsToGroundMps(
+            0.5 * (motor_status.track_left.position +
+                   motor_status.track_right.position))));
+
+    float limit = this->odometry.remaining();
+
+    // if(this->constraints & Constraint::STALL_EVENT)
+    // {
+    //     // TODO
+    // }
+    if ((this->constraints & Constraint::OBSTACLE) &&
+        this->mining_eval_interface.hasResult() &&
+        !this->mining_eval_interface.getDists()->empty())
+    {
+        const float d = this->mining_eval_interface.getDists()->front();
+        if (d < limit)
+        {
+            limit = d;
+            this->current_constraint = Constraint::OBSTACLE;
+        }
+    }
+    if (this->constraints & Constraint::HOPPER_MODEL)
+    {
+        if (this->hopper_state.isBeltCapacity())
+        {
+            limit = 0.f;
+            this->current_constraint = Constraint::HOPPER_MODEL;
+        }
+        else
+        {
+            const float d = lance::targetVolumeToSweepDistance(
+                this->hopper_state.remainingVolume(),
+                lance::linearActuatorToMiningDepthClamped(
+                    motor_status.getHopperActNormalizedValue()));
+            if (d < limit ||
+                this->current_constraint == Constraint::HOPPER_MODEL)
+            {
+                limit = d;
+                this->current_constraint = Constraint::HOPPER_MODEL;
+            }
+        }
+    }
+    if ((this->constraints & Constraint::ZONE_BOUNDARY) &&
+        this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+    {
+        const float d = lance::geom::distToBounds(
+            *this->tf_cache.getTf(ROBOT_TO_ARENA_TF),
+            this->params.mining_zone_bounds);
+        if (d < limit)
+        {
+            limit = d;
+            this->current_constraint = Constraint::ZONE_BOUNDARY;
+        }
+    }
+
+    this->odometry.setRemaining(limit);
+
+    // std::cout << "Constraint : " << static_cast<int>(this->current_constraint)
+    //           << ", Remaining : " << this->odometry.remaining() << std::endl;
+}
+
+
 void MiningController::iterate(
     const JoyState* joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    if (this->stage != Stage::INITIALIZATION && joy &&
-        AssistedMiningToggleButton::wasPressed(*joy))
+    commands.disableAll();
+
+    this->updateConstraints(motor_status);
+
+    if ((this->stage < Stage::RAISING) &&
+        (!this->odometry.hasRemaining() ||
+         (this->stage != Stage::INITIALIZATION && joy &&
+          AssistedMiningToggleButton::wasPressed(*joy))))
     {
         this->stage = Stage::RAISING;
     }
-
-    this->traversal_state.updateOdom(
-        static_cast<float>(lance::trackMotorRpsToGroundMps(
-            0.5 * (motor_status.track_left.position +
-                   motor_status.track_right.position))));
-
-    commands.disableAll();
 
     switch (this->stage)
     {
@@ -198,134 +282,119 @@ void MiningController::iterate(
         }
         case Stage::TRAVERSING:
         {
-            const bool finished_state =
-                ((this->hopper_state.isBeltCapacity() &&
-                  this->using_hopper_model) ||
-                 !this->traversal_state.hasRemaining());
+            // default setpoints
+            float trencher_target = this->params.trencher_mining_velocity_rps;
+            float hopper_act_target =
+                this->params.hopper_actuator_mining_target_val;
+            float tracks_target = this->params.tracks_mining_velocity_rps;
+            float hopper_belt_target = 0.f;
 
-            if (!finished_state)
+            // 1. Set belt via hopper model target
+            if (!joy || (constraints & Constraint::HOPPER_MODEL))
             {
-                // default setpoints
-                float trencher_target =
-                    this->params.trencher_mining_velocity_rps;
-                float hopper_act_target =
-                    this->params.hopper_actuator_mining_target_val;
-                float tracks_target = this->params.tracks_mining_velocity_rps;
-                float hopper_belt_target = 0.f;
-
-                // 1. Set belt via hopper model target
-                if (this->using_hopper_model)
+                if (motor_status.hopper_belt.position <
+                        this->hopper_state.miningTargetMotorPosition() &&
+                    this->belt_duty_cycle.canMove(
+                        this->params
+                            .hopper_belt_mining_duty_cycle_base_seconds))
                 {
-                    if (motor_status.hopper_belt.position <
-                            this->hopper_state.miningTargetMotorPosition() &&
-                        this->belt_duty_cycle.canMove(
-                            this->params
-                                .hopper_belt_mining_duty_cycle_base_seconds))
-                    {
-                        hopper_belt_target =
-                            this->params.hopper_belt_mining_velocity_rps;
-                        this->belt_duty_cycle.setMoved();
-                    }
-                    else
-                    {
-                        this->belt_duty_cycle.setStopped();
-                    }
+                    hopper_belt_target =
+                        this->params.hopper_belt_mining_velocity_rps;
+                    this->belt_duty_cycle.setMoved();
                 }
-
-                // 2. Commands/target updates from user input
-                if (joy)
+                else
                 {
-                    // adjust trencher
-                    trencher_target =
-                        this->params.trencher_mining_velocity_rps *
-                        (1.f - TeleopTrencherSpeedAxis::triggerValue(*joy));
-
-                    // adjust trencher depth
-                    {
-                        const float raw =
-                            TeleopHopperActuateAxis::rawValue(*joy);
-                        if (std::abs(raw) >=
-                            this->params.default_stick_deadzone)
-                        {
-                            if (raw > 0.f)
-                            {
-                                hopper_act_target +=
-                                    raw *
-                                    (this->params
-                                         .hopper_actuator_transport_target_val -
-                                     this->params
-                                         .hopper_actuator_mining_target_val);
-                            }
-                            else if (raw < 0.f)
-                            {
-                                hopper_act_target +=
-                                    raw *
-                                    (this->params
-                                         .hopper_actuator_mining_target_val -
-                                     this->params.hopper_actuator_mining_min_val);
-                            }
-                        }
-                    }
-                    // adjust tracks
-                    {
-                        const float raw = TeleopDriveYAxis::rawValue(*joy);
-                        if (std::abs(raw) >=
-                            this->params.driving_magnitude_deadzone)
-                        {
-                            if (raw > 0.f)
-                            {
-                                tracks_target +=
-                                    raw *
-                                    this->params
-                                        .tracks_mining_adjustment_range_rps;
-                            }
-                            else if (raw < 0.f)
-                            {
-                                tracks_target +=
-                                    raw *
-                                    this->params.tracks_mining_velocity_rps;
-                            }
-                        }
-                    }
-                    // manual hopper belt - don't override automatic setpts
-                    if (!this->using_hopper_model)
-                    {
-                        hopper_belt_target =
-                            TeleopHopperSpeedAxis::triggerValue(*joy) *
-                            this->params.hopper_belt_mining_velocity_rps;
-                    }
+                    this->belt_duty_cycle.setStopped();
                 }
-
-                // 3. Apply targets
-                {
-                    commands.setTrencherVelocity(trencher_target);
-                    commands.setTracksVelocity(tracks_target, tracks_target);
-                    commands.setHopperBeltVelocity(hopper_belt_target);
-
-                    const double hopper_val =
-                        motor_status.getHopperActNormalizedValue();
-                    if (std::abs(hopper_act_target - hopper_val) <
-                        this->params.hopper_actuator_targetting_thresh)
-                    {
-                        commands.disableHopperAct();
-                    }
-                    else if (hopper_val < hopper_act_target)
-                    {
-                        commands.setHopperActPercent(
-                            this->params.hopper_actuator_plunge_speed);
-                    }
-                    else if (hopper_val > hopper_act_target)
-                    {
-                        commands.setHopperActPercent(
-                            -this->params.hopper_actuator_plunge_speed);
-                    }
-                }
-
-                break;
             }
 
-            this->stage = Stage::RAISING;
-            [[fallthrough]];
+            // 2. Commands/target updates from user input
+            if (joy)
+            {
+                // adjust trencher
+                trencher_target =
+                    this->params.trencher_mining_velocity_rps *
+                    (1.f - TeleopTrencherSpeedAxis::triggerValue(*joy));
+
+                // adjust trencher depth
+                {
+                    const float raw = TeleopHopperActuateAxis::rawValue(*joy);
+                    if (std::abs(raw) >= this->params.default_stick_deadzone)
+                    {
+                        if (raw > 0.f)
+                        {
+                            hopper_act_target +=
+                                raw *
+                                (this->params
+                                     .hopper_actuator_transport_target_val -
+                                 this->params
+                                     .hopper_actuator_mining_target_val);
+                        }
+                        else if (raw < 0.f)
+                        {
+                            hopper_act_target +=
+                                raw *
+                                (this->params
+                                     .hopper_actuator_mining_target_val -
+                                 this->params.hopper_actuator_mining_min_val);
+                        }
+                    }
+                }
+                // adjust tracks
+                {
+                    const float raw = TeleopDriveYAxis::rawValue(*joy);
+                    if (std::abs(raw) >=
+                        this->params.driving_magnitude_deadzone)
+                    {
+                        if (raw > 0.f)
+                        {
+                            tracks_target +=
+                                raw *
+                                this->params.tracks_mining_adjustment_range_rps;
+                        }
+                        else if (raw < 0.f)
+                        {
+                            tracks_target +=
+                                raw * this->params.tracks_mining_velocity_rps;
+                        }
+                    }
+                }
+                // manual hopper belt - don't override automatic setpts
+                if (!(this->constraints & Constraint::HOPPER_MODEL))
+                {
+                    hopper_belt_target =
+                        TeleopHopperSpeedAxis::triggerValue(*joy) *
+                        this->params.hopper_belt_mining_velocity_rps;
+                }
+            }
+
+            // 3. Apply targets
+            {
+                commands.setTrencherVelocity(trencher_target);
+                commands.setTracksVelocity(tracks_target, tracks_target);
+                commands.setHopperBeltVelocity(hopper_belt_target);
+
+                const double hopper_val =
+                    motor_status.getHopperActNormalizedValue();
+                if (hopper_val < 0.f ||
+                    std::abs(hopper_act_target - hopper_val) <
+                        this->params.hopper_actuator_targetting_thresh)
+                {
+                    commands.disableHopperAct();
+                }
+                else if (hopper_val < hopper_act_target)
+                {
+                    commands.setHopperActPercent(
+                        this->params.hopper_actuator_plunge_speed);
+                }
+                else if (hopper_val > hopper_act_target)
+                {
+                    commands.setHopperActPercent(
+                        -this->params.hopper_actuator_plunge_speed);
+                }
+            }
+
+            break;
         }
         case Stage::RAISING:
         {
@@ -344,7 +413,7 @@ void MiningController::iterate(
         }
         case Stage::FINISHED:
         {
-            //
+            this->mining_eval_interface.cancelQuery();
         }
     }
 }

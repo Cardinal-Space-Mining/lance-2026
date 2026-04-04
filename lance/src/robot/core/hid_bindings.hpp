@@ -68,8 +68,8 @@ struct XboxControllerMappings
         AXIS_RIGHT_X = 3,
         AXIS_RIGHT_Y = 4,
         AXIS_RIGHT_TRIGGER = 5,
-        AXIS_DPAD_VERTICAL = 6,
-        AXIS_DPAD_HORIZONTAL = 7,
+        AXIS_DPAD_HORIZONTAL = 6,
+        AXIS_DPAD_VERTICAL = 7,
 
         NUM_AXES = 8
     };
@@ -135,8 +135,11 @@ using AssistedOffloadToggleButton = Xbox::ButtonRightCenter;
 using PresetMiningInitButton = Xbox::ButtonLeftStick;
 using PresetOffloadInitButton = Xbox::ButtonRightStick;
 
-using ToggleTraversalCursorMode = Xbox::ButtonCenter;
+using ToggleMiningObstacleConstraintButton = Xbox::DPadUp;
+using ToggleMiningHopperConstraintButton = Xbox::DPadRight;
+using ToggleMiningZoneConstraintButton = Xbox::DPadDown;
+using ToggleMiningStallConstraintButton = Xbox::DPadLeft;
 
 #undef Xbox
 
-};  // namespace Bindings
+};  // namespace lance

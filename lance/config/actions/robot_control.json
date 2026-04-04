@@ -49,11 +49,11 @@
 
             "collection_model":
             {
-                "initial_volume_liters": 10.0,
+                "initial_volume_liters": 20.0,
                 "capacity_volume_liters": 40.0,
-                "initial_belt_footprint_meters": 0.2,
-                "belt_capacity_meters": 0.7,
-                "belt_offload_length_meters": 0.8
+                "initial_belt_footprint_meters": 0.4,
+                "belt_capacity_meters": 0.75,
+                "belt_offload_length_meters": 0.9
             },
 
             "preset_mining_traversal_dist_meters": 0.25,
@@ -98,9 +98,9 @@
 
             "collection_model":
             {
-                "initial_volume_liters": 6.0,
+                "initial_volume_liters": 10.0,
                 "capacity_volume_liters": 25.0,
-                "initial_belt_footprint_meters": 0.2,
+                "initial_belt_footprint_meters": 0.3,
                 "belt_capacity_meters": 0.6,
                 "belt_offload_length_meters": 0.7
             },

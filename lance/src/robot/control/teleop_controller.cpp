@@ -74,7 +74,6 @@ void TeleopController::setCancelled()
     switch (this->op_mode)
     {
         case Operation::ASSISTED_MINING:
-        case Operation::PRESET_MINING:
         {
             this->mining_controller.setCancelled();
             break;
@@ -108,6 +107,8 @@ void TeleopController::iterate(
         return;
     }
 
+    this->mining_controller.updateFeatures(joy);
+
     // iterate controllers... if inputs result in finish state, continue
     // to iterate manual mode below (motor commands meaningless anyway)
     bool command_finished = false;
@@ -115,47 +116,14 @@ void TeleopController::iterate(
     {
         case Operation::ASSISTED_MINING:
         {
-            const bool eval_has_result =
-                this->sensing_interfaces.mining_eval_interface.hasResult();
-            const bool has_tf =
-                this->sensing_interfaces.tf_cache.hasTf(ROBOT_TO_ARENA_TF);
-            if (eval_has_result || has_tf)
-            {
-                float remaining = std::numeric_limits<float>::max();
-                if (eval_has_result)
-                {
-                    remaining = this->sensing_interfaces.mining_eval_interface
-                                    .getDists()
-                                    ->front();
-                }
-                if (has_tf)
-                {
-                    remaining = std::min(
-                        remaining,
-                        lance::geom::distToBounds(
-                            *this->sensing_interfaces.tf_cache.getTf(
-                                ROBOT_TO_ARENA_TF),
-                            this->params.mining_zone_bounds));
-                }
-                this->mining_controller.setRemaining(remaining);
-            }
             this->mining_controller.iterate(joy, motor_status, commands);
-            if ((command_finished = this->mining_controller.isFinished()))
-            {
-                this->sensing_interfaces.mining_eval_interface.cancelQuery();
-            }
+            command_finished = this->mining_controller.isFinished();
             break;
         }
         case Operation::ASSISTED_OFFLOAD:
         {
             this->offload_controller.iterate(joy, motor_status, commands);
             command_finished = this->offload_controller.isFinished();
-            break;
-        }
-        case Operation::PRESET_MINING:
-        {
-            this->mining_controller.iterate(motor_status, commands);
-            command_finished = this->mining_controller.isFinished();
             break;
         }
         case Operation::PRESET_OFFLOAD:
@@ -201,11 +169,6 @@ void TeleopController::iterate(
             case Operation::ASSISTED_OFFLOAD:
             {
                 this->offload_controller.iterate(joy, motor_status, commands);
-                break;
-            }
-            case Operation::PRESET_MINING:
-            {
-                this->mining_controller.iterate(motor_status, commands);
                 break;
             }
             case Operation::PRESET_OFFLOAD:
@@ -278,7 +241,6 @@ void TeleopController::handleTeleopInputs(
     if (AssistedMiningToggleButton::wasPressed(joy))
     {
         this->mining_controller.initialize();
-        this->sensing_interfaces.mining_eval_interface.queryRobotFrame();
         this->op_mode = Operation::ASSISTED_MINING;
         return;
     }
@@ -289,13 +251,6 @@ void TeleopController::handleTeleopInputs(
         return;
     }
 
-    if (PresetMiningInitButton::wasPressed(joy))
-    {
-        this->mining_controller.initialize(
-            this->params.preset_mining_traversal_dist_meters);
-        this->op_mode = Operation::PRESET_MINING;
-        return;
-    }
     if (PresetOffloadInitButton::wasPressed(joy))
     {
         this->offload_controller.initialize(

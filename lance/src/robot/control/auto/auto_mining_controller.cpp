@@ -155,27 +155,18 @@ void AutoMiningController::iterate(
                 break;
             }
 
-            // initialize with query result
-            this->mining_controller.initialize(0.f);
-            this->sensing_interfaces.mining_eval_interface.queryRobotFrame();
+            this->mining_controller.initialize();
             this->stage = Stage::MINING;
             [[fallthrough]];
         }
         case Stage::MINING:
         {
-            if (this->sensing_interfaces.mining_eval_interface.hasResult())
-            {
-                this->mining_controller.setRemaining(
-                    this->sensing_interfaces.mining_eval_interface.getDists()
-                        ->front());
-            }
             this->mining_controller.iterate(motor_status, commands);
             if (!this->mining_controller.isFinished())
             {
                 break;
             }
 
-            this->sensing_interfaces.mining_eval_interface.cancelQuery();
             this->stage = Stage::FINISHED;
             [[fallthrough]];
         }

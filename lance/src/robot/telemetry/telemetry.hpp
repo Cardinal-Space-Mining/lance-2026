@@ -68,7 +68,7 @@ enum class TelemetryType : uint8_t
     INVALID_ID = 0,
 
     ARENA_TF,
-    COLLECTION_STATE,
+    ROBOT_STATE,
     CTRL_STATE
 };
 

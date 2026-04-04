@@ -51,6 +51,13 @@ using namespace util;
 using namespace util::geom::cvt::ops;
 using namespace lance::geom;
 
+using PathMsg = nav_msgs::msg::Path;
+using BoolMsg = std_msgs::msg::Bool;
+using ColorMsg = std_msgs::msg::ColorRGBA;
+using StringMsg = std_msgs::msg::String;
+using Float32Msg = std_msgs::msg::Float32;
+using TransformStampedMsg = geometry_msgs::msg::TransformStamped;
+
 #define AS_U8(x) static_cast<uint8_t>(x)
 
 
@@ -97,9 +104,9 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
                 ok &= this->pubArenaTf(ptr, end_ptr);
                 break;
             }
-            case AS_U8(TelemetryType::COLLECTION_STATE):
+            case AS_U8(TelemetryType::ROBOT_STATE):
             {
-                ok &= this->pubCollectionState(ptr, end_ptr);
+                ok &= this->pubRobotState(ptr, end_ptr);
                 break;
             }
             case AS_U8(TelemetryType::CTRL_STATE):
@@ -117,9 +124,7 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
 
     if (this->ctrl_chain.empty())
     {
-        this->pub_map.publish<std_msgs::msg::String>(
-            lance::OP_STATUS_TOPIC,
-            "Disabled");
+        this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, "Disabled");
     }
     else
     {
@@ -130,9 +135,7 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
             ss << " : " << this->ctrl_chain[i];
         }
 
-        this->pub_map.publish<std_msgs::msg::String>(
-            lance::OP_STATUS_TOPIC,
-            ss.str());
+        this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, ss.str());
     }
 
     if (!this->markers.markers.empty())
@@ -152,7 +155,7 @@ bool TelemetryDeserializer::pubArenaTf(BytePtrRef ptr, BytePtr end)
 {
     EXIT_IF_INSUFFICIENT_SIZE(sizeof(float) * 7);
 
-    geometry_msgs::msg::TransformStamped msg;
+    TransformStampedMsg msg;
 
     readAsAndIncrement<float>(ptr, msg.transform.translation.x);
     readAsAndIncrement<float>(ptr, msg.transform.translation.y);
@@ -181,35 +184,44 @@ bool TelemetryDeserializer::pubArenaTf(BytePtrRef ptr, BytePtr end)
     return true;
 }
 
-bool TelemetryDeserializer::pubCollectionState(BytePtrRef ptr, BytePtr end)
+bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
 {
-    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + (sizeof(float) * 7))
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint16_t) + (sizeof(float) * 2));
+
+    uint16_t state{0};
+    readAndIncrement(ptr, state);
+
+    this->pub_map.publish<BoolMsg>(
+        ROBOT_TOPIC("mining_constraints/stall_event"),
+        static_cast<bool>(state & MiningController::Constraint::STALL_EVENT));
+    this->pub_map.publish<BoolMsg>(
+        ROBOT_TOPIC("mining_constraints/obstacle"),
+        static_cast<bool>(state & MiningController::Constraint::OBSTACLE));
+    this->pub_map.publish<BoolMsg>(
+        ROBOT_TOPIC("mining_constraints/hopper_model"),
+        static_cast<bool>(state & MiningController::Constraint::HOPPER_MODEL));
+    this->pub_map.publish<BoolMsg>(
+        ROBOT_TOPIC("mining_constraints/zone_boundary"),
+        static_cast<bool>(state & MiningController::Constraint::ZONE_BOUNDARY));
+
+    this->pub_map.publish<BoolMsg>(
+        COLLECTION_STATE_TOPIC("is_full_volume"),
+        static_cast<bool>(state & (1 << 8)));
+    this->pub_map.publish<BoolMsg>(
+        COLLECTION_STATE_TOPIC("is_full_occ"),
+        static_cast<bool>(state & (1 << 9)));
+
+    std::cout << state << std::endl;
 
     constexpr char const* FLOAT_TOPICS[] = {
         COLLECTION_STATE_TOPIC("volume"),
-        COLLECTION_STATE_TOPIC("mining_target"),
-        COLLECTION_STATE_TOPIC("offload_target"),
-        COLLECTION_STATE_TOPIC("belt_pos_m"),
-        COLLECTION_STATE_TOPIC("high_pos_m"),
-        COLLECTION_STATE_TOPIC("low_pos_m"),
-        COLLECTION_STATE_TOPIC("belt_usage_m")};
-
-    uint8_t bool_fields{0};
-    readAndIncrement(ptr, bool_fields);
-
-    this->pub_map.publish<std_msgs::msg::Bool>(
-        COLLECTION_STATE_TOPIC("is_full_volume"),
-        static_cast<bool>(bool_fields & 0x1));
-    this->pub_map.publish<std_msgs::msg::Bool>(
-        COLLECTION_STATE_TOPIC("is_full_occ"),
-        static_cast<bool>(bool_fields & 0x2));
-
+        COLLECTION_STATE_TOPIC("belt_usage")};
     for (const char* TOPIC : FLOAT_TOPICS)
     {
         float val{0.f};
         readAndIncrement(ptr, val);
 
-        this->pub_map.publish<std_msgs::msg::Float32>(TOPIC, val);
+        this->pub_map.publish<Float32Msg>(TOPIC, val);
     }
 
     return true;
@@ -298,7 +310,6 @@ bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
         "Manual",
         "Assisted Mining",
         "Assisted Offload",
-        "Preset Mining",
         "Preset Offload",
         "Assisted Trav"};
 
@@ -310,7 +321,6 @@ bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
     switch (stage_id)
     {
         case AS_U8(Op::ASSISTED_MINING):
-        case AS_U8(Op::PRESET_MINING):
         case AS_U8(Op::ASSISTED_OFFLOAD):
         case AS_U8(Op::PRESET_OFFLOAD):
         case AS_U8(Op::AUTO_TRAVERSAL):
@@ -458,7 +468,7 @@ bool TelemetryDeserializer::pubAutoOffloadController(
 
 bool TelemetryDeserializer::pubMiningController(BytePtrRef ptr, BytePtr end)
 {
-    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + sizeof(float))
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) * 2 + sizeof(float))
 
     constexpr char const* STAGE_TAGS[] =
         {"Initializing", "Lowering", "Excavating", "Raising", "Finished"};
@@ -471,9 +481,11 @@ bool TelemetryDeserializer::pubMiningController(BytePtrRef ptr, BytePtr end)
         this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
     }
 
+    uint8_t constraint;
     float remaining_trav_dist;
+    readAndIncrement(ptr, constraint);
     readAndIncrement(ptr, remaining_trav_dist);
-    this->addMiningMarker(remaining_trav_dist);
+    this->addMiningMarker(constraint, remaining_trav_dist);
 
     return true;
 }
@@ -558,7 +570,7 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
 
         if (n_pts)
         {
-            nav_msgs::msg::Path msg;
+            PathMsg msg;
             msg.header.frame_id = this->tf_cache.odom_frame_id;
             msg.header.stamp = this->rcl_clock->now();
 
@@ -579,9 +591,9 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
 }
 
 
-void TelemetryDeserializer::addMiningMarker(float dist)
+void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
 {
-    if (!this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+    if (!this->tf_cache.hasTf(ROBOT_TO_ARENA_TF) || !constraint)
     {
         return;
     }
@@ -597,10 +609,17 @@ void TelemetryDeserializer::addMiningMarker(float dist)
     marker.action = MarkerMsg::ADD;
     marker.lifetime = rclcpp::Duration(0, 100000000);
 
-    marker.color.r = 1.f;
-    marker.color.g = 0.f;
-    marker.color.b = 0.f;
-    marker.color.a = 0.5f;
+    static const ColorMsg CONSTRAINT_COLORS[] = {
+        ColorMsg{}.set__r(0.9f).set__g(0.8f).set__b(0.2f).set__a(0.5f),
+        ColorMsg{}.set__r(1.f).set__a(0.5f),
+        ColorMsg{}.set__r(0.6f).set__g(0.2f).set__b(0.9f).set__a(0.5f),
+        ColorMsg{}.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f),
+    };
+
+    marker.color = CONSTRAINT_COLORS
+        [(constraint > MiningController::Constraint::STALL_EVENT) +
+         (constraint > MiningController::Constraint::OBSTACLE) +
+         (constraint > MiningController::Constraint::HOPPER_MODEL)];
 
     marker.scale.x = dist;
     marker.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;
@@ -623,9 +642,6 @@ void TelemetryDeserializer::addMiningMarker(float dist)
     marker.pose.orientation.z = flattened_q.z();
 }
 
-void TelemetryDeserializer::addOffloadMarker(float dist)
-{
-    (void)dist;
-}
+void TelemetryDeserializer::addOffloadMarker(float dist) { (void)dist; }
 
 };  // namespace lance
