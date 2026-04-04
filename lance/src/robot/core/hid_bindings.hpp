@@ -113,6 +113,9 @@ namespace lance
 
 #define Xbox XboxControllerMappings
 
+
+// --- Robot Controls ----------------------------------------------------------
+
 using DisableAllActionsButton = Xbox::ButtonA;
 
 using TeleopLowSpeedButton = Xbox::ButtonB;
@@ -139,6 +142,15 @@ using ToggleMiningObstacleConstraintButton = Xbox::DPadUp;
 using ToggleMiningHopperConstraintButton = Xbox::DPadRight;
 using ToggleMiningZoneConstraintButton = Xbox::DPadDown;
 using ToggleMiningStallConstraintButton = Xbox::DPadLeft;
+
+
+// --- Mission Control Overrides -----------------------------------------------
+
+using MissionControlOverrideButton = Xbox::ButtonCenter;
+
+using SetDisabledModeButton = Xbox::ButtonA;
+using SetAutoModeButton = Xbox::ButtonX;
+using SetTeleopModeButton = Xbox::ButtonB;
 
 #undef Xbox
 

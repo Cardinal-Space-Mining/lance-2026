@@ -51,7 +51,8 @@ namespace lance
 
 #define CONSTEXPR_STR constexpr inline char const*
 
-CONSTEXPR_STR JOY_TOPIC = "/joy";
+CONSTEXPR_STR JOY_INPUT_TOPIC = "/joy";
+CONSTEXPR_STR JOY_CTRL_TOPIC = ROBOT_TOPIC("joy_ctrl");
 CONSTEXPR_STR CLICKED_POINT_TOPIC = "/clicked_point";
 CONSTEXPR_STR WATCHDOG_TOPIC = ROBOT_TOPIC("watchdog_status");
 CONSTEXPR_STR SET_TELEOP_TOPIC = ROBOT_TOPIC("set_teleop_mode");

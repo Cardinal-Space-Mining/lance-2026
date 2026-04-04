@@ -128,7 +128,7 @@ RobotControlNode::RobotControlNode() :
     INIT_TALON_PUB_SUB(hopper_act, hopper_actuator),
 
     joy_sub{this->create_subscription<JoyMsg>(
-        lance::JOY_TOPIC,
+        lance::JOY_CTRL_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const JoyMsg::ConstSharedPtr& msg)
         { this->last_joy_msg = msg; })},

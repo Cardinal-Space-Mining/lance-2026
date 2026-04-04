@@ -211,8 +211,6 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
         COLLECTION_STATE_TOPIC("is_full_occ"),
         static_cast<bool>(state & (1 << 9)));
 
-    std::cout << state << std::endl;
-
     constexpr char const* FLOAT_TOPICS[] = {
         COLLECTION_STATE_TOPIC("volume"),
         COLLECTION_STATE_TOPIC("belt_usage")};

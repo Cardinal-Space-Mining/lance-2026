@@ -58,14 +58,6 @@ message(STATUS
 include_directories("src")
 
 
-# --- Watchdog -----------------------------------------------------------------
-add_executable(robot_status
-    "src/watchdog_node.cpp")
-ament_target_dependencies(robot_status
-    rclcpp
-    std_msgs
-    std_srvs)
-
 # --- Common Lib ---------------------------------------------------------------
 set(lance_core_srcs
     "src/robot/core/robot_params.cpp"
@@ -234,9 +226,6 @@ if(BUILD_LANCE2)
         DESTINATION lib/${PROJECT_NAME} )
 endif()
 
-install(TARGETS
-    robot_status
-    DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
     config
     launch
