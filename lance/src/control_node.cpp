@@ -47,28 +47,22 @@
 
 #include <csm_metrics/profiling.hpp>
 
-#include "util/pub_map.hpp"
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
 
+#include "robot/core/ros_interface.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/control/robot_controller.hpp"
-#include "robot/telemetry/telemetry.hpp"
+#include "robot/telemetry/serializer.hpp"
 
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-#define TALON_CTRL_PUB_QOS                                               \
-    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
 using namespace std::chrono_literals;
-using namespace util::ros_aliases;
 using namespace lance;
 
 
-class RobotControlNode : public rclcpp::Node
+class RobotControlNode : public rclcpp::Node, public util::UsingRosAliases
 {
     using JoyState = util::JoyState;
-    using GenericPubMap = util::GenericPubMap;
 
     using JoyMsg = sensor_msgs::msg::Joy;
     using Int32Msg = std_msgs::msg::Int32;
@@ -79,12 +73,11 @@ public:
 protected:
     struct TalonPubSub
     {
-        SharedPub<TalonCtrlMsg> ctrl_pub;
-        SharedSub<TalonInfoMsg> info_sub;
+        RclPubPtr<TalonCtrlMsg> ctrl_pub;
+        RclSubPtr<TalonInfoMsg> info_sub;
     };
 
 private:
-    GenericPubMap pub_map;
     RobotController robot_controller;
     TelemetrySerializer telemetry;
 
@@ -94,9 +87,9 @@ private:
     TalonPubSub hopper_belt_pub_sub;
     TalonPubSub hopper_actuator_pub_sub;
 
-    SharedSub<JoyMsg> joy_sub;
-    SharedSub<Int32Msg> watchdog_sub;
-    RclTimer control_iteration_timer;
+    RclSubPtr<JoyMsg> joy_sub;
+    RclSubPtr<Int32Msg> watchdog_sub;
+    RclTimer::SharedPtr control_iteration_timer;
 
     RobotMotorStatus robot_motor_status;
     JoyMsg::ConstSharedPtr last_joy_msg{nullptr};
@@ -108,23 +101,24 @@ private:
 
 // ---
 
-#define INIT_TALON_PUB_SUB(device_topic, device_var)            \
-    device_var##_pub_sub                                        \
-    {                                                           \
-        this->create_publisher<TalonCtrlMsg>(                   \
-            ROBOT_TOPIC(#device_topic "/ctrl"),                 \
-            TALON_CTRL_PUB_QOS),                                \
-            this->create_subscription<TalonInfoMsg>(            \
-                ROBOT_TOPIC(#device_topic "/info"),             \
-                rclcpp::SensorDataQoS{},                        \
-                [this](const TalonInfoMsg& msg)                 \
-                { this->robot_motor_status.device_var = msg; }) \
+// clang-format off
+#define INIT_TALON_PUB_SUB(device_topic, device_var)        \
+    device_var##_pub_sub                                    \
+    {                                                       \
+        this->create_publisher<TalonCtrlMsg>(               \
+            TALON_CTRL_TOPIC(#device_topic),                \
+            TALON_CTRL_PUBSUB_QOS),                         \
+        this->create_subscription<TalonInfoMsg>(            \
+            TALON_INFO_TOPIC(#device_topic),                \
+            rclcpp::SensorDataQoS{},                        \
+            [this](const TalonInfoMsg& msg)                 \
+            { this->robot_motor_status.device_var = msg; }) \
     }
+// clang-format on
 
 RobotControlNode::RobotControlNode() :
     Node{"robot_control"},
-    pub_map{*this, "", rclcpp::SensorDataQoS{}},
-    robot_controller{*this, this->pub_map},
+    robot_controller{*this},
     telemetry{*this, 1.f},
 
     INIT_TALON_PUB_SUB(track_right, track_right),
@@ -134,12 +128,12 @@ RobotControlNode::RobotControlNode() :
     INIT_TALON_PUB_SUB(hopper_act, hopper_actuator),
 
     joy_sub{this->create_subscription<JoyMsg>(
-        "/joy",
+        lance::JOY_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const JoyMsg::ConstSharedPtr& msg)
         { this->last_joy_msg = msg; })},
     watchdog_sub{this->create_subscription<Int32Msg>(
-        ROBOT_TOPIC("watchdog_status"),
+        lance::WATCHDOG_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const Int32Msg& status)
         { this->control_status = status.data; })},

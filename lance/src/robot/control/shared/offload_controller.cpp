@@ -39,15 +39,16 @@
 
 #include "offload_controller.hpp"
 
+#include "robot/core/hid_bindings.hpp"
+#include "robot/model/dynamics.hpp"
+
 
 namespace lance
 {
 
 OffloadController::OffloadController(
-    GenericPubMap& pub_map,
     const RobotParams& params,
     const HopperState& hopper_state) :
-    pub_map{pub_map},
     params{params},
     hopper_state{hopper_state}
 {
@@ -112,8 +113,6 @@ void OffloadController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    using namespace Bindings;
-
     if (this->stage != Stage::INITIALIZATION && joy &&
         AssistedOffloadToggleButton::wasPressed(*joy))
     {
@@ -162,7 +161,7 @@ void OffloadController::iterate(
         case Stage::RAISING:
         {
             if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_offload_target)
+                this->params.hopper_actuator_offload_target_val)
             {
                 commands.setHopperActPercent(
                     this->params.hopper_actuator_max_speed);
@@ -192,7 +191,7 @@ void OffloadController::iterate(
         case Stage::LOWERING:
         {
             if (motor_status.getHopperActNormalizedValue() >
-                this->params.hopper_actuator_traversal_target)
+                this->params.hopper_actuator_traversal_target_val)
             {
                 commands.setHopperActPercent(
                     -this->params.hopper_actuator_max_speed);

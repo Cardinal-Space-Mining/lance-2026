@@ -63,11 +63,11 @@
 
 // #include "util/pub_map.hpp"
 #include "util/ros_utils.hpp"
-#include "robot/core/robot_math.hpp"
+#include "robot/core/ros_interface.hpp"
+#include "robot/model/dynamics.hpp"
 
 
 using namespace util;
-using namespace util::ros_aliases;
 using namespace std::chrono;
 using namespace std::chrono_literals;
 
@@ -85,8 +85,6 @@ using TalonFaultsMsg = phoenix_ros_driver::msg::TalonFaults;
 #define SIM_STEP_DT_MS 1
 #define IO_PUB_DT_MS   20
 
-#define ROBOT_TOPIC(topic) "lance/" topic
-#define WATCHDOG_TOPIC     ROBOT_TOPIC("watchdog_status")
 #define TALON_CTRL_SUB_QOS                                               \
     rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
@@ -95,8 +93,6 @@ using TalonFaultsMsg = phoenix_ros_driver::msg::TalonFaults;
 #define GZ_HOPPER_VEL_TOPIC       "/dump_cmd_vel"
 #define GZ_TWIST_TOPIC            "/cmd_vel"
 #define GZ_JOINT_STATES_TOPIC     "/gz_joint_states"
-
-#define HOPPER_LINK_NAME "hopper_joint"
 
 
 // velocities in radians per second
@@ -413,20 +409,20 @@ double BasicActuator::getPosition() const { return this->position; }
 
 // --- SIM NODE ----------------------------------------------------------------
 
-class MotorSimNode : public RclNode
+class MotorSimNode : public rclcpp::Node, public UsingRosAliases
 {
     struct RclSimMotor
     {
         BasicMotor motor;
-        SharedSub<TalonCtrlMsg> ctrl_sub;
-        SharedPub<TalonInfoMsg> info_pub;
+        RclSubPtr<TalonCtrlMsg> ctrl_sub;
+        RclPubPtr<TalonInfoMsg> info_pub;
         // faults pub
     };
     struct RclSimActuator
     {
         BasicActuator actuator;
-        SharedSub<TalonCtrlMsg> ctrl_sub;
-        SharedPub<TalonInfoMsg> info_pub;
+        RclSubPtr<TalonCtrlMsg> ctrl_sub;
+        RclPubPtr<TalonInfoMsg> info_pub;
         // faults pub
     };
 
@@ -445,16 +441,16 @@ private:
 
     SimpleBattery battery;
 
-    SharedSub<Int32Msg> watchdog_sub;
+    RclSubPtr<Int32Msg> watchdog_sub;
 
-    SharedSub<JointStateMsg> gz_joint_sub;
-    SharedSub<OdometryMsg> left_track_odom_sub;
-    SharedSub<OdometryMsg> right_track_odom_sub;
-    SharedPub<Float64Msg> act_vel_pub;
-    SharedPub<TwistMsg> track_twist_pub;
+    RclSubPtr<JointStateMsg> gz_joint_sub;
+    RclSubPtr<OdometryMsg> left_track_odom_sub;
+    RclSubPtr<OdometryMsg> right_track_odom_sub;
+    RclPubPtr<Float64Msg> act_vel_pub;
+    RclPubPtr<TwistMsg> track_twist_pub;
 
-    RclTimer sim_timer;
-    RclTimer io_timer;
+    RclTimer::SharedPtr sim_timer;
+    RclTimer::SharedPtr io_timer;
 
     double last_bus_voltage{16.};
     double gz_left_track_pos{0.};
@@ -470,7 +466,7 @@ MotorSimNode::MotorSimNode() :
     RclNode("motor_sim"),
     battery{16.0, 0.01},
     watchdog_sub{this->create_subscription<Int32Msg>(
-        WATCHDOG_TOPIC,
+        lance::WATCHDOG_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const Int32Msg& msg) { this->onWatchdog(msg.data); })},
     act_vel_pub{this->create_publisher<Float64Msg>(
@@ -502,12 +498,12 @@ MotorSimNode::MotorSimNode() :
         auto& m = this->motors[i];
 
         m.ctrl_sub = this->create_subscription<TalonCtrlMsg>(
-            (ROBOT_TOPIC() + std::string(n) + "/ctrl"),
-            TALON_CTRL_SUB_QOS,
+            TALON_CTRL_TOPIC(+std::string(n) +),
+            TALON_CTRL_PUBSUB_QOS,
             [this, i](const TalonCtrlMsg& msg)
             { this->motors[i].motor.setControl(msg); });
         m.info_pub = this->create_publisher<TalonInfoMsg>(
-            (ROBOT_TOPIC() + std::string(n) + "/info"),
+            TALON_INFO_TOPIC(+std::string(n) +),
             rclcpp::SensorDataQoS{});
     }
 
@@ -520,12 +516,12 @@ MotorSimNode::MotorSimNode() :
         a.actuator.setPosition(0.75);
 
         a.ctrl_sub = this->create_subscription<TalonCtrlMsg>(
-            (ROBOT_TOPIC() + std::string(n) + "/ctrl"),
-            TALON_CTRL_SUB_QOS,
+            TALON_CTRL_TOPIC(+std::string(n) +),
+            TALON_CTRL_PUBSUB_QOS,
             [this, i](const TalonCtrlMsg& msg)
             { this->actuators[i].actuator.setControl(msg); });
         a.info_pub = this->create_publisher<TalonInfoMsg>(
-            (ROBOT_TOPIC() + std::string(n) + "/info"),
+            TALON_INFO_TOPIC(+std::string(n) +),
             rclcpp::SensorDataQoS{});
     }
 
@@ -536,7 +532,7 @@ MotorSimNode::MotorSimNode() :
         {
             for (size_t i = 0; i < msg.name.size(); i++)
             {
-                if (msg.name[i] == HOPPER_LINK_NAME)
+                if (msg.name[i] == lance::HOPPER_JOINT_NAME)
                 {
                     double target = lance::linearActuatorToJointAngle(
                         this->actuators[0].actuator.getPosition());

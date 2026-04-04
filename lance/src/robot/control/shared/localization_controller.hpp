@@ -39,17 +39,9 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
-
-#include <std_srvs/srv/set_bool.hpp>
-
-#include <cardinal_perception/msg/reflector_hint.hpp>
-
-#include "util/pub_map.hpp"
-
-#include "robot/core/tf_cache.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
 
 
 namespace lance
@@ -61,21 +53,11 @@ class LocalizationController
     friend class TelemetryDeserializer;
 
     using RclNode = rclcpp::Node;
-    using SetBoolSrv = std_srvs::srv::SetBool;
-    using ReflectorHintMsg = cardinal_perception::msg::ReflectorHint;
-    using GenericPubMap = util::GenericPubMap;
-
-    template<typename T>
-    using RclSubPtr = typename rclcpp::Subscription<T>::SharedPtr;
-    template<typename T>
-    using RclClientPtr = typename rclcpp::Client<T>::SharedPtr;
 
 public:
     LocalizationController(
-        RclNode&,
-        GenericPubMap&,
         const RobotParams&,
-        const TfCache&);
+        SensingInterfaces&);
     ~LocalizationController() = default;
 
 public:
@@ -98,18 +80,11 @@ protected:
     };
 
 protected:
-    void setLfdControl(bool enabled);
-
-protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
     const TfCache& tf_cache;
-
-    RclSubPtr<ReflectorHintMsg> hint_sub;
-    RclClientPtr<SetBoolSrv> lfd_control_client;
+    ReflectorHintInterface& refl_hint_interface;
 
     Stage stage{Stage::FINISHED};
-    ReflectorHintMsg::ConstSharedPtr last_hint{nullptr};
 };
 
 };  // namespace lance

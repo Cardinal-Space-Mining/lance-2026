@@ -39,11 +39,7 @@
 
 #pragma once
 
-#include "util/pub_map.hpp"
 #include "util/joy_utils.hpp"
-
-#include "robot/core/robot_math.hpp"
-#include "robot/core/hid_bindings.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
@@ -58,11 +54,9 @@ class OffloadController
     friend class TelemetryDeserializer;
 
     using JoyState = util::JoyState;
-    using GenericPubMap = util::GenericPubMap;
 
 public:
     OffloadController(
-        GenericPubMap&,
         const RobotParams&,
         const HopperState&);
     ~OffloadController() = default;
@@ -112,12 +106,12 @@ protected:
         RobotMotorCommands& commands);
 
 protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
     const HopperState& hopper_state;
 
-    Stage stage{Stage::FINISHED};
     TraversalState traversal_state{};
+    Stage stage{Stage::FINISHED};
+
     double calculated_target_belt_pos{0.};
     bool using_hopper_model{true};
 };

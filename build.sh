@@ -1,7 +1,7 @@
 #!/bin/bash
 
 FREE_MEM_THRESH=$((8 * 1024 * 1024 * 1024))
-BYTES_PER_JOB=$((2 * 1024 * 1024 * 1024))
+BYTES_PER_JOB=$((3 * 1024 * 1024 * 1024))
 
 if [[ "$(uname)" == "Linux" ]]; then
     AVAIL_MEM=$(awk '/MemAvailable/ { print $2 * 1024 }' /proc/meminfo)

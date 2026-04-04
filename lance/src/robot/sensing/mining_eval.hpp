@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,39 +39,54 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <rclcpp/rclcpp.hpp>
 
-#include "base_adapter.hpp"
+#include <Eigen/Core>
+
+#include <cardinal_perception/msg/mining_eval_results.hpp>
+#include <cardinal_perception/srv/update_mining_eval_mode.hpp>
+
+#include "util/ros_utils.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/model/geometry.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
+
+class MiningEvalInterface : public util::UsingRosAliases
+{
+    using UpdateMiningEvalSrv = cardinal_perception::srv::UpdateMiningEvalMode;
+    using MiningEvalResultsMsg = cardinal_perception::msg::MiningEvalResults;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+    // vec.x() -> x, vec.y() -> y, vec.z() -> theta (radians)
+    using Pose2f = lance::geom::Pose2f;
+
+public:
+    MiningEvalInterface(RclNode&, const RobotParams&);
+
+public:
+    void queryArenaFrame(const std::vector<Pose2f>& poses);
+    void queryRobotFrame();
+    void cancelQuery();
+
+    bool hasResult() const;
+    const std::vector<float>* getDists() const;
 
 protected:
-    const std::string lidar_frame_id;
+    void updateResult(const MiningEvalResultsMsg::ConstSharedPtr& msg);
+
+protected:
+    const RobotParams& params;
+    RclClock::ConstSharedPtr rcl_clock;
+
+    RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
+    RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
+
+    MiningEvalResultsMsg::UniquePtr eval_results{ nullptr };
+    int32_t eval_id{ -1 };
+
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
-{
-    friend BaseT;
-
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
 };

@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,39 +39,38 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <rclcpp/rclcpp.hpp>
 
-#include "base_adapter.hpp"
+#include <std_srvs/srv/set_bool.hpp>
+
+#include <cardinal_perception/msg/reflector_hint.hpp>
+
+#include "util/ros_utils.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
+
+class ReflectorHintInterface : public util::UsingRosAliases
+{
+    using SetBoolSrv = std_srvs::srv::SetBool;
+    using ReflectorHintMsg = cardinal_perception::msg::ReflectorHint;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+    ReflectorHintInterface(RclNode&);
 
-protected:
-    const std::string lidar_frame_id;
+public:
+    void setEnableSrv(bool enabled);
+
+    bool hasHint() const;
+    const ReflectorHintMsg* getLatestHint() const;
+    void clearHint();
+
+public:
+    RclSubPtr<ReflectorHintMsg> hint_sub;
+    RclClientPtr<SetBoolSrv> lfd_control_client;
+
+    ReflectorHintMsg::ConstSharedPtr last_hint{nullptr};
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
-{
-    friend BaseT;
-
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+};  // namespace lance

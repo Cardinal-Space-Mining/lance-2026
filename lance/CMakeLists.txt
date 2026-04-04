@@ -68,7 +68,6 @@ ament_target_dependencies(robot_status
 
 # --- Common Lib ---------------------------------------------------------------
 set(lance_core_srcs
-    "src/robot/core/tf_cache.cpp"
     "src/robot/core/robot_params.cpp"
     "src/robot/core/collection_state.cpp"
     "src/robot/control/robot_controller.cpp"
@@ -80,7 +79,13 @@ set(lance_core_srcs
     "src/robot/control/shared/offload_controller.cpp"
     "src/robot/control/shared/traversal_controller.cpp"
     "src/robot/control/shared/localization_controller.cpp"
-    "src/robot/telemetry/telemetry.cpp")
+    "src/robot/sensing/tf_cache.cpp"
+    "src/robot/sensing/path_plan.cpp"
+    "src/robot/sensing/mining_eval.cpp"
+    "src/robot/sensing/reflector_hint.cpp"
+    # "src/robot/planning/mining_planner.cpp"
+    "src/robot/telemetry/serializer.cpp"
+    "src/robot/telemetry/deserializer.cpp")
 set(lance_core_libs
     Eigen3::Eigen)
 set(lance_core_ament_deps
@@ -90,6 +95,7 @@ set(lance_core_ament_deps
     nav_msgs
     sensor_msgs
     geometry_msgs
+    visualization_msgs
     tf2_ros
     tf2_geometry_msgs
     net_adapter
@@ -177,8 +183,7 @@ endif()
 # --- Mission Control ----------------------------------------------------------
 set(mission_control_srcs
     "src/client_node.cpp")
-set(mission_control_ament_deps
-    visualization_msgs)         # rest of deps included from core lib
+set(mission_control_ament_deps)     # rest of deps included from core lib
 
 if(BUILD_LANCE1)
     add_executable(lance1_mission_control

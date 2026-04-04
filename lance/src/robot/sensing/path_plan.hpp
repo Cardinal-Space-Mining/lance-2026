@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,39 +39,53 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <rclcpp/rclcpp.hpp>
 
-#include "base_adapter.hpp"
+#include <Eigen/Core>
+
+#include <nav_msgs/msg/path.hpp>
+
+#include <geometry_msgs/msg/point_stamped.hpp>
+
+#include <cardinal_perception/srv/update_path_planning_mode.hpp>
+
+#include "util/ros_utils.hpp"
+#include "robot/core/robot_params.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
+
+class PathPlanInterface : public util::UsingRosAliases
+{
+public:
+    using PathMsg = nav_msgs::msg::Path;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
+    using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
+
+    using Vec3f = Eigen::Vector3f;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+    PathPlanInterface(RclNode&, const RobotParams&);
+
+public:
+    void init(const Vec3f&);
+    void init(const PointStampedMsg&);
+    void cancel();
+
+    bool hasPath() const;
+    const PathMsg* getPath() const;
+    void clearPath();
 
 protected:
-    const std::string lidar_frame_id;
+    const RobotParams& params;
+    RclClock::ConstSharedPtr rcl_clock;
+
+    RclSubPtr<PathMsg> path_sub;
+    RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
+
+    PathMsg::ConstSharedPtr last_path{nullptr};
+
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
-{
-    friend BaseT;
-
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
 };

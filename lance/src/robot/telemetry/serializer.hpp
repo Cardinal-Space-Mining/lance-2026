@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,39 +39,50 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <chrono>
 
-#include "base_adapter.hpp"
+#include "robot/control/robot_controller.hpp"
+#include "robot/sensing/tf_cache.hpp"
+
+#include "telemetry.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
+
+class TelemetrySerializer : public TelemetryBase
+{
+    using steady_clock = std::chrono::steady_clock;
+    using time_point = steady_clock::time_point;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+    TelemetrySerializer(RclNode& node, float pub_throttle_freq);
+
+public:
+    void update(const RobotController&);
 
 protected:
-    const std::string lidar_frame_id;
+    bool filterFreq(time_point&);
+
+    void addArenaTf(Bytes&, const TfCache&);
+    void addRobotState(Bytes&, const RobotController&);
+    void addControlState(Bytes&, const RobotController&);
+
+    void addTeleopController(Bytes&, const TeleopController&);
+    void addAutoController(Bytes&, const AutoController&);
+    void addAutoMiningController(Bytes&, const AutoMiningController&);
+    void addAutoOffloadController(Bytes&, const AutoOffloadController&);
+    void addMiningController(Bytes&, const MiningController&);
+    void addOffloadController(Bytes&, const OffloadController&);
+    void addLocController(Bytes&, const LocalizationController&);
+    void addTravController(Bytes&, const TraversalController&);
+
+protected:
+    BytesSharedPub pub;
+
+    time_point last_tf_pub, last_path_pub;
+
+    const float throttled_pub_freq;
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
-{
-    friend BaseT;
-
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+};  // namespace lance

@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,41 +37,50 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "reflector_hint.hpp"
 
-#include <sensor_msgs/msg/imu.hpp>
-
-#include "base_adapter.hpp"
+#include "robot/core/ros_interface.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
 
-public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
-
-protected:
-    const std::string lidar_frame_id;
-};
-
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
+ReflectorHintInterface::ReflectorHintInterface(RclNode& node) :
+    hint_sub{node.create_subscription<ReflectorHintMsg>(
+        lance::PERCEPTION_REFLECTOR_HINT_TOPIC,
+        rclcpp::SensorDataQoS{},
+        [this](const ReflectorHintMsg::ConstSharedPtr& msg)
+        { this->last_hint = msg; })},
+    lfd_control_client{
+        node.create_client<SetBoolSrv>(lance::PERCEPTION_LFD_CONTROL_SRV_TOPIC)}
 {
-    friend BaseT;
+}
 
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
+void ReflectorHintInterface::setEnableSrv(bool enabled)
+{
+    auto req = std::make_shared<SetBoolSrv::Request>();
+    req->data = enabled;
+    this->lfd_control_client->async_send_request(
+        req,
+        [this, enabled](RclClient<SetBoolSrv>::SharedFuture)
+        {
+            if (!enabled)
+            {
+                this->last_hint = nullptr;
+            }
+        });
+}
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+bool ReflectorHintInterface::hasHint() const
+{
+    return this->last_hint.operator bool();
+}
+const ReflectorHintInterface::ReflectorHintMsg*
+    ReflectorHintInterface::getLatestHint() const
+{
+    return this->last_hint ? this->last_hint.get() : nullptr;
+}
+
+void ReflectorHintInterface::clearHint() { this->last_hint.reset(); }
+
+};  // namespace lance

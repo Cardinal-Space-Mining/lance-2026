@@ -46,64 +46,63 @@
 
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_status.hpp"
+#include "robot/core/ros_interface.hpp"
 
 
+using namespace util;
+using namespace lance;
 using namespace std::chrono;
 using namespace std::chrono_literals;
-
-using namespace util::ros_aliases;
-using namespace lance;
 
 
 #define WATCHDOG_PUB_DT           100ms
 #define WATCHDOG_TELEOP_FEED_TIME 250ms
 #define WATCHDOG_AUTO_FEED_TIME   10000ms
 
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
 
-
-class RobotStatusServer : public rclcpp::Node
+class RobotStatusServer : public rclcpp::Node, public UsingRosAliases
 {
     using Int32Msg = std_msgs::msg::Int32;
     using SetBoolSrv = std_srvs::srv::SetBool;
+
+    using SetBoolReqPtr = SetBoolSrv::Request::SharedPtr;
+    using SetBoolRespPtr = SetBoolSrv::Response::SharedPtr;
 
 public:
     RobotStatusServer() :
         Node("robot_status"),
 
         watchdog_status_pub{this->create_publisher<Int32Msg>(
-            ROBOT_TOPIC("watchdog_status"),
+            lance::WATCHDOG_TOPIC,
             rclcpp::SensorDataQoS{})},
+
         set_teleop_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_teleop_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
+            lance::SET_TELEOP_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
             {
                 this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
                                             : ControlMode::DISABLED;
                 resp->success = true;
             })},
+
         set_auto_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_auto_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
+            lance::SET_AUTO_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
             {
                 this->ctrl_mode =
                     req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
                 resp->success = true;
             })},
+
         test_mode_srv{this->create_service<SetBoolSrv>(
-            ROBOT_TOPIC("set_test_mode"),
-            [this](
-                SetBoolSrv::Request::SharedPtr req,
-                SetBoolSrv::Response::SharedPtr resp)
+            lance::SET_TEST_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
             {
                 this->ctrl_opts = static_cast<uint8_t>(
                     req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
                 resp->success = true;
             })},
+
         watchdog_timer{this->create_wall_timer(
             WATCHDOG_PUB_DT,
             [this]()
@@ -125,11 +124,11 @@ protected:
     }
 
 protected:
-    SharedPub<Int32Msg> watchdog_status_pub;
-    SharedSrv<SetBoolSrv> set_teleop_srv;
-    SharedSrv<SetBoolSrv> set_auto_srv;
-    SharedSrv<SetBoolSrv> test_mode_srv;
-    RclTimer watchdog_timer;
+    RclPubPtr<Int32Msg> watchdog_status_pub;
+    RclSrvPtr<SetBoolSrv> set_teleop_srv;
+    RclSrvPtr<SetBoolSrv> set_auto_srv;
+    RclSrvPtr<SetBoolSrv> test_mode_srv;
+    RclTimer::SharedPtr watchdog_timer;
 
     ControlMode ctrl_mode{ControlMode::DISABLED};
     uint8_t ctrl_opts{0};

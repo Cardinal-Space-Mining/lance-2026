@@ -63,6 +63,11 @@ public:
 public:
     // estimated volume in liters
     inline double volume() const { return this->total_vol_l; }
+    // volume left until full in liters
+    inline double remainingVolume() const
+    {
+        return this->cap_vol_l - this->total_vol_l;
+    }
     // tracked belt position in meters
     inline double beltPosMeters() const { return this->belt_pos_m; }
     // belt position of "head" of regolith pile (closest to trencher)
@@ -71,6 +76,11 @@ public:
     inline double endPosMeters() const { return this->low_pos_m; }
     // region of belt occupiled by regolith pile, in meters
     inline double beltUsageMeters() const { return this->occupied_delta_m(); }
+    // the relative proportion of the belt which is used
+    inline double beltUsagePercent() const
+    {
+        return this->occupied_delta_m() / this->cap_len_m;
+    }
 
     // have we reached the max configured volume
     inline bool isVolCapacity() const
@@ -151,4 +161,4 @@ protected:
     double prev_impact_volume = DOUBLE_UNINITTED_VALUE;
 };
 
-};
+};  // namespace lance

@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,39 +39,70 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <string>
+#include <vector>
 
-#include "base_adapter.hpp"
+#include <tf2_ros/transform_broadcaster.hpp>
+
+#include <visualization_msgs/msg/marker_array.hpp>
+
+#include "util/pub_map.hpp"
+#include "robot/sensing/tf_cache.hpp"
+
+#include "telemetry.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
+
+class TelemetryDeserializer : public TelemetryBase
+{
+    using GenericPubMap = util::GenericPubMap;
+    using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
+    using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
+
+    using MarkerMsg = visualization_msgs::msg::Marker;
+    using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+    TelemetryDeserializer(RclNode& node, TfCache& tf_cache);
+
+public:
+    GenericPubMap& getPubMap();
 
 protected:
-    const std::string lidar_frame_id;
+    void accept(const BytesMsg&);
+
+protected:
+    bool pubArenaTf(BytePtrRef, BytePtr);
+    bool pubRobotState(BytePtrRef, BytePtr);
+    bool pubControlState(BytePtrRef, BytePtr);
+
+    bool pubDerivedController(BytePtrRef, BytePtr);
+
+    bool pubTeleopController(BytePtrRef, BytePtr);
+    bool pubAutoController(BytePtrRef, BytePtr);
+    bool pubAutoMiningController(BytePtrRef, BytePtr);
+    bool pubAutoOffloadController(BytePtrRef, BytePtr);
+    bool pubMiningController(BytePtrRef, BytePtr);
+    bool pubOffloadController(BytePtrRef, BytePtr);
+    bool pubLocController(BytePtrRef, BytePtr);
+    bool pubTravController(BytePtrRef, BytePtr);
+
+protected:
+    void addMiningMarker(uint8_t, float);
+    void addOffloadMarker(float);
+
+protected:
+    GenericPubMap pub_map;
+    TfCache& tf_cache;
+    Tf2Broadcaster tf_broadcaster;
+    ConstSharedClock rcl_clock;
+
+    BytesSharedSub sub;
+
+    std::vector<std::string> ctrl_chain;
+    MarkerArrayMsg markers;
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
-{
-    friend BaseT;
-
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+};  // namespace lance

@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,41 +37,72 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "path_plan.hpp"
 
-#include <sensor_msgs/msg/imu.hpp>
-
-#include "base_adapter.hpp"
+#include "robot/core/ros_interface.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
 
-public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
-
-protected:
-    const std::string lidar_frame_id;
-};
-
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
+PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
+    params{params},
+    rcl_clock{node.get_clock()},
+    path_sub{node.create_subscription<PathMsg>(
+        lance::PERCEPTION_PATH_TOPIC,
+        rclcpp::SensorDataQoS{},
+        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
+    pplan_control_client{node.create_client<UpdatePathPlanSrv>(
+        lance::PERCEPTION_PPLAN_CONTROL_TOPIC)}
 {
-    friend BaseT;
+}
 
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+void PathPlanInterface::init(const Vec3f& arena_dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header.frame_id = this->params.arena_frame_id;
+    req->target.header.stamp = this->rcl_clock->now();
+    req->target.pose.position.x = arena_dest.x();
+    req->target.pose.position.y = arena_dest.y();
+    req->target.pose.position.z = arena_dest.z();
+    req->completed = false;
+
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void PathPlanInterface::init(const PointStampedMsg& dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target.header = dest.header;
+    req->target.pose.position = dest.point;
+    req->completed = false;
+
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void PathPlanInterface::cancel()
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->completed = true;
+
+    this->pplan_control_client->async_send_request(
+        req,
+        [this](RclClient<UpdatePathPlanSrv>::SharedFuture)
+        { this->last_path = nullptr; });
+}
+
+bool PathPlanInterface::hasPath() const
+{
+    return this->last_path.operator bool();
+}
+const PathPlanInterface::PathMsg* PathPlanInterface::getPath() const
+{
+    return this->last_path ? this->last_path.get() : nullptr;
+}
+
+void PathPlanInterface::clearPath() { this->last_path.reset(); }
+
+};  // namespace lance

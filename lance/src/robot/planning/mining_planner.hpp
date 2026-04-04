@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,41 +37,123 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include <vector>
+#include <iostream>
+#include <stdexcept>
+#include <algorithm>
+#include <functional>
 
-#include <sensor_msgs/msg/imu.hpp>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 
-#include "base_adapter.hpp"
+#include "robot_params.hpp"
 
 
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
+
+enum class MiningDirection
+{
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+};
+
+
+// Struct to represent a mining path with its direction and associated matrix for
+// distance calculation
+class DirectedMiningPath
+{
+public:
+    using Vec2i = Eigen::Vector2i;
+    using Vec2f = Eigen::Vector2f;
+    using MiningPath = std::pair<Vec2i, Vec2i>;
+    using MiningSwath = std::pair<Vec2f, Vec2f>;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+    DirectedMiningPath(
+        MiningPath p,
+        MiningDirection dir,
+        const Eigen::MatrixXf* mat);
 
-protected:
-    const std::string lidar_frame_id;
+public:
+    float getDistance() const;
+
+    void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
+
+    bool checkValidity() const;
+
+    float getQuality(const Eigen::MatrixXi& previously_minined_locations) const;
+
+    bool adjustForRobotClearance();
+
+    MiningSwath getPathCoordinatesInWorldFrame() const;
+
+    float getRecalculatedDistance() const;
+
+private:
+    MiningPath toBaseCoordinates() const;
+
+private:
+    MiningPath path;
+    MiningDirection direction;
+    const Eigen::MatrixXf* matrix;
+    float distance = -1.0;
+    static constexpr float previously_mined_penalty = 0.1f;
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
+
+
+class MiningPlanner
 {
-    friend BaseT;
+public:
+    using Box2f = Eigen::AlignedBox2f;
+    using DirectedMiningPaths = std::vector<DirectedMiningPath>;
+    using Pose2f = Eigen::Vector3f;
 
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
+public:
+    MiningPlanner(const RobotParams& robot_params);
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
+public:
+    void updateMappedMatrices();
+    const DirectedMiningPaths& finalOutput();
+
+    void markMiningOnMatrix(const DirectedMiningPath& path);
+
+private:
+    const std::vector<Pose2f>& getStartingLocations();
+    
+    // Helper function to populate a strip map for a given direction
+    void populateStripMap(
+        Eigen::MatrixXf& strip_map,
+        MiningDirection direction);
+
+    void appendPlannedMiningPaths(
+        const Eigen::MatrixXf& mat,
+        MiningDirection mining_dir);
+
+    void sortPathsByQuality();
+    void removeSectionsForRobotClearance();
+
+private:
+    const RobotParams& robot_params;
+
+    // The direction is the way the the robot would be moving in reference to the
+    // base frame which is MiningDirection::DOWN
+    Eigen::MatrixXf strip_map_up;
+    Eigen::MatrixXf strip_map_down;
+    Eigen::MatrixXf strip_map_left;
+    Eigen::MatrixXf strip_map_right;
+    Eigen::MatrixXi times_mined_count_matrix;
+
+    DirectedMiningPaths all_mining_paths;
+
+    // int mapped_matrix_width;
+    // int mapped_matrix_height;
+
+    const float full_width = 1; // edge of track to other far edge
+    const float max_length = 1.5;// the max length from the middle of the robot to the front and back
 };
+
+};  // namespace lance

@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,39 +39,31 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
+#include "tf_cache.hpp"
+#include "path_plan.hpp"
+#include "mining_eval.hpp"
+#include "reflector_hint.hpp"
 
-#include "base_adapter.hpp"
 
-
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
+
+class SensingInterfaces : public util::UsingRosAliases
+{
+public:
+    TfCache tf_cache;
+    PathPlanInterface path_plan_interface;
+    MiningEvalInterface mining_eval_interface;
+    ReflectorHintInterface reflector_hint_interface;
 
 public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
-
-protected:
-    const std::string lidar_frame_id;
+    SensingInterfaces(RclNode& node, const RobotParams& params) :
+        tf_cache{node, params},
+        path_plan_interface{node, params},
+        mining_eval_interface{node, params},
+        reflector_hint_interface{node}
+    {
+    }
 };
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
-{
-    friend BaseT;
-
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
-
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+};  // namespace lance

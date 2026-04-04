@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -18,7 +18,7 @@
 *                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
 *                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
 *                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXX+     .;$$$$$$                   *
 *              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
 *               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
 *                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
@@ -37,51 +37,85 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "zstd_utils.hpp"
 
-// Equivalent to Xbox controller mappings
-namespace LogitechController
+
+namespace util
 {
-    namespace Buttons
+
+ZstdCompressor::ZstdCompressor() : ctx{ZSTD_createCCtx()} {}
+ZstdCompressor::~ZstdCompressor() { ZSTD_freeCCtx(ctx); }
+
+bool ZstdCompressor::compress(std::vector<uint8_t>& buf, int level)
+{
+    if (buf.empty())
     {
-        constexpr int A = 0;
-        constexpr int B = 1;
-        constexpr int X = 2;
-        constexpr int Y = 3;
-        constexpr int LB = 4;
-        constexpr int RB = 5;
-        constexpr int BACK = 6;
-        constexpr int START = 7;
-        constexpr int LOGITECH = 8;
-        constexpr int L_STICK = 9;
-        constexpr int R_STICK = 10;
+        return true;
+    }
 
-        constexpr int NUM_BUTTONS = 11;
-    } // namespace Buttons
+    const size_t dst_cap = ZSTD_compressBound(buf.size());
+    std::vector<uint8_t> tmp(dst_cap);
 
-    namespace Axes
+    const size_t compressed = ZSTD_compressCCtx(
+        ctx,
+        tmp.data(),
+        dst_cap,
+        buf.data(),
+        buf.size(),
+        level);
+
+    if (ZSTD_isError(compressed))
     {
-        constexpr int LEFTX = 0;
-        constexpr int LEFTY = 1;
-        constexpr int L_TRIGGER = 2;
+        return false;
+    }
 
-        constexpr int RIGHTX = 3;
-        constexpr int RIGHTY = 4;
-        constexpr int R_TRIGGER = 5;
+    tmp.resize(compressed);
+    buf = std::move(tmp);
+    return true;
+}
 
-        constexpr int DPAD_R_L = 6;
-        constexpr int DPAD_U_D = 7;
 
-        namespace DPAD_K
-        {
-            constexpr int DPAD_DOWN = -1;
-            constexpr int DPAD_UP = 1;
+ZstdDecompressor::ZstdDecompressor() : ctx{ZSTD_createDCtx()} {}
+ZstdDecompressor::~ZstdDecompressor() { ZSTD_freeDCtx(ctx); }
 
-            constexpr int DPAD_RIGHT = -1;
-            constexpr int DPAD_LEFT = 1;
-        } // namespace DPAD_K
+bool ZstdDecompressor::decompress(std::vector<uint8_t>& buf)
+{
+    if (buf.empty())
+    {
+        return true;
+    }
 
-        constexpr int NUM_AXES = 8;
+    const unsigned long long orig_size =
+        ZSTD_getFrameContentSize(buf.data(), buf.size());
 
-    } // namespace Axes
-} // namespace LogitechController
+    if (orig_size == ZSTD_CONTENTSIZE_ERROR ||
+        orig_size == ZSTD_CONTENTSIZE_UNKNOWN)
+    {
+        return false;
+    }
+
+    if (orig_size == 0)
+    {
+        buf.clear();
+        return true;
+    }
+
+    std::vector<uint8_t> tmp(static_cast<size_t>(orig_size));
+
+    const size_t result = ZSTD_decompressDCtx(
+        ctx,
+        tmp.data(),
+        static_cast<size_t>(orig_size),
+        buf.data(),
+        buf.size());
+
+    if (ZSTD_isError(result))
+    {
+        return false;
+    }
+
+    buf = std::move(tmp);
+    return true;
+}
+
+};  // namespace util

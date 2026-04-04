@@ -39,11 +39,13 @@
 
 #pragma once
 
+#include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
-
 #include "robot/control/shared/shared_controllers.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
+// #include "robot/planning/mining_planner.hpp"
 
 
 namespace lance
@@ -54,12 +56,10 @@ class AutoMiningController
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
-    using GenericPubMap = util::GenericPubMap;
-
 public:
     AutoMiningController(
-        GenericPubMap&,
         const RobotParams&,
+        SensingInterfaces&,
         SharedControllerCollection&);
     ~AutoMiningController() = default;
 
@@ -83,13 +83,16 @@ protected:
     };
 
 protected:
-    GenericPubMap& pub_map;
     const RobotParams& params;
-
-    Stage stage{Stage::FINISHED};
+    SensingInterfaces& sensing_interfaces;
 
     TraversalController& traversal_controller;
     MiningController& mining_controller;
+
+    // MiningPlanner mining_planner;
+
+    Stage stage{Stage::FINISHED};
+
 };
 
 };  // namespace lance

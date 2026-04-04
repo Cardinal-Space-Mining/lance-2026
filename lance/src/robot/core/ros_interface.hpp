@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,39 +39,50 @@
 
 #pragma once
 
-#include <sensor_msgs/msg/imu.hpp>
-
-#include "base_adapter.hpp"
-
-
-/* Access lidar frame id ros param and store it for publisher use,
- * since this doesn't get send over the wire. This is a separate class
- * since we don't need to cache anything for the subscriber. */
-class MS136ImuAdapterPubState
+namespace lance
 {
-    friend class MS136ImuAdapter;
 
-public:
-    MS136ImuAdapterPubState(rclcpp::Node&);
+#define ROBOT_TOPIC(subtopic)      "lance/" subtopic
+#define PERCEPTION_TOPIC(subtopic) "cardinal_perception/" subtopic
+#define TALON_CTRL_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/ctrl")
+#define TALON_INFO_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/info")
+#define COLLECTION_STATE_TOPIC(subtopic)      \
+    ROBOT_TOPIC("collection_state/" subtopic)
 
-protected:
-    const std::string lidar_frame_id;
-};
+#define CONSTEXPR_STR constexpr inline char const*
 
-class MS136ImuAdapter :
-    public BaseAdapter<
-        sensor_msgs::msg::Imu,
-        MS136ImuAdapter,
-        0,
-        MS136ImuAdapterPubState,
-        void>
-{
-    friend BaseT;
+CONSTEXPR_STR JOY_TOPIC = "/joy";
+CONSTEXPR_STR CLICKED_POINT_TOPIC = "/clicked_point";
+CONSTEXPR_STR WATCHDOG_TOPIC = ROBOT_TOPIC("watchdog_status");
+CONSTEXPR_STR SET_TELEOP_TOPIC = ROBOT_TOPIC("set_teleop_mode");
+CONSTEXPR_STR SET_AUTO_TOPIC = ROBOT_TOPIC("set_auto_mode");
+CONSTEXPR_STR SET_TEST_TOPIC = ROBOT_TOPIC("set_test_mode");
+CONSTEXPR_STR TELEMETRY_TOPIC = ROBOT_TOPIC("telemetry");
+CONSTEXPR_STR OP_STATUS_TOPIC = ROBOT_TOPIC("op_status");
+CONSTEXPR_STR TRAVERSAL_PATH_TOPIC = ROBOT_TOPIC("traversal_path");
+CONSTEXPR_STR ROBOT_MARKERS_TOPIC = ROBOT_TOPIC("markers");
+CONSTEXPR_STR ARENA_ZONES_TOPIC = "arena_zones";
 
-protected:
-    MS136ImuAdapter(rclcpp::Node&);
+CONSTEXPR_STR HOPPER_JOINT_NAME = "hopper_joint";
 
-protected:
-    static bool serializeMsg(ByteBuffer&, const MsgT&, SubStateT&);
-    static bool deserializeMsg(MsgT&, const ByteBuffer&, PubStateT&);
-};
+
+CONSTEXPR_STR PERCEPTION_LFD_CONTROL_SRV_TOPIC =
+    PERCEPTION_TOPIC("set_global_alignment");
+CONSTEXPR_STR PERCEPTION_REFLECTOR_HINT_TOPIC =
+    PERCEPTION_TOPIC("reflector_hint");
+
+CONSTEXPR_STR PERCEPTION_UPDATE_MINING_EVAL_SRV_TOPIC =
+    PERCEPTION_TOPIC("update_mining_eval");
+CONSTEXPR_STR PERCEPTION_MINING_EVAL_RESULTS_TOPIC =
+    PERCEPTION_TOPIC("mining_eval_results");
+
+CONSTEXPR_STR PERCEPTION_PATH_TOPIC = PERCEPTION_TOPIC("planned_path");
+CONSTEXPR_STR PERCEPTION_PPLAN_CONTROL_TOPIC =
+    PERCEPTION_TOPIC("update_path_planning");
+
+#undef CONSTEXPR_STR
+
+#define TALON_CTRL_PUBSUB_QOS                                            \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
+
+};  // namespace lance
