@@ -118,7 +118,9 @@
                     "can_id": 4,
                     "controller": "FXS",
                     "follows": "",
-                    "sensor": "",
+                    "sensor": "analog_pot",
+                    "pot_max_v": 3.3,
+                    "pot_inverted": true,
 
                     "kP": 0.4,
                     "kI": 0.05,
@@ -135,7 +137,9 @@
                     "can_id": 5,
                     "controller": "FXS",
                     "follows": "hopper_act_left",
-                    "sensor": "",
+                    "sensor": "analog_pot",
+                    "pot_max_v": 3.3,
+                    "pot_inverted": true,
 
                     "kP": 0.4,
                     "kI": 0.05,

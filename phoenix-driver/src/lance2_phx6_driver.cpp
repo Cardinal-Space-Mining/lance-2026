@@ -156,8 +156,6 @@ Phoenix6Driver::Phoenix6Driver() :
                     this,
                     name,
                     id,
-                    followsId,
-                    sensor,
                     params,
                     bus));
         }
@@ -168,8 +166,6 @@ Phoenix6Driver::Phoenix6Driver() :
                     this,
                     name,
                     id,
-                    followsId,
-                    sensor,
                     params,
                     bus));
         }
@@ -196,10 +192,94 @@ Phoenix6Driver::Phoenix6Driver() :
     }
 }
 
-Phoenix6Driver::~Phoenix6Driver()
+Phoenix6Driver::~Phoenix6Driver() { c_Phoenix_Diagnostics_Dispose(); }
+
+// --- RclMotor implementation --------------------------------------------------
+
+template<typename MotorType>
+Phoenix6Driver::RclMotor<MotorType>::RclMotor(
+    rclcpp::Node* node,
+    const std::string& name,
+    int id,
+    const RclMotorConfig& config,
+    const CANBus& bus) :
+    motor(id, bus),
+    config(config),
+    info_pub(node->template create_publisher<TalonInfoMsg>(
+        "lance/" + name + "/info",
+        10)),
+    faults_pub(node->template create_publisher<TalonFaultsMsg>(
+        "lance/" + name + "/faults",
+        10)),
+    ctrl_sub(node->create_subscription<TalonCtrlMsg>(
+        "lance/" + name + "/ctrl",
+        10,
+        [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); }))
+
 {
-    c_Phoenix_Diagnostics_Dispose();
+    // Init motor
+    ConfiguratorT config = buildMotorConfig(
+        config.kP,
+        config.kI,
+        config.kD,
+        config.kV,
+        config.neutral_deadband,
+        config.neutral_brake,
+        config.stator_current_limit,
+        config.supply_current_limit,
+        config.voltage_limit);
+
+    if constexpr (std::is_same_v<MotorType, TalonFXS>)
+    {
+        using S = Phoenix6Driver::SensorSource;
+        using V = phx6::signals::ExternalFeedbackSensorSourceValue;
+
+        // configure feedback source if provided (FXS only)
+        FeedbackConfigs feedback{};
+        if (config.sensor != S::AnalogPotentiometer)
+        {
+            feedback.WithFeedbackSensorSource(
+                static_cast<V>(static_cast<int>(config.sensor)));
+            if (config.remote_sensor_id > -1)
+            {
+                feedback.WithFeedbackRemoteSensorID(config.remote_sensor_id);
+            }
+        }
+        // else: AnalogPotentiometer uses default Commutation; position computed in publishInfo()
+
+        FXSconfig.WithFeedback(feedback);
+    }
+
+    motor.GetConfigurator().Apply(config);
+
+    if (config.follows_id != -1)
+    {
+        ctre::phoenix6::controls::Follower followerCtrl(
+            config.follows_id,
+            config.alignment);
+        motor.SetControl(followerCtrl);
+    }
 }
+
+template<typename MotorType>
+void Phoenix6Driver::RclMotor<MotorType>::executeCtrl(const TalonCtrlMsg& msg)
+{
+    motor << msg;
+
+    // TODO possible add dynamic load gains, or FOC
+    // TODO add new functionality for seprate slot for pos control
+
+    // if constexpr (std::is_same_v<MotorType, TalonFX>)
+    // {
+    // }
+    // else if constexpr (std::is_same_v<MotorType, TalonFXS>)
+    // {
+    // }
+}
+
+// Explicit template instantiations
+template class Phoenix6Driver::RclMotor<TalonFX>;
+template class Phoenix6Driver::RclMotor<TalonFXS>;
 
 void Phoenix6Driver::feedWatchdogStatus(int32_t status)
 {
@@ -242,6 +322,13 @@ void Phoenix6Driver::pubMotorInfo_cb()
         info_msg << m->motor;
         info_msg.status |= static_cast<uint8_t>(!is_disabled);
         m->info_pub->publish(info_msg);
+        if (m->config.sensor == SensorSource::AnalogPotentiometer)
+        {
+            // Software handled sensor position for AnalogPotentiometer
+            double v = m->motor.GetAnalogVoltage().GetValueAsDouble();
+            double raw = v / m->config.pot_max_v;
+            info_msg.position = m->config.invert_sensor ? (1.0 - raw) : raw;
+        }
     }
 }
 
