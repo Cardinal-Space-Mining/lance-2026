@@ -52,8 +52,12 @@
 #include <sensor_msgs/msg/joy.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include "util/geometry.hpp"
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
 
@@ -71,6 +75,7 @@ using namespace std::chrono_literals;
 
 using namespace util;
 using namespace lance;
+using namespace util::geom::cvt::ops;
 
 #define WATCHDOG_PUB_DT           100ms
 #define WATCHDOG_TELEOP_FEED_TIME 250ms
@@ -89,6 +94,9 @@ class ClientNode : public rclcpp::Node, public UsingRosAliases
     using JoyMsg = sensor_msgs::msg::Joy;
     using JointStateMsg = sensor_msgs::msg::JointState;
 
+    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
+
     using MarkerMsg = visualization_msgs::msg::Marker;
     using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 
@@ -100,7 +108,8 @@ protected:
 
     int32_t getFeedTime() const;
 
-    void handleJoy(const JoyMsg::ConstSharedPtr&);
+    void handleJoy(const JoyMsg&);
+    void handleClickedPoint(const PointStampedMsg&);
     void handleInterfacePubs();
 
 private:
@@ -115,6 +124,8 @@ private:
 
     RclPubPtr<JoyMsg> joy_pub;
     RclSubPtr<JoyMsg> joy_sub;
+    RclPubPtr<PoseStampedMsg> traversal_target_pub;
+    RclSubPtr<PointStampedMsg> clicked_point_sub;
     RclTimer::SharedPtr interface_pub_timer;
 
     RclSubPtr<TalonInfoMsg> hopper_info_sub;
@@ -122,11 +133,14 @@ private:
     RclTimer::SharedPtr markers_pub_timer;
 
     MarkerArrayMsg markers;
-
     JoyState joy_state;
+    PoseStampedMsg traversal_cursor;
+
     ControlMode ctrl_mode{ControlMode::DISABLED};
     uint8_t ctrl_opts{0};
-    bool mission_control_input_override{false};
+
+    bool is_mission_control_input_override{false};
+    bool is_traversal_cursor_mode{false};
 };
 
 
@@ -187,7 +201,16 @@ ClientNode::ClientNode() :
     joy_sub{this->create_subscription<JoyMsg>(
         lance::JOY_INPUT_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const JoyMsg::ConstSharedPtr& msg) { this->handleJoy(msg); })},
+        [this](const JoyMsg::ConstSharedPtr& msg) { this->handleJoy(*msg); })},
+
+    traversal_target_pub{this->create_publisher<PoseStampedMsg>(
+        lance::TRAVERSAL_TARGET_TOPIC,
+        rclcpp::SensorDataQoS{})},
+    clicked_point_sub{this->create_subscription<PointStampedMsg>(
+        lance::CLICKED_POINT_TOPIC,
+        rclcpp::SensorDataQoS{},
+        [this](const PointStampedMsg::ConstSharedPtr& msg)
+        { this->handleClickedPoint(*msg); })},
 
     interface_pub_timer{this->create_wall_timer(
         50ms,
@@ -264,41 +287,131 @@ int32_t ClientNode::getFeedTime() const
         WATCHDOG_AUTO_FEED_TIME);
 }
 
-void ClientNode::handleJoy(const JoyMsg::ConstSharedPtr& msg)
+void ClientNode::handleJoy(const JoyMsg& msg)
 {
-    this->joy_state.update(*msg);
+    this->joy_state.update(msg);
 
     if (MissionControlOverrideButton::wasPressed(this->joy_state))
     {
-        this->mission_control_input_override =
-            !this->mission_control_input_override;
+        if(!(this->is_mission_control_input_override =
+            !this->is_mission_control_input_override))
+        {
+            this->is_traversal_cursor_mode = false;
+        }
     }
 
-    if (!this->mission_control_input_override)
+    if (!this->is_mission_control_input_override)
     {
-        this->joy_pub->publish(*msg);
+        this->joy_pub->publish(msg);
     }
 
     if (SetDisabledModeButton::wasPressed(this->joy_state))
     {
-        if (this->mission_control_input_override ||
+        if (this->is_mission_control_input_override ||
             this->ctrl_mode == ControlMode::AUTONOMOUS)
         {
             this->ctrl_mode = ControlMode::DISABLED;
         }
     }
 
-    if (this->mission_control_input_override)
+    if (this->is_mission_control_input_override)
     {
-        if (SetAutoModeButton::wasPressed(this->joy_state))
-        {
-            this->ctrl_mode = ControlMode::AUTONOMOUS;
-        }
         if (SetTeleopModeButton::wasPressed(this->joy_state))
         {
             this->ctrl_mode = ControlMode::TELEOPERATED;
         }
+        if (SetAutoModeButton::wasPressed(this->joy_state))
+        {
+            this->ctrl_mode = ControlMode::AUTONOMOUS;
+        }
+        if (ToggleTestModeButton::wasPressed(this->joy_state))
+        {
+            this->ctrl_opts ^= static_cast<uint8_t>(ControlOpts::TEST_MODE);
+        }
+        if (ToggleTraversalCursorButton::wasPressed(this->joy_state))
+        {
+            if ((this->is_traversal_cursor_mode =
+                     !this->is_traversal_cursor_mode))
+            {
+                if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+                {
+                    const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+                    this->traversal_cursor.pose.position << tf->pose.vec;
+                    this->traversal_cursor.pose.orientation
+                        << lance::geom::flattenToYaw(tf->pose.quat);
+                    this->traversal_cursor.header.frame_id =
+                        this->tf_cache.arena_frame_id;
+                }
+                else if (this->tf_cache.hasTf(ROBOT_TO_ODOM_TF))
+                {
+                    const auto* tf = this->tf_cache.getTf(ROBOT_TO_ODOM_TF);
+                    this->traversal_cursor.pose.position << tf->pose.vec;
+                    this->traversal_cursor.pose.orientation
+                        << lance::geom::flattenToYaw(tf->pose.quat);
+                    this->traversal_cursor.header.frame_id =
+                        this->tf_cache.odom_frame_id;
+                }
+                else
+                {
+                    this->traversal_cursor.pose.position.x = 0.;
+                    this->traversal_cursor.pose.position.y = 0.;
+                    this->traversal_cursor.pose.position.z = 0.;
+                    this->traversal_cursor.pose.orientation.w = 1.;
+                    this->traversal_cursor.pose.orientation.x = 0.;
+                    this->traversal_cursor.pose.orientation.y = 0.;
+                    this->traversal_cursor.pose.orientation.z = 0.;
+                    this->traversal_cursor.header.frame_id =
+                        this->tf_cache.robot_frame_id;
+                }
+            }
+        }
+        if (ConfirmTraversalTargetButton::wasPressed(this->joy_state))
+        {
+            this->traversal_target_pub->publish(this->traversal_cursor);
+            this->is_traversal_cursor_mode = false;
+        }
+
+        if (this->is_traversal_cursor_mode)
+        {
+            constexpr float CURSOR_MAX_SPEED_MPS = 1.f;
+
+            // "X" and "Y" axes are those of the controller - swap and invert Y
+            // to obtain standard orientation
+            this->traversal_cursor.pose.position.x += std::min(
+                CURSOR_MAX_SPEED_MPS,
+                TraversalCursorPosYAxis::trapezoidSum(this->joy_state) *
+                    CURSOR_MAX_SPEED_MPS);
+            this->traversal_cursor.pose.position.y += std::min(
+                CURSOR_MAX_SPEED_MPS,
+                TraversalCursorPosXAxis::trapezoidSum(this->joy_state) *
+                    CURSOR_MAX_SPEED_MPS);
+
+            const float dir_x =
+                TraversalCursorDirYAxis::rawValue(this->joy_state);
+            const float dir_y =
+                TraversalCursorDirXAxis::rawValue(this->joy_state);
+            if ((dir_x * dir_x + dir_y * dir_y) >= (0.8f * 0.8f))
+            {
+                const float theta = std::atan2(dir_y, dir_x);
+                this->traversal_cursor.pose.orientation
+                    << lance::geom::yawToQuat(theta);
+            }
+        }
     }
+}
+
+void ClientNode::handleClickedPoint(const PointStampedMsg& msg)
+{
+    this->traversal_cursor.header = msg.header;
+    this->traversal_cursor.pose.position = msg.point;
+    this->traversal_cursor.pose.orientation.w = 0.0;
+    this->traversal_cursor.pose.orientation.x = 0.0;
+    this->traversal_cursor.pose.orientation.y = 0.0;
+    this->traversal_cursor.pose.orientation.z = 0.0;
+
+    this->traversal_target_pub->publish(this->traversal_cursor);
+
+    this->is_traversal_cursor_mode = false;
 }
 
 void ClientNode::handleInterfacePubs()
@@ -307,7 +420,14 @@ void ClientNode::handleInterfacePubs()
 
     pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mission_control_override"),
-        this->mission_control_input_override);
+        this->is_mission_control_input_override);
+
+    if (this->is_traversal_cursor_mode)
+    {
+        pub_map.publish(
+            ROBOT_TOPIC("traversal_cursor"),
+            this->traversal_cursor);
+    }
 }
 
 

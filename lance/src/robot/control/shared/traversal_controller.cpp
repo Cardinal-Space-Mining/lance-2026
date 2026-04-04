@@ -46,6 +46,7 @@
 
 #include "util/geometry.hpp"
 #include "robot/model/dynamics.hpp"
+#include "robot/model/geometry.hpp"
 #include "robot/model/kinematics.hpp"
 
 
@@ -97,6 +98,30 @@ void TraversalController::initializePoint(
                                                      : DestinationType::POINT;
     this->pplan_interface.init(dest);
 
+    this->state = State::INITIALIZATION;
+}
+void TraversalController::initializePose(const PoseStampedMsg& dest)
+{
+    this->pplan_interface.clearPath();
+
+    lance::geom::Quatf q;
+    q << dest.pose.orientation;
+    if (q.squaredNorm() > 0.5f)
+    {
+        // TODO: this initialization assumes that the orientation is relative to
+        // the arena frame, but for cursor inputs this might not be true!
+        const float theta = lance::geom::quatToYaw(q);
+
+        this->destination_type = DestinationType::POSE;
+        this->arena_dest_direction = Vec2f{std::cos(theta), std::sin(theta)};
+        this->pplan_interface.init(dest);
+    }
+    else
+    {
+        this->destination_type = DestinationType::POINT;
+        this->arena_dest_direction = Vec2f::Zero();
+        this->pplan_interface.init(dest);
+    }
     this->state = State::INITIALIZATION;
 }
 void TraversalController::initializeZone(

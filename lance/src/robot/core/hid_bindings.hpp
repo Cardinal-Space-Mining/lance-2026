@@ -144,13 +144,23 @@ using ToggleMiningZoneConstraintButton = Xbox::DPadDown;
 using ToggleMiningStallConstraintButton = Xbox::DPadLeft;
 
 
-// --- Mission Control Overrides -----------------------------------------------
+// --- Mission Control Override Controls ---------------------------------------
 
 using MissionControlOverrideButton = Xbox::ButtonCenter;
 
 using SetDisabledModeButton = Xbox::ButtonA;
-using SetAutoModeButton = Xbox::ButtonX;
 using SetTeleopModeButton = Xbox::ButtonB;
+using SetAutoModeButton = Xbox::ButtonX;
+using ToggleTestModeButton = Xbox::ButtonY;
+
+using ToggleTraversalCursorButton = Xbox::ButtonRightBumper;
+using ConfirmTraversalTargetButton = Xbox::ButtonLeftBumper;
+
+using TraversalCursorPosXAxis = Xbox::AxisLeftX;
+using TraversalCursorPosYAxis = Xbox::AxisLeftY;
+using TraversalCursorDirXAxis = Xbox::AxisRightX;
+using TraversalCursorDirYAxis = Xbox::AxisRightY;
+
 
 #undef Xbox
 

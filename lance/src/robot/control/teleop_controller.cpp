@@ -57,11 +57,11 @@ TeleopController::TeleopController(
     mining_controller{controllers.mining_controller},
     offload_controller{controllers.offload_controller},
     traversal_controller{controllers.traversal_controller},
-    clicked_point_sub{node.create_subscription<PointStampedMsg>(
-        lance::CLICKED_POINT_TOPIC,
+    traversal_target_sub{node.create_subscription<PoseStampedMsg>(
+        lance::TRAVERSAL_TARGET_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const PointStampedMsg::ConstSharedPtr& msg)
-        { this->clicked_point = msg; })},
+        [this](const PoseStampedMsg::ConstSharedPtr& msg)
+        { this->traversal_target = msg; })},
     driving_rps_scalar{
         params.driving_medium_scalar * params.tracks_max_velocity_rps}
 {
@@ -222,14 +222,14 @@ bool TeleopController::handleGlobalInputs(const JoyState& joy)
 
 bool TeleopController::handleClickedPoint(bool can_apply)
 {
-    if (this->clicked_point && can_apply)
+    if (this->traversal_target && can_apply)
     {
-        this->traversal_controller.initializePoint(*this->clicked_point);
+        this->traversal_controller.initializePose(*this->traversal_target);
         this->op_mode = Operation::AUTO_TRAVERSAL;
-        this->clicked_point = nullptr;
+        this->traversal_target = nullptr;
         return true;
     }
-    this->clicked_point = nullptr;
+    this->traversal_target = nullptr;
     return false;
 }
 

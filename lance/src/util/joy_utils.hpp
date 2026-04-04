@@ -139,7 +139,15 @@ public:
     inline float getAxisVelocity(int idx) const
     {
         return this->isAxisContinuous(idx)
-                   ? (this->axes[idx] - this->prev_axes[idx]) / this->dt
+                   ? (this->axes[idx] - this->prev_axes[idx]) /
+                         static_cast<float>(this->dt)
+                   : 0.f;
+    }
+    inline float getTrapezoidSum(int idx) const
+    {
+        return this->isAxisContinuous(idx)
+                   ? (this->axes[idx] + this->prev_axes[idx]) *
+                         (0.5f * static_cast<float>(this->dt))
                    : 0.f;
     }
 
@@ -206,6 +214,10 @@ struct JoyAxis
     {
         return joy.getAxisVelocity(this->idx);
     }
+    inline float trapezoidSum(const JoyState& joy) const
+    {
+        return joy.getTrapezoidSum(this->idx);
+    }
 };
 struct JoyPov
 {
@@ -270,6 +282,10 @@ struct StaticJoyAxis
     static inline float velocity(const JoyState& joy)
     {
         return joy.getAxisVelocity(Idx);
+    }
+    static inline float trapezoidSum(const JoyState& joy)
+    {
+        return joy.getTrapezoidSum(Idx);
     }
 };
 template<int Idx, int Sgn>

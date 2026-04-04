@@ -73,7 +73,7 @@ CONSTEXPR_VAL_TEMPLATE(COLLISION_Z_MIN, -0.102)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_R_MAX, 0.790)
 #elif LANCE >= 2
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MAX, 0.591)
-CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MIN, -0.490) // -0.640 min of upper section
+CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MIN, -0.490)  // -0.640 min of upper section
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_Y_MAX, 0.362)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_Y_MIN, -0.362)
 CONSTEXPR_VAL_TEMPLATE(COLLISION_Z_MAX, 0.810)
@@ -136,6 +136,11 @@ using Box2f = Eigen::AlignedBox2f;
 using Box3f = Eigen::AlignedBox3f;
 
 
+template<typename T>
+inline Quat<T> yawToQuat(const T theta)
+{
+    return Quat<T>{std::cos(theta / 2), 0.f, 0.f, std::sin(theta / 2)};
+}
 template<typename T>
 inline T quatToYaw(const Quat<T>& q)
 {

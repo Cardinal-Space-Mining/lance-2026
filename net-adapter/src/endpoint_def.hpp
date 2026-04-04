@@ -50,7 +50,7 @@
 #include <std_msgs/msg/int8.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
-#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <net_adapter/msg/bytes.hpp>
 
@@ -85,8 +85,7 @@ private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
     using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
-    using PointStampedAdapter =
-        GenericAdapter<geometry_msgs::msg::PointStamped>;
+    using PoseStampedAdapter = GenericAdapter<geometry_msgs::msg::PoseStamped>;
     using BytesAdapterCompressed = GenericAdapter<net_adapter::msg::Bytes, 15>;
 
 private:
@@ -182,7 +181,7 @@ private:
 
     Channel<JoyAdapter, CLIENT_TO_ROBOT> joy;
     Channel<StdInt32Adapter, CLIENT_TO_ROBOT> watchdog_status;
-    Channel<PointStampedAdapter, CLIENT_TO_ROBOT> clicked_point;
+    Channel<PoseStampedAdapter, CLIENT_TO_ROBOT> traversal_target;
 
     MS136ScanChannel<ROBOT_TO_CLIENT> lidar_scan;
     Channel<MS136ImuAdapter, ROBOT_TO_CLIENT> imu;
@@ -220,9 +219,9 @@ EndPointNode<E>::EndPointNode() :
 
     is_sim{util::declare_and_get_param(*this, "is_sim", false)},
 
-    joy{PARAMS_FROM_TOPIC("/joy")},
+    joy{PARAMS_FROM_TOPIC("lance/joy_ctrl")},
     watchdog_status{PARAMS_FROM_TOPIC("lance/watchdog_status")},
-    clicked_point{PARAMS_FROM_TOPIC("/clicked_point")},
+    traversal_target{PARAMS_FROM_TOPIC("lance/traversal_target")},
 
     lidar_scan{PARAMS_FROM_TOPIC_SIM("multiscan/lidar_scan")},
     imu{PARAMS_FROM_TOPIC("multiscan/imu")},

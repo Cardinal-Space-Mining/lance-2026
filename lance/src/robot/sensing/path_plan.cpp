@@ -72,6 +72,16 @@ void PathPlanInterface::init(const Vec3f& arena_dest)
         req,
         [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
 }
+void PathPlanInterface::init(const PoseStampedMsg& dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target = dest;
+    req->completed = false;
+
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
 void PathPlanInterface::init(const PointStampedMsg& dest)
 {
     auto req = std::make_shared<UpdatePathPlanSrv::Request>();
