@@ -43,10 +43,11 @@
 #include <algorithm>
 #include <functional>
 
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Geometry>
 
-#include "robot_params.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/sensing/mining_eval.hpp"
 
 
 namespace lance
@@ -78,9 +79,14 @@ public:
         const Eigen::MatrixXf* mat);
 
 public:
-    float getDistance() const;
+    MiningSwath getPathCoordinatesInWorldFrame(const RobotParams& robot_params) const; 
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
+
+
+public:
+// public but only used by MiningPlanner
+    float getDistance() const;
 
     bool checkValidity() const;
 
@@ -88,12 +94,9 @@ public:
 
     bool adjustForRobotClearance();
 
-    MiningSwath getPathCoordinatesInWorldFrame() const;
+    MiningDirection getDirection() const { return direction; }
 
     float getRecalculatedDistance() const;
-
-private:
-    MiningPath toBaseCoordinates() const;
 
 private:
     MiningPath path;
@@ -113,7 +116,7 @@ public:
     using Pose2f = Eigen::Vector3f;
 
 public:
-    MiningPlanner(const RobotParams& robot_params);
+    MiningPlanner(MiningEvalInterface& mining_eval, const RobotParams& robot_params);
 
 public:
     void updateMappedMatrices();
@@ -123,21 +126,15 @@ public:
 
 private:
     const std::vector<Pose2f>& getStartingLocations();
-    
-    // Helper function to populate a strip map for a given direction
-    void populateStripMap(
-        Eigen::MatrixXf& strip_map,
-        MiningDirection direction);
 
-    void appendPlannedMiningPaths(
-        const Eigen::MatrixXf& mat,
-        MiningDirection mining_dir);
+    void appendPlannedMiningPaths();
 
     void sortPathsByQuality();
     void removeSectionsForRobotClearance();
 
 private:
     const RobotParams& robot_params;
+    MiningEvalInterface& mining_eval;
 
     // The direction is the way the the robot would be moving in reference to the
     // base frame which is MiningDirection::DOWN
@@ -145,15 +142,14 @@ private:
     Eigen::MatrixXf strip_map_down;
     Eigen::MatrixXf strip_map_left;
     Eigen::MatrixXf strip_map_right;
-    Eigen::MatrixXi times_mined_count_matrix;
+    Eigen::MatrixXf strip_map_left_transposed;
+    Eigen::MatrixXf strip_map_right_transposed;
+    Eigen::MatrixXi previously_mined_cells;
 
     DirectedMiningPaths all_mining_paths;
 
-    // int mapped_matrix_width;
-    // int mapped_matrix_height;
-
-    const float full_width = 1; // edge of track to other far edge
-    const float max_length = 1.5;// the max length from the middle of the robot to the front and back
+    const float full_robot_width = 1; // edge of track to other far edge
+    const float max_robot_length = 1.5;// the max length from the middle of the robot to the front and back * 2
 };
 
 };  // namespace lance

@@ -51,7 +51,7 @@ AutoMiningController::AutoMiningController(
     sensing_interfaces{sensing_interfaces},
     traversal_controller{controllers.traversal_controller},
     mining_controller{controllers.mining_controller}
-// mining_planner{params}
+    // mining_planner{params}
 {
 }
 
