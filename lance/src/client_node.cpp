@@ -142,6 +142,11 @@ protected:
     void handleClickedPoint(const PointStampedMsg&);
     void handleInterfacePubs();
 
+    bool hasState(uint32_t) const;
+    void setState(uint32_t);
+    void clearState(uint32_t);
+    bool toggleState(uint32_t);
+
 private:
     TfCache tf_cache;
     TelemetryDeserializer telemetry;
@@ -323,29 +328,28 @@ void ClientNode::handleJoy(const JoyMsg& msg)
 
     if (MissionControlOverrideButton::wasPressed(this->joy_state))
     {
-        if (!((this->state ^= STATE_MC_INPUT_OVERRIDE) &
-              STATE_MC_INPUT_OVERRIDE))
+        if (!this->toggleState(STATE_MC_INPUT_OVERRIDE))
         {
-            this->state &= ~STATE_CURSOR_ENABLED;
+            this->clearState(STATE_CURSOR_ENABLED);
         }
     }
 
-    if (!(this->state & STATE_MC_INPUT_OVERRIDE))
+    if (!this->hasState(STATE_MC_INPUT_OVERRIDE))
     {
         this->joy_pub->publish(msg);
     }
 
     if (SetDisabledModeButton::wasPressed(this->joy_state))
     {
-        if ((this->state & STATE_MC_INPUT_OVERRIDE) ||
+        if (this->hasState(STATE_MC_INPUT_OVERRIDE) ||
             this->watchdog.ctrl_mode == ControlMode::AUTONOMOUS)
         {
             this->watchdog.ctrl_mode = ControlMode::DISABLED;
-            this->state &= ~STATE_CURSOR_ENABLED;
+            this->clearState(STATE_CURSOR_ENABLED);
         }
     }
 
-    if (this->state & STATE_MC_INPUT_OVERRIDE)
+    if (this->hasState(STATE_MC_INPUT_OVERRIDE))
     {
         if (SetTeleopModeButton::wasPressed(this->joy_state))
         {
@@ -354,7 +358,7 @@ void ClientNode::handleJoy(const JoyMsg& msg)
         if (SetAutoModeButton::wasPressed(this->joy_state))
         {
             this->watchdog.ctrl_mode = ControlMode::AUTONOMOUS;
-            this->state &= ~STATE_CURSOR_ENABLED;
+            this->clearState(STATE_CURSOR_ENABLED);
         }
         if (ToggleTestModeButton::wasPressed(this->joy_state))
         {
@@ -366,8 +370,7 @@ void ClientNode::handleJoy(const JoyMsg& msg)
         {
             if (ToggleTraversalCursorButton::wasPressed(this->joy_state))
             {
-                if ((this->state ^= STATE_CURSOR_ENABLED) &
-                    STATE_CURSOR_ENABLED)
+                if (this->toggleState(STATE_CURSOR_ENABLED))
                 {
                     if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
                     {
@@ -405,10 +408,10 @@ void ClientNode::handleJoy(const JoyMsg& msg)
             if (ConfirmTraversalTargetButton::wasPressed(this->joy_state))
             {
                 this->traversal_target_pub->publish(this->traversal_cursor);
-                this->state &= ~STATE_CURSOR_ENABLED;
+                this->clearState(STATE_CURSOR_ENABLED);
             }
 
-            if (this->state & STATE_CURSOR_ENABLED)
+            if (this->hasState(STATE_CURSOR_ENABLED))
             {
                 constexpr float CURSOR_MAX_SPEED_MPS = 2.f;
                 constexpr float CURSOR_MAX_SPEED_RPS = 4.f;
@@ -461,7 +464,7 @@ void ClientNode::handleClickedPoint(const PointStampedMsg& msg)
 
     this->traversal_target_pub->publish(this->traversal_cursor);
 
-    this->state &= ~STATE_CURSOR_ENABLED;
+    this->clearState(STATE_CURSOR_ENABLED);
 }
 
 void ClientNode::handleInterfacePubs()
@@ -470,13 +473,18 @@ void ClientNode::handleInterfacePubs()
 
     pub_map.publish<Int32Msg>(ROBOT_TOPIC("mc_state"), this->state);
 
-    if (this->state & STATE_CURSOR_ENABLED)
+    if (this->hasState(STATE_CURSOR_ENABLED))
     {
         pub_map.publish(
             ROBOT_TOPIC("traversal_cursor"),
             this->traversal_cursor);
     }
 }
+
+bool ClientNode::hasState(uint32_t s) const { return this->state & s; }
+void ClientNode::setState(uint32_t s) { this->state |= s; }
+void ClientNode::clearState(uint32_t s) { this->state &= ~s; }
+bool ClientNode::toggleState(uint32_t s) { return (this->state ^= s) & s; }
 
 
 
