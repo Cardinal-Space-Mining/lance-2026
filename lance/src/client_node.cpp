@@ -293,8 +293,8 @@ void ClientNode::handleJoy(const JoyMsg& msg)
 
     if (MissionControlOverrideButton::wasPressed(this->joy_state))
     {
-        if(!(this->is_mission_control_input_override =
-            !this->is_mission_control_input_override))
+        if (!(this->is_mission_control_input_override =
+                  !this->is_mission_control_input_override))
         {
             this->is_traversal_cursor_mode = false;
         }
@@ -311,6 +311,7 @@ void ClientNode::handleJoy(const JoyMsg& msg)
             this->ctrl_mode == ControlMode::AUTONOMOUS)
         {
             this->ctrl_mode = ControlMode::DISABLED;
+            this->is_traversal_cursor_mode = false;
         }
     }
 
@@ -323,78 +324,96 @@ void ClientNode::handleJoy(const JoyMsg& msg)
         if (SetAutoModeButton::wasPressed(this->joy_state))
         {
             this->ctrl_mode = ControlMode::AUTONOMOUS;
+            this->is_traversal_cursor_mode = false;
         }
         if (ToggleTestModeButton::wasPressed(this->joy_state))
         {
             this->ctrl_opts ^= static_cast<uint8_t>(ControlOpts::TEST_MODE);
         }
-        if (ToggleTraversalCursorButton::wasPressed(this->joy_state))
+
+        if (this->ctrl_mode == ControlMode::TELEOPERATED)
         {
-            if ((this->is_traversal_cursor_mode =
-                     !this->is_traversal_cursor_mode))
+            if (ToggleTraversalCursorButton::wasPressed(this->joy_state))
             {
-                if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+                if ((this->is_traversal_cursor_mode =
+                         !this->is_traversal_cursor_mode))
                 {
-                    const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
-                    this->traversal_cursor.pose.position << tf->pose.vec;
-                    this->traversal_cursor.pose.orientation
-                        << lance::geom::flattenToYaw(tf->pose.quat);
-                    this->traversal_cursor.header.frame_id =
-                        this->tf_cache.arena_frame_id;
-                }
-                else if (this->tf_cache.hasTf(ROBOT_TO_ODOM_TF))
-                {
-                    const auto* tf = this->tf_cache.getTf(ROBOT_TO_ODOM_TF);
-                    this->traversal_cursor.pose.position << tf->pose.vec;
-                    this->traversal_cursor.pose.orientation
-                        << lance::geom::flattenToYaw(tf->pose.quat);
-                    this->traversal_cursor.header.frame_id =
-                        this->tf_cache.odom_frame_id;
-                }
-                else
-                {
-                    this->traversal_cursor.pose.position.x = 0.;
-                    this->traversal_cursor.pose.position.y = 0.;
-                    this->traversal_cursor.pose.position.z = 0.;
-                    this->traversal_cursor.pose.orientation.w = 1.;
-                    this->traversal_cursor.pose.orientation.x = 0.;
-                    this->traversal_cursor.pose.orientation.y = 0.;
-                    this->traversal_cursor.pose.orientation.z = 0.;
-                    this->traversal_cursor.header.frame_id =
-                        this->tf_cache.robot_frame_id;
+                    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+                    {
+                        const auto* tf =
+                            this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+                        this->traversal_cursor.pose.position << tf->pose.vec;
+                        this->traversal_cursor.pose.orientation
+                            << lance::geom::flattenToYaw(tf->pose.quat);
+                        this->traversal_cursor.header.frame_id =
+                            this->tf_cache.arena_frame_id;
+                    }
+                    else if (this->tf_cache.hasTf(ROBOT_TO_ODOM_TF))
+                    {
+                        const auto* tf = this->tf_cache.getTf(ROBOT_TO_ODOM_TF);
+                        this->traversal_cursor.pose.position << tf->pose.vec;
+                        this->traversal_cursor.pose.orientation
+                            << lance::geom::flattenToYaw(tf->pose.quat);
+                        this->traversal_cursor.header.frame_id =
+                            this->tf_cache.odom_frame_id;
+                    }
+                    else
+                    {
+                        this->traversal_cursor.pose.position.x = 0.;
+                        this->traversal_cursor.pose.position.y = 0.;
+                        this->traversal_cursor.pose.position.z = 0.;
+                        this->traversal_cursor.pose.orientation.w = 1.;
+                        this->traversal_cursor.pose.orientation.x = 0.;
+                        this->traversal_cursor.pose.orientation.y = 0.;
+                        this->traversal_cursor.pose.orientation.z = 0.;
+                        this->traversal_cursor.header.frame_id =
+                            this->tf_cache.robot_frame_id;
+                    }
                 }
             }
-        }
-        if (ConfirmTraversalTargetButton::wasPressed(this->joy_state))
-        {
-            this->traversal_target_pub->publish(this->traversal_cursor);
-            this->is_traversal_cursor_mode = false;
-        }
-
-        if (this->is_traversal_cursor_mode)
-        {
-            constexpr float CURSOR_MAX_SPEED_MPS = 1.f;
-
-            // "X" and "Y" axes are those of the controller - swap and invert Y
-            // to obtain standard orientation
-            this->traversal_cursor.pose.position.x += std::min(
-                CURSOR_MAX_SPEED_MPS,
-                TraversalCursorPosYAxis::trapezoidSum(this->joy_state) *
-                    CURSOR_MAX_SPEED_MPS);
-            this->traversal_cursor.pose.position.y += std::min(
-                CURSOR_MAX_SPEED_MPS,
-                TraversalCursorPosXAxis::trapezoidSum(this->joy_state) *
-                    CURSOR_MAX_SPEED_MPS);
-
-            const float dir_x =
-                TraversalCursorDirYAxis::rawValue(this->joy_state);
-            const float dir_y =
-                TraversalCursorDirXAxis::rawValue(this->joy_state);
-            if ((dir_x * dir_x + dir_y * dir_y) >= (0.8f * 0.8f))
+            if (ConfirmTraversalTargetButton::wasPressed(this->joy_state))
             {
-                const float theta = std::atan2(dir_y, dir_x);
+                this->traversal_target_pub->publish(this->traversal_cursor);
+                this->is_traversal_cursor_mode = false;
+            }
+
+            if (this->is_traversal_cursor_mode)
+            {
+                constexpr float CURSOR_MAX_SPEED_MPS = 2.f;
+                constexpr float CURSOR_MAX_SPEED_RPS = 4.f;
+
+                const float d_r =
+                    CURSOR_MAX_SPEED_RPS *
+                    std::min(
+                        1.f,
+                        TraversalCursorDirXAxis::trapezoidSum(this->joy_state));
+
+                lance::geom::Quatf q;
+                q << this->traversal_cursor.pose.orientation;
+                const float theta = lance::geom::quatToYaw(q) + d_r;
                 this->traversal_cursor.pose.orientation
                     << lance::geom::yawToQuat(theta);
+
+                // "X" and "Y" axes are those of the controller - swap and invert Y
+                // to obtain standard orientation
+                const float d_x =
+                    CURSOR_MAX_SPEED_MPS *
+                    std::min(
+                        1.f,
+                        TraversalCursorPosYAxis::trapezoidSum(this->joy_state));
+                const float d_y =
+                    CURSOR_MAX_SPEED_MPS *
+                    std::min(
+                        1.f,
+                        TraversalCursorPosXAxis::trapezoidSum(this->joy_state));
+
+                const float cos_theta = std::cos(theta);
+                const float sin_theta = std::sin(theta);
+
+                this->traversal_cursor.pose.position.x +=
+                    (d_x * cos_theta) - (d_y * sin_theta);
+                this->traversal_cursor.pose.position.y +=
+                    (d_x * sin_theta) + (d_y * cos_theta);
             }
         }
     }

@@ -107,7 +107,7 @@ void TeleopController::iterate(
         return;
     }
 
-    this->mining_controller.updateFeatures(joy);
+    this->mining_controller.updateConstraints(joy);
 
     // iterate controllers... if inputs result in finish state, continue
     // to iterate manual mode below (motor commands meaningless anyway)

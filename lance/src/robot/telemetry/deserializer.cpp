@@ -193,16 +193,16 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
 
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/stall_event"),
-        static_cast<bool>(state & MiningController::Constraint::STALL_EVENT));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_MOTOR_STALL));
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/obstacle"),
-        static_cast<bool>(state & MiningController::Constraint::OBSTACLE));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_OBSTACLE));
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/hopper_model"),
-        static_cast<bool>(state & MiningController::Constraint::HOPPER_MODEL));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_HOPPER_FULL));
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/zone_boundary"),
-        static_cast<bool>(state & MiningController::Constraint::ZONE_BOUNDARY));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_ZONE_BOUNDARY));
 
     this->pub_map.publish<BoolMsg>(
         COLLECTION_STATE_TOPIC("is_full_volume"),
@@ -615,9 +615,9 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
     };
 
     marker.color = CONSTRAINT_COLORS
-        [(constraint > MiningController::Constraint::STALL_EVENT) +
-         (constraint > MiningController::Constraint::OBSTACLE) +
-         (constraint > MiningController::Constraint::HOPPER_MODEL)];
+        [(constraint > MiningConstraints::CONSTRAINT_MOTOR_STALL) +
+         (constraint > MiningConstraints::CONSTRAINT_OBSTACLE) +
+         (constraint > MiningConstraints::CONSTRAINT_HOPPER_FULL)];
 
     marker.scale.x = dist;
     marker.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;

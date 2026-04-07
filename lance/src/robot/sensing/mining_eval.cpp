@@ -103,6 +103,7 @@ void MiningEvalInterface::queryArenaFrame(const std::vector<Pose2f>& poses)
     }
 
     this->eval_id = -1;
+    this->offset_dist = PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float>;
     this->eval_results.reset();
     this->mining_eval_client->async_send_request(
         req,
@@ -120,7 +121,7 @@ void MiningEvalInterface::queryRobotFrame()
     req->queries.header.stamp = this->rcl_clock->now();
 
     auto& pose = req->queries.poses.emplace_back();
-    pose.position.x = PRIMARY_COLLISION_ZONE_X;
+    pose.position.x = std::min(TRACKS_X_MAX, TRENCHER_X_MAX);
     pose.position.y = PRIMARY_COLLISION_ZONE_Y;
     pose.position.z = PRIMARY_COLLISION_ZONE_Z;
 
@@ -128,6 +129,9 @@ void MiningEvalInterface::queryRobotFrame()
     req->query_heights.push_back(PRIMARY_COLLISION_ZONE_HEIGHT_<float>);
 
     this->eval_id = -1;
+    this->offset_dist =
+        (FOOTPRINT_X_MAX_<float> -
+         std::min(TRACKS_X_MAX_<float>, TRENCHER_X_MAX_<float>));
     this->eval_results.reset();
     this->mining_eval_client->async_send_request(
         req,
@@ -171,11 +175,11 @@ void MiningEvalInterface::updateResult(
     }
 
     this->eval_results->query_id = msg->query_id;
+    this->eval_results->ranges.clear();
     this->eval_results->ranges.reserve(msg->ranges.size());
     for (const float r : msg->ranges)
     {
-        this->eval_results->ranges.push_back(
-            r - PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float>);
+        this->eval_results->ranges.push_back(r - this->offset_dist);
         // out << this->eval_results->ranges.back() << ", ";
     }
 

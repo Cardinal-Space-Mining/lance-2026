@@ -48,6 +48,136 @@
 namespace lance
 {
 
+MiningConstraints::MiningConstraints(const RobotParams& params) : params{params}
+{
+}
+
+void MiningConstraints::updateSettings(const JoyState& joy)
+{
+    if (ToggleMiningStallConstraintButton::wasPressed(joy))
+    {
+        this->enabled_constraints ^= CONSTRAINT_MOTOR_STALL;
+    }
+    if (ToggleMiningObstacleConstraintButton::wasPressed(joy))
+    {
+        this->enabled_constraints ^= CONSTRAINT_OBSTACLE;
+    }
+    if (ToggleMiningHopperConstraintButton::wasPressed(joy))
+    {
+        this->enabled_constraints ^= CONSTRAINT_HOPPER_FULL;
+    }
+    if (ToggleMiningZoneConstraintButton::wasPressed(joy))
+    {
+        this->enabled_constraints ^= CONSTRAINT_ZONE_BOUNDARY;
+    }
+}
+void MiningConstraints::resetState()
+{
+    this->remaining_dist = std::numeric_limits<float>::infinity();
+    this->prev_odom = std::numeric_limits<float>::infinity();
+    this->current_constraint = CONSTRAINT_NONE;
+}
+void MiningConstraints::updateState(
+    const RobotMotorStatus& motor_status,
+    const HopperState& hopper_state,
+    const TfCache& tf_cache,
+    const MiningEvalInterface& mining_eval)
+{
+    this->updateOdom(motor_status);
+
+    if (!(this->current_constraint & this->enabled_constraints))
+    {
+        // tf cache or eval invalidation might also need to trigger this?
+        this->remaining_dist = std::numeric_limits<float>::infinity();
+    }
+
+    // TODO: motor stall
+
+    if ((this->enabled_constraints & CONSTRAINT_OBSTACLE) &&
+        mining_eval.hasResult() && !mining_eval.getDists()->empty())
+    {
+        const float d = mining_eval.getDists()->front();
+        if (d < this->remaining_dist ||
+            this->current_constraint == CONSTRAINT_OBSTACLE)
+        {
+            this->remaining_dist = d;
+            this->current_constraint = CONSTRAINT_OBSTACLE;
+        }
+    }
+    if (this->enabled_constraints & CONSTRAINT_HOPPER_FULL)
+    {
+        if (hopper_state.isBeltCapacity())
+        {
+            this->remaining_dist = 0.f;
+            this->current_constraint = CONSTRAINT_HOPPER_FULL;
+        }
+        else
+        {
+            const float d =
+                static_cast<float>(lance::targetVolumeToSweepDistance(
+                    hopper_state.remainingVolume(),
+                    lance::linearActuatorToMiningDepthClamped(
+                        motor_status.getHopperActNormalizedValue())));
+            if (d < this->remaining_dist ||
+                this->current_constraint == CONSTRAINT_HOPPER_FULL)
+            {
+                this->remaining_dist = d;
+                this->current_constraint = CONSTRAINT_HOPPER_FULL;
+            }
+        }
+    }
+    if ((this->enabled_constraints & CONSTRAINT_ZONE_BOUNDARY) &&
+        tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+    {
+        const float d = lance::geom::distToBounds(
+            *tf_cache.getTf(ROBOT_TO_ARENA_TF),
+            this->params.mining_zone_bounds);
+        if (d < this->remaining_dist ||
+            this->current_constraint == CONSTRAINT_ZONE_BOUNDARY)
+        {
+            this->remaining_dist = d;
+            this->current_constraint = CONSTRAINT_ZONE_BOUNDARY;
+        }
+    }
+}
+
+float MiningConstraints::remainingDist() const { return this->remaining_dist; }
+bool MiningConstraints::hasRemaining() const
+{
+    return this->remaining_dist > 0.f;
+}
+
+uint8_t MiningConstraints::enabledConstraints() const
+{
+    return this->enabled_constraints;
+}
+uint8_t MiningConstraints::currentConstraint() const
+{
+    return this->current_constraint;
+}
+bool MiningConstraints::isConstraintEnabled(uint8_t c) const
+{
+    return static_cast<bool>(this->enabled_constraints & c);
+}
+
+void MiningConstraints::updateOdom(const RobotMotorStatus& motor_status)
+{
+    const float odom = static_cast<float>(lance::trackMotorRpsToGroundMps(
+        0.5 * (motor_status.track_left.position +
+               motor_status.track_right.position)));
+
+    if (!std::isinf(this->remaining_dist) && !std::isinf(this->prev_odom))
+    {
+        this->remaining_dist -= (odom - this->prev_odom);
+    }
+
+    this->prev_odom = odom;
+}
+
+
+
+// --- Mining Controller -------------------------------------------------------
+
 MiningController::MiningController(
     const RobotParams& params,
     const HopperState& hopper_state,
@@ -55,7 +185,8 @@ MiningController::MiningController(
     params{params},
     hopper_state{hopper_state},
     tf_cache{sensing_interfaces.tf_cache},
-    mining_eval_interface{sensing_interfaces.mining_eval_interface}
+    mining_eval_interface{sensing_interfaces.mining_eval_interface},
+    constraints{params}
 {
 }
 
@@ -64,7 +195,7 @@ void MiningController::initialize()
     this->stage = Stage::INITIALIZATION;
 
     this->mining_eval_interface.queryRobotFrame();
-    this->odometry.init();
+    this->constraints.resetState();
 }
 
 bool MiningController::isFinished() { return this->stage == Stage::FINISHED; }
@@ -91,58 +222,9 @@ void MiningController::iterate(
     this->iterate(&joy, motor_status, commands);
 }
 
-void MiningController::updateFeatures(const JoyState& joy)
+void MiningController::updateConstraints(const JoyState& joy)
 {
-    if (ToggleMiningStallConstraintButton::wasPressed(joy))
-    {
-        this->constraints ^= Constraint::STALL_EVENT;
-    }
-    if (ToggleMiningObstacleConstraintButton::wasPressed(joy))
-    {
-        this->constraints ^= Constraint::OBSTACLE;
-    }
-    if (ToggleMiningHopperConstraintButton::wasPressed(joy))
-    {
-        this->constraints ^= Constraint::HOPPER_MODEL;
-    }
-    if (ToggleMiningZoneConstraintButton::wasPressed(joy))
-    {
-        this->constraints ^= Constraint::ZONE_BOUNDARY;
-    }
-}
-
-
-void MiningController::ConstrainedOdometry::init(float remaining_dist)
-{
-    if (remaining_dist <= 0.f)
-    {
-        this->setRemaining(std::numeric_limits<float>::infinity());
-    }
-    else
-    {
-        this->setRemaining(remaining_dist);
-    }
-    this->prev_odom = std::numeric_limits<float>::infinity();
-}
-void MiningController::ConstrainedOdometry::setRemaining(float remaining_dist)
-{
-    this->remaining_dist = remaining_dist;
-}
-void MiningController::ConstrainedOdometry::updateOdom(float odom)
-{
-    if (!std::isinf(this->remaining_dist) && !std::isinf(this->prev_odom))
-    {
-        this->remaining_dist -= (odom - this->prev_odom);
-    }
-    this->prev_odom = odom;
-}
-bool MiningController::ConstrainedOdometry::hasRemaining() const
-{
-    return this->remaining_dist > 0.f;
-}
-float MiningController::ConstrainedOdometry::remaining() const
-{
-    return this->remaining_dist;
+    this->constraints.updateSettings(joy);
 }
 
 
@@ -166,71 +248,6 @@ bool MiningController::BeltDutyCycleState::canMove(float thresh_s)
 }
 
 
-void MiningController::updateConstraints(const RobotMotorStatus& motor_status)
-{
-    this->odometry.updateOdom(
-        static_cast<float>(lance::trackMotorRpsToGroundMps(
-            0.5 * (motor_status.track_left.position +
-                   motor_status.track_right.position))));
-
-    float limit = this->odometry.remaining();
-
-    // if(this->constraints & Constraint::STALL_EVENT)
-    // {
-    //     // TODO
-    // }
-    if ((this->constraints & Constraint::OBSTACLE) &&
-        this->mining_eval_interface.hasResult() &&
-        !this->mining_eval_interface.getDists()->empty())
-    {
-        const float d = this->mining_eval_interface.getDists()->front();
-        if (d < limit)
-        {
-            limit = d;
-            this->current_constraint = Constraint::OBSTACLE;
-        }
-    }
-    if (this->constraints & Constraint::HOPPER_MODEL)
-    {
-        if (this->hopper_state.isBeltCapacity())
-        {
-            limit = 0.f;
-            this->current_constraint = Constraint::HOPPER_MODEL;
-        }
-        else
-        {
-            const float d = lance::targetVolumeToSweepDistance(
-                this->hopper_state.remainingVolume(),
-                lance::linearActuatorToMiningDepthClamped(
-                    motor_status.getHopperActNormalizedValue()));
-            if (d < limit ||
-                this->current_constraint == Constraint::HOPPER_MODEL)
-            {
-                limit = d;
-                this->current_constraint = Constraint::HOPPER_MODEL;
-            }
-        }
-    }
-    if ((this->constraints & Constraint::ZONE_BOUNDARY) &&
-        this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
-    {
-        const float d = lance::geom::distToBounds(
-            *this->tf_cache.getTf(ROBOT_TO_ARENA_TF),
-            this->params.mining_zone_bounds);
-        if (d < limit)
-        {
-            limit = d;
-            this->current_constraint = Constraint::ZONE_BOUNDARY;
-        }
-    }
-
-    this->odometry.setRemaining(limit);
-
-    // std::cout << "Constraint : " << static_cast<int>(this->current_constraint)
-    //           << ", Remaining : " << this->odometry.remaining() << std::endl;
-}
-
-
 void MiningController::iterate(
     const JoyState* joy,
     const RobotMotorStatus& motor_status,
@@ -238,10 +255,14 @@ void MiningController::iterate(
 {
     commands.disableAll();
 
-    this->updateConstraints(motor_status);
+    this->constraints.updateState(
+        motor_status,
+        this->hopper_state,
+        this->tf_cache,
+        this->mining_eval_interface);
 
     if ((this->stage < Stage::RAISING) &&
-        (!this->odometry.hasRemaining() ||
+        (!this->constraints.hasRemaining() ||
          (this->stage != Stage::INITIALIZATION && joy &&
           AssistedMiningToggleButton::wasPressed(*joy))))
     {
@@ -290,7 +311,8 @@ void MiningController::iterate(
             float hopper_belt_target = 0.f;
 
             // 1. Set belt via hopper model target
-            if (!joy || (constraints & Constraint::HOPPER_MODEL))
+            if (!joy || this->constraints.isConstraintEnabled(
+                            MiningConstraints::CONSTRAINT_HOPPER_FULL))
             {
                 if (motor_status.hopper_belt.position <
                         this->hopper_state.miningTargetMotorPosition() &&
@@ -360,7 +382,8 @@ void MiningController::iterate(
                     }
                 }
                 // manual hopper belt - don't override automatic setpts
-                if (!(this->constraints & Constraint::HOPPER_MODEL))
+                if (!this->constraints.isConstraintEnabled(
+                        MiningConstraints::CONSTRAINT_HOPPER_FULL))
                 {
                     hopper_belt_target =
                         TeleopHopperSpeedAxis::triggerValue(*joy) *
