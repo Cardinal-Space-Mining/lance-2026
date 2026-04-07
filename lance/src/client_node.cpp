@@ -82,14 +82,38 @@ using namespace util::geom::cvt::ops;
 #define WATCHDOG_AUTO_FEED_TIME   10000ms
 
 
-class ClientNode : public rclcpp::Node, public UsingRosAliases
+class WatchDog : public UsingRosAliases
 {
-    using BoolMsg = std_msgs::msg::Bool;
+    friend class ClientNode;
+
     using Int32Msg = std_msgs::msg::Int32;
     using SetBoolSrv = std_srvs::srv::SetBool;
 
     using SetBoolReqPtr = SetBoolSrv::Request::SharedPtr;
     using SetBoolRespPtr = SetBoolSrv::Response::SharedPtr;
+
+public:
+    WatchDog(RclNode&);
+
+private:
+    int32_t getFeedTime() const;
+
+private:
+    RclPubPtr<Int32Msg> watchdog_status_pub;
+    RclSrvPtr<SetBoolSrv> set_teleop_srv;
+    RclSrvPtr<SetBoolSrv> set_auto_srv;
+    RclSrvPtr<SetBoolSrv> test_mode_srv;
+    RclTimer::SharedPtr watchdog_timer;
+
+    ControlMode ctrl_mode{ControlMode::DISABLED};
+    uint8_t ctrl_opts{0};
+};
+
+
+class ClientNode : public rclcpp::Node, public UsingRosAliases
+{
+    using BoolMsg = std_msgs::msg::Bool;
+    using Int32Msg = std_msgs::msg::Int32;
 
     using JoyMsg = sensor_msgs::msg::Joy;
     using JointStateMsg = sensor_msgs::msg::JointState;
@@ -104,9 +128,15 @@ public:
     ClientNode();
 
 protected:
-    void initMarkers();
+    enum : uint32_t
+    {
+        STATE_NONE = 0,
+        STATE_MC_INPUT_OVERRIDE = (1 << 0),
+        STATE_CURSOR_ENABLED = (1 << 1)
+    };
 
-    int32_t getFeedTime() const;
+protected:
+    void initMarkers();
 
     void handleJoy(const JoyMsg&);
     void handleClickedPoint(const PointStampedMsg&);
@@ -116,11 +146,7 @@ private:
     TfCache tf_cache;
     TelemetryDeserializer telemetry;
 
-    RclPubPtr<Int32Msg> watchdog_status_pub;
-    RclSrvPtr<SetBoolSrv> set_teleop_srv;
-    RclSrvPtr<SetBoolSrv> set_auto_srv;
-    RclSrvPtr<SetBoolSrv> test_mode_srv;
-    RclTimer::SharedPtr watchdog_timer;
+    WatchDog watchdog;
 
     RclPubPtr<JoyMsg> joy_pub;
     RclSubPtr<JoyMsg> joy_sub;
@@ -136,13 +162,63 @@ private:
     JoyState joy_state;
     PoseStampedMsg traversal_cursor;
 
-    ControlMode ctrl_mode{ControlMode::DISABLED};
-    uint8_t ctrl_opts{0};
-
-    bool is_mission_control_input_override{false};
-    bool is_traversal_cursor_mode{false};
+    uint32_t state{STATE_NONE};
 };
 
+
+
+// --- Watchdog ----------------------------------------------------------------
+
+WatchDog::WatchDog(RclNode& node) :
+    watchdog_status_pub{node.create_publisher<Int32Msg>(
+        lance::WATCHDOG_TOPIC,
+        rclcpp::SensorDataQoS{})},
+
+    set_teleop_srv{node.create_service<SetBoolSrv>(
+        lance::SET_TELEOP_TOPIC,
+        [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+        {
+            this->ctrl_mode =
+                req->data ? ControlMode::TELEOPERATED : ControlMode::DISABLED;
+            resp->success = true;
+        })},
+
+    set_auto_srv{node.create_service<SetBoolSrv>(
+        lance::SET_AUTO_TOPIC,
+        [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+        {
+            this->ctrl_mode =
+                req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
+            resp->success = true;
+        })},
+
+    test_mode_srv{node.create_service<SetBoolSrv>(
+        lance::SET_TEST_TOPIC,
+        [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+        {
+            this->ctrl_opts = static_cast<uint8_t>(
+                req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
+            resp->success = true;
+        })},
+
+    watchdog_timer{node.create_wall_timer(
+        WATCHDOG_PUB_DT,
+        [this]()
+        {
+            this->watchdog_status_pub->publish(
+                Int32Msg{}.set__data(this->getFeedTime()));
+        })}
+{
+}
+
+int32_t WatchDog::getFeedTime() const
+{
+    return ControlStatus::format(
+        this->ctrl_mode,
+        this->ctrl_opts,
+        WATCHDOG_TELEOP_FEED_TIME,
+        WATCHDOG_AUTO_FEED_TIME);
+}
 
 
 // --- Implementation ----------------------------------------------------------
@@ -156,44 +232,7 @@ ClientNode::ClientNode() :
         declare_and_get_param<std::string>(*this, "robot_frame_id", "robot")},
     telemetry{*this, this->tf_cache},
 
-    watchdog_status_pub{this->create_publisher<Int32Msg>(
-        lance::WATCHDOG_TOPIC,
-        rclcpp::SensorDataQoS{})},
-
-    set_teleop_srv{this->create_service<SetBoolSrv>(
-        lance::SET_TELEOP_TOPIC,
-        [this](SetBoolReqPtr req, SetBoolRespPtr resp)
-        {
-            this->ctrl_mode =
-                req->data ? ControlMode::TELEOPERATED : ControlMode::DISABLED;
-            resp->success = true;
-        })},
-
-    set_auto_srv{this->create_service<SetBoolSrv>(
-        lance::SET_AUTO_TOPIC,
-        [this](SetBoolReqPtr req, SetBoolRespPtr resp)
-        {
-            this->ctrl_mode =
-                req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
-            resp->success = true;
-        })},
-
-    test_mode_srv{this->create_service<SetBoolSrv>(
-        lance::SET_TEST_TOPIC,
-        [this](SetBoolReqPtr req, SetBoolRespPtr resp)
-        {
-            this->ctrl_opts = static_cast<uint8_t>(
-                req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
-            resp->success = true;
-        })},
-
-    watchdog_timer{this->create_wall_timer(
-        WATCHDOG_PUB_DT,
-        [this]()
-        {
-            this->watchdog_status_pub->publish(
-                Int32Msg{}.set__data(this->getFeedTime()));
-        })},
+    watchdog{*this},
 
     joy_pub{this->create_publisher<JoyMsg>(
         lance::JOY_CTRL_TOPIC,
@@ -278,65 +317,57 @@ void ClientNode::initMarkers()
 #undef ADD_MARKER
 }
 
-int32_t ClientNode::getFeedTime() const
-{
-    return ControlStatus::format(
-        this->ctrl_mode,
-        this->ctrl_opts,
-        WATCHDOG_TELEOP_FEED_TIME,
-        WATCHDOG_AUTO_FEED_TIME);
-}
-
 void ClientNode::handleJoy(const JoyMsg& msg)
 {
     this->joy_state.update(msg);
 
     if (MissionControlOverrideButton::wasPressed(this->joy_state))
     {
-        if (!(this->is_mission_control_input_override =
-                  !this->is_mission_control_input_override))
+        if (!((this->state ^= STATE_MC_INPUT_OVERRIDE) &
+              STATE_MC_INPUT_OVERRIDE))
         {
-            this->is_traversal_cursor_mode = false;
+            this->state &= ~STATE_CURSOR_ENABLED;
         }
     }
 
-    if (!this->is_mission_control_input_override)
+    if (!(this->state & STATE_MC_INPUT_OVERRIDE))
     {
         this->joy_pub->publish(msg);
     }
 
     if (SetDisabledModeButton::wasPressed(this->joy_state))
     {
-        if (this->is_mission_control_input_override ||
-            this->ctrl_mode == ControlMode::AUTONOMOUS)
+        if ((this->state & STATE_MC_INPUT_OVERRIDE) ||
+            this->watchdog.ctrl_mode == ControlMode::AUTONOMOUS)
         {
-            this->ctrl_mode = ControlMode::DISABLED;
-            this->is_traversal_cursor_mode = false;
+            this->watchdog.ctrl_mode = ControlMode::DISABLED;
+            this->state &= ~STATE_CURSOR_ENABLED;
         }
     }
 
-    if (this->is_mission_control_input_override)
+    if (this->state & STATE_MC_INPUT_OVERRIDE)
     {
         if (SetTeleopModeButton::wasPressed(this->joy_state))
         {
-            this->ctrl_mode = ControlMode::TELEOPERATED;
+            this->watchdog.ctrl_mode = ControlMode::TELEOPERATED;
         }
         if (SetAutoModeButton::wasPressed(this->joy_state))
         {
-            this->ctrl_mode = ControlMode::AUTONOMOUS;
-            this->is_traversal_cursor_mode = false;
+            this->watchdog.ctrl_mode = ControlMode::AUTONOMOUS;
+            this->state &= ~STATE_CURSOR_ENABLED;
         }
         if (ToggleTestModeButton::wasPressed(this->joy_state))
         {
-            this->ctrl_opts ^= static_cast<uint8_t>(ControlOpts::TEST_MODE);
+            this->watchdog.ctrl_opts ^=
+                static_cast<uint8_t>(ControlOpts::TEST_MODE);
         }
 
-        if (this->ctrl_mode == ControlMode::TELEOPERATED)
+        if (this->watchdog.ctrl_mode == ControlMode::TELEOPERATED)
         {
             if (ToggleTraversalCursorButton::wasPressed(this->joy_state))
             {
-                if ((this->is_traversal_cursor_mode =
-                         !this->is_traversal_cursor_mode))
+                if ((this->state ^= STATE_CURSOR_ENABLED) &
+                    STATE_CURSOR_ENABLED)
                 {
                     if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
                     {
@@ -374,10 +405,10 @@ void ClientNode::handleJoy(const JoyMsg& msg)
             if (ConfirmTraversalTargetButton::wasPressed(this->joy_state))
             {
                 this->traversal_target_pub->publish(this->traversal_cursor);
-                this->is_traversal_cursor_mode = false;
+                this->state &= ~STATE_CURSOR_ENABLED;
             }
 
-            if (this->is_traversal_cursor_mode)
+            if (this->state & STATE_CURSOR_ENABLED)
             {
                 constexpr float CURSOR_MAX_SPEED_MPS = 2.f;
                 constexpr float CURSOR_MAX_SPEED_RPS = 4.f;
@@ -430,18 +461,16 @@ void ClientNode::handleClickedPoint(const PointStampedMsg& msg)
 
     this->traversal_target_pub->publish(this->traversal_cursor);
 
-    this->is_traversal_cursor_mode = false;
+    this->state &= ~STATE_CURSOR_ENABLED;
 }
 
 void ClientNode::handleInterfacePubs()
 {
     GenericPubMap& pub_map = this->telemetry.getPubMap();
 
-    pub_map.publish<BoolMsg>(
-        ROBOT_TOPIC("mission_control_override"),
-        this->is_mission_control_input_override);
+    pub_map.publish<Int32Msg>(ROBOT_TOPIC("mc_state"), this->state);
 
-    if (this->is_traversal_cursor_mode)
+    if (this->state & STATE_CURSOR_ENABLED)
     {
         pub_map.publish(
             ROBOT_TOPIC("traversal_cursor"),
