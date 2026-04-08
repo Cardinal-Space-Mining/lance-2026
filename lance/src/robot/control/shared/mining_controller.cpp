@@ -364,7 +364,7 @@ void MiningController::iterate(
                 }
                 // adjust tracks
                 {
-                    const float raw = TeleopDriveYAxis::rawValue(*joy);
+                    const float raw = TeleopDriveForwardAxis::rawValue(*joy);
                     if (std::abs(raw) >=
                         this->params.driving_magnitude_deadzone)
                     {

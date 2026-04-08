@@ -39,66 +39,47 @@
 
 #pragma once
 
-#include "util/joy_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
+#include <rclcpp/rclcpp.hpp>
 
-#include "auto_mining_controller.hpp"
-#include "auto_offload_controller.hpp"
+#include <sensor_msgs/msg/joint_state.hpp>
+
+#include "util/ros_utils.hpp"
+
+#include "robot/core/ros_interface.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/model/dynamics.hpp"
 
 
 namespace lance
 {
 
-class AutoController
+class JointPublisher : public util::UsingRosAliases
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
-
-    using JoyState = util::JoyState;
+    using JointStateMsg = sensor_msgs::msg::JointState;
 
 public:
-    AutoController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoController() = default;
-
-public:
-    void initialize();
-    void setCancelled();
-
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    enum class Stage
+    inline JointPublisher(RclNode& node) :
+        joint_pub{node.create_publisher<JointStateMsg>(
+            "joint_states",
+            rclcpp::SensorDataQoS{})},
+        hopper_info_sub{node.create_subscription<TalonInfoMsg>(
+            TALON_INFO_TOPIC("hopper_act"),
+            rclcpp::SensorDataQoS{},
+            [this](const TalonInfoMsg& info)
+            {
+                JointStateMsg msg;
+                msg.header = info.header;
+                msg.name.push_back(lance::HOPPER_JOINT_NAME);
+                msg.position.push_back(
+                    lance::linearActuatorToJointAngle(info.position / 1000.));
+                this->joint_pub->publish(msg);
+            })}
     {
-        LOCALIZATION = 0,
-        TRAVERSE_TO_MINING,
-        MINING,
-        TRAVERSE_TO_OFFLOAD,
-        OFFLOAD,
-        UNKNOWN
-    };
+    }
 
-protected:
-    void targetInitialTraversalToMining();
-
-protected:
-    const RobotParams& params;
-    const SensingInterfaces& sensing_interfaces;
-
-    LocalizationController& localization_controller;
-    TraversalController& traversal_controller;
-
-    AutoMiningController mining_controller;
-    AutoOffloadController offload_controller;
-
-    Stage stage{Stage::LOCALIZATION};
+private:
+    RclPubPtr<JointStateMsg> joint_pub;
+    RclSubPtr<TalonInfoMsg> hopper_info_sub;
 };
 
 };  // namespace lance

@@ -39,66 +39,72 @@
 
 #pragma once
 
-#include "util/joy_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/control/shared/shared_controllers.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
+#include <rclcpp/rclcpp.hpp>
 
-#include "auto_mining_controller.hpp"
-#include "auto_offload_controller.hpp"
+#include <std_msgs/msg/int32.hpp>
+
+#include <sensor_msgs/msg/joy.hpp>
+
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+
+#include "util/joy_utils.hpp"
+#include "util/ros_utils.hpp"
+
+#include "robot/sensing/tf_cache.hpp"
+#include "robot/telemetry/deserializer.hpp"
+
+#include "watchdog.hpp"
 
 
 namespace lance
 {
 
-class AutoController
+class InputInterface : public util::UsingRosAliases
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
+    using Int32Msg = std_msgs::msg::Int32;
+    using JoyMsg = sensor_msgs::msg::Joy;
+    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
 
     using JoyState = util::JoyState;
 
 public:
-    AutoController(
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~AutoController() = default;
-
-public:
-    void initialize();
-    void setCancelled();
-
-    void iterate(
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    InputInterface(RclNode&, const TfCache&, TelemetryDeserializer&, WatchDog&);
 
 protected:
-    enum class Stage
+    enum : uint32_t
     {
-        LOCALIZATION = 0,
-        TRAVERSE_TO_MINING,
-        MINING,
-        TRAVERSE_TO_OFFLOAD,
-        OFFLOAD,
-        UNKNOWN
+        STATE_NONE = 0,
+        STATE_MC_INPUT_OVERRIDE = (1 << 0),
+        STATE_CURSOR_ENABLED = (1 << 1)
     };
 
 protected:
-    void targetInitialTraversalToMining();
+    void handleJoy(const JoyMsg&);
+    void handleClickedPoint(const PointStampedMsg&);
+    void handleInterfacePubs();
 
-protected:
-    const RobotParams& params;
-    const SensingInterfaces& sensing_interfaces;
+    bool hasState(uint32_t) const;
+    void setState(uint32_t);
+    void clearState(uint32_t);
+    bool toggleState(uint32_t);
 
-    LocalizationController& localization_controller;
-    TraversalController& traversal_controller;
+private:
+    const TfCache& tf_cache;
+    TelemetryDeserializer& telemetry;
+    WatchDog& watchdog;
 
-    AutoMiningController mining_controller;
-    AutoOffloadController offload_controller;
+    RclPubPtr<JoyMsg> joy_pub;
+    RclSubPtr<JoyMsg> joy_sub;
+    RclPubPtr<PoseStampedMsg> traversal_target_pub;
+    RclSubPtr<PointStampedMsg> clicked_point_sub;
+    RclTimer::SharedPtr interface_pub_timer;
 
-    Stage stage{Stage::LOCALIZATION};
+    JoyState joy_state;
+    PoseStampedMsg traversal_cursor;
+
+    uint32_t state{STATE_NONE};
 };
 
 };  // namespace lance

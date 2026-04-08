@@ -41,6 +41,8 @@
 
 #include <memory>
 
+#include "robot/model/geometry.hpp"
+
 
 namespace lance
 {
@@ -50,6 +52,7 @@ AutoController::AutoController(
     SensingInterfaces& sensing_interfaces,
     SharedControllerCollection& controllers) :
     params{params},
+    sensing_interfaces{sensing_interfaces},
     localization_controller{controllers.localization_controller},
     traversal_controller{controllers.traversal_controller},
     mining_controller{params, sensing_interfaces, controllers},
@@ -125,9 +128,7 @@ void AutoController::iterate(
                 break;
             }
 
-            this->traversal_controller.initializeZone(
-                this->params.mining_zone_bounds.min(),
-                this->params.mining_zone_bounds.max());
+            this->targetInitialTraversalToMining();
             this->stage = Stage::TRAVERSE_TO_MINING;
             [[fallthrough]];
         }
@@ -189,6 +190,54 @@ void AutoController::iterate(
         {
         }
     }
+}
+
+void AutoController::targetInitialTraversalToMining()
+{
+    if (this->sensing_interfaces.tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+    {
+        using namespace lance::geom;
+
+        const Vec3f& pos =
+            this->sensing_interfaces.tf_cache.getTf(ROBOT_TO_ARENA_TF)
+                ->pose.vec;
+        const Vec2f p2 = pos.template head<2>();
+
+#define MINING_ZONE this->params.mining_zone_bounds
+        // attempt to target the opposite half if already inside the zone
+        if (MINING_ZONE.contains(p2))
+        {
+            const Vec2f diff_max = (p2 - MINING_ZONE.max()).cwiseAbs();
+            const Vec2f diff_min = (p2 - MINING_ZONE.min()).cwiseAbs();
+            const float farthest_x = (diff_max.x() > diff_min.x())
+                                         ? MINING_ZONE.max().x()
+                                         : MINING_ZONE.min().x();
+            const float farthest_y = (diff_max.y() > diff_min.y())
+                                         ? MINING_ZONE.max().y()
+                                         : MINING_ZONE.min().y();
+
+            Box2f z = MINING_ZONE;
+            if (farthest_x > farthest_y)
+            {
+                z.min().x() = std::min(farthest_x, MINING_ZONE.center().x());
+                z.max().x() = std::max(farthest_x, MINING_ZONE.center().x());
+            }
+            else
+            {
+                z.min().y() = std::min(farthest_y, MINING_ZONE.center().y());
+                z.max().y() = std::max(farthest_y, MINING_ZONE.center().y());
+            }
+
+            this->traversal_controller.initializeZone(z.min(), z.max());
+            return;
+        }
+#undef MINING_ZONE
+    }
+
+    // default to targetting full mining zone bounds
+    this->traversal_controller.initializeZone(
+        this->params.mining_zone_bounds.min(),
+        this->params.mining_zone_bounds.max());
 }
 
 };  // namespace lance

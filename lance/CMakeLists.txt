@@ -174,7 +174,8 @@ endif()
 
 # --- Mission Control ----------------------------------------------------------
 set(mission_control_srcs
-    "src/client_node.cpp")
+    "src/client_node.cpp"
+    "src/mission_control/inputs.cpp")
 set(mission_control_ament_deps)     # rest of deps included from core lib
 
 if(BUILD_LANCE1)

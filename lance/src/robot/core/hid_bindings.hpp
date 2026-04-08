@@ -122,8 +122,8 @@ using TeleopLowSpeedButton = Xbox::ButtonB;
 using TeleopMediumSpeedButton = Xbox::ButtonY;
 using TeleopHighSpeedButton = Xbox::ButtonX;
 
-using TeleopDriveXAxis = Xbox::AxisLeftX;
-using TeleopDriveYAxis = Xbox::AxisLeftY;
+using TeleopDriveForwardAxis = Xbox::AxisLeftY;
+using TeleopDriveRotationAxis = Xbox::AxisLeftX;
 
 using TeleopTrencherSpeedAxis = Xbox::AxisRightTrigger;
 using TeleopTrencherInvertButton = Xbox::ButtonRightBumper;
@@ -156,10 +156,9 @@ using ToggleTestModeButton = Xbox::ButtonY;
 using ToggleTraversalCursorButton = Xbox::ButtonRightBumper;
 using ConfirmTraversalTargetButton = Xbox::ButtonLeftBumper;
 
-using TraversalCursorPosXAxis = Xbox::AxisLeftX;
-using TraversalCursorPosYAxis = Xbox::AxisLeftY;
-using TraversalCursorDirXAxis = Xbox::AxisRightX;
-using TraversalCursorDirYAxis = Xbox::AxisRightY;
+using TraversalCursorRotAxis = Xbox::AxisRightX;
+using TraversalCursorPosAxes =
+    util::StaticJoyStickAxes<Xbox::AxisLeftY::IDX, Xbox::AxisLeftX::IDX>;
 
 
 #undef Xbox

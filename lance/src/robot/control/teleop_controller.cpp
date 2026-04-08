@@ -265,17 +265,17 @@ void TeleopController::handleTeleopInputs(
 
     // tracks
     {
-        const float x = TeleopDriveXAxis::rawValue(joy);
-        const float y = TeleopDriveYAxis::rawValue(joy);
-        if ((x * x + y * y) < (this->params.driving_magnitude_deadzone *
+        const float f = TeleopDriveForwardAxis::rawValue(joy);
+        const float o = TeleopDriveRotationAxis::rawValue(joy);
+        if ((f * f + o * o) < (this->params.driving_magnitude_deadzone *
                                this->params.driving_magnitude_deadzone))
         {
             commands.setTracksVelocity(0., 0.);
         }
         else
         {
-            const float l = y - x;  // y + (-x)
-            const float r = y + x;  // y - (-x)
+            const float l = f - o;
+            const float r = f + o;
             const float s =
                 (this->driving_rps_scalar /
                  std::max({1.f, std::abs(l), std::abs(r)}));
