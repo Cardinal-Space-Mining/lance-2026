@@ -37,67 +37,144 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
-
-#include <vector>
-#include <string_view>
-
-#include <visualization_msgs/msg/marker.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
-
-#include "util/ros_utils.hpp"
+#include "markers.hpp"
 
 
 namespace lance
 {
 
-class MarkerManager : public util::UsingRosAliases
+size_t MarkerManager::MarkerGroup::size() const
 {
-public:
-    using ColorMsg = std_msgs::msg::ColorRGBA;
+    return this->end - this->beg;
+}
 
-    using MarkerMsg = visualization_msgs::msg::Marker;
-    using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
+MarkerManager::MarkerMsg& MarkerManager::MarkerGroup::operator[](size_t i)
+{
+    auto x = this->beg + i;
+    return (x < this->end) ? *x : *this->beg;
+}
 
-    struct MarkerGroup
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setFrameIds(
+    std::string_view frame_id)
+{
+    for (auto itr = this->beg; itr != this->end; itr++)
     {
-        using MarkerIter = MarkerArrayMsg::_markers_type::iterator;
+        itr->header.frame_id = frame_id;
+    }
+    return *this;
+}
 
-        MarkerIter beg, end;
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setTypes(int32_t type)
+{
+    for (auto itr = this->beg; itr != this->end; itr++)
+    {
+        itr->type = type;
+    }
+    return *this;
+}
 
-        size_t size() const;
-        MarkerMsg& operator[](size_t i);
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setDurations(RclDur dur)
+{
+    for (auto itr = this->beg; itr != this->end; itr++)
+    {
+        itr->lifetime = dur;
+    }
+    return *this;
+}
 
-        MarkerGroup& setFrameIds(std::string_view frame_id);
-        MarkerGroup& setTypes(int32_t type);
-        MarkerGroup& setDurations(RclDur dur);
-    };
 
-public:
-    MarkerManager() = default;
 
-public:
-    size_t reserveGroup(size_t n, std::string_view ns = "default_ns");
-    MarkerGroup getGroup(size_t i);
+size_t MarkerManager::reserveGroup(size_t n, std::string_view ns)
+{
+    this->all_markers.markers.reserve(this->all_markers.markers.size() + n);
+    for (size_t i = 0; i < n; i++)
+    {
+        auto& m = this->all_markers.markers.emplace_back();
+        m.ns = ns;
+        m.id = static_cast<int32_t>(this->all_markers.markers.size());
+        m.action = MarkerMsg::ADD;
+    }
 
-    void clearAll();
-    void clearOutput();
-    void addGroupToOutput(size_t i);
+    this->alloc_indices.push_back(this->all_markers.markers.size());
 
-    const MarkerArrayMsg& getAllMarkers() const;
-    const MarkerArrayMsg& getOutputMarkers() const;
+    return this->alloc_indices.size() - 1;
+}
 
-    void pubAllMarkers(RclPubPtr<MarkerArrayMsg>& pub, RclTime stamp);
-    void pubOutputMarkers(
-        RclPubPtr<MarkerArrayMsg>& pub,
-        RclTime stamp,
-        bool clear = true);
+MarkerManager::MarkerGroup MarkerManager::getGroup(size_t i)
+{
+    if (i >= this->alloc_indices.size())
+    {
+        return MarkerGroup{
+            .beg = this->all_markers.markers.end(),
+            .end = this->all_markers.markers.end()};
+    }
 
-protected:
-    MarkerArrayMsg all_markers;
-    MarkerArrayMsg output_markers;
+    const size_t b = i > 0 ? this->alloc_indices[i - 1] : 0;
+    const size_t e = this->alloc_indices[i];
 
-    std::vector<size_t> alloc_indices;
-};
+    return MarkerGroup{
+        .beg = this->all_markers.markers.begin() + b,
+        .end = this->all_markers.markers.begin() + e};
+}
+
+void MarkerManager::clearAll()
+{
+    this->all_markers.markers.clear();
+    this->output_markers.markers.clear();
+}
+
+void MarkerManager::clearOutput() { this->output_markers.markers.clear(); }
+
+void MarkerManager::addGroupToOutput(size_t i)
+{
+    if (i >= this->alloc_indices.size())
+    {
+        return;
+    }
+
+    MarkerGroup g = this->getGroup(i);
+    this->output_markers.markers.insert(
+        this->output_markers.markers.end(),
+        g.beg,
+        g.end);
+}
+
+const MarkerManager::MarkerArrayMsg& MarkerManager::getAllMarkers() const
+{
+    return this->all_markers;
+}
+
+const MarkerManager::MarkerArrayMsg& MarkerManager::getOutputMarkers() const
+{
+    return this->output_markers;
+}
+
+void MarkerManager::pubAllMarkers(RclPubPtr<MarkerArrayMsg>& pub, RclTime stamp)
+{
+    for (auto& m : this->all_markers.markers)
+    {
+        m.header.stamp = stamp;
+    }
+
+    pub->publish(this->all_markers);
+}
+
+void MarkerManager::pubOutputMarkers(
+    RclPubPtr<MarkerArrayMsg>& pub,
+    RclTime stamp,
+    bool clear)
+{
+    for (auto& m : this->output_markers.markers)
+    {
+        m.header.stamp = stamp;
+    }
+
+    pub->publish(this->output_markers);
+
+    if (clear)
+    {
+        this->output_markers.markers.clear();
+    }
+}
 
 };  // namespace lance

@@ -130,8 +130,9 @@ void MiningConstraints::updateState(
         tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         const float d = lance::geom::distToBounds(
-            *tf_cache.getTf(ROBOT_TO_ARENA_TF),
-            this->params.bounds.mining_zone);
+                            *tf_cache.getTf(ROBOT_TO_ARENA_TF),
+                            this->params.bounds.mining_zone) -
+                        lance::geom::TRENCHER_X_MAX_<float>;
         if (d < this->remaining_dist ||
             this->current_constraint == CONSTRAINT_ZONE_BOUNDARY)
         {

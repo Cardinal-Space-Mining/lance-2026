@@ -55,6 +55,9 @@ public:
     using RclClock = rclcpp::Clock;
     using RclTimer = rclcpp::TimerBase;
 
+    using RclTime = rclcpp::Time;
+    using RclDur = rclcpp::Duration;
+
     template<typename T>
     using RclPub = rclcpp::Publisher<T>;
     template<typename T>

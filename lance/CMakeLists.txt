@@ -175,6 +175,7 @@ endif()
 # --- Mission Control ----------------------------------------------------------
 set(mission_control_srcs
     "src/client_node.cpp"
+    "src/robot/telemetry/markers.cpp"
     "src/mission_control/inputs.cpp")
 set(mission_control_ament_deps)     # rest of deps included from core lib
 

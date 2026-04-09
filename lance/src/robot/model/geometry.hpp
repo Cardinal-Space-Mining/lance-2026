@@ -191,9 +191,7 @@ inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
     return p3;
 }
 
-/* Obtain the headroom that the robot could travel before reaching the zone 
- * boundary. Note that the calculation bases of the FRONT of the robot and not
- * the center point. */
+/* Obtain the raw distance from the pose origin to the nearest bounary. */
 template<typename T>
 inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
 {
@@ -213,7 +211,7 @@ inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
             ty = ((dy > 0 ? b.max().y() : b.min().y()) - p.y()) / dy;
         }
 
-        return std::min(tx, ty) - FOOTPRINT_X_MAX_<T>;
+        return std::min(tx, ty);
     }
     return std::numeric_limits<T>::max();
 }

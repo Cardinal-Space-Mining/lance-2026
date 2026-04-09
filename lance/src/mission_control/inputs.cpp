@@ -435,13 +435,18 @@ void InputInterface::homeOffloadCursor()
     this->offload_target.z() =
         std::atan2(this->offload_zone_norm.y(), this->offload_zone_norm.x());
 
+    this->recalcOffloadRange();
+
+    this->traversal_cursor.header.frame_id = this->tf_cache.arena_frame_id;
+    this->recalcOffloadTarget();
+}
+
+void InputInterface::recalcOffloadRange()
+{
     this->offload_vis_range = std::max(
         -OFFLOAD_FOOTPRINT_OFFSET_<float>,
         FOOTPRINT_R_MAX_<float> +
             distToBounds(this->offload_target, this->bounds.offload_zone));
-
-    this->traversal_cursor.header.frame_id = this->tf_cache.arena_frame_id;
-    this->recalcOffloadTarget();
 }
 
 void InputInterface::recalcOffloadTarget()

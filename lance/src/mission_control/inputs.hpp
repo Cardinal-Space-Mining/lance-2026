@@ -110,7 +110,10 @@ protected:
     bool handleCommonOverrides();
     void homeTravCursor();
     void homeOffloadCursor();
+
+    void recalcOffloadRange();
     void recalcOffloadTarget();
+
     void iterateTravCursor();
     void iterateMiningCursor();
     void iterateOffloadCursor();
