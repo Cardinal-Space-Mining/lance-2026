@@ -69,6 +69,8 @@ MiningEvalInterface::MiningEvalInterface(
 
 void MiningEvalInterface::queryArenaFrame(const std::vector<Pose2f>& poses)
 {
+    std::cout << "Querying mining eval arena frame with " << poses.size()
+              << " poses...\n";
     UpdateMiningEvalSrv::Request::SharedPtr req =
         std::make_shared<UpdateMiningEvalSrv::Request>();
 
@@ -171,6 +173,7 @@ void MiningEvalInterface::updateResult(
     }
 
     this->eval_results->query_id = msg->query_id;
+    this->eval_results->ranges.clear();
     this->eval_results->ranges.reserve(msg->ranges.size());
     for (const float r : msg->ranges)
     {

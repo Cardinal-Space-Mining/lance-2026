@@ -37,6 +37,8 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
 #include <vector>
 #include <iostream>
 #include <stdexcept>
@@ -119,10 +121,11 @@ public:
     MiningPlanner(MiningEvalInterface& mining_eval, const RobotParams& robot_params);
 
 public:
-    void updateMappedMatrices();
+    bool updateMappedMatrices();
     const DirectedMiningPaths& finalOutput();
 
     void markMiningOnMatrix(const DirectedMiningPath& path);
+    bool hasSentRequest() const { return sent_eval_request; }
 
 private:
     const std::vector<Pose2f>& getStartingLocations();
@@ -136,6 +139,9 @@ private:
     const RobotParams& robot_params;
     MiningEvalInterface& mining_eval;
 
+
+    bool sent_eval_request{ false };
+
     // The direction is the way the the robot would be moving in reference to the
     // base frame which is MiningDirection::DOWN
     Eigen::MatrixXf strip_map_up;
@@ -147,9 +153,6 @@ private:
     Eigen::MatrixXi previously_mined_cells;
 
     DirectedMiningPaths all_mining_paths;
-
-    const float full_robot_width = 1; // edge of track to other far edge
-    const float max_robot_length = 1.5;// the max length from the middle of the robot to the front and back * 2
 };
 
 };  // namespace lance
