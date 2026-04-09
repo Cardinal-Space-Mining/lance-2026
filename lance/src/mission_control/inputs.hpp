@@ -51,10 +51,12 @@
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
 
+#include "robot/core/robot_params.hpp"
 #include "robot/sensing/tf_cache.hpp"
 #include "robot/telemetry/deserializer.hpp"
 
 #include "watchdog.hpp"
+#include "zone_pub.hpp"
 
 
 namespace lance
@@ -68,16 +70,24 @@ class InputInterface : public util::UsingRosAliases
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
 
     using JoyState = util::JoyState;
+    using ZoneBounds = RobotParams::ZoneBounds;
 
 public:
-    InputInterface(RclNode&, const TfCache&, TelemetryDeserializer&, WatchDog&);
+    InputInterface(
+        RclNode&,
+        const TfCache&,
+        TelemetryDeserializer&,
+        WatchDog&,
+        const ZoneBounds&);
 
 protected:
-    enum : uint32_t
+    enum class State
     {
-        STATE_NONE = 0,
-        STATE_MC_INPUT_OVERRIDE = (1 << 0),
-        STATE_CURSOR_ENABLED = (1 << 1)
+        PASSTHROUGH = 0,
+        OVERRIDE,
+        TRAV_CURSOR,
+        MINING_CURSOR,
+        OFFLOAD_CURSOR
     };
 
 protected:
@@ -85,15 +95,34 @@ protected:
     void handleClickedPoint(const PointStampedMsg&);
     void handleInterfacePubs();
 
-    bool hasState(uint32_t) const;
-    void setState(uint32_t);
-    void clearState(uint32_t);
-    bool toggleState(uint32_t);
+    void handlePassthroughState();
+    void handleOverrideState();
+
+    void initTravCursorState();
+    void initMiningCursorState();
+    void initOffloadCursorState();
+
+    void handleTravCursorState();
+    void handleMiningCursorState();
+    void handleOffloadCursorState();
+
+    bool handleCommonOverrides();
+    void homeTravCursor();
+    void iterateTravCursor();
+    void iterateMiningCursor();
+    void iterateOffloadCursor();
+
+    void publishTravTarget();
+    void publishMiningTarget();
+    void publishOffloadTarget();
+
+    bool isCursorState() const;
 
 private:
     const TfCache& tf_cache;
     TelemetryDeserializer& telemetry;
     WatchDog& watchdog;
+    const ZoneBounds& bounds;
 
     RclPubPtr<JoyMsg> joy_pub;
     RclSubPtr<JoyMsg> joy_sub;
@@ -104,7 +133,7 @@ private:
     JoyState joy_state;
     PoseStampedMsg traversal_cursor;
 
-    uint32_t state{STATE_NONE};
+    State state{State::PASSTHROUGH};
 };
 
 };  // namespace lance

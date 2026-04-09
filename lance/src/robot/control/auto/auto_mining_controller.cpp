@@ -140,7 +140,7 @@ void AutoMiningController::iterate(
 
             // init with planned destination
             this->traversal_controller.initializePoint(
-                this->params.mining_zone_bounds.max() -
+                this->params.bounds.mining_zone.max() -
                     Eigen::Vector2f::Constant(0.8f),
                 Eigen::Vector2f{0.f, -1.f});
 

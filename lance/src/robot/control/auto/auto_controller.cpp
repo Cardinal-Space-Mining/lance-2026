@@ -154,8 +154,8 @@ void AutoController::iterate(
             }
 
             this->traversal_controller.initializeZone(
-                this->params.construction_zone_bounds.min(),
-                this->params.construction_zone_bounds.max());
+                this->params.bounds.construction_zone.min(),
+                this->params.bounds.construction_zone.max());
             this->stage = Stage::TRAVERSE_TO_OFFLOAD;
             [[fallthrough]];
         }
@@ -180,8 +180,8 @@ void AutoController::iterate(
             }
 
             this->traversal_controller.initializeZone(
-                this->params.mining_zone_bounds.min(),
-                this->params.mining_zone_bounds.max());
+                this->params.bounds.mining_zone.min(),
+                this->params.bounds.mining_zone.max());
             // chatgpt says I should change this to a while loop that wraps the entire switch-case
             this->stage = Stage::TRAVERSE_TO_MINING;
             goto TRAVERSE_TO_MINING_L;
@@ -203,7 +203,7 @@ void AutoController::targetInitialTraversalToMining()
                 ->pose.vec;
         const Vec2f p2 = pos.template head<2>();
 
-#define MINING_ZONE this->params.mining_zone_bounds
+#define MINING_ZONE this->params.bounds.mining_zone
         // attempt to target the opposite half if already inside the zone
         if (MINING_ZONE.contains(p2))
         {
@@ -236,8 +236,8 @@ void AutoController::targetInitialTraversalToMining()
 
     // default to targetting full mining zone bounds
     this->traversal_controller.initializeZone(
-        this->params.mining_zone_bounds.min(),
-        this->params.mining_zone_bounds.max());
+        this->params.bounds.mining_zone.min(),
+        this->params.bounds.mining_zone.max());
 }
 
 };  // namespace lance

@@ -41,7 +41,7 @@
 
 #include <chrono>
 
-#include "util/pub_map.hpp" 
+#include "util/pub_map.hpp"
 #include "util/geometry.hpp"
 
 #include "robot/core/hid_bindings.hpp"
@@ -62,10 +62,12 @@ InputInterface::InputInterface(
     RclNode& node,
     const TfCache& tf_cache,
     TelemetryDeserializer& telemetry,
-    WatchDog& watchdog) :
+    WatchDog& watchdog,
+    const ZoneBounds& bounds) :
     tf_cache{tf_cache},
     telemetry{telemetry},
     watchdog{watchdog},
+    bounds{bounds},
 
     joy_pub{node.create_publisher<JoyMsg>(
         lance::JOY_CTRL_TOPIC,
@@ -93,135 +95,53 @@ void InputInterface::handleJoy(const JoyMsg& msg)
 {
     this->joy_state.update(msg);
 
-    if (MissionControlOverrideButton::wasPressed(this->joy_state))
+    switch (this->state)
     {
-        if (!this->toggleState(STATE_MC_INPUT_OVERRIDE))
+        case State::PASSTHROUGH:
         {
-            this->clearState(STATE_CURSOR_ENABLED);
+            this->handlePassthroughState();
+            break;
+        }
+        case State::OVERRIDE:
+        {
+            this->handleOverrideState();
+            break;
+        }
+        case State::TRAV_CURSOR:
+        {
+            this->handleTravCursorState();
+            break;
+        }
+        case State::MINING_CURSOR:
+        {
+            this->handleMiningCursorState();
+            break;
+        }
+        case State::OFFLOAD_CURSOR:
+        {
+            this->handleOffloadCursorState();
+            break;
         }
     }
 
-    if (!this->hasState(STATE_MC_INPUT_OVERRIDE))
+    if (this->state == State::PASSTHROUGH &&
+        this->watchdog.isCtrl(ControlMode::TELEOPERATED))
     {
         this->joy_pub->publish(msg);
-    }
-
-    if (SetDisabledModeButton::wasPressed(this->joy_state))
-    {
-        if (this->hasState(STATE_MC_INPUT_OVERRIDE) ||
-            this->watchdog.getCtrl() == ControlMode::AUTONOMOUS)
-        {
-            this->watchdog.setCtrl(ControlMode::DISABLED);
-            this->clearState(STATE_CURSOR_ENABLED);
-        }
-    }
-
-    if (this->hasState(STATE_MC_INPUT_OVERRIDE))
-    {
-        if (SetTeleopModeButton::wasPressed(this->joy_state))
-        {
-            this->watchdog.setCtrl(ControlMode::TELEOPERATED);
-        }
-        if (SetAutoModeButton::wasPressed(this->joy_state))
-        {
-            this->watchdog.setCtrl(ControlMode::AUTONOMOUS);
-            this->clearState(STATE_CURSOR_ENABLED);
-        }
-        if (ToggleTestModeButton::wasPressed(this->joy_state))
-        {
-            this->watchdog.toggleOpt(
-                static_cast<uint8_t>(ControlOpts::TEST_MODE));
-        }
-
-        if (this->watchdog.getCtrl() == ControlMode::TELEOPERATED)
-        {
-            if (ToggleTraversalCursorButton::wasPressed(this->joy_state))
-            {
-                if (this->toggleState(STATE_CURSOR_ENABLED))
-                {
-                    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
-                    {
-                        const auto* tf =
-                            this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
-                        this->traversal_cursor.pose.position << tf->pose.vec;
-                        this->traversal_cursor.pose.orientation
-                            << lance::geom::flattenToYaw(tf->pose.quat);
-                        this->traversal_cursor.header.frame_id =
-                            this->tf_cache.arena_frame_id;
-                    }
-                    else if (this->tf_cache.hasTf(ROBOT_TO_ODOM_TF))
-                    {
-                        const auto* tf = this->tf_cache.getTf(ROBOT_TO_ODOM_TF);
-                        this->traversal_cursor.pose.position << tf->pose.vec;
-                        this->traversal_cursor.pose.orientation
-                            << lance::geom::flattenToYaw(tf->pose.quat);
-                        this->traversal_cursor.header.frame_id =
-                            this->tf_cache.odom_frame_id;
-                    }
-                    else
-                    {
-                        this->traversal_cursor.pose.position.x = 0.;
-                        this->traversal_cursor.pose.position.y = 0.;
-                        this->traversal_cursor.pose.position.z = 0.;
-                        this->traversal_cursor.pose.orientation.w = 1.;
-                        this->traversal_cursor.pose.orientation.x = 0.;
-                        this->traversal_cursor.pose.orientation.y = 0.;
-                        this->traversal_cursor.pose.orientation.z = 0.;
-                        this->traversal_cursor.header.frame_id =
-                            this->tf_cache.robot_frame_id;
-                    }
-                }
-            }
-            if (ConfirmTraversalTargetButton::wasPressed(this->joy_state))
-            {
-                this->traversal_target_pub->publish(this->traversal_cursor);
-                this->clearState(STATE_CURSOR_ENABLED);
-            }
-
-            if (this->hasState(STATE_CURSOR_ENABLED))
-            {
-                constexpr float CURSOR_MAX_SPEED_MPS = 2.f;
-                constexpr float CURSOR_MAX_SPEED_RPS = 4.f;
-
-                const float d_r =
-                    CURSOR_MAX_SPEED_RPS *
-                    std::min(
-                        1.f,
-                        TraversalCursorRotAxis::trapezoidSum(this->joy_state));
-
-                lance::geom::Quatf q;
-                q << this->traversal_cursor.pose.orientation;
-                const float theta = lance::geom::quatToYaw(q) + d_r;
-                this->traversal_cursor.pose.orientation
-                    << lance::geom::yawToQuat(theta);
-
-                // "X" and "Y" axes are those of the controller - swap and invert Y
-                // to obtain standard orientation
-                const float d_x = CURSOR_MAX_SPEED_MPS *
-                                  std::min(
-                                      1.f,
-                                      TraversalCursorPosAxes::X::trapezoidSum(
-                                          this->joy_state));
-                const float d_y = CURSOR_MAX_SPEED_MPS *
-                                  std::min(
-                                      1.f,
-                                      TraversalCursorPosAxes::Y::trapezoidSum(
-                                          this->joy_state));
-
-                const float cos_theta = std::cos(theta);
-                const float sin_theta = std::sin(theta);
-
-                this->traversal_cursor.pose.position.x +=
-                    (d_x * cos_theta) - (d_y * sin_theta);
-                this->traversal_cursor.pose.position.y +=
-                    (d_x * sin_theta) + (d_y * cos_theta);
-            }
-        }
     }
 }
 
 void InputInterface::handleClickedPoint(const PointStampedMsg& msg)
 {
+    if (this->watchdog.isCtrl(ControlMode::TELEOPERATED))
+    {
+        return;
+    }
+    if (this->isCursorState())
+    {
+        this->state = State::OVERRIDE;
+    }
+
     this->traversal_cursor.header = msg.header;
     this->traversal_cursor.pose.position = msg.point;
     this->traversal_cursor.pose.orientation.w = 0.0;
@@ -230,17 +150,18 @@ void InputInterface::handleClickedPoint(const PointStampedMsg& msg)
     this->traversal_cursor.pose.orientation.z = 0.0;
 
     this->traversal_target_pub->publish(this->traversal_cursor);
-
-    this->clearState(STATE_CURSOR_ENABLED);
 }
+
 
 void InputInterface::handleInterfacePubs()
 {
     GenericPubMap& pub_map = this->telemetry.getPubMap();
 
-    pub_map.publish<Int32Msg>(ROBOT_TOPIC("mc_state"), this->state);
+    pub_map.publish<Int32Msg>(
+        ROBOT_TOPIC("mc_state"),
+        static_cast<uint32_t>(this->state));
 
-    if (this->hasState(STATE_CURSOR_ENABLED))
+    if (this->isCursorState())
     {
         pub_map.publish(
             ROBOT_TOPIC("traversal_cursor"),
@@ -248,9 +169,306 @@ void InputInterface::handleInterfacePubs()
     }
 }
 
-bool InputInterface::hasState(uint32_t s) const { return this->state & s; }
-void InputInterface::setState(uint32_t s) { this->state |= s; }
-void InputInterface::clearState(uint32_t s) { this->state &= ~s; }
-bool InputInterface::toggleState(uint32_t s) { return (this->state ^= s) & s; }
+
+void InputInterface::handlePassthroughState()
+{
+    if (MissionControlOverrideButton::wasPressed(this->joy_state))
+    {
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (this->watchdog.isCtrl(ControlMode::AUTONOMOUS) &&
+        DisableAllActionsButton::wasPressed(this->joy_state))
+    {
+        this->watchdog.setCtrl(ControlMode::DISABLED);
+    }
+}
+
+void InputInterface::handleOverrideState()
+{
+    if (this->handleCommonOverrides())
+    {
+        return;
+    }
+
+    if (this->watchdog.isCtrl(ControlMode::TELEOPERATED))
+    {
+        if (SetTravCursorButton::wasPressed(this->joy_state))
+        {
+            this->initTravCursorState();
+            return;
+        }
+        if (SetMiningCursorButton::wasPressed(this->joy_state))
+        {
+            this->initMiningCursorState();
+            return;
+        }
+        if (SetOffloadCursorButton::wasPressed(this->joy_state))
+        {
+            this->initOffloadCursorState();
+            return;
+        }
+    }
+}
+
+
+void InputInterface::initTravCursorState()
+{
+    this->state = State::TRAV_CURSOR;
+    this->homeTravCursor();
+}
+
+void InputInterface::initMiningCursorState()
+{
+    this->state = State::MINING_CURSOR;
+    // init cursor to offload zone
+}
+
+void InputInterface::initOffloadCursorState()
+{
+    this->state = State::OFFLOAD_CURSOR;
+    // init to mining zone
+}
+
+
+void InputInterface::handleTravCursorState()
+{
+    if (this->handleCommonOverrides() ||
+        !this->watchdog.isCtrl(ControlMode::TELEOPERATED))
+    {
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (SetTravCursorButton::wasPressed(this->joy_state))
+    {
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (ConfirmCursorTargetButton::wasPressed(this->joy_state))
+    {
+        this->publishTravTarget();
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (SetMiningCursorButton::wasPressed(this->joy_state))
+    {
+        this->initMiningCursorState();
+        return;
+    }
+
+    if (SetOffloadCursorButton::wasPressed(this->joy_state))
+    {
+        this->initOffloadCursorState();
+        return;
+    }
+
+    this->iterateTravCursor();
+}
+
+void InputInterface::handleMiningCursorState()
+{
+    if (this->handleCommonOverrides() ||
+        !this->watchdog.isCtrl(ControlMode::TELEOPERATED))
+    {
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (SetMiningCursorButton::wasPressed(this->joy_state))
+    {
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (ConfirmCursorTargetButton::wasPressed(this->joy_state))
+    {
+        this->publishMiningTarget();
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (SetTravCursorButton::wasPressed(this->joy_state))
+    {
+        this->initTravCursorState();
+        return;
+    }
+
+    if (SetOffloadCursorButton::wasPressed(this->joy_state))
+    {
+        this->initOffloadCursorState();
+        return;
+    }
+
+    this->iterateMiningCursor();
+}
+
+void InputInterface::handleOffloadCursorState()
+{
+    if (this->handleCommonOverrides() ||
+        !this->watchdog.isCtrl(ControlMode::TELEOPERATED))
+    {
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (SetOffloadCursorButton::wasPressed(this->joy_state))
+    {
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (ConfirmCursorTargetButton::wasPressed(this->joy_state))
+    {
+        this->publishOffloadTarget();
+        this->state = State::OVERRIDE;
+        return;
+    }
+
+    if (SetTravCursorButton::wasPressed(this->joy_state))
+    {
+        this->initTravCursorState();
+        return;
+    }
+
+    if (SetMiningCursorButton::wasPressed(this->joy_state))
+    {
+        this->initMiningCursorState();
+        return;
+    }
+
+    this->iterateOffloadCursor();
+}
+
+
+bool InputInterface::handleCommonOverrides()
+{
+    if (MissionControlOverrideButton::wasPressed(this->joy_state))
+    {
+        this->state = State::PASSTHROUGH;
+        return true;
+    }
+
+    if (DisableAllActionsButton::wasPressed(this->joy_state))
+    {
+        this->watchdog.setCtrl(ControlMode::DISABLED);
+    }
+    if (SetTeleopModeButton::wasPressed(this->joy_state))
+    {
+        this->watchdog.setCtrl(ControlMode::TELEOPERATED);
+    }
+    if (SetAutoModeButton::wasPressed(this->joy_state))
+    {
+        this->watchdog.setCtrl(ControlMode::AUTONOMOUS);
+    }
+    if (ToggleTestModeButton::wasPressed(this->joy_state))
+    {
+        this->watchdog.toggleOpt(static_cast<uint8_t>(ControlOpts::TEST_MODE));
+    }
+
+    return false;
+}
+
+void InputInterface::homeTravCursor()
+{
+    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+    {
+        const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+        this->traversal_cursor.pose.position << tf->pose.vec;
+        this->traversal_cursor.pose.orientation
+            << lance::geom::flattenToYaw(tf->pose.quat);
+        this->traversal_cursor.header.frame_id = this->tf_cache.arena_frame_id;
+    }
+    else if (this->tf_cache.hasTf(ROBOT_TO_ODOM_TF))
+    {
+        const auto* tf = this->tf_cache.getTf(ROBOT_TO_ODOM_TF);
+        this->traversal_cursor.pose.position << tf->pose.vec;
+        this->traversal_cursor.pose.orientation
+            << lance::geom::flattenToYaw(tf->pose.quat);
+        this->traversal_cursor.header.frame_id = this->tf_cache.odom_frame_id;
+    }
+    else
+    {
+        this->traversal_cursor.pose.position.x = 0.;
+        this->traversal_cursor.pose.position.y = 0.;
+        this->traversal_cursor.pose.position.z = 0.;
+        this->traversal_cursor.pose.orientation.w = 1.;
+        this->traversal_cursor.pose.orientation.x = 0.;
+        this->traversal_cursor.pose.orientation.y = 0.;
+        this->traversal_cursor.pose.orientation.z = 0.;
+        this->traversal_cursor.header.frame_id = this->tf_cache.robot_frame_id;
+    }
+}
+
+void InputInterface::iterateTravCursor()
+{
+    constexpr float CURSOR_MAX_SPEED_MPS = 2.f;
+    constexpr float CURSOR_MAX_SPEED_RPS = 4.f;
+
+    const float d_r =
+        CURSOR_MAX_SPEED_RPS *
+        std::min(1.f, TraversalCursorRotAxis::trapezoidSum(this->joy_state));
+
+    lance::geom::Quatf q;
+    q << this->traversal_cursor.pose.orientation;
+    const float theta = lance::geom::quatToYaw(q) + d_r;
+    this->traversal_cursor.pose.orientation << lance::geom::yawToQuat(theta);
+
+    // "X" and "Y" axes are those of the controller - swap and invert Y
+    // to obtain standard orientation
+    const float d_x =
+        CURSOR_MAX_SPEED_MPS *
+        std::min(1.f, TraversalCursorPosAxes::X::trapezoidSum(this->joy_state));
+    const float d_y =
+        CURSOR_MAX_SPEED_MPS *
+        std::min(1.f, TraversalCursorPosAxes::Y::trapezoidSum(this->joy_state));
+
+    const float cos_theta = std::cos(theta);
+    const float sin_theta = std::sin(theta);
+
+    this->traversal_cursor.pose.position.x +=
+        (d_x * cos_theta) - (d_y * sin_theta);
+    this->traversal_cursor.pose.position.y +=
+        (d_x * sin_theta) + (d_y * cos_theta);
+}
+
+void InputInterface::iterateMiningCursor()
+{
+    // TODO
+}
+
+void InputInterface::iterateOffloadCursor()
+{
+    // TODO
+}
+
+
+void InputInterface::publishTravTarget()
+{
+    this->traversal_target_pub->publish(this->traversal_cursor);
+}
+
+void InputInterface::publishMiningTarget()
+{
+    // TODO
+}
+
+void InputInterface::publishOffloadTarget()
+{
+    // TODO
+}
+
+
+bool InputInterface::isCursorState() const
+{
+    // return (
+    //     this->state == State::TRAV_CURSOR ||
+    //     this->state == State::MINING_CURSOR ||
+    //     this->state == State::OFFLOAD_CURSOR);
+    return this->state > State::OVERRIDE;
+}
 
 };  // namespace lance

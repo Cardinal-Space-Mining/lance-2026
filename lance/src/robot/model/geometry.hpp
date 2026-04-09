@@ -165,7 +165,7 @@ inline T quatToYaw(const Quat<T>& q)
                      std::numbers::pi_v<T> * 2);
 }
 template<typename T>
-constexpr inline Quat<T> flattenToYaw(const Quat<T>& q)
+inline Quat<T> flattenToYaw(const Quat<T>& q)
 {
     const T sq_mag = (q.w() * q.w() + q.z() * q.z());
     return sq_mag < static_cast<T>(1e-6)
@@ -173,12 +173,12 @@ constexpr inline Quat<T> flattenToYaw(const Quat<T>& q)
                : Quat<T>{q.w(), 0, 0, q.z()}.normalized();
 }
 template<typename T>
-constexpr inline Pose2<T> flattenPose(const Pose3<T>& p)
+inline Pose2<T> flattenPose(const Pose3<T>& p)
 {
     return Pose2<T>{p.vec.x(), p.vec.y(), quatToYaw(p.quat)};
 }
 template<typename T>
-constexpr inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
+inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
 {
     Pose3<T> p3;
     p3.vec.x() = p.x();
@@ -195,7 +195,7 @@ constexpr inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
  * boundary. Note that the calculation bases of the FRONT of the robot and not
  * the center point. */
 template<typename T>
-constexpr inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
+inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
 {
     if (b.contains(p.template head<2>()))
     {
@@ -219,15 +219,52 @@ constexpr inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
 }
 /* Flattends 3d pose to 2d and applies distToBounds() overload for Pose2. */
 template<typename T>
-constexpr inline T distToBounds(const Pose3<T>& p, const Box2<T>& b)
+inline T distToBounds(const Pose3<T>& p, const Box2<T>& b)
 {
     return distToBounds(flattenPose(p), b);
 }
 /* Flattends 3d pose to 2d and applies distToBounds() overload for Pose2. */
 template<typename T>
-constexpr inline T distToBounds(const PoseTf3<T>& p, const Box2<T>& b)
+inline T distToBounds(const PoseTf3<T>& p, const Box2<T>& b)
 {
     return distToBounds(p.pose, b);
+}
+
+template<typename T>
+inline Vec2<T> innerZoneNormalDir(const Box2<T>& outer, const Box2<T>& inner)
+{
+    const Vec2<T> inner_size = inner.size();
+    const Vec2<T> center_diff = inner.center() - outer.center();
+
+    // Does not explicitly handle when x and y are identical
+    if (inner_size.x() > inner_size.y())
+    {
+        // normal will be +/-y
+        if (center_diff.y() > 0)
+        {
+            // inner more positive than outer --> point towards negative
+            return Vec2<T>{0, -1};
+        }
+        else
+        {
+            // inner less positive than outer --> point towards positive
+            return Vec2<T>{0, 1};
+        }
+    }
+    else
+    {
+        // normal will be +/-x
+        if (center_diff.x() > 0)
+        {
+            // inner more positive than outer --> point towards negative
+            return Vec2<T>{-1, 0};
+        }
+        else
+        {
+            // inner less positive than outer --> point towards positive
+            return Vec2<T>{1, 0};
+        }
+    }
 }
 
 

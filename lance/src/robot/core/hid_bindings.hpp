@@ -153,10 +153,13 @@ using SetTeleopModeButton = Xbox::ButtonB;
 using SetAutoModeButton = Xbox::ButtonX;
 using ToggleTestModeButton = Xbox::ButtonY;
 
-using ToggleTraversalCursorButton = Xbox::ButtonRightBumper;
-using ConfirmTraversalTargetButton = Xbox::ButtonLeftBumper;
+using SetTravCursorButton = Xbox::ButtonRightBumper;
+using ConfirmCursorTargetButton = Xbox::ButtonLeftBumper;
+using SetMiningCursorButton = Xbox::ButtonLeftCenter;
+using SetOffloadCursorButton = Xbox::ButtonRightCenter;
 
 using TraversalCursorRotAxis = Xbox::AxisRightX;
+using TraversalCursorScaleAxis = Xbox::AxisRightY;
 using TraversalCursorPosAxes =
     util::StaticJoyStickAxes<Xbox::AxisLeftY::IDX, Xbox::AxisLeftX::IDX>;
 

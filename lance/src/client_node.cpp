@@ -87,7 +87,12 @@ MissionControlNode::MissionControlNode() :
     watchdog{*this},
     zone_publisher{*this, this->tf_cache},
     joint_publisher{*this},
-    input_interface{*this, this->tf_cache, this->telemetry, this->watchdog}
+    input_interface{
+        *this,
+        this->tf_cache,
+        this->telemetry,
+        this->watchdog,
+        this->zone_publisher.getBounds()}
 {
     std::cout << "LANCE-" << LANCE << " mission control initialized!"
               << std::endl;

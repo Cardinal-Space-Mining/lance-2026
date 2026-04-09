@@ -49,8 +49,8 @@
 
 #include "util/ros_utils.hpp"
 
+#include "robot/core/robot_params.hpp"
 #include "robot/core/ros_interface.hpp"
-#include "robot/model/geometry.hpp"
 #include "robot/sensing/tf_cache.hpp"
 
 
@@ -59,10 +59,10 @@ namespace lance
 
 class ZonePublisher : public util::UsingRosAliases
 {
-    using Box2f = lance::geom::Box2f;
-
     using MarkerMsg = visualization_msgs::msg::Marker;
     using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
+
+    using ZoneBounds = RobotParams::ZoneBounds;
 
     static constexpr int64_t PUB_DT_MS = 1000;
 
@@ -79,13 +79,7 @@ public:
     }
 
 public:
-    inline const Box2f& arenaBounds() const { return this->arena_bounds; }
-    inline const Box2f& miningBounds() const { return this->mining_bounds; }
-    inline const Box2f& offloadBounds() const { return this->offload_bounds; }
-    inline const Box2f& constructionBounds() const
-    {
-        return this->construction_bounds;
-    }
+    inline const ZoneBounds& getBounds() const { return this->bounds; }
 
 private:
     inline void initMarkers(RclNode& node, const TfCache& tf_cache)
@@ -125,13 +119,13 @@ private:
     }
 
         ADD_MARKER("arena_bounds", "arena", 1.f, 1.f, 1.f, 0.f);
-        SET_BOUNDS(this->arena_bounds)
+        SET_BOUNDS(this->bounds.arena_zone)
         ADD_MARKER("mining_zone_bounds", "zones", 0.8f, 0.4f, 0.f, 0.2f);
-        SET_BOUNDS(this->mining_bounds)
+        SET_BOUNDS(this->bounds.mining_zone)
         ADD_MARKER("offload_zone_bounds", "zones", 0.f, 0.2f, 0.8f, 0.2f);
-        SET_BOUNDS(this->offload_bounds)
+        SET_BOUNDS(this->bounds.offload_zone)
         ADD_MARKER("construction_zone_bounds", "zones", 0.1f, 0.9f, 0.2f, 0.1f);
-        SET_BOUNDS(this->construction_bounds)
+        SET_BOUNDS(this->bounds.construction_zone)
 
 #undef ADD_MARKER
 #undef SET_BOUNDS
@@ -143,10 +137,7 @@ private:
 
     MarkerArrayMsg markers;
 
-    Box2f arena_bounds;
-    Box2f mining_bounds;
-    Box2f offload_bounds;
-    Box2f construction_bounds;
+    ZoneBounds bounds;
 };
 
 };  // namespace lance

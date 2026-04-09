@@ -112,12 +112,16 @@ public:
 
 public:
     inline ControlMode getCtrl() const { return this->ctrl_mode; }
+    inline bool isCtrl(ControlMode c) const { return this->ctrl_mode == c; }
     inline void setCtrl(ControlMode c) { this->ctrl_mode = c; }
 
     inline uint8_t getOpts() const { return this->ctrl_opts; }
     inline bool hasOpt(uint8_t opt) const { return this->ctrl_opts & opt; }
     inline void setOpt(uint8_t opt) { this->ctrl_opts |= opt; }
-    inline bool toggleOpt(uint8_t opt) { return (this->ctrl_opts ^= opt) & opt; }
+    inline bool toggleOpt(uint8_t opt)
+    {
+        return (this->ctrl_opts ^= opt) & opt;
+    }
     inline void clearOpt(uint8_t opt) { this->ctrl_opts &= ~opt; }
 
 private:
