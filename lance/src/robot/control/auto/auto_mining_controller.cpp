@@ -228,7 +228,6 @@ void AutoMiningController::iterate(
             //     this->stage = Stage::PLANNING;
             //     break;  // stay in planning on next iterate()
             // }
-
             // Optional but recommended guard to avoid front() on empty vector
             // if (paths.empty())
             // {

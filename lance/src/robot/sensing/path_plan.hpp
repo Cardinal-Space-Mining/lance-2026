@@ -45,6 +45,7 @@
 
 #include <nav_msgs/msg/path.hpp>
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
@@ -60,6 +61,7 @@ class PathPlanInterface : public util::UsingRosAliases
 {
 public:
     using PathMsg = nav_msgs::msg::Path;
+    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
 
@@ -70,6 +72,7 @@ public:
 
 public:
     void init(const Vec3f&);
+    void init(const PoseStampedMsg&);
     void init(const PointStampedMsg&);
     void cancel();
 

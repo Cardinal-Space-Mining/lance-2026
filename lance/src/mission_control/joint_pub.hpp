@@ -37,82 +37,49 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "path_plan.hpp"
+#pragma once
+
+#include <rclcpp/rclcpp.hpp>
+
+#include <sensor_msgs/msg/joint_state.hpp>
+
+#include "util/ros_utils.hpp"
 
 #include "robot/core/ros_interface.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/model/dynamics.hpp"
 
 
 namespace lance
 {
 
-PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
-    params{params},
-    rcl_clock{node.get_clock()},
-    path_sub{node.create_subscription<PathMsg>(
-        lance::PERCEPTION_PATH_TOPIC,
-        rclcpp::SensorDataQoS{},
-        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
-    pplan_control_client{node.create_client<UpdatePathPlanSrv>(
-        lance::PERCEPTION_PPLAN_CONTROL_TOPIC)}
+class JointPublisher : public util::UsingRosAliases
 {
-}
+    using JointStateMsg = sensor_msgs::msg::JointState;
 
+public:
+    inline JointPublisher(RclNode& node) :
+        joint_pub{node.create_publisher<JointStateMsg>(
+            "joint_states",
+            rclcpp::SensorDataQoS{})},
+        hopper_info_sub{node.create_subscription<TalonInfoMsg>(
+            TALON_INFO_TOPIC("hopper_act"),
+            rclcpp::SensorDataQoS{},
+            [this](const TalonInfoMsg& info)
+            {
+                JointStateMsg msg;
+                msg.header = info.header;
+                msg.name.push_back(lance::HOPPER_JOINT_NAME);
+                msg.position.push_back(
+                    lance::linearActuatorToJointAngle(info.position / 1000.));
+                this->joint_pub->publish(msg);
+            })}
+    {
+    }
 
-void PathPlanInterface::init(const Vec3f& arena_dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header.frame_id = this->params.arena_frame_id;
-    req->target.header.stamp = this->rcl_clock->now();
-    req->target.pose.position.x = arena_dest.x();
-    req->target.pose.position.y = arena_dest.y();
-    req->target.pose.position.z = arena_dest.z();
-    req->completed = false;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::init(const PoseStampedMsg& dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target = dest;
-    req->completed = false;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::init(const PointStampedMsg& dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header = dest.header;
-    req->target.pose.position = dest.point;
-    req->completed = false;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::cancel()
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->completed = true;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [this](RclClient<UpdatePathPlanSrv>::SharedFuture)
-        { this->last_path = nullptr; });
-}
-
-bool PathPlanInterface::hasPath() const
-{
-    return this->last_path.operator bool();
-}
-const PathPlanInterface::PathMsg* PathPlanInterface::getPath() const
-{
-    return this->last_path ? this->last_path.get() : nullptr;
-}
-
-void PathPlanInterface::clearPath() { this->last_path.reset(); }
+private:
+    RclPubPtr<JointStateMsg> joint_pub;
+    RclSubPtr<TalonInfoMsg> hopper_info_sub;
+};
 
 };  // namespace lance

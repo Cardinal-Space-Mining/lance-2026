@@ -139,7 +139,15 @@ public:
     inline float getAxisVelocity(int idx) const
     {
         return this->isAxisContinuous(idx)
-                   ? (this->axes[idx] - this->prev_axes[idx]) / this->dt
+                   ? (this->axes[idx] - this->prev_axes[idx]) /
+                         static_cast<float>(this->dt)
+                   : 0.f;
+    }
+    inline float getTrapezoidSum(int idx) const
+    {
+        return this->isAxisContinuous(idx)
+                   ? (this->axes[idx] + this->prev_axes[idx]) *
+                         (0.5f * static_cast<float>(this->dt))
                    : 0.f;
     }
 
@@ -206,6 +214,10 @@ struct JoyAxis
     {
         return joy.getAxisVelocity(this->idx);
     }
+    inline float trapezoidSum(const JoyState& joy) const
+    {
+        return joy.getTrapezoidSum(this->idx);
+    }
 };
 struct JoyPov
 {
@@ -245,14 +257,25 @@ struct StaticJoyButton
         return joy.getButtonReleased(Idx);
     }
 };
-template<int Idx>
+template<int Idx, bool Inv = false>
 struct StaticJoyAxis
 {
     static constexpr int IDX = Idx;
+    static constexpr bool INVERT = Inv;
+
+    template<bool I>
+    using Inverted = StaticJoyAxis<Idx, I>;
 
     static inline float rawValue(const JoyState& joy)
     {
-        return joy.getRawAxis(Idx);
+        if constexpr (Inv)
+        {
+            return joy.getRawAxis(Idx) * -1.f;
+        }
+        else
+        {
+            return joy.getRawAxis(Idx);
+        }
     }
     static inline float deadzoneValue(const JoyState& joy, float deadzone)
     {
@@ -265,11 +288,36 @@ struct StaticJoyAxis
     }
     static inline float delta(const JoyState& joy)
     {
-        return joy.getAxisDelta(Idx);
+        if constexpr (Inv)
+        {
+            return joy.getAxisDelta(Idx) * -1.f;
+        }
+        else
+        {
+            return joy.getAxisDelta(Idx);
+        }
     }
     static inline float velocity(const JoyState& joy)
     {
-        return joy.getAxisVelocity(Idx);
+        if constexpr (Inv)
+        {
+            return joy.getAxisVelocity(Idx) * -1.f;
+        }
+        else
+        {
+            return joy.getAxisVelocity(Idx);
+        }
+    }
+    static inline float trapezoidSum(const JoyState& joy)
+    {
+        if constexpr (Inv)
+        {
+            return joy.getTrapezoidSum(Idx) * -1.f;
+        }
+        else
+        {
+            return joy.getTrapezoidSum(Idx);
+        }
     }
 };
 template<int Idx, int Sgn>
@@ -290,6 +338,19 @@ struct StaticJoyPov
     {
         return joy.getPovReleased(Idx, Sgn);
     }
+};
+template<int XIdx, int YIdx, int XSgn = 1, int YSgn = 1>
+struct StaticJoyStickAxes
+{
+    static_assert((XSgn == 1 || XSgn == -1) && (YSgn == 1 || YSgn == -1));
+
+    static constexpr int X_IDX = XIdx;
+    static constexpr int Y_IDX = YIdx;
+    static constexpr bool INVERT_X = (XSgn == -1);
+    static constexpr bool INVERT_Y = (YSgn == -1);
+
+    using X = StaticJoyAxis<XIdx, INVERT_X>;
+    using Y = StaticJoyAxis<YIdx, INVERT_Y>;
 };
 
 };  // namespace util

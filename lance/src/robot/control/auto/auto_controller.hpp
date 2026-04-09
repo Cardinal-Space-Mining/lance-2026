@@ -86,7 +86,11 @@ protected:
     };
 
 protected:
+    void targetInitialTraversalToMining();
+
+protected:
     const RobotParams& params;
+    const SensingInterfaces& sensing_interfaces;
 
     LocalizationController& localization_controller;
     TraversalController& traversal_controller;

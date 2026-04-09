@@ -37,82 +37,144 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "path_plan.hpp"
-
-#include "robot/core/ros_interface.hpp"
+#include "markers.hpp"
 
 
 namespace lance
 {
 
-PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
-    params{params},
-    rcl_clock{node.get_clock()},
-    path_sub{node.create_subscription<PathMsg>(
-        lance::PERCEPTION_PATH_TOPIC,
-        rclcpp::SensorDataQoS{},
-        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
-    pplan_control_client{node.create_client<UpdatePathPlanSrv>(
-        lance::PERCEPTION_PPLAN_CONTROL_TOPIC)}
+size_t MarkerManager::MarkerGroup::size() const
 {
+    return this->end - this->beg;
+}
+
+MarkerManager::MarkerMsg& MarkerManager::MarkerGroup::operator[](size_t i)
+{
+    auto x = this->beg + i;
+    return (x < this->end) ? *x : *this->beg;
+}
+
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setFrameIds(
+    std::string_view frame_id)
+{
+    for (auto itr = this->beg; itr != this->end; itr++)
+    {
+        itr->header.frame_id = frame_id;
+    }
+    return *this;
+}
+
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setTypes(int32_t type)
+{
+    for (auto itr = this->beg; itr != this->end; itr++)
+    {
+        itr->type = type;
+    }
+    return *this;
+}
+
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setDurations(RclDur dur)
+{
+    for (auto itr = this->beg; itr != this->end; itr++)
+    {
+        itr->lifetime = dur;
+    }
+    return *this;
 }
 
 
-void PathPlanInterface::init(const Vec3f& arena_dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header.frame_id = this->params.arena_frame_id;
-    req->target.header.stamp = this->rcl_clock->now();
-    req->target.pose.position.x = arena_dest.x();
-    req->target.pose.position.y = arena_dest.y();
-    req->target.pose.position.z = arena_dest.z();
-    req->completed = false;
 
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::init(const PoseStampedMsg& dest)
+size_t MarkerManager::reserveGroup(size_t n, std::string_view ns)
 {
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target = dest;
-    req->completed = false;
+    this->all_markers.markers.reserve(this->all_markers.markers.size() + n);
+    for (size_t i = 0; i < n; i++)
+    {
+        auto& m = this->all_markers.markers.emplace_back();
+        m.ns = ns;
+        m.id = static_cast<int32_t>(this->all_markers.markers.size());
+        m.action = MarkerMsg::ADD;
+    }
 
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::init(const PointStampedMsg& dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header = dest.header;
-    req->target.pose.position = dest.point;
-    req->completed = false;
+    this->alloc_indices.push_back(this->all_markers.markers.size());
 
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::cancel()
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->completed = true;
-
-    this->pplan_control_client->async_send_request(
-        req,
-        [this](RclClient<UpdatePathPlanSrv>::SharedFuture)
-        { this->last_path = nullptr; });
+    return this->alloc_indices.size() - 1;
 }
 
-bool PathPlanInterface::hasPath() const
+MarkerManager::MarkerGroup MarkerManager::getGroup(size_t i)
 {
-    return this->last_path.operator bool();
-}
-const PathPlanInterface::PathMsg* PathPlanInterface::getPath() const
-{
-    return this->last_path ? this->last_path.get() : nullptr;
+    if (i >= this->alloc_indices.size())
+    {
+        return MarkerGroup{
+            .beg = this->all_markers.markers.end(),
+            .end = this->all_markers.markers.end()};
+    }
+
+    const size_t b = i > 0 ? this->alloc_indices[i - 1] : 0;
+    const size_t e = this->alloc_indices[i];
+
+    return MarkerGroup{
+        .beg = this->all_markers.markers.begin() + b,
+        .end = this->all_markers.markers.begin() + e};
 }
 
-void PathPlanInterface::clearPath() { this->last_path.reset(); }
+void MarkerManager::clearAll()
+{
+    this->all_markers.markers.clear();
+    this->output_markers.markers.clear();
+}
+
+void MarkerManager::clearOutput() { this->output_markers.markers.clear(); }
+
+void MarkerManager::addGroupToOutput(size_t i)
+{
+    if (i >= this->alloc_indices.size())
+    {
+        return;
+    }
+
+    MarkerGroup g = this->getGroup(i);
+    this->output_markers.markers.insert(
+        this->output_markers.markers.end(),
+        g.beg,
+        g.end);
+}
+
+const MarkerManager::MarkerArrayMsg& MarkerManager::getAllMarkers() const
+{
+    return this->all_markers;
+}
+
+const MarkerManager::MarkerArrayMsg& MarkerManager::getOutputMarkers() const
+{
+    return this->output_markers;
+}
+
+void MarkerManager::pubAllMarkers(RclPubPtr<MarkerArrayMsg>& pub, RclTime stamp)
+{
+    for (auto& m : this->all_markers.markers)
+    {
+        m.header.stamp = stamp;
+    }
+
+    pub->publish(this->all_markers);
+}
+
+void MarkerManager::pubOutputMarkers(
+    RclPubPtr<MarkerArrayMsg>& pub,
+    RclTime stamp,
+    bool clear)
+{
+    for (auto& m : this->output_markers.markers)
+    {
+        m.header.stamp = stamp;
+    }
+
+    pub->publish(this->output_markers);
+
+    if (clear)
+    {
+        this->output_markers.markers.clear();
+    }
+}
 
 };  // namespace lance

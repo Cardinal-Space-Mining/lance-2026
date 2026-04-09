@@ -58,14 +58,6 @@ message(STATUS
 include_directories("src")
 
 
-# --- Watchdog -----------------------------------------------------------------
-add_executable(robot_status
-    "src/watchdog_node.cpp")
-ament_target_dependencies(robot_status
-    rclcpp
-    std_msgs
-    std_srvs)
-
 # --- Common Lib ---------------------------------------------------------------
 set(lance_core_srcs
     "src/robot/core/robot_params.cpp"
@@ -182,7 +174,9 @@ endif()
 
 # --- Mission Control ----------------------------------------------------------
 set(mission_control_srcs
-    "src/client_node.cpp")
+    "src/client_node.cpp"
+    "src/robot/telemetry/markers.cpp"
+    "src/mission_control/inputs.cpp")
 set(mission_control_ament_deps)     # rest of deps included from core lib
 
 if(BUILD_LANCE1)
@@ -234,9 +228,6 @@ if(BUILD_LANCE2)
         DESTINATION lib/${PROJECT_NAME} )
 endif()
 
-install(TARGETS
-    robot_status
-    DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
     config
     launch

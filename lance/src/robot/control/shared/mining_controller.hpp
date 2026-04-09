@@ -51,6 +51,57 @@
 namespace lance
 {
 
+class MiningConstraints
+{
+    using JoyState = util::JoyState;
+
+public:
+    enum
+    {
+        CONSTRAINT_NONE = 0,
+        CONSTRAINT_MOTOR_STALL = (1 << 0),
+        CONSTRAINT_OBSTACLE = (1 << 1),
+        CONSTRAINT_HOPPER_FULL = (1 << 2),
+        CONSTRAINT_ZONE_BOUNDARY = (1 << 3),
+
+        ALL_CONSTRAINTS =
+            (CONSTRAINT_MOTOR_STALL | CONSTRAINT_OBSTACLE |
+             CONSTRAINT_HOPPER_FULL | CONSTRAINT_ZONE_BOUNDARY)
+    };
+
+public:
+    MiningConstraints(const RobotParams&);
+
+public:
+    void updateSettings(const JoyState&);
+    void resetState();
+    void updateState(
+        const RobotMotorStatus&,
+        const HopperState&,
+        const TfCache&,
+        const MiningEvalInterface&);
+
+    float remainingDist() const;
+    bool hasRemaining() const;
+
+    uint8_t enabledConstraints() const;
+    uint8_t currentConstraint() const;
+    bool isConstraintEnabled(uint8_t) const;
+
+protected:
+    void updateOdom(const RobotMotorStatus&);
+
+protected:
+    const RobotParams& params;
+
+    float remaining_dist{0.f};
+    float prev_odom{0.f};
+
+    uint8_t enabled_constraints{ALL_CONSTRAINTS};
+    uint8_t current_constraint{CONSTRAINT_NONE};
+};
+
+
 class MiningController
 {
     friend class TelemetrySerializer;
@@ -88,7 +139,7 @@ public:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
-    void updateFeatures(const JoyState& joy);
+    void updateConstraints(const JoyState& joy);
 
 protected:
     enum class Stage
@@ -99,29 +150,8 @@ protected:
         RAISING,
         FINISHED
     };
-    enum Constraint : uint8_t
-    {
-        NONE = 0,
-        STALL_EVENT = (1 << 0),
-        OBSTACLE = (1 << 1),
-        HOPPER_MODEL = (1 << 2),
-        ZONE_BOUNDARY = (1 << 3),
-        ALL = (STALL_EVENT | OBSTACLE | HOPPER_MODEL | ZONE_BOUNDARY)
-    };
 
 protected:
-    struct ConstrainedOdometry
-    {
-        void init(float remaining_dist = 0.f);
-        void setRemaining(float remaining_dist);
-        void updateOdom(float odom);
-        bool hasRemaining() const;
-        float remaining() const;
-
-    private:
-        float remaining_dist{0.f};
-        float prev_odom{0.f};
-    };
     struct BeltDutyCycleState
     {
         void setMoved();
@@ -134,7 +164,6 @@ protected:
     };
 
 protected:
-    void updateConstraints(const RobotMotorStatus&);
     void iterate(
         const JoyState* joy,
         const RobotMotorStatus& motor_status,
@@ -146,13 +175,10 @@ protected:
     const TfCache& tf_cache;
     MiningEvalInterface& mining_eval_interface;
 
-    ConstrainedOdometry odometry{};
+    MiningConstraints constraints;
     BeltDutyCycleState belt_duty_cycle{};
 
     Stage stage{Stage::FINISHED};
-    uint8_t constraints{Constraint::ALL};
-
-    Constraint current_constraint{Constraint::NONE};
 };
 
 };  // namespace lance

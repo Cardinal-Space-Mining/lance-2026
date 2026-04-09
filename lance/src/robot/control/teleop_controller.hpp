@@ -41,7 +41,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
@@ -60,7 +60,7 @@ class TeleopController : public util::UsingRosAliases
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
-    using PointStampedMsg = geometry_msgs::msg::PointStamped;
+    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
     using JoyState = util::JoyState;
 
 public:
@@ -106,8 +106,8 @@ protected:
     OffloadController& offload_controller;
     TraversalController& traversal_controller;
 
-    RclSubPtr<PointStampedMsg> clicked_point_sub;
-    PointStampedMsg::ConstSharedPtr clicked_point;
+    RclSubPtr<PoseStampedMsg> traversal_target_sub;
+    PoseStampedMsg::ConstSharedPtr traversal_target;
 
     Operation op_mode{Operation::MANUAL};
     float driving_rps_scalar;

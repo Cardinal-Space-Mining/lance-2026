@@ -57,6 +57,7 @@ class TraversalController
     friend class TelemetryDeserializer;
 
     using PathMsg = PathPlanInterface::PathMsg;
+    using PoseStampedMsg = PathPlanInterface::PoseStampedMsg;
     using PointStampedMsg = PathPlanInterface::PointStampedMsg;
 
     using Vec2f = Eigen::Vector2f;
@@ -64,9 +65,7 @@ class TraversalController
     using Box2f = Eigen::AlignedBox2f;
 
 public:
-    TraversalController(
-        const RobotParams&,
-        SensingInterfaces&);
+    TraversalController(const RobotParams&, SensingInterfaces&);
     ~TraversalController() = default;
 
 public:
@@ -76,6 +75,7 @@ public:
     void initializePoint(
         const PointStampedMsg& dest,
         const Vec2f& dest_direction = Vec2f::Zero());
+    void initializePose(const PoseStampedMsg& dest);
     void initializeZone(const Vec2f& dest_min, const Vec2f& dest_max);
 
     bool isFinished();

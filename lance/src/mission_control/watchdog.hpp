@@ -39,96 +39,108 @@
 
 #pragma once
 
-#include <string>
-
-#include <Eigen/Geometry>
+#include <chrono>
 
 #include <rclcpp/rclcpp.hpp>
+
+#include <std_msgs/msg/int32.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+
+#include "util/ros_utils.hpp"
+
+#include "robot/core/robot_status.hpp"
+#include "robot/core/ros_interface.hpp"
 
 
 namespace lance
 {
 
-struct RobotParams
+class WatchDog : public util::UsingRosAliases
 {
-    using Box2f = Eigen::AlignedBox2f;
+    using Int32Msg = std_msgs::msg::Int32;
+    using SetBoolSrv = std_srvs::srv::SetBool;
+
+    using SetBoolReqPtr = SetBoolSrv::Request::SharedPtr;
+    using SetBoolRespPtr = SetBoolSrv::Response::SharedPtr;
+
+    static constexpr int64_t PUB_DT_MS = 100;
+    static constexpr int64_t TELEOP_FEED_TIME_MS = 250;
+    static constexpr int64_t AUTO_FEED_TIME_MS = 10000;
 
 public:
-    struct ZoneBounds
+    inline WatchDog(RclNode& node) :
+        watchdog_status_pub{node.create_publisher<Int32Msg>(
+            lance::WATCHDOG_TOPIC,
+            rclcpp::SensorDataQoS{})},
+
+        set_teleop_srv{node.create_service<SetBoolSrv>(
+            lance::SET_TELEOP_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+            {
+                this->ctrl_mode = req->data ? ControlMode::TELEOPERATED
+                                            : ControlMode::DISABLED;
+                resp->success = true;
+            })},
+
+        set_auto_srv{node.create_service<SetBoolSrv>(
+            lance::SET_AUTO_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+            {
+                this->ctrl_mode =
+                    req->data ? ControlMode::AUTONOMOUS : ControlMode::DISABLED;
+                resp->success = true;
+            })},
+
+        test_mode_srv{node.create_service<SetBoolSrv>(
+            lance::SET_TEST_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+            {
+                this->ctrl_opts = static_cast<uint8_t>(
+                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
+                resp->success = true;
+            })},
+
+        watchdog_timer{node.create_wall_timer(
+            std::chrono::milliseconds(PUB_DT_MS),
+            [this]()
+            {
+                this->watchdog_status_pub->publish(
+                    Int32Msg{}.set__data(this->getFeedTime()));
+            })}
     {
-        Box2f arena_zone;
-        Box2f mining_zone;
-        Box2f offload_zone;
-        Box2f construction_zone;
-    };
+    }
 
 public:
-    const float default_stick_deadzone;
-    const float driving_magnitude_deadzone;
-    const float driving_low_scalar;
-    const float driving_medium_scalar;
-    const float driving_high_scalar;
+    inline ControlMode getCtrl() const { return this->ctrl_mode; }
+    inline bool isCtrl(ControlMode c) const { return this->ctrl_mode == c; }
+    inline void setCtrl(ControlMode c) { this->ctrl_mode = c; }
 
-    const float trencher_max_velocity_rps;
-    const float trencher_mining_velocity_rps;
-    const float hopper_belt_max_velocity_rps;
-    const float hopper_belt_mining_velocity_rps;
-    const float tracks_max_velocity_rps;
-    const float tracks_mining_velocity_rps;
-    const float tracks_mining_adjustment_range_rps;
-    const float tracks_offload_velocity_rps;
+    inline uint8_t getOpts() const { return this->ctrl_opts; }
+    inline bool hasOpt(uint8_t opt) const { return this->ctrl_opts & opt; }
+    inline void setOpt(uint8_t opt) { this->ctrl_opts |= opt; }
+    inline bool toggleOpt(uint8_t opt)
+    {
+        return (this->ctrl_opts ^= opt) & opt;
+    }
+    inline void clearOpt(uint8_t opt) { this->ctrl_opts &= ~opt; }
 
-    const float hopper_actuator_max_speed;
-    const float hopper_actuator_plunge_speed;
-    const float hopper_actuator_extract_speed;
+private:
+    inline int32_t getFeedTime() const
+    {
+        return ControlStatus::format<TELEOP_FEED_TIME_MS, AUTO_FEED_TIME_MS>(
+            this->ctrl_mode,
+            this->ctrl_opts);
+    }
 
-    const float hopper_actuator_offload_target_val;
-    const float hopper_actuator_traversal_target_val;
-    const float hopper_actuator_transport_target_val;
-    const float hopper_actuator_mining_target_val;
-    const float hopper_actuator_mining_min_val;
-    const float hopper_actuator_targetting_thresh;
+private:
+    RclPubPtr<Int32Msg> watchdog_status_pub;
+    RclSrvPtr<SetBoolSrv> set_teleop_srv;
+    RclSrvPtr<SetBoolSrv> set_auto_srv;
+    RclSrvPtr<SetBoolSrv> test_mode_srv;
+    RclTimer::SharedPtr watchdog_timer;
 
-    const float hopper_belt_mining_duty_cycle_base_seconds;
-
-    const float collection_model_initial_volume_liters;
-    const float collection_model_capacity_volume_liters;
-    const float collection_model_initial_belt_footprint_meters;
-    const float collection_model_belt_capacity_meters;
-    const float collection_model_belt_offload_length_meters;
-
-    const float preset_mining_traversal_dist_meters;
-    const float preset_offload_backup_dist_meters;
-
-    const float iteration_period_seconds;
-
-    const std::string robot_frame_id;
-    const std::string odom_frame_id;
-    const std::string arena_frame_id;
-
-    ZoneBounds bounds;
-
-    const int auto_localization_min_num_search_samples;
-    const float auto_localization_search_angular_velocity_rps;
-    const float auto_localization_align_angular_velocity_rps;
-    const float auto_localization_align_angular_thresh_deg;
-    const float auto_localization_range_target_m;
-    const float auto_localization_range_thresh_m;
-
-    const float auto_traversal_max_track_velocity_mps;
-    const float auto_traversal_max_track_acceleration_mpss;
-    const float auto_traversal_max_angular_velocity_rps;
-    const float auto_traversal_max_angular_accel_rpss;
-    const float auto_traversal_destination_thresh_m;
-    const float auto_traversal_max_path_deviation_m;
-    const float auto_traversal_stanley_k_coeff;
-    const float auto_traversal_angular_kp;
-    const float auto_traversal_min_theta_window_deg;
-    const float auto_traversal_align_angular_thresh_deg;
-    const float minimum_mining_path_length = 1.1; // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet
-
-public:
-    RobotParams(rclcpp::Node&);
+    ControlMode ctrl_mode{ControlMode::DISABLED};
+    uint8_t ctrl_opts{0};
 };
 
 };  // namespace lance

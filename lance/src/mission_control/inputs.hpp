@@ -37,82 +37,115 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "path_plan.hpp"
+#pragma once
 
-#include "robot/core/ros_interface.hpp"
+#include <rclcpp/rclcpp.hpp>
+
+#include <std_msgs/msg/int32.hpp>
+
+#include <sensor_msgs/msg/joy.hpp>
+
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+
+#include "util/joy_utils.hpp"
+#include "util/ros_utils.hpp"
+
+#include "robot/core/robot_params.hpp"
+#include "robot/model/geometry.hpp"
+#include "robot/sensing/tf_cache.hpp"
+#include "robot/telemetry/deserializer.hpp"
+
+#include "watchdog.hpp"
+#include "zone_pub.hpp"
 
 
 namespace lance
 {
 
-PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
-    params{params},
-    rcl_clock{node.get_clock()},
-    path_sub{node.create_subscription<PathMsg>(
-        lance::PERCEPTION_PATH_TOPIC,
-        rclcpp::SensorDataQoS{},
-        [this](const PathMsg::ConstSharedPtr& msg) { this->last_path = msg; })},
-    pplan_control_client{node.create_client<UpdatePathPlanSrv>(
-        lance::PERCEPTION_PPLAN_CONTROL_TOPIC)}
+class InputInterface : public util::UsingRosAliases
 {
-}
+    using Int32Msg = std_msgs::msg::Int32;
+    using JoyMsg = sensor_msgs::msg::Joy;
+    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
+    using PointStampedMsg = geometry_msgs::msg::PointStamped;
 
+    using JoyState = util::JoyState;
+    using ZoneBounds = RobotParams::ZoneBounds;
 
-void PathPlanInterface::init(const Vec3f& arena_dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header.frame_id = this->params.arena_frame_id;
-    req->target.header.stamp = this->rcl_clock->now();
-    req->target.pose.position.x = arena_dest.x();
-    req->target.pose.position.y = arena_dest.y();
-    req->target.pose.position.z = arena_dest.z();
-    req->completed = false;
+public:
+    InputInterface(
+        RclNode&,
+        const TfCache&,
+        TelemetryDeserializer&,
+        WatchDog&,
+        const ZoneBounds&);
 
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::init(const PoseStampedMsg& dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target = dest;
-    req->completed = false;
+protected:
+    enum class State
+    {
+        PASSTHROUGH = 0,
+        OVERRIDE,
+        TRAV_CURSOR,
+        MINING_CURSOR,
+        OFFLOAD_CURSOR
+    };
 
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::init(const PointStampedMsg& dest)
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header = dest.header;
-    req->target.pose.position = dest.point;
-    req->completed = false;
+protected:
+    void handleJoy(const JoyMsg&);
+    void handleClickedPoint(const PointStampedMsg&);
+    void handleInterfacePubs();
 
-    this->pplan_control_client->async_send_request(
-        req,
-        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
-}
-void PathPlanInterface::cancel()
-{
-    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->completed = true;
+    void handlePassthroughState();
+    void handleOverrideState();
 
-    this->pplan_control_client->async_send_request(
-        req,
-        [this](RclClient<UpdatePathPlanSrv>::SharedFuture)
-        { this->last_path = nullptr; });
-}
+    void initTravCursorState();
+    void initMiningCursorState();
+    void initOffloadCursorState();
 
-bool PathPlanInterface::hasPath() const
-{
-    return this->last_path.operator bool();
-}
-const PathPlanInterface::PathMsg* PathPlanInterface::getPath() const
-{
-    return this->last_path ? this->last_path.get() : nullptr;
-}
+    void handleTravCursorState();
+    void handleMiningCursorState();
+    void handleOffloadCursorState();
 
-void PathPlanInterface::clearPath() { this->last_path.reset(); }
+    bool handleCommonOverrides();
+    void homeTravCursor();
+    void homeOffloadCursor();
+
+    void recalcOffloadRange();
+    void recalcOffloadTarget();
+
+    void iterateTravCursor();
+    void iterateMiningCursor();
+    void iterateOffloadCursor();
+
+    void publishTravTarget();
+    void publishMiningTarget();
+    void publishOffloadTarget();
+
+    bool isCursorState() const;
+
+private:
+    const TfCache& tf_cache;
+    TelemetryDeserializer& telemetry;
+    WatchDog& watchdog;
+    const ZoneBounds& bounds;
+
+    RclPubPtr<JoyMsg> joy_pub;
+    RclSubPtr<JoyMsg> joy_sub;
+    RclPubPtr<PoseStampedMsg> traversal_target_pub;
+    RclSubPtr<PointStampedMsg> clicked_point_sub;
+    RclTimer::SharedPtr interface_pub_timer;
+
+    JoyState joy_state;
+    PoseStampedMsg traversal_cursor;
+
+    geom::Vec2f offload_zone_norm;
+    geom::Vec2f offload_footprint;
+    geom::Box2f offload_target_range;
+    geom::Pose2f offload_target;
+    float offload_vis_range;
+
+    State state{State::PASSTHROUGH};
+};
 
 };  // namespace lance

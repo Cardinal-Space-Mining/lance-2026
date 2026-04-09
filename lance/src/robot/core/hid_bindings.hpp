@@ -113,14 +113,17 @@ namespace lance
 
 #define Xbox XboxControllerMappings
 
+
+// --- Robot Controls ----------------------------------------------------------
+
 using DisableAllActionsButton = Xbox::ButtonA;
 
 using TeleopLowSpeedButton = Xbox::ButtonB;
 using TeleopMediumSpeedButton = Xbox::ButtonY;
 using TeleopHighSpeedButton = Xbox::ButtonX;
 
-using TeleopDriveXAxis = Xbox::AxisLeftX;
-using TeleopDriveYAxis = Xbox::AxisLeftY;
+using TeleopDriveForwardAxis = Xbox::AxisLeftY;
+using TeleopDriveRotationAxis = Xbox::AxisLeftX;
 
 using TeleopTrencherSpeedAxis = Xbox::AxisRightTrigger;
 using TeleopTrencherInvertButton = Xbox::ButtonRightBumper;
@@ -139,6 +142,27 @@ using ToggleMiningObstacleConstraintButton = Xbox::DPadUp;
 using ToggleMiningHopperConstraintButton = Xbox::DPadRight;
 using ToggleMiningZoneConstraintButton = Xbox::DPadDown;
 using ToggleMiningStallConstraintButton = Xbox::DPadLeft;
+
+
+// --- Mission Control Override Controls ---------------------------------------
+
+using MissionControlOverrideButton = Xbox::ButtonCenter;
+
+using SetDisabledModeButton = Xbox::ButtonA;
+using SetTeleopModeButton = Xbox::ButtonB;
+using SetAutoModeButton = Xbox::ButtonX;
+using ToggleTestModeButton = Xbox::ButtonY;
+
+using SetTravCursorButton = Xbox::ButtonRightBumper;
+using ConfirmCursorTargetButton = Xbox::ButtonLeftBumper;
+using SetMiningCursorButton = Xbox::ButtonLeftCenter;
+using SetOffloadCursorButton = Xbox::ButtonRightCenter;
+
+using TraversalCursorRotAxis = Xbox::AxisRightX;
+using TraversalCursorScaleAxis = Xbox::AxisRightY;
+using TraversalCursorPosAxes =
+    util::StaticJoyStickAxes<Xbox::AxisLeftY::IDX, Xbox::AxisLeftX::IDX>;
+
 
 #undef Xbox
 
