@@ -53,6 +53,7 @@ using namespace std::chrono_literals;
 
 using namespace util;
 using namespace util::geom::cvt::ops;
+using namespace lance::geom;
 
 
 namespace lance
@@ -167,6 +168,14 @@ void InputInterface::handleInterfacePubs()
             ROBOT_TOPIC("traversal_cursor"),
             this->traversal_cursor);
     }
+    if (this->state == State::MINING_CURSOR)
+    {
+        // TODO
+    }
+    if (this->state == State::OFFLOAD_CURSOR)
+    {
+        // TODO
+    }
 }
 
 
@@ -228,7 +237,7 @@ void InputInterface::initMiningCursorState()
 void InputInterface::initOffloadCursorState()
 {
     this->state = State::OFFLOAD_CURSOR;
-    // init to mining zone
+    this->homeOffloadCursor();
 }
 
 
@@ -403,6 +412,51 @@ void InputInterface::homeTravCursor()
     }
 }
 
+void InputInterface::homeOffloadCursor()
+{
+    this->offload_zone_norm =
+        innerZoneNormalDir(this->bounds.arena_zone, this->bounds.offload_zone);
+
+    this->offload_footprint.x() = std::abs(
+        (this->offload_zone_norm.x() * OFFLOAD_FOOTPRINT_LENGTH_<float>)+  //
+        (this->offload_zone_norm.y() * OFFLOAD_FOOTPRINT_WIDTH_<float>));
+    this->offload_footprint.y() = std::abs(
+        (this->offload_zone_norm.y() * OFFLOAD_FOOTPRINT_LENGTH_<float>)+  //
+        (this->offload_zone_norm.x() * OFFLOAD_FOOTPRINT_WIDTH_<float>));
+
+    this->offload_target_range = this->bounds.offload_zone;
+    this->offload_target_range.min().x() += this->offload_footprint.x() / 2.f;
+    this->offload_target_range.min().y() += this->offload_footprint.y() / 2.f;
+    this->offload_target_range.max().x() -= this->offload_footprint.x() / 2.f;
+    this->offload_target_range.max().y() -= this->offload_footprint.y() / 2.f;
+
+    this->offload_target.template head<2>() =
+        this->offload_target_range.center();
+    this->offload_target.z() =
+        std::atan2(this->offload_zone_norm.y(), this->offload_zone_norm.x());
+
+    this->offload_vis_range = std::max(
+        -OFFLOAD_FOOTPRINT_OFFSET_<float>,
+        FOOTPRINT_R_MAX_<float> +
+            distToBounds(this->offload_target, this->bounds.offload_zone));
+
+    this->traversal_cursor.header.frame_id = this->tf_cache.arena_frame_id;
+    this->recalcOffloadTarget();
+}
+
+void InputInterface::recalcOffloadTarget()
+{
+    this->traversal_cursor.pose.position.x =
+        this->offload_target.x() +
+        (this->offload_vis_range * std::cos(this->offload_target.z()));
+    this->traversal_cursor.pose.position.y =
+        this->offload_target.y() +
+        (this->offload_vis_range * std::sin(this->offload_target.z()));
+    this->traversal_cursor.pose.position.z = 0.;
+    Quatf q = yawToQuat(this->offload_target.z());
+    this->traversal_cursor.pose.orientation << q;
+}
+
 void InputInterface::iterateTravCursor()
 {
     constexpr float CURSOR_MAX_SPEED_MPS = 2.f;
@@ -435,14 +489,33 @@ void InputInterface::iterateTravCursor()
         (d_x * sin_theta) + (d_y * cos_theta);
 }
 
-void InputInterface::iterateMiningCursor()
-{
-    // TODO
-}
+void InputInterface::iterateMiningCursor() { this->iterateTravCursor(); }
 
 void InputInterface::iterateOffloadCursor()
 {
-    // TODO
+    constexpr float CURSOR_MAX_SPEED_MPS = 1.f;
+    constexpr float CURSOR_MAX_SPEED_RPS = 2.f;
+
+    const float d_x =
+        CURSOR_MAX_SPEED_MPS *
+        std::min(1.f, TraversalCursorPosAxes::X::trapezoidSum(this->joy_state));
+    const float d_y =
+        CURSOR_MAX_SPEED_MPS *
+        std::min(1.f, TraversalCursorPosAxes::Y::trapezoidSum(this->joy_state));
+
+    const float cos_theta = std::cos(this->offload_target.z());
+    const float sin_theta = std::sin(this->offload_target.z());
+
+    this->offload_target.x() += (d_x * cos_theta) - (d_y * sin_theta);
+    this->offload_target.y() += (d_x * sin_theta) + (d_y * cos_theta);
+    this->offload_target.template head<2>().array() =
+        this->offload_target.template head<2>().array().cwiseMax(
+            this->offload_target_range.min().array());
+    this->offload_target.template head<2>().array() =
+        this->offload_target.template head<2>().array().cwiseMin(
+            this->offload_target_range.max().array());
+
+    this->recalcOffloadTarget();
 }
 
 
@@ -453,11 +526,13 @@ void InputInterface::publishTravTarget()
 
 void InputInterface::publishMiningTarget()
 {
+    this->traversal_target_pub->publish(this->traversal_cursor);
     // TODO
 }
 
 void InputInterface::publishOffloadTarget()
 {
+    this->traversal_target_pub->publish(this->traversal_cursor);
     // TODO
 }
 

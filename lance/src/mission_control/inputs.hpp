@@ -52,6 +52,7 @@
 #include "util/ros_utils.hpp"
 
 #include "robot/core/robot_params.hpp"
+#include "robot/model/geometry.hpp"
 #include "robot/sensing/tf_cache.hpp"
 #include "robot/telemetry/deserializer.hpp"
 
@@ -108,6 +109,8 @@ protected:
 
     bool handleCommonOverrides();
     void homeTravCursor();
+    void homeOffloadCursor();
+    void recalcOffloadTarget();
     void iterateTravCursor();
     void iterateMiningCursor();
     void iterateOffloadCursor();
@@ -132,6 +135,12 @@ private:
 
     JoyState joy_state;
     PoseStampedMsg traversal_cursor;
+
+    geom::Vec2f offload_zone_norm;
+    geom::Vec2f offload_footprint;
+    geom::Box2f offload_target_range;
+    geom::Pose2f offload_target;
+    float offload_vis_range;
 
     State state{State::PASSTHROUGH};
 };
