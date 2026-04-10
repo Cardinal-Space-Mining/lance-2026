@@ -84,7 +84,7 @@ void TeleopController::setCancelled()
             this->offload_controller.setCancelled();
             break;
         }
-        case Operation::AUTO_TRAVERSAL:
+        case Operation::PLANNED_TRAVERSAL:
         {
             this->traversal_controller.setCancelled();
             break;
@@ -132,7 +132,7 @@ void TeleopController::iterate(
             command_finished = this->offload_controller.isFinished();
             break;
         }
-        case Operation::AUTO_TRAVERSAL:
+        case Operation::PLANNED_TRAVERSAL:
         {
             this->handleClickedPoint(true);
             this->traversal_controller.iterate(motor_status, commands);
@@ -176,7 +176,7 @@ void TeleopController::iterate(
                 this->offload_controller.iterate(motor_status, commands);
                 break;
             }
-            case Operation::AUTO_TRAVERSAL:
+            case Operation::PLANNED_TRAVERSAL:
             {
                 this->traversal_controller.iterate(motor_status, commands);
                 break;
@@ -225,7 +225,7 @@ bool TeleopController::handleClickedPoint(bool can_apply)
     if (this->traversal_target && can_apply)
     {
         this->traversal_controller.initializePose(*this->traversal_target);
-        this->op_mode = Operation::AUTO_TRAVERSAL;
+        this->op_mode = Operation::PLANNED_TRAVERSAL;
         this->traversal_target = nullptr;
         return true;
     }

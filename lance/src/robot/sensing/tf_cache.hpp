@@ -124,6 +124,9 @@ public:
     template<typename KeyOrStr1, typename KeyOrStr2>
     const PoseTf* getTf(KeyOrStr1&& from, KeyOrStr2&& to) const;
 
+    template<typename T>
+    KeyFrame resolveKeyFrame(T&& val) const;
+
 protected:
     struct TfLink
     {
@@ -132,10 +135,6 @@ protected:
 
         double stamp{-1.};
     };
-
-protected:
-    template<typename T>
-    KeyFrame resolveKeyFrame(T&& val) const;
 
 protected:
     Tf2Buffer tf_buffer;

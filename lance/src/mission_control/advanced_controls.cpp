@@ -336,12 +336,6 @@ bool AdvancedControls::isCursorState() const
 
 void AdvancedControls::initTravCursorMode()
 {
-    this->state = State::TRAV_CURSOR;
-    this->homeTravCursor();
-}
-
-void AdvancedControls::homeTravCursor()
-{
     if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
@@ -360,10 +354,10 @@ void AdvancedControls::homeTravCursor()
     }
     else
     {
-        this->cursor_pose.pose.position << Vec3f{Vec3f::Zero()};
-        this->cursor_pose.pose.orientation << Quatf::Identity();
-        this->cursor_pose.header.frame_id = this->tf_cache.robot_frame_id;
+        return;
     }
+
+    this->state = State::TRAV_CURSOR;
 }
 
 void AdvancedControls::iterateTravCursorMode()
@@ -474,17 +468,13 @@ void AdvancedControls::initMiningCursorMode()
         return;
     }
 
-    this->state = State::MINING_CURSOR;
-    this->homeMiningCursor();
-}
-
-void AdvancedControls::homeMiningCursor()
-{
     this->cursor_pose.pose.position.x = this->bounds.mining_zone.center().x();
     this->cursor_pose.pose.position.y = this->bounds.mining_zone.center().y();
     this->cursor_pose.pose.position.z = 0.;
     this->cursor_pose.pose.orientation << Quatf::Identity();
     this->cursor_pose.header.frame_id = this->tf_cache.arena_frame_id;
+
+    this->state = State::MINING_CURSOR;
 }
 
 void AdvancedControls::iterateMiningCursorMode()
@@ -615,12 +605,6 @@ void AdvancedControls::initOffloadCursorMode()
         return;
     }
 
-    this->state = State::OFFLOAD_CURSOR;
-    this->homeOffloadCursor();
-}
-
-void AdvancedControls::homeOffloadCursor()
-{
     this->offload_zone_norm =
         innerZoneNormalDir(this->bounds.arena_zone, this->bounds.offload_zone);
 
@@ -647,6 +631,8 @@ void AdvancedControls::homeOffloadCursor()
 
     this->cursor_pose.header.frame_id = this->tf_cache.arena_frame_id;
     this->recalcOffloadTarget();
+
+    this->state = State::OFFLOAD_CURSOR;
 }
 
 void AdvancedControls::recalcOffloadRange()

@@ -108,7 +108,6 @@ protected:
 
 protected:
     void initTravCursorMode();
-    void homeTravCursor();
     void iterateTravCursorMode();
     void iterateTravCursorCtrl();
     void publishTravTarget();
@@ -117,7 +116,6 @@ protected:
 
 protected:
     void initMiningCursorMode();
-    void homeMiningCursor();
     void iterateMiningCursorMode();
     void iterateMiningCursorCtrl();
     void publishMiningTarget();
@@ -126,7 +124,6 @@ protected:
 
 protected:
     void initOffloadCursorMode();
-    void homeOffloadCursor();
     void recalcOffloadRange();
     void recalcOffloadTarget();
     void iterateOffloadCursorMode();

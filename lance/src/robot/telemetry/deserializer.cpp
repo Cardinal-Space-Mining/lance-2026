@@ -338,7 +338,7 @@ bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
         case AS_U8(Op::ASSISTED_MINING):
         case AS_U8(Op::ASSISTED_OFFLOAD):
         case AS_U8(Op::PRESET_OFFLOAD):
-        case AS_U8(Op::AUTO_TRAVERSAL):
+        case AS_U8(Op::PLANNED_TRAVERSAL):
         {
             this->ctrl_chain.push_back(OP_TAGS[stage_id]);
 

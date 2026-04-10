@@ -198,7 +198,7 @@ void TelemetrySerializer::addTeleopController(
             this->addOffloadController(bytes, controller.offload_controller);
             break;
         }
-        case Op::AUTO_TRAVERSAL:
+        case Op::PLANNED_TRAVERSAL:
         {
             this->addTravController(bytes, controller.traversal_controller);
             break;

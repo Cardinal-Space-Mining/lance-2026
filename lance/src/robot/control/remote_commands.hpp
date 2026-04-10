@@ -39,80 +39,30 @@
 
 #pragma once
 
-#include <rclcpp/rclcpp.hpp>
+#include <net_adapter/msg/bytes.hpp>
 
-#include <geometry_msgs/msg/pose_stamped.hpp>
-
-#include "util/joy_utils.hpp"
-#include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/sensing/sensing_interfaces.hpp"
-
-#include "shared/shared_controllers.hpp"
+#include "robot/sensing/tf_cache.hpp"
 
 
 namespace lance
 {
 
-class TeleopController : public util::UsingRosAliases
+enum RemoteCommand : uint8_t
 {
-    friend class TelemetrySerializer;
-    friend class TelemetryDeserializer;
-
-    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
-    using JoyState = util::JoyState;
-
-public:
-    TeleopController(
-        RclNode&,
-        const RobotParams&,
-        SensingInterfaces&,
-        SharedControllerCollection&);
-    ~TeleopController() = default;
-
-public:
-    void initialize();
-    void setCancelled();
-
-    void iterate(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    enum class Operation
-    {
-        MANUAL = 0,
-        ASSISTED_MINING,
-        ASSISTED_OFFLOAD,
-        PRESET_OFFLOAD,
-        PLANNED_TRAVERSAL,
-        PLANNED_MINING,
-        PLANNED_OFFLOAD
-    };
-
-protected:
-    bool handleGlobalInputs(const JoyState& joy);
-    bool handleClickedPoint(bool can_apply);
-    void handleTeleopInputs(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
-
-protected:
-    const RobotParams& params;
-    SensingInterfaces& sensing_interfaces;
-
-    MiningController& mining_controller;
-    OffloadController& offload_controller;
-    TraversalController& traversal_controller;
-
-    RclSubPtr<PoseStampedMsg> traversal_target_sub;
-    PoseStampedMsg::ConstSharedPtr traversal_target;
-
-    Operation op_mode{Operation::MANUAL};
-    float driving_rps_scalar;
+    INVALID = 0,
+    TRAVERSAL,
+    MINING,
+    OFFLOAD
 };
 
-};  // namespace lance
+void serializeTraversalCommand(net_adapter::msg::Bytes&, const TfCache::PoseTf&, KeyFrame);
+void serializeMiningCommand(net_adapter::msg::Bytes&, const TfCache::PoseTf&);
+void serializeOffloadCommand(net_adapater::msg::Bytes&, const TfCache::PoseTf&, float);
+
+RemoteCommand getCommandType(const net_adapater::msg::Bytes&);
+
+bool deserializeTraversalCommand(const net_adapater::msg::Bytes&, TfCache::PoseTf&, KeyFrame&);
+bool deserializeMiningCommand(const net_adapater::msg::Bytes&, TfCache::PoseTf&);
+bool deserializeOffloadCommand(const net_adapater::msg::Bytes&, TfCache::PoseTf&, float&);
+
+};
