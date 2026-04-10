@@ -67,7 +67,7 @@ class ZonePublisher : public util::UsingRosAliases
     static constexpr int64_t PUB_DT_MS = 1000;
 
 public:
-    inline ZonePublisher(RclNode& node, const TfCache& tf_cache) :
+    inline ZonePublisher(RclNode& node, const std::string& arena_frame_id) :
         markers_pub{node.create_publisher<MarkerArrayMsg>(
             lance::ARENA_ZONES_TOPIC,
             rclcpp::SensorDataQoS{})},
@@ -75,14 +75,14 @@ public:
             std::chrono::milliseconds(PUB_DT_MS),
             [this]() { this->markers_pub->publish(this->markers); })}
     {
-        this->initMarkers(node, tf_cache);
+        this->initMarkers(node, arena_frame_id);
     }
 
 public:
     inline const ZoneBounds& getBounds() const { return this->bounds; }
 
 private:
-    inline void initMarkers(RclNode& node, const TfCache& tf_cache)
+    inline void initMarkers(RclNode& node, const std::string& arena_frame_id)
     {
         std::vector<double> min, max;
 
@@ -92,7 +92,7 @@ private:
         util::declare_param(node, param ".max", max, {0., 0., 0.}); \
         assert(min.size() >= 3 && max.size() >= 3);                 \
         MarkerMsg& marker = this->markers.markers.emplace_back();   \
-        marker.header.frame_id = tf_cache.arena_frame_id;           \
+        marker.header.frame_id = arena_frame_id;                    \
         marker.header.stamp = node.now();                           \
         marker.ns = NS;                                             \
         marker.id = this->markers.markers.size();                   \

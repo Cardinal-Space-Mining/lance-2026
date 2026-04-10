@@ -45,6 +45,8 @@
 
 #include <net_adapter/msg/bytes.hpp>
 
+#include "util/ros_utils.hpp"
+
 
 namespace lance
 {
@@ -88,10 +90,9 @@ enum class ControllerType : uint8_t
     TRAVERSAL
 };
 
-class TelemetryBase
+class TelemetryBase : public util::UsingRosAliases
 {
 public:
-    using RclNode = rclcpp::Node;
     using BytesMsg = net_adapter::msg::Bytes;
     using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
     using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;

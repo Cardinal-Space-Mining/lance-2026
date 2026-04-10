@@ -76,6 +76,7 @@ set(lance_core_srcs
     "src/robot/sensing/mining_eval.cpp"
     "src/robot/sensing/reflector_hint.cpp"
     # "src/robot/planning/mining_planner.cpp"
+    "src/robot/telemetry/markers.cpp"
     "src/robot/telemetry/serializer.cpp"
     "src/robot/telemetry/deserializer.cpp")
 set(lance_core_libs
@@ -175,8 +176,7 @@ endif()
 # --- Mission Control ----------------------------------------------------------
 set(mission_control_srcs
     "src/client_node.cpp"
-    "src/robot/telemetry/markers.cpp"
-    "src/mission_control/inputs.cpp")
+    "src/mission_control/advanced_controls.cpp")
 set(mission_control_ament_deps)     # rest of deps included from core lib
 
 if(BUILD_LANCE1)

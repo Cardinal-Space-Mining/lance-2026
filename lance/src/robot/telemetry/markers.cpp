@@ -54,7 +54,7 @@ MarkerManager::MarkerMsg& MarkerManager::MarkerGroup::operator[](size_t i)
     return (x < this->end) ? *x : *this->beg;
 }
 
-MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setFrameIds(
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setFrameId(
     std::string_view frame_id)
 {
     for (auto itr = this->beg; itr != this->end; itr++)
@@ -64,7 +64,7 @@ MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setFrameIds(
     return *this;
 }
 
-MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setTypes(int32_t type)
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setType(int32_t type)
 {
     for (auto itr = this->beg; itr != this->end; itr++)
     {
@@ -73,11 +73,21 @@ MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setTypes(int32_t type)
     return *this;
 }
 
-MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setDurations(RclDur dur)
+MarkerManager::MarkerGroup& MarkerManager::MarkerGroup::setDuration(RclDur dur)
 {
     for (auto itr = this->beg; itr != this->end; itr++)
     {
         itr->lifetime = dur;
+    }
+    return *this;
+}
+
+MarkerManager::MarkerGroup&
+    MarkerManager::MarkerGroup::setColor(float r, float g, float b, float a)
+{
+    for (auto itr = this->beg; itr != this->end; itr++)
+    {
+        itr->color.set__r(r).set__g(g).set__b(b).set__a(a);
     }
     return *this;
 }
@@ -149,7 +159,7 @@ const MarkerManager::MarkerArrayMsg& MarkerManager::getOutputMarkers() const
     return this->output_markers;
 }
 
-void MarkerManager::pubAllMarkers(RclPubPtr<MarkerArrayMsg>& pub, RclTime stamp)
+void MarkerManager::pubAllMarkers(RclPubPtr<MarkerArrayMsg> pub, RclTime stamp)
 {
     for (auto& m : this->all_markers.markers)
     {
@@ -160,7 +170,7 @@ void MarkerManager::pubAllMarkers(RclPubPtr<MarkerArrayMsg>& pub, RclTime stamp)
 }
 
 void MarkerManager::pubOutputMarkers(
-    RclPubPtr<MarkerArrayMsg>& pub,
+    RclPubPtr<MarkerArrayMsg> pub,
     RclTime stamp,
     bool clear)
 {

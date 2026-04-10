@@ -54,6 +54,7 @@
 #include "robot/core/robot_params.hpp"
 #include "robot/model/geometry.hpp"
 #include "robot/sensing/tf_cache.hpp"
+#include "robot/telemetry/markers.hpp"
 #include "robot/telemetry/deserializer.hpp"
 
 #include "watchdog.hpp"
@@ -63,7 +64,7 @@
 namespace lance
 {
 
-class InputInterface : public util::UsingRosAliases
+class AdvancedControls : public util::UsingRosAliases
 {
     using Int32Msg = std_msgs::msg::Int32;
     using JoyMsg = sensor_msgs::msg::Joy;
@@ -74,9 +75,10 @@ class InputInterface : public util::UsingRosAliases
     using ZoneBounds = RobotParams::ZoneBounds;
 
 public:
-    InputInterface(
+    AdvancedControls(
         RclNode&,
         const TfCache&,
+        MarkerManager&,
         TelemetryDeserializer&,
         WatchDog&,
         const ZoneBounds&);
@@ -92,43 +94,54 @@ protected:
     };
 
 protected:
+    void initMarkers();
+
     void handleJoy(const JoyMsg&);
     void handleClickedPoint(const PointStampedMsg&);
     void handleInterfacePubs();
 
-    void handlePassthroughState();
-    void handleOverrideState();
-
-    void initTravCursorState();
-    void initMiningCursorState();
-    void initOffloadCursorState();
-
-    void handleTravCursorState();
-    void handleMiningCursorState();
-    void handleOffloadCursorState();
-
+    void iteratePassthroughMode();
+    void iterateOverrideMode();
     bool handleCommonOverrides();
-    void homeTravCursor();
-    void homeOffloadCursor();
-
-    void recalcOffloadRange();
-    void recalcOffloadTarget();
-
-    void iterateTravCursor();
-    void iterateMiningCursor();
-    void iterateOffloadCursor();
-
-    void publishTravTarget();
-    void publishMiningTarget();
-    void publishOffloadTarget();
 
     bool isCursorState() const;
 
+protected:
+    void initTravCursorMode();
+    void homeTravCursor();
+    void iterateTravCursorMode();
+    void iterateTravCursorCtrl();
+    void publishTravTarget();
+    void publishTravVisuals();
+    void updateFootprintMarkers();
+
+protected:
+    void initMiningCursorMode();
+    void homeMiningCursor();
+    void iterateMiningCursorMode();
+    void iterateMiningCursorCtrl();
+    void publishMiningTarget();
+    void publishMiningVisuals();
+    bool updateMiningMarkers();
+
+protected:
+    void initOffloadCursorMode();
+    void homeOffloadCursor();
+    void recalcOffloadRange();
+    void recalcOffloadTarget();
+    void iterateOffloadCursorMode();
+    void iterateOffloadCursorCtrl();
+    void publishOffloadTarget();
+    void publishOffloadVisuals();
+    void updateOffloadMarkers();
+
 private:
     const TfCache& tf_cache;
+    MarkerManager& markers;
     TelemetryDeserializer& telemetry;
     WatchDog& watchdog;
     const ZoneBounds& bounds;
+    RclClock::ConstSharedPtr rcl_clock;
 
     RclPubPtr<JoyMsg> joy_pub;
     RclSubPtr<JoyMsg> joy_sub;
@@ -137,13 +150,18 @@ private:
     RclTimer::SharedPtr interface_pub_timer;
 
     JoyState joy_state;
-    PoseStampedMsg traversal_cursor;
+    PoseStampedMsg cursor_pose;
 
     geom::Vec2f offload_zone_norm;
     geom::Vec2f offload_footprint;
     geom::Box2f offload_target_range;
     geom::Pose2f offload_target;
+    float offload_manual_off;
     float offload_vis_range;
+
+    size_t footprint_markers_id;
+    size_t mining_markers_id;
+    size_t offload_markers_id;
 
     State state{State::PASSTHROUGH};
 };

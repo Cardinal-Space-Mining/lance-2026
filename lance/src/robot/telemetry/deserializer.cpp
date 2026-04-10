@@ -64,16 +64,30 @@ using TransformStampedMsg = geometry_msgs::msg::TransformStamped;
 namespace lance
 {
 
-TelemetryDeserializer::TelemetryDeserializer(RclNode& node, TfCache& tf_cache) :
+TelemetryDeserializer::TelemetryDeserializer(
+    RclNode& node,
+    TfCache& tf_cache,
+    MarkerManager& markers) :
     pub_map{node, "", rclcpp::SensorDataQoS{}},
     tf_cache{tf_cache},
+    markers{markers},
     tf_broadcaster{node},
     rcl_clock{node.get_clock()},
     sub{node.create_subscription<BytesMsg>(
         lance::TELEMETRY_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })}
+        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })},
+    mining_marker_id{markers.reserveGroup(1, "robot")},
+    offload_marker_id{markers.reserveGroup(1, "robot")}
 {
+    markers.getGroup(this->mining_marker_id)
+        .setFrameId(this->tf_cache.arena_frame_id)
+        .setType(MarkerMsg::CUBE)
+        .setDuration(RclDur{0, 100000000});
+    markers.getGroup(this->offload_marker_id)
+        .setFrameId(this->tf_cache.arena_frame_id)
+        .setType(MarkerMsg::CUBE)
+        .setDuration(RclDur{0, 100000000});
 }
 
 
@@ -86,7 +100,7 @@ TelemetryDeserializer::GenericPubMap& TelemetryDeserializer::getPubMap()
 void TelemetryDeserializer::accept(const BytesMsg& msg)
 {
     this->ctrl_chain.clear();
-    this->markers.markers.clear();
+    this->markers.clearOutput();
     this->tf_cache.refresh();
 
     const Byte* ptr = msg.data.data();
@@ -138,9 +152,12 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
         this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, ss.str());
     }
 
-    if (!this->markers.markers.empty())
+    if (!this->markers.getOutputMarkers().markers.empty())
     {
-        this->pub_map.publish(lance::ROBOT_MARKERS_TOPIC, this->markers);
+        this->markers.pubOutputMarkers(
+            this->pub_map.getPub<MarkerArrayMsg>(lance::ROBOT_MARKERS_TOPIC),
+            this->rcl_clock->now(),
+            true);
     }
 }
 
@@ -596,28 +613,34 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
         return;
     }
 
-    MarkerMsg& marker = this->markers.markers.emplace_back();
+    MarkerMsg& marker = this->markers.getGroup(this->mining_marker_id)[0];
 
-    marker.header.frame_id = this->tf_cache.arena_frame_id;
-    marker.header.stamp = this->rcl_clock->now();
-
-    marker.ns = "robot";
-    marker.id = 1;
-    marker.type = MarkerMsg::CUBE;
-    marker.action = MarkerMsg::ADD;
-    marker.lifetime = rclcpp::Duration(0, 100000000);
-
-    static const ColorMsg CONSTRAINT_COLORS[] = {
-        ColorMsg{}.set__r(0.9f).set__g(0.8f).set__b(0.2f).set__a(0.5f),
-        ColorMsg{}.set__r(1.f).set__a(0.5f),
-        ColorMsg{}.set__r(0.6f).set__g(0.2f).set__b(0.9f).set__a(0.5f),
-        ColorMsg{}.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f),
-    };
-
-    marker.color = CONSTRAINT_COLORS
-        [(constraint > MiningConstraints::CONSTRAINT_MOTOR_STALL) +
-         (constraint > MiningConstraints::CONSTRAINT_OBSTACLE) +
-         (constraint > MiningConstraints::CONSTRAINT_HOPPER_FULL)];
+    switch (constraint)
+    {
+        case MiningConstraints::CONSTRAINT_MOTOR_STALL:
+        {
+            marker.color.set__r(0.9f).set__g(0.8f).set__b(0.2f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_OBSTACLE:
+        {
+            marker.color.set__r(1.f).set__g(0.f).set__b(0.f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_HOPPER_FULL:
+        {
+            marker.color.set__r(0.6f).set__g(0.2f).set__b(0.9f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_ZONE_BOUNDARY:
+        {
+            marker.color.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f);
+            break;
+        }
+        default:
+        {
+        }
+    }
 
     marker.scale.x = dist;
     marker.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;
@@ -634,10 +657,9 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
     marker.pose.position.x = p->pose.vec.x() + pos_off.x();
     marker.pose.position.y = p->pose.vec.y() + pos_off.y();
     marker.pose.position.z = p->pose.vec.z() + pos_off.z();
-    marker.pose.orientation.w = flattened_q.w();
-    marker.pose.orientation.x = flattened_q.x();
-    marker.pose.orientation.y = flattened_q.y();
-    marker.pose.orientation.z = flattened_q.z();
+    marker.pose.orientation << flattened_q;
+
+    this->markers.addGroupToOutput(this->mining_marker_id);
 }
 
 void TelemetryDeserializer::addOffloadMarker(float dist) { (void)dist; }

@@ -159,9 +159,12 @@ using SetMiningCursorButton = Xbox::ButtonLeftCenter;
 using SetOffloadCursorButton = Xbox::ButtonRightCenter;
 
 using TraversalCursorRotAxis = Xbox::AxisRightX;
-using TraversalCursorScaleAxis = Xbox::AxisRightY;
 using TraversalCursorPosAxes =
     util::StaticJoyStickAxes<Xbox::AxisLeftY::IDX, Xbox::AxisLeftX::IDX>;
+
+using OffloadCursorScaleUpAxis = Xbox::AxisRightTrigger;
+using OffloadCursorScaleDownAxis = Xbox::AxisLeftTrigger;
+using OffloadCursorAlignButton = Xbox::ButtonLeftStick;
 
 
 #undef Xbox

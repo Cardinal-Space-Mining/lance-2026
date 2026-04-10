@@ -45,12 +45,13 @@
 #include "util/ros_utils.hpp"
 
 #include "robot/sensing/tf_cache.hpp"
+#include "robot/telemetry/markers.hpp"
 #include "robot/telemetry/deserializer.hpp"
 
-#include "mission_control/inputs.hpp"
 #include "mission_control/watchdog.hpp"
 #include "mission_control/zone_pub.hpp"
 #include "mission_control/joint_pub.hpp"
+#include "mission_control/advanced_controls.hpp"
 
 using namespace util;
 using namespace lance;
@@ -63,12 +64,13 @@ public:
 
 private:
     TfCache tf_cache;
+    MarkerManager markers;
     TelemetryDeserializer telemetry;
 
     WatchDog watchdog;
     ZonePublisher zone_publisher;
     JointPublisher joint_publisher;
-    InputInterface input_interface;
+    AdvancedControls controls;
 };
 
 
@@ -82,14 +84,16 @@ MissionControlNode::MissionControlNode() :
         declare_and_get_param<std::string>(*this, "arena_frame_id", "map"),
         declare_and_get_param<std::string>(*this, "odom_frame_id", "odom"),
         declare_and_get_param<std::string>(*this, "robot_frame_id", "robot")},
-    telemetry{*this, this->tf_cache},
+    markers{},
+    telemetry{*this, this->tf_cache, this->markers},
 
     watchdog{*this},
-    zone_publisher{*this, this->tf_cache},
+    zone_publisher{*this, this->tf_cache.arena_frame_id},
     joint_publisher{*this},
-    input_interface{
+    controls{
         *this,
         this->tf_cache,
+        this->markers,
         this->telemetry,
         this->watchdog,
         this->zone_publisher.getBounds()}

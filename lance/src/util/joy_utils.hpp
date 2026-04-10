@@ -150,6 +150,13 @@ public:
                          (0.5f * static_cast<float>(this->dt))
                    : 0.f;
     }
+    inline float getTriggerTrapezoidSum(int idx) const
+    {
+        return this->isAxisContinuous(idx)
+                   ? (2.f - this->prev_axes[idx] - this->axes[idx]) * 0.25f *
+                         static_cast<float>(this->dt)
+                   : 0.f;
+    }
 
     inline bool getRawPov(int idx, int sgn) const
     {
@@ -217,6 +224,10 @@ struct JoyAxis
     inline float trapezoidSum(const JoyState& joy) const
     {
         return joy.getTrapezoidSum(this->idx);
+    }
+    inline float triggerTrapezoidSum(const JoyState& joy) const
+    {
+        return joy.getTriggerTrapezoidSum(this->idx);
     }
 };
 struct JoyPov
@@ -318,6 +329,10 @@ struct StaticJoyAxis
         {
             return joy.getTrapezoidSum(Idx);
         }
+    }
+    static inline float triggerTrapezoidSum(const JoyState& joy)
+    {
+        return joy.getTriggerTrapezoidSum(Idx);
     }
 };
 template<int Idx, int Sgn>
