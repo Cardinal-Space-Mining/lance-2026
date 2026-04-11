@@ -39,30 +39,47 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <net_adapter/msg/bytes.hpp>
 
+#include "robot/model/geometry.hpp"
 #include "robot/sensing/tf_cache.hpp"
 
 
 namespace lance
 {
 
-enum RemoteCommand : uint8_t
+struct RemoteCommands
 {
-    INVALID = 0,
-    TRAVERSAL,
-    MINING,
-    OFFLOAD
+    using BytesMsg = net_adapter::msg::Bytes;
+    using Pose3f = lance::geom::Pose3f;
+
+public:
+    enum : uint8_t
+    {
+        COMMAND_INVALID = 0,
+        COMMAND_TRAVERSAL,
+        COMMAND_MINING,
+        COMMAND_OFFLOAD
+    };
+
+public:
+    static void serializeTraversalCmd(
+        BytesMsg& msg,
+        const Pose3f& pose,
+        KeyFrame frame_id);
+    static void serializeMiningCmd(BytesMsg& msg, const Pose3f& pose);
+    static void serializeOffloadCmd(BytesMsg& msg, const Pose3f& pose, float dist);
+
+    static uint8_t getCmdType(const BytesMsg& msg);
+    static bool deserializeTraversalCmd(
+        const BytesMsg& msg,
+        Pose3f& pose,
+        KeyFrame& frame_id);
+    static bool deserializeMiningCmd(const BytesMsg& msg, Pose3f& pose);
+    static bool
+        deserializeOffloadCmd(const BytesMsg& msg, Pose3f& pose, float& dist);
 };
 
-void serializeTraversalCommand(net_adapter::msg::Bytes&, const TfCache::PoseTf&, KeyFrame);
-void serializeMiningCommand(net_adapter::msg::Bytes&, const TfCache::PoseTf&);
-void serializeOffloadCommand(net_adapater::msg::Bytes&, const TfCache::PoseTf&, float);
-
-RemoteCommand getCommandType(const net_adapater::msg::Bytes&);
-
-bool deserializeTraversalCommand(const net_adapater::msg::Bytes&, TfCache::PoseTf&, KeyFrame&);
-bool deserializeMiningCommand(const net_adapater::msg::Bytes&, TfCache::PoseTf&);
-bool deserializeOffloadCommand(const net_adapater::msg::Bytes&, TfCache::PoseTf&, float&);
-
-};
+};  // namespace lance

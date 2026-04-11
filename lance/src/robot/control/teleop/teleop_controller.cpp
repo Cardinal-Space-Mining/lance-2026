@@ -43,6 +43,8 @@
 #include "robot/core/ros_interface.hpp"
 #include "robot/model/geometry.hpp"
 
+#include "remote_commands.hpp"
+
 
 namespace lance
 {
@@ -57,11 +59,11 @@ TeleopController::TeleopController(
     mining_controller{controllers.mining_controller},
     offload_controller{controllers.offload_controller},
     traversal_controller{controllers.traversal_controller},
-    traversal_target_sub{node.create_subscription<PoseStampedMsg>(
-        lance::TRAVERSAL_TARGET_TOPIC,
+    remote_commands_sub{node.create_subscription<BytesMsg>(
+        lance::REMOTE_COMMANDS_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const PoseStampedMsg::ConstSharedPtr& msg)
-        { this->traversal_target = msg; })},
+        [this](const BytesMsg::ConstSharedPtr& msg)
+        { this->remote_command = msg; })},
     driving_rps_scalar{
         params.driving_medium_scalar * params.tracks_max_velocity_rps}
 {
@@ -134,7 +136,7 @@ void TeleopController::iterate(
         }
         case Operation::PLANNED_TRAVERSAL:
         {
-            this->handleClickedPoint(true);
+            this->handleRemoteCommand(true);
             this->traversal_controller.iterate(motor_status, commands);
             command_finished = this->traversal_controller.isFinished();
             break;
@@ -187,7 +189,7 @@ void TeleopController::iterate(
         }
     }
 
-    this->handleClickedPoint(false);
+    this->handleRemoteCommand(false);
 }
 
 bool TeleopController::handleGlobalInputs(const JoyState& joy)
@@ -220,16 +222,24 @@ bool TeleopController::handleGlobalInputs(const JoyState& joy)
     return true;
 }
 
-bool TeleopController::handleClickedPoint(bool can_apply)
+bool TeleopController::handleRemoteCommand(bool can_apply)
 {
-    if (this->traversal_target && can_apply)
+    if (this->remote_command && can_apply)
     {
-        this->traversal_controller.initializePose(*this->traversal_target);
-        this->op_mode = Operation::PLANNED_TRAVERSAL;
-        this->traversal_target = nullptr;
+        geom::Pose3f dest;
+        KeyFrame f;
+        if (RemoteCommands::deserializeTraversalCmd(
+                *this->remote_command,
+                dest,
+                f))
+        {
+            this->traversal_controller.initializePose(dest, f);
+            this->op_mode = Operation::PLANNED_TRAVERSAL;
+        }
+        this->remote_command = nullptr;
         return true;
     }
-    this->traversal_target = nullptr;
+    this->remote_command = nullptr;
     return false;
 }
 
@@ -258,7 +268,7 @@ void TeleopController::handleTeleopInputs(
         this->op_mode = Operation::PRESET_OFFLOAD;
         return;
     }
-    if (this->handleClickedPoint(true))
+    if (this->handleRemoteCommand(true))
     {
         return;
     }

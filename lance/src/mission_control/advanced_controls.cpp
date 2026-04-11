@@ -41,12 +41,15 @@
 
 #include <chrono>
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
+
 #include "util/pub_map.hpp"
 #include "util/geometry.hpp"
 
 #include "robot/core/hid_bindings.hpp"
 #include "robot/core/robot_status.hpp"
 #include "robot/core/ros_interface.hpp"
+#include "robot/control/teleop/remote_commands.hpp"
 
 
 using namespace std::chrono_literals;
@@ -54,6 +57,8 @@ using namespace std::chrono_literals;
 using namespace util;
 using namespace util::geom::cvt::ops;
 using namespace lance::geom;
+
+using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
 
 
 constexpr float TRAV_CURSOR_SPEED_MPS = 2.f;
@@ -91,8 +96,8 @@ AdvancedControls::AdvancedControls(
         rclcpp::SensorDataQoS{},
         [this](const JoyMsg::ConstSharedPtr& msg) { this->handleJoy(*msg); })},
 
-    traversal_target_pub{node.create_publisher<PoseStampedMsg>(
-        lance::TRAVERSAL_TARGET_TOPIC,
+    commands_pub{node.create_publisher<BytesMsg>(
+        lance::REMOTE_COMMANDS_TOPIC,
         rclcpp::SensorDataQoS{})},
     clicked_point_sub{node.create_subscription<PointStampedMsg>(
         lance::CLICKED_POINT_TOPIC,
@@ -204,14 +209,16 @@ void AdvancedControls::handleClickedPoint(const PointStampedMsg& msg)
         this->state = State::OVERRIDE;
     }
 
-    this->cursor_pose.header = msg.header;
-    this->cursor_pose.pose.position = msg.point;
-    this->cursor_pose.pose.orientation.w = 0.0;
-    this->cursor_pose.pose.orientation.x = 0.0;
-    this->cursor_pose.pose.orientation.y = 0.0;
-    this->cursor_pose.pose.orientation.z = 0.0;
+    this->cursor_pose.vec << msg.point;
+    this->cursor_pose.quat = Quatf{0.f, 0.f, 0.f, 0.f};
 
-    this->traversal_target_pub->publish(this->cursor_pose);
+    BytesMsg cmd_msg;
+    RemoteCommands::serializeTraversalCmd(
+        cmd_msg,
+        this->cursor_pose,
+        this->tf_cache.resolveKeyFrame(msg.header.frame_id));
+
+    this->commands_pub->publish(cmd_msg);
 }
 
 
@@ -339,18 +346,16 @@ void AdvancedControls::initTravCursorMode()
     if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         const auto* tf = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
-        this->cursor_pose.pose.position << tf->pose.vec;
-        this->cursor_pose.pose.orientation
-            << lance::geom::flattenToYaw(tf->pose.quat);
-        this->cursor_pose.header.frame_id = this->tf_cache.arena_frame_id;
+        this->cursor_pose.vec = tf->pose.vec;
+        this->cursor_pose.quat = lance::geom::flattenToYaw(tf->pose.quat);
+        this->cursor_frame_id = KeyFrame::ARENA_FRAME;
     }
     else if (this->tf_cache.hasTf(ROBOT_TO_ODOM_TF))
     {
         const auto* tf = this->tf_cache.getTf(ROBOT_TO_ODOM_TF);
-        this->cursor_pose.pose.position << tf->pose.vec;
-        this->cursor_pose.pose.orientation
-            << lance::geom::flattenToYaw(tf->pose.quat);
-        this->cursor_pose.header.frame_id = this->tf_cache.odom_frame_id;
+        this->cursor_pose.vec = tf->pose.vec;
+        this->cursor_pose.quat = lance::geom::flattenToYaw(tf->pose.quat);
+        this->cursor_frame_id = KeyFrame::ODOM_FRAME;
     }
     else
     {
@@ -403,10 +408,8 @@ void AdvancedControls::iterateTravCursorCtrl()
         TRAV_CURSOR_SPEED_RPS *
         std::min(1.f, TraversalCursorRotAxis::trapezoidSum(this->joy_state));
 
-    lance::geom::Quatf q;
-    q << this->cursor_pose.pose.orientation;
-    const float theta = lance::geom::quatToYaw(q) + d_r;
-    this->cursor_pose.pose.orientation << lance::geom::yawToQuat(theta);
+    const float theta = lance::geom::quatToYaw(this->cursor_pose.quat) + d_r;
+    this->cursor_pose.quat = lance::geom::yawToQuat(theta);
 
     // "X" and "Y" axes are those of the controller - swap and invert Y
     // to obtain standard orientation
@@ -420,20 +423,29 @@ void AdvancedControls::iterateTravCursorCtrl()
     const float cos_theta = std::cos(theta);
     const float sin_theta = std::sin(theta);
 
-    this->cursor_pose.pose.position.x += (d_x * cos_theta) - (d_y * sin_theta);
-    this->cursor_pose.pose.position.y += (d_x * sin_theta) + (d_y * cos_theta);
+    this->cursor_pose.vec.x() += (d_x * cos_theta) - (d_y * sin_theta);
+    this->cursor_pose.vec.y() += (d_x * sin_theta) + (d_y * cos_theta);
 }
 
 void AdvancedControls::publishTravTarget()
 {
-    this->traversal_target_pub->publish(this->cursor_pose);
+    BytesMsg msg;
+    RemoteCommands::serializeTraversalCmd(
+        msg,
+        this->cursor_pose,
+        this->cursor_frame_id);
+    this->commands_pub->publish(msg);
 }
 
 void AdvancedControls::publishTravVisuals()
 {
     GenericPubMap& pub_map = this->telemetry.getPubMap();
 
-    pub_map.publish(lance::MC_CURSOR_TOPIC, this->cursor_pose);
+    PoseStampedMsg cursor_msg;
+    cursor_msg.header.frame_id =
+        this->tf_cache.getFrameId(this->cursor_frame_id);
+    cursor_msg.pose << this->cursor_pose;
+    pub_map.publish(lance::MC_CURSOR_TOPIC, cursor_msg);
 
     this->updateFootprintMarkers();
 
@@ -450,10 +462,10 @@ void AdvancedControls::updateFootprintMarkers()
 {
     auto& m = this->markers.getGroup(this->footprint_markers_id)[0];
 
-    m.pose.position.x = this->cursor_pose.pose.position.x;
-    m.pose.position.y = this->cursor_pose.pose.position.y;
-    m.pose.orientation = this->cursor_pose.pose.orientation;
-    m.header.frame_id = this->cursor_pose.header.frame_id;
+    m.pose.position.x = this->cursor_pose.vec.x();
+    m.pose.position.y = this->cursor_pose.vec.y();
+    m.pose.orientation << this->cursor_pose.quat;
+    m.header.frame_id = this->tf_cache.getFrameId(this->cursor_frame_id);
 }
 
 
@@ -468,11 +480,11 @@ void AdvancedControls::initMiningCursorMode()
         return;
     }
 
-    this->cursor_pose.pose.position.x = this->bounds.mining_zone.center().x();
-    this->cursor_pose.pose.position.y = this->bounds.mining_zone.center().y();
-    this->cursor_pose.pose.position.z = 0.;
-    this->cursor_pose.pose.orientation << Quatf::Identity();
-    this->cursor_pose.header.frame_id = this->tf_cache.arena_frame_id;
+    this->cursor_pose.vec.x() = this->bounds.mining_zone.center().x();
+    this->cursor_pose.vec.y() = this->bounds.mining_zone.center().y();
+    this->cursor_pose.vec.z() = 0.f;
+    this->cursor_pose.quat = Quatf::Identity();
+    this->cursor_frame_id = KeyFrame::ARENA_FRAME;
 
     this->state = State::MINING_CURSOR;
 }
@@ -521,16 +533,20 @@ void AdvancedControls::iterateMiningCursorCtrl()
 
 void AdvancedControls::publishMiningTarget()
 {
-    this->traversal_target_pub->publish(this->cursor_pose);
-
-    // TODO
+    BytesMsg msg;
+    RemoteCommands::serializeMiningCmd(msg, this->cursor_pose);
+    this->commands_pub->publish(msg);
 }
 
 void AdvancedControls::publishMiningVisuals()
 {
     GenericPubMap& pub_map = this->telemetry.getPubMap();
 
-    pub_map.publish(lance::MC_CURSOR_TOPIC, this->cursor_pose);
+    PoseStampedMsg cursor_msg;
+    cursor_msg.header.frame_id =
+        this->tf_cache.getFrameId(this->cursor_frame_id);
+    cursor_msg.pose << this->cursor_pose;
+    pub_map.publish(lance::MC_CURSOR_TOPIC, cursor_msg);
 
     this->markers.clearOutput();
 
@@ -553,18 +569,14 @@ bool AdvancedControls::updateMiningMarkers()
     Pose2f mining_start;
     float cos_theta, sin_theta;
     {
-        Quatf q;
-        q << this->cursor_pose.pose.orientation;
-        mining_start.z() = quatToYaw(q);
+        mining_start.z() = quatToYaw(this->cursor_pose.quat);
         cos_theta = std::cos(mining_start.z());
         sin_theta = std::sin(mining_start.z());
 
         mining_start.x() =
-            static_cast<float>(this->cursor_pose.pose.position.x) +
-            (cos_theta * FOOTPRINT_X_MAX_<float>);
+            this->cursor_pose.vec.x() + (cos_theta * FOOTPRINT_X_MAX_<float>);
         mining_start.y() =
-            static_cast<float>(this->cursor_pose.pose.position.y) +
-            (sin_theta * FOOTPRINT_X_MAX_<float>);
+            this->cursor_pose.vec.y() + (sin_theta * FOOTPRINT_X_MAX_<float>);
     };
 
     float dist = 0.f;
@@ -587,7 +599,7 @@ bool AdvancedControls::updateMiningMarkers()
         m.scale.x = dist;
         m.pose.position.x = mining_start.x() + (cos_theta * dist / 2.f);
         m.pose.position.y = mining_start.y() + (sin_theta * dist / 2.f);
-        m.pose.orientation = this->cursor_pose.pose.orientation;
+        m.pose.orientation << this->cursor_pose.quat;
     }
 
     return true;
@@ -629,7 +641,7 @@ void AdvancedControls::initOffloadCursorMode()
     this->offload_manual_off = 0.f;
     this->recalcOffloadRange();
 
-    this->cursor_pose.header.frame_id = this->tf_cache.arena_frame_id;
+    this->cursor_frame_id = KeyFrame::ARENA_FRAME;
     this->recalcOffloadTarget();
 
     this->state = State::OFFLOAD_CURSOR;
@@ -647,15 +659,14 @@ void AdvancedControls::recalcOffloadRange()
 
 void AdvancedControls::recalcOffloadTarget()
 {
-    this->cursor_pose.pose.position.x =
+    this->cursor_pose.vec.x() =
         this->offload_target.x() +
         (this->offload_vis_range * std::cos(this->offload_target.z()));
-    this->cursor_pose.pose.position.y =
+    this->cursor_pose.vec.y() =
         this->offload_target.y() +
         (this->offload_vis_range * std::sin(this->offload_target.z()));
-    this->cursor_pose.pose.position.z = 0.;
-    Quatf q = yawToQuat(this->offload_target.z());
-    this->cursor_pose.pose.orientation << q;
+    this->cursor_pose.vec.z() = 0.f;
+    this->cursor_pose.quat = yawToQuat(this->offload_target.z());
 }
 
 void AdvancedControls::iterateOffloadCursorMode()
@@ -743,16 +754,23 @@ void AdvancedControls::iterateOffloadCursorCtrl()
 
 void AdvancedControls::publishOffloadTarget()
 {
-    this->traversal_target_pub->publish(this->cursor_pose);
-
-    // TODO
+    BytesMsg msg;
+    RemoteCommands::serializeOffloadCmd(
+        msg,
+        this->cursor_pose,
+        this->offload_vis_range - OFFLOAD_FOOTPRINT_OFFSET_<float>);
+    this->commands_pub->publish(msg);
 }
 
 void AdvancedControls::publishOffloadVisuals()
 {
     GenericPubMap& pub_map = this->telemetry.getPubMap();
 
-    pub_map.publish(lance::MC_CURSOR_TOPIC, this->cursor_pose);
+    PoseStampedMsg cursor_msg;
+    cursor_msg.header.frame_id =
+        this->tf_cache.getFrameId(this->cursor_frame_id);
+    cursor_msg.pose << this->cursor_pose;
+    pub_map.publish(lance::MC_CURSOR_TOPIC, cursor_msg);
 
     this->updateFootprintMarkers();
     this->updateOffloadMarkers();

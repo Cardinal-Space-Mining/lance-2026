@@ -50,7 +50,6 @@
 #include <std_msgs/msg/int8.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <net_adapter/msg/bytes.hpp>
 
@@ -85,8 +84,8 @@ private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
     using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
-    using PoseStampedAdapter = GenericAdapter<geometry_msgs::msg::PoseStamped>;
-    using BytesAdapterCompressed = GenericAdapter<net_adapter::msg::Bytes, 15>;
+    template<int Compression = 0>
+    using BytesAdapter = GenericAdapter<net_adapter::msg::Bytes, Compression>;
 
 private:
     template<typename AdapterT, DataFlow D>
@@ -181,14 +180,14 @@ private:
 
     Channel<JoyAdapter, CLIENT_TO_ROBOT> joy;
     Channel<StdInt32Adapter, CLIENT_TO_ROBOT> watchdog_status;
-    Channel<PoseStampedAdapter, CLIENT_TO_ROBOT> traversal_target;
+    Channel<BytesAdapter<0>, CLIENT_TO_ROBOT> remote_commands;
 
     MS136ScanChannel<ROBOT_TO_CLIENT> lidar_scan;
     Channel<MS136ImuAdapter, ROBOT_TO_CLIENT> imu;
 
     TalonDataChannelsGroup<ROBOT_TO_CLIENT> talon_data;
 
-    Channel<BytesAdapterCompressed, ROBOT_TO_CLIENT> telemetry;
+    Channel<BytesAdapter<15>, ROBOT_TO_CLIENT> telemetry;
     Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
 
     SimClockChannel<ROBOT_TO_CLIENT> sim_clock;
@@ -221,7 +220,7 @@ EndPointNode<E>::EndPointNode() :
 
     joy{PARAMS_FROM_TOPIC("lance/joy_ctrl")},
     watchdog_status{PARAMS_FROM_TOPIC("lance/watchdog_status")},
-    traversal_target{PARAMS_FROM_TOPIC("lance/traversal_target")},
+    remote_commands{PARAMS_FROM_TOPIC("lance/remote_cmds")},
 
     lidar_scan{PARAMS_FROM_TOPIC_SIM("multiscan/lidar_scan")},
     imu{PARAMS_FROM_TOPIC("multiscan/imu")},

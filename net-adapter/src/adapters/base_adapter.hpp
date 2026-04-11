@@ -55,7 +55,7 @@
  *
  * Msg_T            : ROS message type the adapter interfaces with
  * Derived_T        : CRTP derivee class
- * Compression_Lvl: : Zstd compression level to use if >= 0
+ * Compression_Lvl: : Zstd compression level to use if > 0
  * PubState_T       : Optional extra storage for publishers (default = Derived_T)
  * SubState_T       : Optional extra storage for subscribers (default = Derived_T)
  *

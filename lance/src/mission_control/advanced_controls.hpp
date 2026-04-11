@@ -45,8 +45,9 @@
 
 #include <sensor_msgs/msg/joy.hpp>
 
-#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
+
+#include <net_adapter/msg/bytes.hpp>
 
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
@@ -68,8 +69,8 @@ class AdvancedControls : public util::UsingRosAliases
 {
     using Int32Msg = std_msgs::msg::Int32;
     using JoyMsg = sensor_msgs::msg::Joy;
-    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
+    using BytesMsg = net_adapter::msg::Bytes;
 
     using JoyState = util::JoyState;
     using ZoneBounds = RobotParams::ZoneBounds;
@@ -142,12 +143,13 @@ private:
 
     RclPubPtr<JoyMsg> joy_pub;
     RclSubPtr<JoyMsg> joy_sub;
-    RclPubPtr<PoseStampedMsg> traversal_target_pub;
+    RclPubPtr<BytesMsg> commands_pub;
     RclSubPtr<PointStampedMsg> clicked_point_sub;
     RclTimer::SharedPtr interface_pub_timer;
 
     JoyState joy_state;
-    PoseStampedMsg cursor_pose;
+    geom::Pose3f cursor_pose;
+    KeyFrame cursor_frame_id;
 
     geom::Vec2f offload_zone_norm;
     geom::Vec2f offload_footprint;

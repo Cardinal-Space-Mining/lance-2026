@@ -126,6 +126,7 @@ public:
 
     template<typename T>
     KeyFrame resolveKeyFrame(T&& val) const;
+    const std::string& getFrameId(KeyFrame f) const;
 
 protected:
     struct TfLink

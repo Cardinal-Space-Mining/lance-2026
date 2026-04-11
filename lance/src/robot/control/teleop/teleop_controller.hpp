@@ -41,15 +41,14 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <net_adapter/msg/bytes.hpp>
 
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
-
-#include "shared/shared_controllers.hpp"
+#include "robot/control/shared/shared_controllers.hpp"
 
 
 namespace lance
@@ -60,7 +59,7 @@ class TeleopController : public util::UsingRosAliases
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
-    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
+    using BytesMsg = net_adapter::msg::Bytes;
     using JoyState = util::JoyState;
 
 public:
@@ -94,7 +93,7 @@ protected:
 
 protected:
     bool handleGlobalInputs(const JoyState& joy);
-    bool handleClickedPoint(bool can_apply);
+    bool handleRemoteCommand(bool can_apply);
     void handleTeleopInputs(
         const JoyState& joy,
         const RobotMotorStatus& motor_status,
@@ -108,8 +107,8 @@ protected:
     OffloadController& offload_controller;
     TraversalController& traversal_controller;
 
-    RclSubPtr<PoseStampedMsg> traversal_target_sub;
-    PoseStampedMsg::ConstSharedPtr traversal_target;
+    RclSubPtr<BytesMsg> remote_commands_sub;
+    BytesMsg::ConstSharedPtr remote_command;
 
     Operation op_mode{Operation::MANUAL};
     float driving_rps_scalar;
