@@ -206,6 +206,11 @@ bool DirectedMiningPath::adjustForRobotClearance()
     }
     distance = this->getRecalculatedDistance();
 
+    if (distance <= 0.0f)
+    {
+        return false;
+    }
+
     return distance >= 0.0f;
 }
 
@@ -289,12 +294,12 @@ float DirectedMiningPath::getRecalculatedDistance() const
 
     if (end.x() != start.x())
     {
-        return std::abs(
-            std::abs(end.x() - start.x()) + 1 -
-            (1 - (*matrix)(end.x(), end.y())));
+        return 
+            (end.x() - start.x()) * (direction == MiningDirection::UP ? -1 : 1) + 1 -
+            (1 - (*matrix)(end.x(), end.y()));
     }
-    return std::abs(
-        std::abs(end.y() - start.y()) + 1 - (1 - (*matrix)(end.x(), end.y())));
+    return 
+        ((end.y() - start.y()) * (direction == MiningDirection::LEFT ? -1 : 1)) + 1 - (1 - (*matrix)(end.x(), end.y()));
 }
 
 MiningPlanner::MiningPlanner(
