@@ -97,9 +97,6 @@ public:
     const float collection_model_belt_capacity_meters;
     const float collection_model_belt_offload_length_meters;
 
-    const float preset_mining_traversal_dist_meters;
-    const float preset_offload_backup_dist_meters;
-
     const float iteration_period_seconds;
 
     const std::string robot_frame_id;

@@ -92,9 +92,6 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, belt_capacity_meters, 0.6f, float),
     INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
 
-    INIT_PARAM(preset_mining_traversal_dist_meters, 0.25f, float),
-    INIT_PARAM(preset_offload_backup_dist_meters, 0.25f, float),
-
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
     INIT_PARAM(robot_frame_id, "base_link", std::string),
     INIT_PARAM(odom_frame_id, "odom", std::string),

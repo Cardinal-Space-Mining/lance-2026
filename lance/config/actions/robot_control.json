@@ -56,9 +56,6 @@
                 "belt_offload_length_meters": 0.9
             },
 
-            "preset_mining_traversal_dist_meters": 0.25,
-            "preset_offload_backup_dist_meters": 0.25,
-
             "iteration_period_seconds": 0.05,
             "odom_frame_id": "${ id.odom_frame }",
             "arena_frame_id": "${ id.arena_frame }",
