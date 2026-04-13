@@ -135,9 +135,6 @@ using TeleopHopperActuateAxis = Xbox::AxisRightY;
 using AssistedMiningToggleButton = Xbox::ButtonLeftCenter;
 using AssistedOffloadToggleButton = Xbox::ButtonRightCenter;
 
-using PresetMiningInitButton = Xbox::ButtonLeftStick;
-using PresetOffloadInitButton = Xbox::ButtonRightStick;
-
 using ToggleMiningObstacleConstraintButton = Xbox::DPadUp;
 using ToggleMiningHopperConstraintButton = Xbox::DPadRight;
 using ToggleMiningZoneConstraintButton = Xbox::DPadDown;

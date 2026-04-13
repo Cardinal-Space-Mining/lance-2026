@@ -188,17 +188,20 @@ void TelemetrySerializer::addTeleopController(
     switch (controller.op_mode)
     {
         case Op::ASSISTED_MINING:
+        case Op::PLANNED_MINING_E:
         {
             this->addMiningController(bytes, controller.mining_controller);
             break;
         }
         case Op::ASSISTED_OFFLOAD:
-        case Op::PRESET_OFFLOAD:
+        case Op::PLANNED_OFFLOAD_E:
         {
             this->addOffloadController(bytes, controller.offload_controller);
             break;
         }
         case Op::PLANNED_TRAVERSAL:
+        case Op::PLANNED_MINING_T:
+        case Op::PLANNED_OFFLOAD_T:
         {
             this->addTravController(bytes, controller.traversal_controller);
             break;

@@ -758,7 +758,7 @@ void AdvancedControls::publishOffloadTarget()
     RemoteCommands::serializeOffloadCmd(
         msg,
         this->cursor_pose,
-        this->offload_vis_range - OFFLOAD_FOOTPRINT_OFFSET_<float>);
+        this->offload_vis_range + OFFLOAD_FOOTPRINT_OFFSET_<float>);
     this->commands_pub->publish(msg);
 }
 

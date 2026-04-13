@@ -85,19 +85,46 @@ protected:
         MANUAL = 0,
         ASSISTED_MINING,
         ASSISTED_OFFLOAD,
-        PRESET_OFFLOAD,
+
         PLANNED_TRAVERSAL,
-        PLANNED_MINING,
-        PLANNED_OFFLOAD
+        PLANNED_MINING_T,
+        PLANNED_MINING_E,
+        PLANNED_OFFLOAD_T,
+        PLANNED_OFFLOAD_E
     };
 
 protected:
-    bool handleGlobalInputs(const JoyState& joy);
-    bool handleRemoteCommand(bool can_apply);
-    void handleTeleopInputs(
-        const JoyState& joy,
-        const RobotMotorStatus& motor_status,
-        RobotMotorCommands& commands);
+    bool handleGlobalControls(const JoyState&);
+    void cancelCurrentCommand();
+    void clearRemoteCommand();
+    void handleRemoteCommand();
+    void iterateCurrentCommand(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void handleManualControl(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+
+protected:
+    void iterateAssistedMining(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iterateAssistedOffload(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedTraversal(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedMining(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedOffload(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
 
 protected:
     const RobotParams& params;

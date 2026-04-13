@@ -70,7 +70,8 @@ public:
         const Pose3f& pose,
         KeyFrame frame_id);
     static void serializeMiningCmd(BytesMsg& msg, const Pose3f& pose);
-    static void serializeOffloadCmd(BytesMsg& msg, const Pose3f& pose, float dist);
+    static void
+        serializeOffloadCmd(BytesMsg& msg, const Pose3f& pose, float dist);
 
     static uint8_t getCmdType(const BytesMsg& msg);
     static bool deserializeTraversalCmd(

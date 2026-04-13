@@ -71,129 +71,41 @@ TeleopController::TeleopController(
 
 void TeleopController::initialize() { this->op_mode = Operation::MANUAL; }
 
-void TeleopController::setCancelled()
-{
-    switch (this->op_mode)
-    {
-        case Operation::ASSISTED_MINING:
-        {
-            this->mining_controller.setCancelled();
-            break;
-        }
-        case Operation::ASSISTED_OFFLOAD:
-        case Operation::PRESET_OFFLOAD:
-        {
-            this->offload_controller.setCancelled();
-            break;
-        }
-        case Operation::PLANNED_TRAVERSAL:
-        {
-            this->traversal_controller.setCancelled();
-            break;
-        }
-        default:
-        {
-        }
-    }
-}
+void TeleopController::setCancelled() { this->cancelCurrentCommand(); }
 
 void TeleopController::iterate(
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    // handle "config" setters and "disable all" button
-    if (!this->handleGlobalInputs(joy))
+    if (!this->handleGlobalControls(joy))
     {
+        this->clearRemoteCommand();
         commands.disableAll();
         return;
     }
 
-    this->mining_controller.updateConstraints(joy);
+    this->handleRemoteCommand();
 
     // iterate controllers... if inputs result in finish state, continue
     // to iterate manual mode below (motor commands meaningless anyway)
-    bool command_finished = false;
-    switch (this->op_mode)
-    {
-        case Operation::ASSISTED_MINING:
-        {
-            this->mining_controller.iterate(joy, motor_status, commands);
-            command_finished = this->mining_controller.isFinished();
-            break;
-        }
-        case Operation::ASSISTED_OFFLOAD:
-        {
-            this->offload_controller.iterate(joy, motor_status, commands);
-            command_finished = this->offload_controller.isFinished();
-            break;
-        }
-        case Operation::PRESET_OFFLOAD:
-        {
-            this->offload_controller.iterate(motor_status, commands);
-            command_finished = this->offload_controller.isFinished();
-            break;
-        }
-        case Operation::PLANNED_TRAVERSAL:
-        {
-            this->handleRemoteCommand(true);
-            this->traversal_controller.iterate(motor_status, commands);
-            command_finished = this->traversal_controller.isFinished();
-            break;
-        }
-        default:
-        {
-        }
-    }
-    if (command_finished)
-    {
-        this->op_mode = Operation::MANUAL;
-        // commands.disableAll(); <-- can add back to be extra safe
-    }
+    this->iterateCurrentCommand(joy, motor_status, commands);
 
     // controllers either iterated and didn't finish (op_mode isn't MANUAL),
     // or a transition to MANUAL occurred, in which case we can override
-    // any motor commands since they are worthless
+    // any motor commands since the original operation is completed
     if (this->op_mode == Operation::MANUAL)
     {
-        // handle manual control
-        this->handleTeleopInputs(joy, motor_status, commands);
-
-        // iterate controllers ONLY IF an op_mode transition occurred
-        // (otherwise op_mode will still be MANUAL)
-        switch (this->op_mode)
-        {
-            case Operation::ASSISTED_MINING:
-            {
-                this->mining_controller.iterate(joy, motor_status, commands);
-                break;
-            }
-            case Operation::ASSISTED_OFFLOAD:
-            {
-                this->offload_controller.iterate(joy, motor_status, commands);
-                break;
-            }
-            case Operation::PRESET_OFFLOAD:
-            {
-                this->offload_controller.iterate(motor_status, commands);
-                break;
-            }
-            case Operation::PLANNED_TRAVERSAL:
-            {
-                this->traversal_controller.iterate(motor_status, commands);
-                break;
-            }
-            default:
-            {
-            }
-        }
+        this->handleManualControl(joy, motor_status, commands);
     }
-
-    this->handleRemoteCommand(false);
 }
 
-bool TeleopController::handleGlobalInputs(const JoyState& joy)
+
+
+bool TeleopController::handleGlobalControls(const JoyState& joy)
 {
+    this->mining_controller.updateConstraints(joy);
+
     if (TeleopLowSpeedButton::wasPressed(joy))
     {
         this->driving_rps_scalar = this->params.driving_low_scalar *
@@ -212,9 +124,7 @@ bool TeleopController::handleGlobalInputs(const JoyState& joy)
 
     if (DisableAllActionsButton::rawValue(joy))
     {
-        this->mining_controller.setCancelled();
-        this->offload_controller.setCancelled();
-        this->traversal_controller.setCancelled();
+        this->cancelCurrentCommand();
         this->op_mode = Operation::MANUAL;
         return false;
     }
@@ -222,28 +132,134 @@ bool TeleopController::handleGlobalInputs(const JoyState& joy)
     return true;
 }
 
-bool TeleopController::handleRemoteCommand(bool can_apply)
+void TeleopController::cancelCurrentCommand()
 {
-    if (this->remote_command && can_apply)
+    switch (this->op_mode)
     {
-        geom::Pose3f dest;
-        KeyFrame f;
-        if (RemoteCommands::deserializeTraversalCmd(
-                *this->remote_command,
-                dest,
-                f))
+        case Operation::ASSISTED_MINING:
+        case Operation::PLANNED_MINING_E:
         {
-            this->traversal_controller.initializePose(dest, f);
-            this->op_mode = Operation::PLANNED_TRAVERSAL;
+            this->mining_controller.setCancelled();
+            break;
         }
-        this->remote_command = nullptr;
-        return true;
+        case Operation::ASSISTED_OFFLOAD:
+        case Operation::PLANNED_OFFLOAD_E:
+        {
+            this->offload_controller.setCancelled();
+            break;
+        }
+        case Operation::PLANNED_TRAVERSAL:
+        case Operation::PLANNED_MINING_T:
+        case Operation::PLANNED_OFFLOAD_T:
+        {
+            this->traversal_controller.setCancelled();
+            break;
+        }
+        default:
+        {
+        }
     }
-    this->remote_command = nullptr;
-    return false;
 }
 
-void TeleopController::handleTeleopInputs(
+void TeleopController::clearRemoteCommand() { this->remote_command.reset(); }
+
+void TeleopController::handleRemoteCommand()
+{
+    if (this->remote_command)
+    {
+        geom::Pose3f dest;
+        switch (RemoteCommands::getCmdType(*this->remote_command))
+        {
+            case RemoteCommands::COMMAND_TRAVERSAL:
+            {
+                KeyFrame f;
+                if (RemoteCommands::deserializeTraversalCmd(
+                        *this->remote_command,
+                        dest,
+                        f))
+                {
+                    this->traversal_controller.initializePose(dest, f);
+                    this->op_mode = Operation::PLANNED_TRAVERSAL;
+                }
+                break;
+            }
+            case RemoteCommands::COMMAND_MINING:
+            {
+                if (RemoteCommands::deserializeMiningCmd(
+                        *this->remote_command,
+                        dest))
+                {
+                    this->traversal_controller.initializePose(
+                        dest,
+                        KeyFrame::ARENA_FRAME);
+                    this->op_mode = Operation::PLANNED_MINING_T;
+                }
+                break;
+            }
+            case RemoteCommands::COMMAND_OFFLOAD:
+            {
+                float dist;
+                if (RemoteCommands::deserializeOffloadCmd(
+                        *this->remote_command,
+                        dest,
+                        dist))
+                {
+                    this->traversal_controller.initializePose(
+                        dest,
+                        KeyFrame::ARENA_FRAME);
+                    this->offload_controller.initialize(dist);
+                    this->op_mode = Operation::PLANNED_OFFLOAD_T;
+                }
+            }
+            default:
+            {
+            }
+        }
+        this->remote_command.reset();
+    }
+}
+
+void TeleopController::iterateCurrentCommand(
+    const JoyState& joy,
+    const RobotMotorStatus& motor_status,
+    RobotMotorCommands& commands)
+{
+    switch (this->op_mode)
+    {
+        case Operation::ASSISTED_MINING:
+        {
+            this->iterateAssistedMining(joy, motor_status, commands);
+            break;
+        }
+        case Operation::ASSISTED_OFFLOAD:
+        {
+            this->iterateAssistedOffload(joy, motor_status, commands);
+            break;
+        }
+        case Operation::PLANNED_TRAVERSAL:
+        {
+            this->iteratePlannedTraversal(motor_status, commands);
+            break;
+        }
+        case Operation::PLANNED_MINING_T:
+        case Operation::PLANNED_MINING_E:
+        {
+            this->iteratePlannedMining(motor_status, commands);
+            break;
+        }
+        case Operation::PLANNED_OFFLOAD_T:
+        case Operation::PLANNED_OFFLOAD_E:
+        {
+            this->iteratePlannedOffload(motor_status, commands);
+            break;
+        }
+        default:
+        {
+        }
+    }
+}
+
+void TeleopController::handleManualControl(
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
@@ -251,25 +267,15 @@ void TeleopController::handleTeleopInputs(
     if (AssistedMiningToggleButton::wasPressed(joy))
     {
         this->mining_controller.initialize();
+        this->mining_controller.iterate(joy, motor_status, commands);
         this->op_mode = Operation::ASSISTED_MINING;
         return;
     }
     if (AssistedOffloadToggleButton::wasPressed(joy))
     {
         this->offload_controller.initialize();
+        this->offload_controller.iterate(joy, motor_status, commands);
         this->op_mode = Operation::ASSISTED_OFFLOAD;
-        return;
-    }
-
-    if (PresetOffloadInitButton::wasPressed(joy))
-    {
-        this->offload_controller.initialize(
-            this->params.preset_offload_backup_dist_meters);
-        this->op_mode = Operation::PRESET_OFFLOAD;
-        return;
-    }
-    if (this->handleRemoteCommand(true))
-    {
         return;
     }
 
@@ -323,6 +329,110 @@ void TeleopController::handleTeleopInputs(
         }
         commands.setHopperActPercent(hopper_act_scalar);
     }
+}
+
+
+void TeleopController::iterateAssistedMining(
+    const JoyState& joy,
+    const RobotMotorStatus& motor_status,
+    RobotMotorCommands& commands)
+{
+    this->mining_controller.iterate(joy, motor_status, commands);
+    if (this->mining_controller.isFinished())
+    {
+        this->op_mode = Operation::MANUAL;
+    }
+}
+void TeleopController::iterateAssistedOffload(
+    const JoyState& joy,
+    const RobotMotorStatus& motor_status,
+    RobotMotorCommands& commands)
+{
+    this->offload_controller.iterate(joy, motor_status, commands);
+    if (this->offload_controller.isFinished())
+    {
+        this->op_mode = Operation::MANUAL;
+    }
+}
+void TeleopController::iteratePlannedTraversal(
+    const RobotMotorStatus& motor_status,
+    RobotMotorCommands& commands)
+{
+    this->traversal_controller.iterate(motor_status, commands);
+    if (this->traversal_controller.isFinished())
+    {
+        this->op_mode = Operation::MANUAL;
+    }
+}
+void TeleopController::iteratePlannedMining(
+    const RobotMotorStatus& motor_status,
+    RobotMotorCommands& commands)
+{
+    switch (this->op_mode)
+    {
+        case Operation::PLANNED_MINING_T:
+        {
+            this->traversal_controller.iterate(motor_status, commands);
+            if (this->traversal_controller.isFinished())
+            {
+                this->mining_controller.initialize();
+                this->op_mode = Operation::PLANNED_MINING_E;
+                [[fallthrough]];
+            }
+            else
+            {
+                return;
+            }
+        }
+        case Operation::PLANNED_MINING_E:
+        {
+            this->mining_controller.iterate(motor_status, commands);
+            if (!this->mining_controller.isFinished())
+            {
+                return;
+            }
+            [[fallthrough]];
+        }
+        default:
+        {
+        }
+    }
+
+    this->op_mode = Operation::MANUAL;
+}
+void TeleopController::iteratePlannedOffload(
+    const RobotMotorStatus& motor_status,
+    RobotMotorCommands& commands)
+{
+    switch (this->op_mode)
+    {
+        case Operation::PLANNED_OFFLOAD_T:
+        {
+            this->traversal_controller.iterate(motor_status, commands);
+            if (!this->traversal_controller.isFinished())
+            {
+                return;
+            }
+            // offload controller was already initialized with target distance
+            // when remote command was deserialized
+            this->op_mode = Operation::PLANNED_OFFLOAD_E;
+            [[fallthrough]];
+        }
+        case Operation::PLANNED_OFFLOAD_E:
+        {
+            this->offload_controller.iterate(motor_status, commands);
+            if (!this->offload_controller.isFinished())
+            {
+                return;
+            }
+            [[fallthrough]];
+        }
+        default:
+        {
+        }
+    }
+
+    this->op_mode = Operation::MANUAL;
 }
 
 };  // namespace lance
