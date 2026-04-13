@@ -88,62 +88,94 @@ TelemetryDeserializer::GenericPubMap& TelemetryDeserializer::getPubMap()
 
 void TelemetryDeserializer::accept(const BytesMsg& msg)
 {
-    this->ctrl_chain.clear();
-    this->markers.markers.clear();
-    this->tf_cache.refresh();
+    constexpr size_t MAX_TELEMETRY_PACKET_BYTES = (512 * 1024);
 
-    const Byte* ptr = msg.data.data();
-    const Byte* const end_ptr = msg.data.end().base();
-    bool ok = true;
-    while (ok && ptr < end_ptr)
+    try
     {
-        uint8_t id = AS_U8(TelemetryType::INVALID_ID);
-        readAndIncrement(ptr, id);
-
-        switch (id)
+        if (msg.data.size() > MAX_TELEMETRY_PACKET_BYTES)
         {
-            case AS_U8(TelemetryType::ARENA_TF):
-            {
-                ok &= this->pubArenaTf(ptr, end_ptr);
-                break;
-            }
-            case AS_U8(TelemetryType::ROBOT_STATE):
-            {
-                ok &= this->pubRobotState(ptr, end_ptr);
-                break;
-            }
-            case AS_U8(TelemetryType::CTRL_STATE):
-            {
-                ok &= this->pubControlState(ptr, end_ptr);
-                break;
-            }
-            case AS_U8(TelemetryType::INVALID_ID):
-            default:
-            {
-                ok = false;
-            }
-        }
-    }
-
-    if (this->ctrl_chain.empty())
-    {
-        this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, "Disabled");
-    }
-    else
-    {
-        std::ostringstream ss;
-        ss << this->ctrl_chain.front();
-        for (size_t i = 1; i < this->ctrl_chain.size(); i++)
-        {
-            ss << " : " << this->ctrl_chain[i];
+            std::cerr << "[TelemetryDeserializer] Dropping oversized telemetry packet: "
+                      << msg.data.size() << " bytes\n";
+            return;
         }
 
-        this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, ss.str());
-    }
+        this->ctrl_chain.clear();
+        this->markers.markers.clear();
+        this->tf_cache.refresh();
 
-    if (!this->markers.markers.empty())
+        const Byte* ptr = msg.data.data();
+        const Byte* const end_ptr = msg.data.end().base();
+        bool ok = true;
+        while (ok && ptr < end_ptr)
+        {
+            uint8_t id = AS_U8(TelemetryType::INVALID_ID);
+            readAndIncrement(ptr, id);
+
+            switch (id)
+            {
+                case AS_U8(TelemetryType::ARENA_TF):
+                {
+                    ok &= this->pubArenaTf(ptr, end_ptr);
+                    break;
+                }
+                case AS_U8(TelemetryType::ROBOT_STATE):
+                {
+                    ok &= this->pubRobotState(ptr, end_ptr);
+                    break;
+                }
+                case AS_U8(TelemetryType::CTRL_STATE):
+                {
+                    ok &= this->pubControlState(ptr, end_ptr);
+                    break;
+                }
+                case AS_U8(TelemetryType::INVALID_ID):
+                default:
+                {
+                    ok = false;
+                }
+            }
+        }
+
+        if (this->ctrl_chain.empty())
+        {
+            this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, "Disabled");
+        }
+        else
+        {
+            std::ostringstream ss;
+            ss << this->ctrl_chain.front();
+            for (size_t i = 1; i < this->ctrl_chain.size(); i++)
+            {
+                ss << " : " << this->ctrl_chain[i];
+            }
+
+            this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, ss.str());
+        }
+
+        if (!this->markers.markers.empty())
+        {
+            this->pub_map.publish(lance::ROBOT_MARKERS_TOPIC, this->markers);
+        }
+    }
+    catch (const std::bad_alloc& e)
     {
-        this->pub_map.publish(lance::ROBOT_MARKERS_TOPIC, this->markers);
+        this->ctrl_chain.clear();
+        this->markers.markers.clear();
+        std::cerr << "[TelemetryDeserializer] bad_alloc while decoding telemetry: "
+                  << e.what() << "\n";
+    }
+    catch (const std::exception& e)
+    {
+        this->ctrl_chain.clear();
+        this->markers.markers.clear();
+        std::cerr << "[TelemetryDeserializer] exception while decoding telemetry: "
+                  << e.what() << "\n";
+    }
+    catch (...)
+    {
+        this->ctrl_chain.clear();
+        this->markers.markers.clear();
+        std::cerr << "[TelemetryDeserializer] unknown exception while decoding telemetry\n";
     }
 }
 
@@ -395,6 +427,9 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
     constexpr uint32_t MAX_AUTO_MINING_GRID_DIVS = 256;
     constexpr size_t PATH_ENTRY_SIZE =
         ((sizeof(float) * 4) + sizeof(uint8_t));
+    constexpr float DIR_RENDER_OFFSET_M = 0.07f;
+    const auto path_marker_lifetime = rclcpp::Duration(1, 0);
+    const auto grid_marker_lifetime = rclcpp::Duration(2, 0);
 
     using Stage = AutoMiningController::Stage;
 
@@ -481,6 +516,37 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
                 }
             }
 
+            float lateral_off_x = 0.f;
+            float lateral_off_y = 0.f;
+            switch (path_dir)
+            {
+                case PathDir::UP:
+                {
+                    lateral_off_x = -DIR_RENDER_OFFSET_M;
+                    break;
+                }
+                case PathDir::DOWN:
+                {
+                    lateral_off_x = DIR_RENDER_OFFSET_M;
+                    break;
+                }
+                case PathDir::LEFT:
+                {
+                    lateral_off_y = DIR_RENDER_OFFSET_M;
+                    break;
+                }
+                case PathDir::RIGHT:
+                {
+                    lateral_off_y = -DIR_RENDER_OFFSET_M;
+                    break;
+                }
+            }
+
+            const float render_sx = sx + lateral_off_x;
+            const float render_sy = sy + lateral_off_y;
+            const float render_ex = ex + lateral_off_x;
+            const float render_ey = ey + lateral_off_y;
+
             MarkerMsg& marker = this->markers.markers.emplace_back();
 
             marker.header.frame_id = this->tf_cache.arena_frame_id;
@@ -489,7 +555,7 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             marker.id = static_cast<int32_t>(1000 + i);
             marker.type = MarkerMsg::LINE_STRIP;
             marker.action = MarkerMsg::ADD;
-            marker.lifetime = rclcpp::Duration(0, 200000000);
+            marker.lifetime = path_marker_lifetime;
 
             switch (path_dir)
             {
@@ -527,11 +593,11 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             marker.scale.x = 0.035f;
 
             marker.points.resize(2);
-            marker.points[0].x = sx;
-            marker.points[0].y = sy;
+            marker.points[0].x = render_sx;
+            marker.points[0].y = render_sy;
             marker.points[0].z = 0.02;
-            marker.points[1].x = ex;
-            marker.points[1].y = ey;
+            marker.points[1].x = render_ex;
+            marker.points[1].y = render_ey;
             marker.points[1].z = 0.02;
             if (mag > 0.0001f)
             {
@@ -555,8 +621,8 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
                 arrow.points.resize(2);
                 arrow.points[0] = marker.points[0];
                 arrow.points[0].z = 0.05;
-                arrow.points[1].x = sx + (dx / mag) * arrow_len;
-                arrow.points[1].y = sy + (dy / mag) * arrow_len;
+                arrow.points[1].x = render_sx + (dx / mag) * arrow_len;
+                arrow.points[1].y = render_sy + (dy / mag) * arrow_len;
                 arrow.points[1].z = 0.05;
             }
         }
@@ -590,7 +656,7 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
         zone.id = 3000;
         zone.type = MarkerMsg::LINE_STRIP;
         zone.action = MarkerMsg::ADD;
-        zone.lifetime = rclcpp::Duration(0, 300000000);
+        zone.lifetime = grid_marker_lifetime;
         zone.scale.x = 0.03f;
         zone.color.r = 0.2f;
         zone.color.g = 0.95f;

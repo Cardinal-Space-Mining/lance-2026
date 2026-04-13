@@ -236,7 +236,7 @@ DirectedMiningPath::MiningSwath
             stdY = max_corner_with_offset.y() - (path.first.x() * CELL_SIZE);
 
             target_pos = Eigen::Vector2f(stdX, stdY);
-            target_dir = Eigen::Vector2f({0.f, 1.f});
+            target_dir = Eigen::Vector2f({0.f, -1.f});
             break;
         case MiningDirection::UP:
             stdX = path.first.y() * CELL_SIZE + min_corner_with_offset.x() +
@@ -244,7 +244,7 @@ DirectedMiningPath::MiningSwath
             stdY = min_corner_with_offset.y() + (matrix->rows() - 1 - path.first.x()) * CELL_SIZE;
 
             target_pos = Eigen::Vector2f(stdX, stdY);
-            target_dir = Eigen::Vector2f({0.f, -1.f});
+            target_dir = Eigen::Vector2f({0.f, 1.f});
             break;
         case MiningDirection::RIGHT:
             stdX = path.first.y() * CELL_SIZE + min_corner_with_offset.x();
@@ -252,7 +252,7 @@ DirectedMiningPath::MiningSwath
                    half_track_sep;
 
             target_pos = Eigen::Vector2f(stdX, stdY);
-            target_dir = Eigen::Vector2f({-1.f, 0.f});
+            target_dir = Eigen::Vector2f({1.f, 0.f});
             break;
         case MiningDirection::LEFT:
             stdX = max_corner_with_offset.x() -
@@ -261,7 +261,7 @@ DirectedMiningPath::MiningSwath
                    half_track_sep;
 
             target_pos = Eigen::Vector2f(stdX, stdY);
-            target_dir = Eigen::Vector2f({1.f, 0.f});
+            target_dir = Eigen::Vector2f({-1.f, 0.f});
             break;
     }
 

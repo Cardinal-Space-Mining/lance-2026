@@ -265,15 +265,23 @@ void TelemetrySerializer::addAutoMiningController(
     using Stage = AutoMiningController::Stage;
     constexpr uint8_t EVAL_PATHS_FLAG = 0x80;
     constexpr uint8_t GRID_INFO_FLAG = 0x40;
-    constexpr uint32_t MAX_AUTO_MINING_VIS_PATHS = 128;
-    constexpr uint32_t MAX_AUTO_MINING_GRID_DIVS = 128;
+    constexpr uint32_t MAX_AUTO_MINING_VIS_PATHS = 64;
+    constexpr uint32_t MAX_AUTO_MINING_GRID_DIVS = 64;
+    constexpr auto AUTO_MINING_VIS_PUB_DT = std::chrono::milliseconds(500);
 
     // TODO: pack these
     bytes.push_back(AS_U8(ControllerType::AUTO_MINING));
     bytes.push_back(AS_U8(controller.stage));
     const size_t stage_byte_idx = bytes.size() - 1;
 
-    const bool publish_vis = this->filterFreq(this->last_auto_mining_vis_pub);
+    const auto now = steady_clock::now();
+    const bool publish_vis =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - this->last_auto_mining_vis_pub) >= AUTO_MINING_VIS_PUB_DT;
+    if (publish_vis)
+    {
+        this->last_auto_mining_vis_pub = now;
+    }
 
     if (publish_vis)
     {
@@ -305,7 +313,7 @@ void TelemetrySerializer::addAutoMiningController(
                 const float swath_len_m =
                     path.getDistance() * TRACK_SEPARATION_M_<float>;
                 const Eigen::Vector2f end =
-                    swath.first - (swath.second * swath_len_m);
+                    swath.first + (swath.second * swath_len_m);
 
                 writeAsAndIncrement<float>(ptr, swath.first.x());
                 writeAsAndIncrement<float>(ptr, swath.first.y());
