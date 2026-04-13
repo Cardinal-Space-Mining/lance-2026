@@ -132,14 +132,14 @@
     },
     "3D!wl899f": {
       "cameraState": {
-        "perspective": true,
-        "distance": 11.974738784751237,
-        "phi": 22.502651622848568,
-        "thetaOffset": 166.88864004273233,
+        "perspective": false,
+        "distance": 7.944286369135623,
+        "phi": 40.51381731626777,
+        "thetaOffset": -15.190957049355582,
         "targetOffset": [
-          1.6630952567520745,
-          1.0118022078582025,
-          1.1363789627415136e-17
+          2.5062210983725697,
+          2.6481315446479465,
+          2.254293779966857e-16
         ],
         "target": [
           0,
@@ -260,13 +260,27 @@
           "maxValue": 1
         },
         "/cardinal_perception/pplan_map": {
-          "visible": true,
+          "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
           "pointSize": 9,
           "minValue": 10,
           "maxValue": 100
+        },
+        "/lance/traversal_target": {
+          "visible": false
+        },
+        "/lance/traversal_cursor": {
+          "visible": true,
+          "axisScale": 0.5
+        },
+        "/lance/mc_cursor": {
+          "visible": true,
+          "axisScale": 0.5
+        },
+        "/cardinal_perception/pplan_target": {
+          "visible": false
         }
       },
       "layers": {
@@ -282,15 +296,16 @@
           "lineWidth": 1,
           "color": "#248eff",
           "position": [
-            0,
-            0,
+            5,
+            5,
             0
           ],
           "rotation": [
             0,
             0,
             0
-          ]
+          ],
+          "frameId": "map"
         }
       },
       "publish": {
@@ -303,7 +318,8 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "base_link"
+      "followTf": "odom",
+      "synchronize": false
     },
     "StateTransitions!xkp66y": {
       "paths": [
@@ -313,6 +329,35 @@
           "customStates": {
             "type": "discrete",
             "states": []
+          }
+        },
+        {
+          "value": "/lance/mc_state.data",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": [
+              {
+                "value": "0",
+                "label": "Robot Control"
+              },
+              {
+                "value": "1",
+                "label": "MC Override"
+              },
+              {
+                "value": "2",
+                "label": "Traversal Planner"
+              },
+              {
+                "value": "3",
+                "label": "Mining Planner"
+              },
+              {
+                "value": "4",
+                "label": "Offload Planner"
+              }
+            ]
           }
         }
       ],
@@ -506,21 +551,6 @@
         }
       ]
     },
-    "Indicator!2k2uknv": {
-      "path": "/lance/mission_control_override.data",
-      "style": "background",
-      "fontSize": 24,
-      "fallbackColor": "#a0a0a0",
-      "fallbackLabel": "Passthrough",
-      "rules": [
-        {
-          "operator": "=",
-          "rawValue": "true",
-          "color": "#0089ff",
-          "label": "MC Override"
-        }
-      ]
-    },
     "StateTransitions!3qedham": {
       "paths": [
         {
@@ -565,14 +595,6 @@
         },
         {
           "value": "/lance/watchdog_status.data",
-          "timestampMethod": "receiveTime",
-          "customStates": {
-            "type": "discrete",
-            "states": []
-          }
-        },
-        {
-          "value": "",
           "timestampMethod": "receiveTime",
           "customStates": {
             "type": "discrete",
@@ -5896,10 +5918,10 @@
                 "first": "3D!wl899f",
                 "second": "StateTransitions!xkp66y",
                 "direction": "column",
-                "splitPercentage": 86.4571934761086
+                "splitPercentage": 83.78927622322963
               },
               "direction": "row",
-              "splitPercentage": 17.564369755312224
+              "splitPercentage": 16.161137440758296
             },
             "second": {
               "first": {
@@ -5918,14 +5940,9 @@
                       "direction": "column",
                       "splitPercentage": 35.24939872902401
                     },
-                    "second": {
-                      "first": "Indicator!2er2cap",
-                      "second": "Indicator!2k2uknv",
-                      "direction": "column",
-                      "splitPercentage": 44.29288216695591
-                    },
+                    "second": "Indicator!2er2cap",
                     "direction": "column",
-                    "splitPercentage": 58.57644241202197
+                    "splitPercentage": 74.56514156430849
                   },
                   "direction": "row",
                   "splitPercentage": 69.15039126717956
@@ -5937,7 +5954,7 @@
               "splitPercentage": 63.61639824304539
             },
             "direction": "row",
-            "splitPercentage": 74.88542621448214
+            "splitPercentage": 80.95238095238095
           }
         },
         {
