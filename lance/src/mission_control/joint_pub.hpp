@@ -39,68 +39,47 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include <rclcpp/rclcpp.hpp>
 
-#include <net_adapter/msg/bytes.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 
 #include "util/ros_utils.hpp"
+
+#include "robot/core/ros_interface.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/model/dynamics.hpp"
 
 
 namespace lance
 {
 
-/* --- Telemetry Specification ---
- * All telemetry is packaged into a binary blob and sent from the robot
- * to the client-side decoder, where it is decoded and publishers are used as
- * needed.
- * The telemetry blob consists of any number of packets, each of which starts
- * with an id (TelemetryType) followed by the packet data, whose size can vary.
- * As such, it is the responsiblity of each individual (per telemetry type)
- * decoder to read the correct length of bytes after it's id appears in the
- * blob.
- * The control state telemetry type itself encapsulates another layer which
- * works similarly to this - that is, each controller may recursively contain
- * other controller states. The encoding and decoding process should work
- * recursively to handle decoding the overall state properly. */
-
-enum class TelemetryType : uint8_t
+class JointPublisher : public util::UsingRosAliases
 {
-    INVALID_ID = 0,
+    using JointStateMsg = sensor_msgs::msg::JointState;
 
-    ARENA_TF,
-    ROBOT_STATE,
-    CTRL_STATE
-};
-
-enum class ControllerType : uint8_t
-{
-    INVALID_ID = 0,
-
-    TELEOP,
-    AUTO,
-
-    AUTO_MINING,
-    AUTO_OFFLOAD,
-
-    MINING,
-    OFFLOAD,
-    LOCALIZATION,
-    TRAVERSAL
-};
-
-class TelemetryBase : public util::UsingRosAliases
-{
 public:
-    using BytesMsg = net_adapter::msg::Bytes;
-    using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
-    using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;
+    inline JointPublisher(RclNode& node) :
+        joint_pub{node.create_publisher<JointStateMsg>(
+            "joint_states",
+            rclcpp::SensorDataQoS{})},
+        hopper_info_sub{node.create_subscription<TalonInfoMsg>(
+            TALON_INFO_TOPIC("hopper_act"),
+            rclcpp::SensorDataQoS{},
+            [this](const TalonInfoMsg& info)
+            {
+                JointStateMsg msg;
+                msg.header = info.header;
+                msg.name.push_back(lance::HOPPER_JOINT_NAME);
+                msg.position.push_back(
+                    lance::linearActuatorToJointAngle(info.position / 1000.));
+                this->joint_pub->publish(msg);
+            })}
+    {
+    }
 
-    using Bytes = BytesMsg::_data_type;
-    using Byte = Bytes::value_type;
-    using BytePtr = const Byte*;
-    using BytePtrRef = const Byte*&;
+private:
+    RclPubPtr<JointStateMsg> joint_pub;
+    RclSubPtr<TalonInfoMsg> hopper_info_sub;
 };
 
 };  // namespace lance

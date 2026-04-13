@@ -64,21 +64,35 @@ namespace geom
 {
 
 #if LANCE <= 1
+CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_R_MAX, 0.790)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MAX, 0.735)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MIN, -0.765)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_Y_MAX, 0.369)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_Y_MIN, -0.369)
 CONSTEXPR_VAL_TEMPLATE(COLLISION_Z_MAX, 0.675)
 CONSTEXPR_VAL_TEMPLATE(COLLISION_Z_MIN, -0.102)
-CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_R_MAX, 0.790)
+
+CONSTEXPR_VAL_TEMPLATE(TRACKS_X_MAX, 0.375)
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_X_MAX, 0.557)
+
+CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_OFFSET, -0.7)
+CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_WIDTH, 0.4)
+CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_LENGTH, 0.3)
 #elif LANCE >= 2
+CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_R_MAX, 0.695)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MAX, 0.591)
-CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MIN, -0.490) // -0.640 min of upper section
+CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_X_MIN, -0.490)  // -0.640 min of upper section
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_Y_MAX, 0.362)
 CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_Y_MIN, -0.362)
 CONSTEXPR_VAL_TEMPLATE(COLLISION_Z_MAX, 0.810)
 CONSTEXPR_VAL_TEMPLATE(COLLISION_Z_MIN, -0.102)
-CONSTEXPR_VAL_TEMPLATE(FOOTPRINT_R_MAX, 0.695)
+
+CONSTEXPR_VAL_TEMPLATE(TRACKS_X_MAX, 0.466)
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_X_MAX, 0.590)
+
+CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_OFFSET, -0.55)
+CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_WIDTH, 0.4)
+CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_LENGTH, 0.3)
 #endif
 
 CONSTEXPR_VAL_TEMPLATE(PRIMARY_COLLISION_ZONE_X, FOOTPRINT_X_MIN)
@@ -137,6 +151,11 @@ using Box3f = Eigen::AlignedBox3f;
 
 
 template<typename T>
+inline Quat<T> yawToQuat(const T theta)
+{
+    return Quat<T>{std::cos(theta / 2), 0.f, 0.f, std::sin(theta / 2)};
+}
+template<typename T>
 inline T quatToYaw(const Quat<T>& q)
 {
     return (q.w() * q.w() + q.z() * q.z()) < static_cast<T>(1e-6)
@@ -146,7 +165,7 @@ inline T quatToYaw(const Quat<T>& q)
                      std::numbers::pi_v<T> * 2);
 }
 template<typename T>
-constexpr inline Quat<T> flattenToYaw(const Quat<T>& q)
+inline Quat<T> flattenToYaw(const Quat<T>& q)
 {
     const T sq_mag = (q.w() * q.w() + q.z() * q.z());
     return sq_mag < static_cast<T>(1e-6)
@@ -154,12 +173,12 @@ constexpr inline Quat<T> flattenToYaw(const Quat<T>& q)
                : Quat<T>{q.w(), 0, 0, q.z()}.normalized();
 }
 template<typename T>
-constexpr inline Pose2<T> flattenPose(const Pose3<T>& p)
+inline Pose2<T> flattenPose(const Pose3<T>& p)
 {
     return Pose2<T>{p.vec.x(), p.vec.y(), quatToYaw(p.quat)};
 }
 template<typename T>
-constexpr inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
+inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
 {
     Pose3<T> p3;
     p3.vec.x() = p.x();
@@ -172,11 +191,9 @@ constexpr inline Pose3<T> expandPose(const Pose2<T>& p, T z = 0)
     return p3;
 }
 
-/* Obtain the headroom that the robot could travel before reaching the zone 
- * boundary. Note that the calculation bases of the FRONT of the robot and not
- * the center point. */
+/* Obtain the raw distance from the pose origin to the nearest bounary. */
 template<typename T>
-constexpr inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
+inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
 {
     if (b.contains(p.template head<2>()))
     {
@@ -194,21 +211,58 @@ constexpr inline T distToBounds(const Pose2<T>& p, const Box2<T>& b)
             ty = ((dy > 0 ? b.max().y() : b.min().y()) - p.y()) / dy;
         }
 
-        return std::min(tx, ty) - FOOTPRINT_X_MAX_<T>;
+        return std::min(tx, ty);
     }
     return std::numeric_limits<T>::max();
 }
 /* Flattends 3d pose to 2d and applies distToBounds() overload for Pose2. */
 template<typename T>
-constexpr inline T distToBounds(const Pose3<T>& p, const Box2<T>& b)
+inline T distToBounds(const Pose3<T>& p, const Box2<T>& b)
 {
     return distToBounds(flattenPose(p), b);
 }
 /* Flattends 3d pose to 2d and applies distToBounds() overload for Pose2. */
 template<typename T>
-constexpr inline T distToBounds(const PoseTf3<T>& p, const Box2<T>& b)
+inline T distToBounds(const PoseTf3<T>& p, const Box2<T>& b)
 {
     return distToBounds(p.pose, b);
+}
+
+template<typename T>
+inline Vec2<T> innerZoneNormalDir(const Box2<T>& outer, const Box2<T>& inner)
+{
+    const Vec2<T> inner_size = inner.sizes();
+    const Vec2<T> center_diff = inner.center() - outer.center();
+
+    // Does not explicitly handle when x and y are identical
+    if (inner_size.x() > inner_size.y())
+    {
+        // normal will be +/-y
+        if (center_diff.y() > 0)
+        {
+            // inner more positive than outer --> point towards negative
+            return Vec2<T>{0, -1};
+        }
+        else
+        {
+            // inner less positive than outer --> point towards positive
+            return Vec2<T>{0, 1};
+        }
+    }
+    else
+    {
+        // normal will be +/-x
+        if (center_diff.x() > 0)
+        {
+            // inner more positive than outer --> point towards negative
+            return Vec2<T>{-1, 0};
+        }
+        else
+        {
+            // inner less positive than outer --> point towards positive
+            return Vec2<T>{1, 0};
+        }
+    }
 }
 
 

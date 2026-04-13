@@ -39,68 +39,106 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include <rclcpp/rclcpp.hpp>
 
 #include <net_adapter/msg/bytes.hpp>
 
+#include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
+#include "robot/control/shared/shared_controllers.hpp"
 
 
 namespace lance
 {
 
-/* --- Telemetry Specification ---
- * All telemetry is packaged into a binary blob and sent from the robot
- * to the client-side decoder, where it is decoded and publishers are used as
- * needed.
- * The telemetry blob consists of any number of packets, each of which starts
- * with an id (TelemetryType) followed by the packet data, whose size can vary.
- * As such, it is the responsiblity of each individual (per telemetry type)
- * decoder to read the correct length of bytes after it's id appears in the
- * blob.
- * The control state telemetry type itself encapsulates another layer which
- * works similarly to this - that is, each controller may recursively contain
- * other controller states. The encoding and decoding process should work
- * recursively to handle decoding the overall state properly. */
-
-enum class TelemetryType : uint8_t
+class TeleopController : public util::UsingRosAliases
 {
-    INVALID_ID = 0,
+    friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
 
-    ARENA_TF,
-    ROBOT_STATE,
-    CTRL_STATE
-};
-
-enum class ControllerType : uint8_t
-{
-    INVALID_ID = 0,
-
-    TELEOP,
-    AUTO,
-
-    AUTO_MINING,
-    AUTO_OFFLOAD,
-
-    MINING,
-    OFFLOAD,
-    LOCALIZATION,
-    TRAVERSAL
-};
-
-class TelemetryBase : public util::UsingRosAliases
-{
-public:
     using BytesMsg = net_adapter::msg::Bytes;
-    using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
-    using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;
+    using JoyState = util::JoyState;
 
-    using Bytes = BytesMsg::_data_type;
-    using Byte = Bytes::value_type;
-    using BytePtr = const Byte*;
-    using BytePtrRef = const Byte*&;
+public:
+    TeleopController(
+        RclNode&,
+        const RobotParams&,
+        SensingInterfaces&,
+        SharedControllerCollection&);
+    ~TeleopController() = default;
+
+public:
+    void initialize();
+    void setCancelled();
+
+    void iterate(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
+
+protected:
+    enum class Operation
+    {
+        MANUAL = 0,
+        ASSISTED_MINING,
+        ASSISTED_OFFLOAD,
+
+        PLANNED_TRAVERSAL,
+        PLANNED_MINING_T,
+        PLANNED_MINING_E,
+        PLANNED_OFFLOAD_T,
+        PLANNED_OFFLOAD_E
+    };
+
+protected:
+    bool handleGlobalControls(const JoyState&);
+    void cancelCurrentCommand();
+    void clearRemoteCommand();
+    void handleRemoteCommand();
+    void iterateCurrentCommand(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void handleManualControl(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+
+protected:
+    void iterateAssistedMining(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iterateAssistedOffload(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedTraversal(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedMining(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedOffload(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+
+protected:
+    const RobotParams& params;
+    SensingInterfaces& sensing_interfaces;
+
+    MiningController& mining_controller;
+    OffloadController& offload_controller;
+    TraversalController& traversal_controller;
+
+    RclSubPtr<BytesMsg> remote_commands_sub;
+    BytesMsg::ConstSharedPtr remote_command;
+
+    Operation op_mode{Operation::MANUAL};
+    float driving_rps_scalar;
 };
 
 };  // namespace lance

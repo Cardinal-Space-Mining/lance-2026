@@ -37,6 +37,8 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
 #include <chrono>
 
 #include <rclcpp/rclcpp.hpp>
@@ -45,22 +47,15 @@
 #include <std_srvs/srv/set_bool.hpp>
 
 #include "util/ros_utils.hpp"
+
 #include "robot/core/robot_status.hpp"
 #include "robot/core/ros_interface.hpp"
 
 
-using namespace util;
-using namespace lance;
-using namespace std::chrono;
-using namespace std::chrono_literals;
+namespace lance
+{
 
-
-#define WATCHDOG_PUB_DT           100ms
-#define WATCHDOG_TELEOP_FEED_TIME 250ms
-#define WATCHDOG_AUTO_FEED_TIME   10000ms
-
-
-class RobotStatusServer : public rclcpp::Node, public UsingRosAliases
+class WatchDog : public util::UsingRosAliases
 {
     using Int32Msg = std_msgs::msg::Int32;
     using SetBoolSrv = std_srvs::srv::SetBool;
@@ -68,15 +63,17 @@ class RobotStatusServer : public rclcpp::Node, public UsingRosAliases
     using SetBoolReqPtr = SetBoolSrv::Request::SharedPtr;
     using SetBoolRespPtr = SetBoolSrv::Response::SharedPtr;
 
-public:
-    RobotStatusServer() :
-        Node("robot_status"),
+    static constexpr int64_t PUB_DT_MS = 100;
+    static constexpr int64_t TELEOP_FEED_TIME_MS = 250;
+    static constexpr int64_t AUTO_FEED_TIME_MS = 10000;
 
-        watchdog_status_pub{this->create_publisher<Int32Msg>(
+public:
+    inline WatchDog(RclNode& node) :
+        watchdog_status_pub{node.create_publisher<Int32Msg>(
             lance::WATCHDOG_TOPIC,
             rclcpp::SensorDataQoS{})},
 
-        set_teleop_srv{this->create_service<SetBoolSrv>(
+        set_teleop_srv{node.create_service<SetBoolSrv>(
             lance::SET_TELEOP_TOPIC,
             [this](SetBoolReqPtr req, SetBoolRespPtr resp)
             {
@@ -85,7 +82,7 @@ public:
                 resp->success = true;
             })},
 
-        set_auto_srv{this->create_service<SetBoolSrv>(
+        set_auto_srv{node.create_service<SetBoolSrv>(
             lance::SET_AUTO_TOPIC,
             [this](SetBoolReqPtr req, SetBoolRespPtr resp)
             {
@@ -94,7 +91,7 @@ public:
                 resp->success = true;
             })},
 
-        test_mode_srv{this->create_service<SetBoolSrv>(
+        test_mode_srv{node.create_service<SetBoolSrv>(
             lance::SET_TEST_TOPIC,
             [this](SetBoolReqPtr req, SetBoolRespPtr resp)
             {
@@ -103,8 +100,8 @@ public:
                 resp->success = true;
             })},
 
-        watchdog_timer{this->create_wall_timer(
-            WATCHDOG_PUB_DT,
+        watchdog_timer{node.create_wall_timer(
+            std::chrono::milliseconds(PUB_DT_MS),
             [this]()
             {
                 this->watchdog_status_pub->publish(
@@ -113,17 +110,29 @@ public:
     {
     }
 
-protected:
-    inline int32_t getFeedTime()
+public:
+    inline ControlMode getCtrl() const { return this->ctrl_mode; }
+    inline bool isCtrl(ControlMode c) const { return this->ctrl_mode == c; }
+    inline void setCtrl(ControlMode c) { this->ctrl_mode = c; }
+
+    inline uint8_t getOpts() const { return this->ctrl_opts; }
+    inline bool hasOpt(uint8_t opt) const { return this->ctrl_opts & opt; }
+    inline void setOpt(uint8_t opt) { this->ctrl_opts |= opt; }
+    inline bool toggleOpt(uint8_t opt)
     {
-        return ControlStatus::format(
+        return (this->ctrl_opts ^= opt) & opt;
+    }
+    inline void clearOpt(uint8_t opt) { this->ctrl_opts &= ~opt; }
+
+private:
+    inline int32_t getFeedTime() const
+    {
+        return ControlStatus::format<TELEOP_FEED_TIME_MS, AUTO_FEED_TIME_MS>(
             this->ctrl_mode,
-            this->ctrl_opts,
-            WATCHDOG_TELEOP_FEED_TIME,
-            WATCHDOG_AUTO_FEED_TIME);
+            this->ctrl_opts);
     }
 
-protected:
+private:
     RclPubPtr<Int32Msg> watchdog_status_pub;
     RclSrvPtr<SetBoolSrv> set_teleop_srv;
     RclSrvPtr<SetBoolSrv> set_auto_srv;
@@ -134,12 +143,4 @@ protected:
     uint8_t ctrl_opts{0};
 };
 
-
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotStatusServer>());
-    rclcpp::shutdown();
-
-    return 0;
-}
+};  // namespace lance

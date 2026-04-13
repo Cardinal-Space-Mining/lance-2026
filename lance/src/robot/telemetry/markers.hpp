@@ -39,68 +39,69 @@
 
 #pragma once
 
-#include <cstdint>
+#include <vector>
+#include <string_view>
 
-#include <rclcpp/rclcpp.hpp>
-
-#include <net_adapter/msg/bytes.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "util/ros_utils.hpp"
+
+#include "robot/model/geometry.hpp"
 
 
 namespace lance
 {
 
-/* --- Telemetry Specification ---
- * All telemetry is packaged into a binary blob and sent from the robot
- * to the client-side decoder, where it is decoded and publishers are used as
- * needed.
- * The telemetry blob consists of any number of packets, each of which starts
- * with an id (TelemetryType) followed by the packet data, whose size can vary.
- * As such, it is the responsiblity of each individual (per telemetry type)
- * decoder to read the correct length of bytes after it's id appears in the
- * blob.
- * The control state telemetry type itself encapsulates another layer which
- * works similarly to this - that is, each controller may recursively contain
- * other controller states. The encoding and decoding process should work
- * recursively to handle decoding the overall state properly. */
-
-enum class TelemetryType : uint8_t
-{
-    INVALID_ID = 0,
-
-    ARENA_TF,
-    ROBOT_STATE,
-    CTRL_STATE
-};
-
-enum class ControllerType : uint8_t
-{
-    INVALID_ID = 0,
-
-    TELEOP,
-    AUTO,
-
-    AUTO_MINING,
-    AUTO_OFFLOAD,
-
-    MINING,
-    OFFLOAD,
-    LOCALIZATION,
-    TRAVERSAL
-};
-
-class TelemetryBase : public util::UsingRosAliases
+class MarkerManager : public util::UsingRosAliases
 {
 public:
-    using BytesMsg = net_adapter::msg::Bytes;
-    using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
-    using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;
+    using MarkerMsg = visualization_msgs::msg::Marker;
+    using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 
-    using Bytes = BytesMsg::_data_type;
-    using Byte = Bytes::value_type;
-    using BytePtr = const Byte*;
-    using BytePtrRef = const Byte*&;
+    struct MarkerGroup
+    {
+        using MarkerIter = MarkerArrayMsg::_markers_type::iterator;
+
+        MarkerIter beg, end;
+
+        size_t size() const;
+        MarkerMsg& operator[](size_t i);
+
+        MarkerGroup& setFrameId(std::string_view frame_id);
+        MarkerGroup& setType(int32_t type);
+        MarkerGroup& setDuration(RclDur dur);
+        MarkerGroup& setColor(float r, float g, float b, float a);
+
+        // MarkerGroup& updateMiningSweep(const geom::Pose2f& p, float dist);
+        // MarkerGroup& updateMiningSweep(const geom::Pose3f& p, float dist);
+    };
+
+public:
+    MarkerManager() = default;
+
+public:
+    size_t reserveGroup(size_t n, std::string_view ns = "default_ns");
+    MarkerGroup getGroup(size_t i);
+
+    void clearAll();
+    void clearOutput();
+    void addGroupToOutput(size_t i);
+
+    const MarkerArrayMsg& getAllMarkers() const;
+    const MarkerArrayMsg& getOutputMarkers() const;
+
+    void pubAllMarkers(RclPubPtr<MarkerArrayMsg> pub, RclTime stamp);
+    void pubOutputMarkers(
+        RclPubPtr<MarkerArrayMsg> pub,
+        RclTime stamp,
+        bool clear = true);
+
+protected:
+    MarkerArrayMsg all_markers;
+    MarkerArrayMsg output_markers;
+
+    std::vector<size_t> alloc_indices;
 };
 
 };  // namespace lance

@@ -108,8 +108,8 @@ void AutoOffloadController::iterate(
             // placeholder for testing
             Eigen::Vector2f target_dir{0.f, 1.f};
             Eigen::Vector2f target_pos =
-                ((this->params.offload_zone_bounds.max() +
-                  this->params.offload_zone_bounds.min()) *
+                ((this->params.bounds.offload_zone.max() +
+                  this->params.bounds.offload_zone.min()) *
                  0.5f) +
                 (target_dir * 0.35f);
 

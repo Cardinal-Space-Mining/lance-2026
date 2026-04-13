@@ -41,66 +41,46 @@
 
 #include <cstdint>
 
-#include <rclcpp/rclcpp.hpp>
-
 #include <net_adapter/msg/bytes.hpp>
 
-#include "util/ros_utils.hpp"
+#include "robot/model/geometry.hpp"
+#include "robot/sensing/tf_cache.hpp"
 
 
 namespace lance
 {
 
-/* --- Telemetry Specification ---
- * All telemetry is packaged into a binary blob and sent from the robot
- * to the client-side decoder, where it is decoded and publishers are used as
- * needed.
- * The telemetry blob consists of any number of packets, each of which starts
- * with an id (TelemetryType) followed by the packet data, whose size can vary.
- * As such, it is the responsiblity of each individual (per telemetry type)
- * decoder to read the correct length of bytes after it's id appears in the
- * blob.
- * The control state telemetry type itself encapsulates another layer which
- * works similarly to this - that is, each controller may recursively contain
- * other controller states. The encoding and decoding process should work
- * recursively to handle decoding the overall state properly. */
-
-enum class TelemetryType : uint8_t
+struct RemoteCommands
 {
-    INVALID_ID = 0,
-
-    ARENA_TF,
-    ROBOT_STATE,
-    CTRL_STATE
-};
-
-enum class ControllerType : uint8_t
-{
-    INVALID_ID = 0,
-
-    TELEOP,
-    AUTO,
-
-    AUTO_MINING,
-    AUTO_OFFLOAD,
-
-    MINING,
-    OFFLOAD,
-    LOCALIZATION,
-    TRAVERSAL
-};
-
-class TelemetryBase : public util::UsingRosAliases
-{
-public:
     using BytesMsg = net_adapter::msg::Bytes;
-    using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
-    using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;
+    using Pose3f = lance::geom::Pose3f;
 
-    using Bytes = BytesMsg::_data_type;
-    using Byte = Bytes::value_type;
-    using BytePtr = const Byte*;
-    using BytePtrRef = const Byte*&;
+public:
+    enum : uint8_t
+    {
+        COMMAND_INVALID = 0,
+        COMMAND_TRAVERSAL,
+        COMMAND_MINING,
+        COMMAND_OFFLOAD
+    };
+
+public:
+    static void serializeTraversalCmd(
+        BytesMsg& msg,
+        const Pose3f& pose,
+        KeyFrame frame_id);
+    static void serializeMiningCmd(BytesMsg& msg, const Pose3f& pose);
+    static void
+        serializeOffloadCmd(BytesMsg& msg, const Pose3f& pose, float dist);
+
+    static uint8_t getCmdType(const BytesMsg& msg);
+    static bool deserializeTraversalCmd(
+        const BytesMsg& msg,
+        Pose3f& pose,
+        KeyFrame& frame_id);
+    static bool deserializeMiningCmd(const BytesMsg& msg, Pose3f& pose);
+    static bool
+        deserializeOffloadCmd(const BytesMsg& msg, Pose3f& pose, float& dist);
 };
 
 };  // namespace lance

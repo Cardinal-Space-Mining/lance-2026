@@ -46,6 +46,7 @@
 
 #include "util/geometry.hpp"
 #include "robot/model/dynamics.hpp"
+#include "robot/model/geometry.hpp"
 #include "robot/model/kinematics.hpp"
 
 
@@ -76,6 +77,7 @@ TraversalController::TraversalController(
 {
 }
 
+
 void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
 {
     this->pplan_interface.clearPath();
@@ -83,10 +85,13 @@ void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
     this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
                                                      : DestinationType::POINT;
 
-    this->pplan_interface.init(Vec3f{dest.x(), dest.y(), 0.f});
+    this->pplan_interface.init(
+        Vec3f{dest.x(), dest.y(), 0.f},
+        this->tf_cache.arena_frame_id);
 
     this->state = State::INITIALIZATION;
 }
+
 void TraversalController::initializePoint(
     const PointStampedMsg& dest,
     const Vec2f& dir)
@@ -99,6 +104,61 @@ void TraversalController::initializePoint(
 
     this->state = State::INITIALIZATION;
 }
+
+void TraversalController::initializePose(const PoseStampedMsg& dest)
+{
+    this->pplan_interface.clearPath();
+
+    lance::geom::Quatf q;
+    q << dest.pose.orientation;
+    if (q.squaredNorm() > 0.5f &&
+        this->tf_cache.resolveKeyFrame(dest.header.frame_id) ==
+            KeyFrame::ARENA_FRAME)
+    {
+        // TODO: compute target orientation in whatever frame is passed!
+        const float theta = lance::geom::quatToYaw(q);
+
+        this->destination_type = DestinationType::POSE;
+        this->arena_dest_direction = Vec2f{std::cos(theta), std::sin(theta)};
+        this->pplan_interface.init(dest);
+    }
+    else
+    {
+        this->destination_type = DestinationType::POINT;
+        this->arena_dest_direction = Vec2f::Zero();
+        this->pplan_interface.init(dest);
+    }
+
+    this->state = State::INITIALIZATION;
+}
+
+void TraversalController::initializePose(const Pose3f& dest, KeyFrame frame_id)
+{
+    this->pplan_interface.clearPath();
+
+    if (dest.quat.squaredNorm() > 0.5f && frame_id == KeyFrame::ARENA_FRAME)
+    {
+        // TODO: compute target orientation in whatever frame is passed!
+        const float theta = lance::geom::quatToYaw(dest.quat);
+
+        this->destination_type = DestinationType::POSE;
+        this->arena_dest_direction = Vec2f{std::cos(theta), std::sin(theta)};
+        this->pplan_interface.init(
+            dest.vec,
+            this->tf_cache.getFrameId(frame_id));
+    }
+    else
+    {
+        this->destination_type = DestinationType::POINT;
+        this->arena_dest_direction = Vec2f::Zero();
+        this->pplan_interface.init(
+            dest.vec,
+            this->tf_cache.getFrameId(frame_id));
+    }
+
+    this->state = State::INITIALIZATION;
+}
+
 void TraversalController::initializeZone(
     const Vec2f& dest_min,
     const Vec2f& dest_max)
@@ -113,10 +173,12 @@ void TraversalController::initializeZone(
         Vec3f{
             (dest_min.x() + dest_max.x()) * 0.5f,
             (dest_min.y() + dest_max.y()) * 0.5f,
-            0.f});
+            0.f},
+        this->tf_cache.arena_frame_id);
 
     this->state = State::INITIALIZATION;
 }
+
 
 bool TraversalController::isFinished()
 {

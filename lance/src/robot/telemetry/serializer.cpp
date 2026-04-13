@@ -134,7 +134,8 @@ void TelemetrySerializer::addRobotState(
         robot_controller.shared_controllers.mining_controller;
 
     const uint16_t state =
-        (static_cast<uint16_t>(mining_controller.constraints) |
+        (static_cast<uint16_t>(
+             mining_controller.constraints.enabledConstraints()) |
          (static_cast<uint16_t>(hopper_state.isVolCapacity()) << 8) |
          (static_cast<uint16_t>(hopper_state.isBeltCapacity()) << 9));
     writeAndIncrement(ptr, state);
@@ -187,17 +188,20 @@ void TelemetrySerializer::addTeleopController(
     switch (controller.op_mode)
     {
         case Op::ASSISTED_MINING:
+        case Op::PLANNED_MINING_E:
         {
             this->addMiningController(bytes, controller.mining_controller);
             break;
         }
         case Op::ASSISTED_OFFLOAD:
-        case Op::PRESET_OFFLOAD:
+        case Op::PLANNED_OFFLOAD_E:
         {
             this->addOffloadController(bytes, controller.offload_controller);
             break;
         }
-        case Op::AUTO_TRAVERSAL:
+        case Op::PLANNED_TRAVERSAL:
+        case Op::PLANNED_MINING_T:
+        case Op::PLANNED_OFFLOAD_T:
         {
             this->addTravController(bytes, controller.traversal_controller);
             break;
@@ -321,11 +325,11 @@ void TelemetrySerializer::addMiningController(
     bytes.push_back(AS_U8(ControllerType::MINING));
     bytes.push_back(AS_U8(controller.stage));
 
-    bytes.push_back(AS_U8(controller.current_constraint));
+    bytes.push_back(AS_U8(controller.constraints.currentConstraint()));
     bytes.resize(bytes.size() + sizeof(float));
     write(
         (bytes.end() - sizeof(float)).base(),
-        controller.odometry.remaining());
+        controller.constraints.remainingDist());
 }
 
 void TelemetrySerializer::addOffloadController(

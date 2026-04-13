@@ -9,7 +9,6 @@
             {
                 "robot_tf": "lance",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "mission_control": "lance1_ksc",
                 "redux": "client_panda",
                 "perception": "lance1",
@@ -40,7 +39,6 @@
             {
                 "robot_tf": "lance2",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "mission_control": "lance2_ksc",
                 "redux": "client_mac_wifi",
                 "perception": "lance2",

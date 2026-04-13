@@ -39,18 +39,20 @@
 
 #pragma once
 
+#include <string_view>
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <Eigen/Core>
 
 #include <nav_msgs/msg/path.hpp>
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
 
 #include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
 
 
 namespace lance
@@ -60,16 +62,18 @@ class PathPlanInterface : public util::UsingRosAliases
 {
 public:
     using PathMsg = nav_msgs::msg::Path;
+    using PoseStampedMsg = geometry_msgs::msg::PoseStamped;
     using PointStampedMsg = geometry_msgs::msg::PointStamped;
     using UpdatePathPlanSrv = cardinal_perception::srv::UpdatePathPlanningMode;
 
     using Vec3f = Eigen::Vector3f;
 
 public:
-    PathPlanInterface(RclNode&, const RobotParams&);
+    PathPlanInterface(RclNode&);
 
 public:
-    void init(const Vec3f&);
+    void init(const Vec3f&, std::string_view);
+    void init(const PoseStampedMsg&);
     void init(const PointStampedMsg&);
     void cancel();
 
@@ -78,14 +82,12 @@ public:
     void clearPath();
 
 protected:
-    const RobotParams& params;
     RclClock::ConstSharedPtr rcl_clock;
 
     RclSubPtr<PathMsg> path_sub;
     RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
 
     PathMsg::ConstSharedPtr last_path{nullptr};
-
 };
 
-};
+};  // namespace lance

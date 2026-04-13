@@ -37,133 +37,79 @@
 *                                                                              *
 *******************************************************************************/
 
-#include <chrono>
 #include <memory>
-#include <vector>
-#include <cassert>
 #include <iostream>
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <sensor_msgs/msg/joint_state.hpp>
-
-#include <visualization_msgs/msg/marker_array.hpp>
-
 #include "util/ros_utils.hpp"
 
-#include "robot/core/ros_interface.hpp"
-#include "robot/core/motor_interface.hpp"
-#include "robot/model/dynamics.hpp"
 #include "robot/sensing/tf_cache.hpp"
+#include "robot/telemetry/markers.hpp"
 #include "robot/telemetry/deserializer.hpp"
 
-
-using namespace std::chrono_literals;
+#include "mission_control/watchdog.hpp"
+#include "mission_control/zone_pub.hpp"
+#include "mission_control/joint_pub.hpp"
+#include "mission_control/advanced_controls.hpp"
 
 using namespace util;
 using namespace lance;
 
 
-class ClientNode : public rclcpp::Node, public UsingRosAliases
+class MissionControlNode : public rclcpp::Node, public UsingRosAliases
 {
-    using MarkerMsg = visualization_msgs::msg::Marker;
-    using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
-    using JointStateMsg = sensor_msgs::msg::JointState;
-
 public:
-    ClientNode();
-
-protected:
-    void initMarkers();
+    MissionControlNode();
 
 private:
     TfCache tf_cache;
+    MarkerManager markers;
     TelemetryDeserializer telemetry;
 
-    RclSubPtr<TalonInfoMsg> hopper_info_sub;
-    RclPubPtr<MarkerArrayMsg> markers_pub;
-    RclTimer::SharedPtr markers_pub_timer;
-
-    MarkerArrayMsg markers;
+    WatchDog watchdog;
+    ZonePublisher zone_publisher;
+    JointPublisher joint_publisher;
+    AdvancedControls controls;
 };
 
 
 
-ClientNode::ClientNode() :
+// --- Client Node -------------------------------------------------------------
+
+MissionControlNode::MissionControlNode() :
     Node("mission_control"),
     tf_cache{
         *this,
         declare_and_get_param<std::string>(*this, "arena_frame_id", "map"),
         declare_and_get_param<std::string>(*this, "odom_frame_id", "odom"),
         declare_and_get_param<std::string>(*this, "robot_frame_id", "robot")},
-    telemetry{*this, this->tf_cache},
-    hopper_info_sub{this->create_subscription<TalonInfoMsg>(
-        TALON_INFO_TOPIC("hopper_act"),
-        rclcpp::SensorDataQoS{},
-        [this](const TalonInfoMsg& info)
-        {
-            JointStateMsg msg;
-            msg.header = info.header;
-            msg.name.push_back(lance::HOPPER_JOINT_NAME);
-            msg.position.push_back(
-                lance::linearActuatorToJointAngle(info.position / 1000.));
-            this->telemetry.getPubMap().publish("joint_states", msg);
-        })},
-    markers_pub{this->create_publisher<MarkerArrayMsg>(
-        lance::ARENA_ZONES_TOPIC,
-        rclcpp::SensorDataQoS{})},
-    markers_pub_timer{this->create_wall_timer(
-        1s,
-        [this]() { this->markers_pub->publish(this->markers); })}
-{
-    this->initMarkers();
+    markers{},
+    telemetry{*this, this->tf_cache, this->markers},
 
+    watchdog{*this},
+    zone_publisher{*this, this->tf_cache.arena_frame_id},
+    joint_publisher{*this},
+    controls{
+        *this,
+        this->tf_cache,
+        this->markers,
+        this->telemetry,
+        this->watchdog,
+        this->zone_publisher.getBounds()}
+{
     std::cout << "LANCE-" << LANCE << " mission control initialized!"
               << std::endl;
 }
 
-void ClientNode::initMarkers()
-{
-    std::vector<double> min, max;
-
-#define ADD_MARKER(param, NS, R, G, B, A)                            \
-    {                                                                \
-        util::declare_param(*this, param ".min", min, {0., 0., 0.}); \
-        util::declare_param(*this, param ".max", max, {0., 0., 0.}); \
-        assert(min.size() >= 3 && max.size() >= 3);                  \
-        MarkerMsg& marker = this->markers.markers.emplace_back();    \
-        marker.header.frame_id = this->tf_cache.arena_frame_id;      \
-        marker.header.stamp = this->now();                           \
-        marker.ns = NS;                                              \
-        marker.id = this->markers.markers.size();                    \
-        marker.type = MarkerMsg::CUBE;                               \
-        marker.action = MarkerMsg::ADD;                              \
-        marker.lifetime = rclcpp::Duration(0, 0);                    \
-        marker.pose.position.x = (min[0] + max[0]) / 2.;             \
-        marker.pose.position.y = (min[1] + max[1]) / 2.;             \
-        marker.pose.position.z = (min[2] + max[2]) / 2.;             \
-        marker.scale.x = (max[0] - min[0]);                          \
-        marker.scale.y = (max[1] - min[1]);                          \
-        marker.scale.z = (max[2] - min[2]);                          \
-        marker.color.r = R;                                          \
-        marker.color.g = G;                                          \
-        marker.color.b = B;                                          \
-        marker.color.a = A;                                          \
-    }
-    ADD_MARKER("arena_bounds", "arena", 1.f, 1.f, 1.f, 0.f);
-    ADD_MARKER("mining_zone_bounds", "zones", 0.8f, 0.4f, 0.f, 0.2f);
-    ADD_MARKER("offload_zone_bounds", "zones", 0.f, 0.2f, 0.8f, 0.2f);
-    ADD_MARKER("construction_zone_bounds", "zones", 0.1f, 0.9f, 0.2f, 0.1f);
-
-#undef ADD_MARKER
-}
 
 
+// --- Main --------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ClientNode>());
+    rclcpp::spin(std::make_shared<MissionControlNode>());
     rclcpp::shutdown();
     return 0;
 }

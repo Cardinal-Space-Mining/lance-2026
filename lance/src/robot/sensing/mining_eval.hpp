@@ -84,9 +84,9 @@ protected:
     RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
     RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
 
-    MiningEvalResultsMsg::UniquePtr eval_results{ nullptr };
-    int32_t eval_id{ -1 };
-
+    MiningEvalResultsMsg::UniquePtr eval_results{nullptr};
+    int32_t eval_id{-1};
+    float offset_dist{0.f};
 };
 
-};
+};  // namespace lance

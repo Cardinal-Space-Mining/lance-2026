@@ -101,13 +101,6 @@ def get_motor_sim_action(config):
     print(f'Invalid motor_sim model : {target} (1 for lance-1, 2 for lance-2)')
     return None
 
-def get_watchdog_action(config):
-    return NodeAction(config).format_node(
-        package = 'lance',
-        executable = 'robot_status',
-        output = 'screen'
-    )
-
 def get_robot_control_action(config):
     target = config.pop("controller", 0)
     if target == 1:
@@ -154,8 +147,6 @@ def get_robot_actions(config, launch_args = {}):
         a.append(get_redux_action(config['redux']))
     if 'motor_sim' in config:
         a.append(get_motor_sim_action(config['motor_sim']))
-    if 'robot_status' in config:
-        a.append(get_watchdog_action(config['robot_status']))
     if 'robot_control' in config:
         a.append(get_robot_control_action(config['robot_control']))
     if 'mission_control' in config:

@@ -45,8 +45,7 @@
 namespace lance
 {
 
-PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
-    params{params},
+PathPlanInterface::PathPlanInterface(RclNode& node) :
     rcl_clock{node.get_clock()},
     path_sub{node.create_subscription<PathMsg>(
         lance::PERCEPTION_PATH_TOPIC,
@@ -58,14 +57,24 @@ PathPlanInterface::PathPlanInterface(RclNode& node, const RobotParams& params) :
 }
 
 
-void PathPlanInterface::init(const Vec3f& arena_dest)
+void PathPlanInterface::init(const Vec3f& arena_dest, std::string_view frame_id)
 {
     auto req = std::make_shared<UpdatePathPlanSrv::Request>();
-    req->target.header.frame_id = this->params.arena_frame_id;
+    req->target.header.frame_id = frame_id;
     req->target.header.stamp = this->rcl_clock->now();
     req->target.pose.position.x = arena_dest.x();
     req->target.pose.position.y = arena_dest.y();
     req->target.pose.position.z = arena_dest.z();
+    req->completed = false;
+
+    this->pplan_control_client->async_send_request(
+        req,
+        [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
+}
+void PathPlanInterface::init(const PoseStampedMsg& dest)
+{
+    auto req = std::make_shared<UpdatePathPlanSrv::Request>();
+    req->target = dest;
     req->completed = false;
 
     this->pplan_control_client->async_send_request(
