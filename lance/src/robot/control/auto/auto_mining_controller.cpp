@@ -168,6 +168,9 @@ void AutoMiningController::iterate(
                           << ") | Direction: "
                           << miningDirectionToString(path.getDirection())
                           << " | Distance: " << path.getDistance() << "\n";
+
+                path.print();
+                          
             }
 
 

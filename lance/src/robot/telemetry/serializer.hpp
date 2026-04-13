@@ -80,7 +80,7 @@ protected:
 protected:
     BytesSharedPub pub;
 
-    time_point last_tf_pub, last_path_pub;
+    time_point last_tf_pub, last_path_pub, last_auto_mining_vis_pub;
 
     const float throttled_pub_freq;
 };

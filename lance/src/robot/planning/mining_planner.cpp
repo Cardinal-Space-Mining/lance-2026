@@ -213,6 +213,7 @@ DirectedMiningPath::MiningSwath
     DirectedMiningPath::getPathCoordinatesInWorldFrame(
         const RobotParams& robot_params) const
 {
+
 #define CELL_SIZE TRACK_SEPARATION_M_<float>
 
     float stdX = path.first.x() * CELL_SIZE + geom::FOOTPRINT_R_MAX;
@@ -223,9 +224,9 @@ DirectedMiningPath::MiningSwath
     const float r = geom::FOOTPRINT_R_MAX_<float>;
     const float half_track_sep = TRACK_SEPARATION_M_<float> / 2.0f;
     const auto min_corner_with_offset =
-        robot_params.mining_zone_bounds.min() + Eigen::Vector2f::Constant(r);
+        robot_params.bounds.mining_zone.min() + Eigen::Vector2f::Constant(r);
     const auto max_corner_with_offset =
-        robot_params.mining_zone_bounds.max() - Eigen::Vector2f::Constant(r);
+        robot_params.bounds.mining_zone.max() - Eigen::Vector2f::Constant(r);
 
     switch (direction)
     {
@@ -240,7 +241,7 @@ DirectedMiningPath::MiningSwath
         case MiningDirection::UP:
             stdX = path.first.y() * CELL_SIZE + min_corner_with_offset.x() +
                    half_track_sep;
-            stdY = path.first.x() * CELL_SIZE;
+            stdY = min_corner_with_offset.y() + (matrix->rows() - 1 - path.first.x()) * CELL_SIZE;
 
             target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({0.f, -1.f});
@@ -268,9 +269,9 @@ DirectedMiningPath::MiningSwath
     // swap target_pos around
     // target_pos = Eigen::Vector2f(max_corner_with_offset.x() - target_pos.x(), max_corner_with_offset.y() - target_pos.y());
     // target_pos = Eigen::Vector2f(min_corner_with_offset.x(), min_corner_with_offset.y());
-    target_pos = Eigen::Vector2f(
-        (max_corner_with_offset.x() - target_pos.x()) + min_corner_with_offset.x(),
-        (max_corner_with_offset.y() - target_pos.y()) + min_corner_with_offset.y());
+    // target_pos = Eigen::Vector2f(
+    //     (max_corner_with_offset.x() - target_pos.x()) + min_corner_with_offset.x(),
+    //     (max_corner_with_offset.y() - target_pos.y()) + min_corner_with_offset.y());
 
     // target_pos = min_corner_with_offset;
     return {target_pos, target_dir};
@@ -306,11 +307,11 @@ MiningPlanner::MiningPlanner(
     // The up and down, left and right must be done separately since the offsets are opposite
 
     float mining_zone_x_length =
-        (this->robot_params.mining_zone_bounds.max().x() -
-         this->robot_params.mining_zone_bounds.min().x());
+        (this->robot_params.bounds.mining_zone.max().x() -
+         this->robot_params.bounds.mining_zone.min().x());
     float mining_zone_y_length =
-        (this->robot_params.mining_zone_bounds.max().y() -
-         this->robot_params.mining_zone_bounds.min().y());
+        (this->robot_params.bounds.mining_zone.max().y() -
+         this->robot_params.bounds.mining_zone.min().y());
 
     float actual_mining_x_length =
         mining_zone_x_length - geom::FOOTPRINT_R_MAX * 2.0f;
@@ -328,7 +329,7 @@ MiningPlanner::MiningPlanner(
     if (x_divisions == 0 || y_divisions == 0)
     {
         std::cerr
-            << "Mining planner grid has no valid cells. Check mining_zone_bounds and robot footprint parameters.\n";
+            << "Mining planner grid has no valid cells. Check bounds.mining_zone and robot footprint parameters.\n";
     }
 
     // UP/DOWN are (width, height) = (5, 4)
@@ -443,7 +444,10 @@ const MiningPlanner::DirectedMiningPaths& MiningPlanner::finalOutput()
     std::cout << "Appending planned paths\n";
     this->appendPlannedMiningPaths();
     std::cout << "Removing sections for robot clearance\n";
+    // print current lenght
+    std::cout << "Current path count: " << this->all_mining_paths.size() << "\n";
     this->removeSectionsForRobotClearance();
+    std::cout << "After clearance path count: " << this->all_mining_paths.size() << "\n";
     std::cout << "Sorting paths by quality\n";
     this->sortPathsByQuality();
     std::cout << "Final path count: " << this->all_mining_paths.size() << "\n";
@@ -460,11 +464,11 @@ const std::vector<MiningPlanner::Pose2f>& MiningPlanner::getStartingLocations()
 {
     // Gets the starting locations based on the box2f mining zone and the two offsets full_width and max_length
     float mining_zone_x_length =
-        (this->robot_params.mining_zone_bounds.max().x() -
-         this->robot_params.mining_zone_bounds.min().x());
+        (this->robot_params.bounds.mining_zone.max().x() -
+         this->robot_params.bounds.mining_zone.min().x());
     float mining_zone_y_length =
-        (this->robot_params.mining_zone_bounds.max().y() -
-         this->robot_params.mining_zone_bounds.min().y());
+        (this->robot_params.bounds.mining_zone.max().y() -
+         this->robot_params.bounds.mining_zone.min().y());
 
     static std::vector<MiningPlanner::Pose2f> starting_vectors;
     starting_vectors.clear();
@@ -476,10 +480,10 @@ const std::vector<MiningPlanner::Pose2f>& MiningPlanner::getStartingLocations()
 
     const float r = geom::FOOTPRINT_R_MAX_<float>;
     const auto min_corner_with_offset =
-        this->robot_params.mining_zone_bounds.min() +
+        this->robot_params.bounds.mining_zone.min() +
         Eigen::Vector2f::Constant(r);
     const auto max_corner_with_offset =
-        this->robot_params.mining_zone_bounds.max() -
+        this->robot_params.bounds.mining_zone.max() -
         Eigen::Vector2f::Constant(r);
 
     int x_divisions = static_cast<int>(
@@ -580,22 +584,22 @@ void MiningPlanner::appendPlannedMiningPaths()
 
     // Print lots of relevant info for debugging
     std::cout << "Mining zone bounds: min=("
-              << robot_params.mining_zone_bounds.min().x() << ","
-              << robot_params.mining_zone_bounds.min().y() << ") "
-              << "max=(" << robot_params.mining_zone_bounds.max().x() << ","
-              << robot_params.mining_zone_bounds.max().y() << ")\n";
+              << robot_params.bounds.mining_zone.min().x() << ","
+              << robot_params.bounds.mining_zone.min().y() << ") "
+              << "max=(" << robot_params.bounds.mining_zone.max().x() << ","
+              << robot_params.bounds.mining_zone.max().y() << ")\n";
     std::cout << "Calculated grid size: cols=" << strip_map_up.cols()
               << " rows=" << strip_map_up.rows() << "\n";
     std::cout << "ROBOT_CLEARANCE_EXCLUSION_COUNT: "
               << ROBOT_CLEARANCE_EXCLUSION_COUNT << "\n";
     std::cout << "Actual mining zone x length: "
-              << (robot_params.mining_zone_bounds.max().x() -
-                  robot_params.mining_zone_bounds.min().x() -
+              << (robot_params.bounds.mining_zone.max().x() -
+                  robot_params.bounds.mining_zone.min().x() -
                   geom::FOOTPRINT_R_MAX * 2.0f)
               << "\n";
     std::cout << "Actual mining zone y length: "
-              << (robot_params.mining_zone_bounds.max().y() -
-                  robot_params.mining_zone_bounds.min().y() -
+              << (robot_params.bounds.mining_zone.max().y() -
+                  robot_params.bounds.mining_zone.min().y() -
                   geom::FOOTPRINT_R_MAX * 2.0f)
               << "\n";
     std::cout << "Grid cell size (TRACK_SEPARATION_M): "
@@ -724,9 +728,6 @@ void MiningPlanner::appendPlannedMiningPaths()
                         b++;
                     }
                     a = b;
-                }
-                else if (vb == 1)
-                {
                 }
                 else if (vb == 1)
                 {

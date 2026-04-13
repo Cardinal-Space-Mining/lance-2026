@@ -391,10 +391,6 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
         {"Initializing", "Planning", "Traversing", "Mining", "Finished"};
     constexpr uint8_t EVAL_PATHS_FLAG = 0x80;
     constexpr uint8_t GRID_INFO_FLAG = 0x40;
-    constexpr uint32_t MAX_AUTO_MINING_VIS_PATHS = 256;
-    constexpr uint32_t MAX_AUTO_MINING_GRID_DIVS = 256;
-    constexpr size_t PATH_ENTRY_SIZE =
-        ((sizeof(float) * 4) + sizeof(uint8_t));
 
     using Stage = AutoMiningController::Stage;
 
@@ -408,20 +404,15 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
     {
         EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint32_t))
 
-        uint32_t raw_n_paths;
-        readAndIncrement(ptr, raw_n_paths);
+        uint32_t n_paths;
+        readAndIncrement(ptr, n_paths);
 
-        const size_t bytes_left = static_cast<size_t>(end - ptr);
-        if (PATH_ENTRY_SIZE == 0 || (bytes_left / PATH_ENTRY_SIZE) < raw_n_paths)
-        {
-            return false;
-        }
-
-        const uint32_t n_paths =
-            std::min(raw_n_paths, MAX_AUTO_MINING_VIS_PATHS);
+        EXIT_IF_INSUFFICIENT_SIZE(
+            static_cast<size_t>(n_paths) *
+            ((sizeof(float) * 4) + sizeof(uint8_t)))
 
         const auto stamp = this->rcl_clock->now();
-        for (uint32_t i = 0; i < raw_n_paths; i++)
+        for (uint32_t i = 0; i < n_paths; i++)
         {
             float sx, sy, ex, ey;
             readAndIncrement(ptr, sx);
@@ -430,11 +421,6 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             readAndIncrement(ptr, ey);
             uint8_t dir_id;
             readAndIncrement(ptr, dir_id);
-
-            if (i >= n_paths)
-            {
-                continue;
-            }
 
             const float dx = ex - sx;
             const float dy = ey - sy;
@@ -576,11 +562,6 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
         readAndIncrement(ptr, x_divisions);
         readAndIncrement(ptr, y_divisions);
 
-        const uint32_t render_x_divisions =
-            std::min(x_divisions, MAX_AUTO_MINING_GRID_DIVS);
-        const uint32_t render_y_divisions =
-            std::min(y_divisions, MAX_AUTO_MINING_GRID_DIVS);
-
         const auto stamp = this->rcl_clock->now();
 
         MarkerMsg& zone = this->markers.markers.emplace_back();
@@ -614,15 +595,9 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
         if (cell_size > 0.f)
         {
             const float grid_max_x =
-                std::min(
-                    max_x,
-                    min_x +
-                        (static_cast<float>(render_x_divisions) * cell_size));
+                std::min(max_x, min_x + (static_cast<float>(x_divisions) * cell_size));
             const float grid_max_y =
-                std::min(
-                    max_y,
-                    min_y +
-                        (static_cast<float>(render_y_divisions) * cell_size));
+                std::min(max_y, min_y + (static_cast<float>(y_divisions) * cell_size));
 
             MarkerMsg& grid_lines = this->markers.markers.emplace_back();
             grid_lines.header = zone.header;
@@ -637,10 +612,9 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             grid_lines.color.b = 1.0f;
             grid_lines.color.a = 0.5f;
             grid_lines.points.reserve(
-                static_cast<size_t>(
-                    (render_x_divisions + render_y_divisions + 2) * 2));
+                static_cast<size_t>((x_divisions + y_divisions + 2) * 2));
 
-            for (uint32_t ix = 0; ix <= render_x_divisions; ix++)
+            for (uint32_t ix = 0; ix <= x_divisions; ix++)
             {
                 const float x = min_x + (static_cast<float>(ix) * cell_size);
                 geometry_msgs::msg::Point p0, p1;
@@ -653,7 +627,7 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
                 grid_lines.points.push_back(p0);
                 grid_lines.points.push_back(p1);
             }
-            for (uint32_t iy = 0; iy <= render_y_divisions; iy++)
+            for (uint32_t iy = 0; iy <= y_divisions; iy++)
             {
                 const float y = min_y + (static_cast<float>(iy) * cell_size);
                 geometry_msgs::msg::Point p0, p1;
@@ -681,12 +655,11 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             grid_points.color.b = 1.0f;
             grid_points.color.a = 0.65f;
             grid_points.points.reserve(
-                static_cast<size_t>(render_x_divisions) *
-                static_cast<size_t>(render_y_divisions));
+                static_cast<size_t>(x_divisions) * static_cast<size_t>(y_divisions));
 
-            for (uint32_t ix = 0; ix < render_x_divisions; ix++)
+            for (uint32_t ix = 0; ix < x_divisions; ix++)
             {
-                for (uint32_t iy = 0; iy < render_y_divisions; iy++)
+                for (uint32_t iy = 0; iy < y_divisions; iy++)
                 {
                     geometry_msgs::msg::Point p;
                     p.x =

@@ -85,6 +85,14 @@ public:
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
+    void print() const
+    {
+        std::cout << "Path from (" << path.first.x() << ", " << path.first.y()
+                  << ") to (" << path.second.x() << ", " << path.second.y()
+                  << ") in direction " << static_cast<int>(direction)
+                  << " with distance " << distance << "\n";
+    }
+
 
 public:
 // public but only used by MiningPlanner
@@ -123,6 +131,7 @@ public:
 public:
     bool updateMappedMatrices();
     const DirectedMiningPaths& finalOutput();
+    const DirectedMiningPaths& getCachedPaths() const { return all_mining_paths; }
 
     void markMiningOnMatrix(const DirectedMiningPath& path);
     bool hasSentRequest() const { return sent_eval_request; }

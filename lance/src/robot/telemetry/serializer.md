@@ -265,97 +265,82 @@ void TelemetrySerializer::addAutoMiningController(
     using Stage = AutoMiningController::Stage;
     constexpr uint8_t EVAL_PATHS_FLAG = 0x80;
     constexpr uint8_t GRID_INFO_FLAG = 0x40;
-    constexpr uint32_t MAX_AUTO_MINING_VIS_PATHS = 128;
-    constexpr uint32_t MAX_AUTO_MINING_GRID_DIVS = 128;
 
     // TODO: pack these
     bytes.push_back(AS_U8(ControllerType::AUTO_MINING));
     bytes.push_back(AS_U8(controller.stage));
     const size_t stage_byte_idx = bytes.size() - 1;
 
-    const bool publish_vis = this->filterFreq(this->last_auto_mining_vis_pub);
-
-    if (publish_vis)
+    const auto& paths = controller.mining_planner.getCachedPaths();
+    if (!paths.empty())
     {
-        const auto& paths = controller.mining_planner.getCachedPaths();
-        const uint32_t n_paths = static_cast<uint32_t>(std::min<size_t>(
-            paths.size(),
-            MAX_AUTO_MINING_VIS_PATHS));
+        // Highest bit indicates serialized evaluated paths.
+        bytes[stage_byte_idx] |= EVAL_PATHS_FLAG;
 
-        if (n_paths > 0)
+        const uint32_t n_paths = static_cast<uint32_t>(paths.size());
+        const size_t reserve_size =
+            sizeof(uint32_t) +
+            (static_cast<size_t>(n_paths) *
+             ((sizeof(float) * 4) + sizeof(uint8_t)));
+
+        bytes.resize(bytes.size() + reserve_size);
+        Byte* ptr = (bytes.end() - reserve_size).base();
+
+        writeAndIncrement(ptr, n_paths);
+
+        for (const auto& path : paths)
         {
-            // Highest bit indicates serialized evaluated paths.
-            bytes[stage_byte_idx] |= EVAL_PATHS_FLAG;
+            const DirectedMiningPath::MiningSwath swath =
+                path.getPathCoordinatesInWorldFrame(controller.params);
+            const float swath_len_m =
+                path.getDistance() * TRACK_SEPARATION_M_<float>;
+            const Eigen::Vector2f end =
+                swath.first - (swath.second * swath_len_m);
 
-            const size_t reserve_size =
-                sizeof(uint32_t) +
-                (static_cast<size_t>(n_paths) *
-                 ((sizeof(float) * 4) + sizeof(uint8_t)));
-
-            bytes.resize(bytes.size() + reserve_size);
-            Byte* ptr = (bytes.end() - reserve_size).base();
-
-            writeAndIncrement(ptr, n_paths);
-
-            for (uint32_t i = 0; i < n_paths; i++)
-            {
-                const auto& path = paths[i];
-                const DirectedMiningPath::MiningSwath swath =
-                    path.getPathCoordinatesInWorldFrame(controller.params);
-                const float swath_len_m =
-                    path.getDistance() * TRACK_SEPARATION_M_<float>;
-                const Eigen::Vector2f end =
-                    swath.first - (swath.second * swath_len_m);
-
-                writeAsAndIncrement<float>(ptr, swath.first.x());
-                writeAsAndIncrement<float>(ptr, swath.first.y());
-                writeAsAndIncrement<float>(ptr, end.x());
-                writeAsAndIncrement<float>(ptr, end.y());
-                writeAndIncrement(ptr, static_cast<uint8_t>(path.getDirection()));
-            }
+            writeAsAndIncrement<float>(ptr, swath.first.x());
+            writeAsAndIncrement<float>(ptr, swath.first.y());
+            writeAsAndIncrement<float>(ptr, end.x());
+            writeAsAndIncrement<float>(ptr, end.y());
+            writeAndIncrement(ptr, static_cast<uint8_t>(path.getDirection()));
         }
-
-        bytes[stage_byte_idx] |= GRID_INFO_FLAG;
-
-        const float r = geom::FOOTPRINT_R_MAX_<float>;
-        const Eigen::Vector2f min_corner_with_offset =
-            controller.params.bounds.mining_zone.min() +
-            Eigen::Vector2f::Constant(r);
-        const Eigen::Vector2f max_corner_with_offset =
-            controller.params.bounds.mining_zone.max() -
-            Eigen::Vector2f::Constant(r);
-
-        const float actual_mining_x_length =
-            max_corner_with_offset.x() - min_corner_with_offset.x();
-        const float actual_mining_y_length =
-            max_corner_with_offset.y() - min_corner_with_offset.y();
-
-        const uint32_t x_divisions = static_cast<uint32_t>(std::min<int>(
-            std::max(
-                0,
-                static_cast<int>(std::floor(
-                    actual_mining_x_length / TRACK_SEPARATION_M_<float>))),
-            static_cast<int>(MAX_AUTO_MINING_GRID_DIVS)));
-        const uint32_t y_divisions = static_cast<uint32_t>(std::min<int>(
-            std::max(
-                0,
-                static_cast<int>(std::floor(
-                    actual_mining_y_length / TRACK_SEPARATION_M_<float>))),
-            static_cast<int>(MAX_AUTO_MINING_GRID_DIVS)));
-
-        const size_t grid_reserve_size =
-            (sizeof(float) * 5) + (sizeof(uint32_t) * 2);
-        bytes.resize(bytes.size() + grid_reserve_size);
-        Byte* grid_ptr = (bytes.end() - grid_reserve_size).base();
-
-        writeAsAndIncrement<float>(grid_ptr, min_corner_with_offset.x());
-        writeAsAndIncrement<float>(grid_ptr, min_corner_with_offset.y());
-        writeAsAndIncrement<float>(grid_ptr, max_corner_with_offset.x());
-        writeAsAndIncrement<float>(grid_ptr, max_corner_with_offset.y());
-        writeAsAndIncrement<float>(grid_ptr, TRACK_SEPARATION_M_<float>);
-        writeAndIncrement(grid_ptr, x_divisions);
-        writeAndIncrement(grid_ptr, y_divisions);
     }
+
+    bytes[stage_byte_idx] |= GRID_INFO_FLAG;
+
+    const float r = geom::FOOTPRINT_R_MAX_<float>;
+    const Eigen::Vector2f min_corner_with_offset =
+        controller.params.bounds.mining_zone.min() +
+        Eigen::Vector2f::Constant(r);
+    const Eigen::Vector2f max_corner_with_offset =
+        controller.params.bounds.mining_zone.max() -
+        Eigen::Vector2f::Constant(r);
+
+    const float actual_mining_x_length =
+        max_corner_with_offset.x() - min_corner_with_offset.x();
+    const float actual_mining_y_length =
+        max_corner_with_offset.y() - min_corner_with_offset.y();
+
+    const uint32_t x_divisions = static_cast<uint32_t>(std::max(
+        0,
+        static_cast<int>(
+            std::floor(actual_mining_x_length / TRACK_SEPARATION_M_<float>))));
+    const uint32_t y_divisions = static_cast<uint32_t>(std::max(
+        0,
+        static_cast<int>(
+            std::floor(actual_mining_y_length / TRACK_SEPARATION_M_<float>))));
+
+    const size_t grid_reserve_size =
+        (sizeof(float) * 5) + (sizeof(uint32_t) * 2);
+    bytes.resize(bytes.size() + grid_reserve_size);
+    Byte* grid_ptr = (bytes.end() - grid_reserve_size).base();
+
+    writeAsAndIncrement<float>(grid_ptr, min_corner_with_offset.x());
+    writeAsAndIncrement<float>(grid_ptr, min_corner_with_offset.y());
+    writeAsAndIncrement<float>(grid_ptr, max_corner_with_offset.x());
+    writeAsAndIncrement<float>(grid_ptr, max_corner_with_offset.y());
+    writeAsAndIncrement<float>(grid_ptr, TRACK_SEPARATION_M_<float>);
+    writeAndIncrement(grid_ptr, x_divisions);
+    writeAndIncrement(grid_ptr, y_divisions);
 
     switch (controller.stage)
     {
@@ -476,5 +461,99 @@ void TelemetrySerializer::addTravController(
         }
     }
 }
+
+};  // namespace lance
+
+
+
+
+
+<!-- next one -->
+/*******************************************************************************
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*                                                                              *
+*                                 ;xxxxxxx:                                    *
+*                                ;$$$$$$$$$       ...::..                      *
+*                                $$$$$$$$$$x   .:::::::::::..                  *
+*                             x$$$$$$$$$$$$$$::::::::::::::::.                 *
+*                         :$$$$$&X;      .xX:::::::::::::.::...                *
+*                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :               *
+*                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.              *
+*               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.              *
+*              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::               *
+*               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.               *
+*                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.                *
+*                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                  *
+*                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                    *
+*                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                    *
+*                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
+*                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
+*                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
+*               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
+*                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
+*                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                     *
+*               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                            *
+*               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                               *
+*               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                   *
+*                .;;;;;;;;:;;    +$$$$$$$$$                                    *
+*                  .;;;;;;.       X$$$$$$$:                                    *
+*                                                                              *
+*   Unless required by applicable law or agreed to in writing, software        *
+*   distributed under the License is distributed on an "AS IS" BASIS,          *
+*   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   *
+*   See the License for the specific language governing permissions and        *
+*   limitations under the License.                                             *
+*                                                                              *
+*******************************************************************************/
+
+#pragma once
+
+#include <chrono>
+
+#include "robot/control/robot_controller.hpp"
+#include "robot/sensing/tf_cache.hpp"
+
+#include "telemetry.hpp"
+
+
+namespace lance
+{
+
+class TelemetrySerializer : public TelemetryBase
+{
+    using steady_clock = std::chrono::steady_clock;
+    using time_point = steady_clock::time_point;
+
+public:
+    TelemetrySerializer(RclNode& node, float pub_throttle_freq);
+
+public:
+    void update(const RobotController&);
+
+protected:
+    bool filterFreq(time_point&);
+
+    void addArenaTf(Bytes&, const TfCache&);
+    void addRobotState(Bytes&, const RobotController&);
+    void addControlState(Bytes&, const RobotController&);
+
+    void addTeleopController(Bytes&, const TeleopController&);
+    void addAutoController(Bytes&, const AutoController&);
+    void addAutoMiningController(Bytes&, const AutoMiningController&);
+    void addAutoOffloadController(Bytes&, const AutoOffloadController&);
+    void addMiningController(Bytes&, const MiningController&);
+    void addOffloadController(Bytes&, const OffloadController&);
+    void addLocController(Bytes&, const LocalizationController&);
+    void addTravController(Bytes&, const TraversalController&);
+
+protected:
+    BytesSharedPub pub;
+
+    time_point last_tf_pub, last_path_pub;
+
+    const float throttled_pub_freq;
+};
 
 };  // namespace lance
