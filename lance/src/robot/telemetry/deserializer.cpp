@@ -547,13 +547,18 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             const float render_ex = ex + lateral_off_x;
             const float render_ey = ey + lateral_off_y;
 
+            if (mag <= 0.0001f)
+            {
+                continue;
+            }
+
             MarkerMsg& marker = this->markers.markers.emplace_back();
 
             marker.header.frame_id = this->tf_cache.arena_frame_id;
             marker.header.stamp = stamp;
             marker.ns = "auto_mining_eval_paths";
             marker.id = static_cast<int32_t>(1000 + i);
-            marker.type = MarkerMsg::LINE_STRIP;
+            marker.type = MarkerMsg::ARROW;
             marker.action = MarkerMsg::ADD;
             marker.lifetime = path_marker_lifetime;
 
@@ -590,41 +595,17 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             }
             marker.color.a = 0.9f;
 
-            marker.scale.x = 0.035f;
+            marker.scale.x = 0.02f;
+            marker.scale.y = 0.06f;
+            marker.scale.z = 0.08f;
 
             marker.points.resize(2);
             marker.points[0].x = render_sx;
             marker.points[0].y = render_sy;
-            marker.points[0].z = 0.02;
+            marker.points[0].z = 0.05;
             marker.points[1].x = render_ex;
             marker.points[1].y = render_ey;
-            marker.points[1].z = 0.02;
-            if (mag > 0.0001f)
-            {
-                const float arrow_len = std::min(0.6f, mag);
-
-                MarkerMsg& arrow = this->markers.markers.emplace_back();
-                arrow.header = marker.header;
-                arrow.ns = "auto_mining_eval_dirs";
-                arrow.id = static_cast<int32_t>(2000 + i);
-                arrow.type = MarkerMsg::ARROW;
-                arrow.action = MarkerMsg::ADD;
-                arrow.lifetime = marker.lifetime;
-
-                arrow.color = marker.color;
-                arrow.color.a = 1.0f;
-
-                arrow.scale.x = 0.02f;
-                arrow.scale.y = 0.06f;
-                arrow.scale.z = 0.08f;
-
-                arrow.points.resize(2);
-                arrow.points[0] = marker.points[0];
-                arrow.points[0].z = 0.05;
-                arrow.points[1].x = render_sx + (dx / mag) * arrow_len;
-                arrow.points[1].y = render_sy + (dy / mag) * arrow_len;
-                arrow.points[1].z = 0.05;
-            }
+            marker.points[1].z = 0.05;
         }
     }
 

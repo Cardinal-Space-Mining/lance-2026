@@ -309,7 +309,9 @@ void TelemetrySerializer::addAutoMiningController(
             {
                 const auto& path = paths[i];
                 const DirectedMiningPath::MiningSwath swath =
-                    path.getPathCoordinatesInWorldFrame(controller.params);
+                    path.getPathCoordinatesInWorldFrame(
+                        controller.params,
+                        &controller.mining_planner.getGridGeometry());
                 const float swath_len_m =
                     path.getDistance() * TRACK_SEPARATION_M_<float>;
                 const Eigen::Vector2f end =

@@ -63,6 +63,18 @@ enum class MiningDirection
     RIGHT
 };
 
+struct MiningGridGeometry
+{
+    float mining_zone_x_length = 0.0f;
+    float mining_zone_y_length = 0.0f;
+    float actual_mining_x_length = 0.0f;
+    float actual_mining_y_length = 0.0f;
+    int x_divisions = 0;
+    int y_divisions = 0;
+    Eigen::Vector2f min_corner_with_offset = Eigen::Vector2f::Zero();
+    Eigen::Vector2f max_corner_with_offset = Eigen::Vector2f::Zero();
+};
+
 
 // Struct to represent a mining path with its direction and associated matrix for
 // distance calculation
@@ -81,7 +93,9 @@ public:
         const Eigen::MatrixXf* mat);
 
 public:
-    MiningSwath getPathCoordinatesInWorldFrame(const RobotParams& robot_params) const; 
+    MiningSwath getPathCoordinatesInWorldFrame(
+        const RobotParams& robot_params,
+        const MiningGridGeometry* grid_geometry = nullptr) const;
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
@@ -132,11 +146,15 @@ public:
     bool updateMappedMatrices();
     const DirectedMiningPaths& finalOutput();
     const DirectedMiningPaths& getCachedPaths() const { return all_mining_paths; }
+    const MiningGridGeometry& getGridGeometry() const { return grid_geometry; }
 
     void markMiningOnMatrix(const DirectedMiningPath& path);
     bool hasSentRequest() const { return sent_eval_request; }
 
 private:
+    static MiningGridGeometry
+        computeMiningGridGeometry(const RobotParams& robot_params);
+
     const std::vector<Pose2f>& getStartingLocations();
 
     void appendPlannedMiningPaths();
@@ -150,6 +168,7 @@ private:
 
 
     bool sent_eval_request{ false };
+    MiningGridGeometry grid_geometry;
 
     // The direction is the way the the robot would be moving in reference to the
     // base frame which is MiningDirection::DOWN
@@ -162,6 +181,8 @@ private:
     Eigen::MatrixXi previously_mined_cells;
 
     DirectedMiningPaths all_mining_paths;
+
+    
 };
 
 };  // namespace lance

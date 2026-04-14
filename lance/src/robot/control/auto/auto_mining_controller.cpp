@@ -161,7 +161,9 @@ void AutoMiningController::iterate(
             {
                 std::cout << "\n=== Evaluating Path ===\n";
                 lance::DirectedMiningPath::MiningSwath p =
-                    path.getPathCoordinatesInWorldFrame(this->params);
+                    path.getPathCoordinatesInWorldFrame(
+                        this->params,
+                        &this->mining_planner.getGridGeometry());
                 std::cout << "Base Frame - Start: (" << p.first.x() << ", "
                           << p.first.y() << ")  Direction (In Coords): ("
                           << p.second.x() << ", " << p.second.y()
@@ -183,7 +185,9 @@ void AutoMiningController::iterate(
             }
 
             const DirectedMiningPath::MiningSwath swath =
-                paths.front().getPathCoordinatesInWorldFrame(this->params);
+                paths.front().getPathCoordinatesInWorldFrame(
+                    this->params,
+                    &this->mining_planner.getGridGeometry());
             
             std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
                       << swath.first.y() << ")  Direction (In Coords): ("
