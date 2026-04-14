@@ -63,15 +63,35 @@ public:
     LatencyPing(zenoh::Session&, DelayQueue* = nullptr);
 
 protected:
+    static zenoh::SubscriberOptions getIgnoreLocalOpts();
+
+    void callback(const zenoh::Sample&);
+
+protected:
+    DelayQueue* dq;
+
     zenoh::Publisher pub;
     zenoh::Subscriber<void> sub;
 
     steady_clock_time ping_beg, ping_end;
-
 };
 
 
-LatencyPing::LatencyPing(zenoh::Session& zsh, DelayQueue* delay_q)
+LatencyPing::LatencyPing(zenoh::Session& zsh, DelayQueue* delay_q) :
+    dq{delay_q},
+    pub{zsh.declare_publisher(PING_TOPIC)},
+    sub{zsh.declare_subscription(
+        PING_TOPIC,
+        [this](const zenoh::Sample& sample) { this->callback(sample); },
+        getIgnoreLocalOpts())}
 {
-
 }
+
+zenoh::SubscriberOptions LatencyPing::getIgnoreLocalOpts()
+{
+    zenoh::SubscriberOptions opts;
+    opts.allowed_origin = zenoh::Locality::Z_LOCALITY_REMOTE;
+    return opts;
+}
+
+void LatencyPing::callback(const zenoh::Sample& sample) {}
