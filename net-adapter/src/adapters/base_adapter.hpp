@@ -47,8 +47,8 @@
 #include <zenoh.hxx>
 #include <rclcpp/rclcpp.hpp>
 
-#include "../util/delay_queue.hpp"
-#include "../util/zstd_utils.hpp"
+#include "../core/zstd_ctx.hpp"
+#include "../core/delay_queue.hpp"
 
 
 /* Base class for adapter implementations (CRTP static polymorphism).

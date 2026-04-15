@@ -133,13 +133,13 @@
     "3D!wl899f": {
       "cameraState": {
         "perspective": false,
-        "distance": 7.944286369135623,
+        "distance": 7.944286369134119,
         "phi": 40.51381731626777,
-        "thetaOffset": -15.190957049355582,
+        "thetaOffset": 55.15944726331444,
         "targetOffset": [
-          2.5062210983725697,
-          2.6481315446479465,
-          2.254293779966857e-16
+          -2.244055629377903,
+          -0.8839905590464912,
+          2.805535342104833e-16
         ],
         "target": [
           0,
@@ -5927,7 +5927,12 @@
               "first": {
                 "first": "Plot!1n7cgqb",
                 "second": {
-                  "first": "Plot!wy5z8y",
+                  "first": {
+                    "first": "Plot!wy5z8y",
+                    "second": "Plot!3b2rqhx",
+                    "direction": "column",
+                    "splitPercentage": 58.309276664349596
+                  },
                   "second": {
                     "first": {
                       "first": "Indicator!8ik4mm",
@@ -5954,7 +5959,7 @@
               "splitPercentage": 63.61639824304539
             },
             "direction": "row",
-            "splitPercentage": 80.95238095238095
+            "splitPercentage": 79.73568281938326
           }
         },
         {
@@ -6347,6 +6352,23 @@
           }
         }
       ]
+    },
+    "Plot!3b2rqhx": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/net_latency.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "5118f7e4-5db1-4c21-bfcb-2e9c0b4ebd4a",
+          "showLine": true
+        }
+      ],
+      "showLegend": false,
+      "showYAxisLabels": true,
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp"
     }
   },
   "globalVariables": {

@@ -37,92 +37,61 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
+#include "latency_ping.hpp"
 
-#include <deque>
-#include <mutex>
-#include <chrono>
-#include <vector>
-#include <utility>
+#include <random>
 
-#include <zenoh.hxx>
-
-#include "../util/delay_queue.hpp"
 #include "../util/mem_helpers.hpp"
+#include "../util/zenoh_utils.hpp"
 
 
-class LatencyPing
+inline static uint32_t getId(uint32_t id)
 {
-    using steady_clock = std::chrono::steady_clock;
-    using steady_clock_time = steady_clock::time_point;
-
-    using Ping = std::pair<steady_clock_time, steady_clock_time>;
-    using PingResults = std::vector<Ping>;
-
-    static constexpr char const* PING_TOPIC = "latency_ping";
-
-    enum : uint8_t
+    if (id > 0)
     {
-        PING_REQUEST = 0,
-        PING_REPLY = 1
-    };
-
-public:
-    LatencyPing(zenoh::Session&, DelayQueue* = nullptr);
-
-public:
-    void ping();
-
-    bool hasResults() const;
-    const PingResults& results() const;
-
-    template<typename DurT = std::chrono::milliseconds>
-    DurT avgLatency() const;
-    double avgLatencySeconds() const;
-
-    void clearResults() const;
-
-protected:
-    static zenoh::SubscriberOptions getIgnoreLocalOpts();
-
-    void callback(const zenoh::Sample&);
-
-protected:
-    DelayQueue* dq{nullptr};
-
-    zenoh::Publisher pub;
-    zenoh::Subscriber<void> sub;
-
-    std::deque<steady_clock_time> active_pings;
-    PingResults completed_pings;
-
-    size_t ping_count{0};
-    std::mutex mtx;
-};
+        return id;
+    }
+    else
+    {
+        std::mt19937_64 gen{std::random_device{}()};
+        std::uniform_int_distribution<uint32_t> d;
+        return d(gen);
+    }
+}
 
 
-LatencyPing::LatencyPing(zenoh::Session& zsh, DelayQueue* delay_q) :
+LatencyPing::LatencyPing(
+    zenoh::Session& zsh,
+    DelayQueue* delay_q,
+    uint32_t id) :
     dq{delay_q},
+    id{getId(id)},
     pub{zsh.declare_publisher(PING_TOPIC)},
-    sub{zsh.declare_subscription(
+    sub{zsh.declare_subscriber(
         PING_TOPIC,
         [this](const zenoh::Sample& sample) { this->callback(sample); },
-        getIgnoreLocalOpts())}
+        []() {})}
 {
 }
 
 
 void LatencyPing::ping()
 {
-    std::vector<uint8_t> msg;
-    msg.resize(sizeof(size_t));
+    const uint32_t ping_id = this->ping_count++;
+    if (this->ping_count >=
+        (1U << (sizeof(decltype(this->ping_count)) * 8 - 1)))
+    {
+        this->ping_count = 0;
+    }
 
-    size_t val = (this->ping_count++ << 1);
-    util::write(msg.data(), val);
+    std::vector<uint8_t> bytes;
+    bytes.resize(sizeof(uint32_t) * 2);
+    util::write(bytes.data(), (ping_id << 1));
+    util::write(bytes.data() + sizeof(uint32_t), this->id);
 
     {
         std::unique_lock l{this->mtx};
-        this->active_pings.emplace_back(steady_clock::now());
+        this->active_pings.emplace_back(ping_id, steady_clock::now());
     }
 
     if (this->dq)
@@ -130,11 +99,11 @@ void LatencyPing::ping()
         this->dq->push(
             [this](std::vector<uint8_t>&& b)
             { this->pub.put(zenoh::Bytes(std::move(b))); },
-            std::move(msg));
+            std::move(bytes));
     }
     else
     {
-        this->pub.put(zenoh::Bytes(std::move(msg)));
+        this->pub.put(zenoh::Bytes(std::move(bytes)));
     }
 }
 
@@ -142,25 +111,6 @@ bool LatencyPing::hasResults() const
 {
     std::unique_lock l{this->mtx};
     return !this->completed_pings.empty();
-}
-
-const LatencyPing::PingResults& LatencyPing::results() const
-{
-    return this->completed_pings;
-}
-
-template<typename D>
-D LatencyPing::avgLatency() const
-{
-    std::unique_lock l{this->mtx};
-
-    D sum;
-    for (const Ping& p : this->completed_pings)
-    {
-        sum += std::chrono::duration_cast<D>(p.second - p.first);
-    }
-
-    return (sum / this->completed_pings.size());
 }
 
 double LatencyPing::avgLatencySeconds() const
@@ -175,31 +125,60 @@ void LatencyPing::clearResults()
 }
 
 
-zenoh::SubscriberOptions LatencyPing::getIgnoreLocalOpts()
-{
-    zenoh::SubscriberOptions opts;
-    opts.allowed_origin = zenoh::Locality::Z_LOCALITY_REMOTE;
-    return opts;
-}
-
 void LatencyPing::callback(const zenoh::Sample& sample)
 {
     const steady_clock_time n = steady_clock::now();
 
-    std::vector<uint8_t> msg = sample.get_payload().as_vector();
-
-    size_t val;
-    util::read(msg.data(), val);
-
-    if(val & PING_REQUEST)
+    std::vector<uint8_t> bytes = sample.get_payload().as_vector();
+    if (bytes.size() < (sizeof(uint32_t) * 2))
     {
-        // publish mirrored msg
+        return;
     }
-    else
+
+    uint32_t val, id;
+    util::read(bytes.data(), val);
+    util::read(bytes.data() + sizeof(uint32_t), id);
+
+    if (id == this->id)
+    {
+        return;
+    }
+
+    if (val & 0x1)
     {
         std::unique_lock l{this->mtx};
 
-        this->completed_pings.emplace_back(this->active_pings.front(), n);
-        this->active_pings.pop_front();
+        while (!this->active_pings.empty())
+        {
+            if ((val >> 1) == this->active_pings.front().first)
+            {
+                this->completed_pings.emplace_back(
+                    this->active_pings.front().second,
+                    n);
+                this->active_pings.pop_front();
+                break;
+            }
+            else
+            {
+                this->active_pings.pop_front();
+            }
+        }
+    }
+    else
+    {
+        util::write(bytes.data(), (val | 0x1));
+        util::write(bytes.data() + sizeof(uint32_t), this->id);
+
+        if (this->dq)
+        {
+            this->dq->push(
+                [this](std::vector<uint8_t>&& b)
+                { this->pub.put(zenoh::Bytes(std::move(b))); },
+                std::move(bytes));
+        }
+        else
+        {
+            this->pub.put(zenoh::Bytes(std::move(bytes)));
+        }
     }
 }
