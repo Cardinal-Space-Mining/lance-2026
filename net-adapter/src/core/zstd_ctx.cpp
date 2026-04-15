@@ -18,7 +18,7 @@
 *                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
 *                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
 *                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXX+     .;$$$$$$                   *
 *              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
 *               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
 *                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
@@ -37,96 +37,85 @@
 *                                                                              *
 *******************************************************************************/
 
-#pragma once
-
-#include "util/ros_utils.hpp"
-#include "util/zenoh_utils.hpp"
-#include "core/delay_queue.hpp"
+#include "zstd_ctx.hpp"
 
 
-enum EndPoint
+namespace util
 {
-    ROBOT_ENDPOINT,
-    CLIENT_ENDPOINT
-};
-enum DataFlow
+
+ZstdCompressor::ZstdCompressor() : ctx{ZSTD_createCCtx()} {}
+ZstdCompressor::~ZstdCompressor() { ZSTD_freeCCtx(ctx); }
+
+bool ZstdCompressor::compress(std::vector<uint8_t>& buf, int level)
 {
-    ROBOT_TO_CLIENT,
-    CLIENT_TO_ROBOT
-};
-
-template<DataFlow D, EndPoint E>
-struct ChannelTraits
-{
-    constexpr static int Data_Flow_V = D;
-    constexpr static int End_Point_V = E;
-
-    constexpr static bool Is_Subscriber =
-        ((Data_Flow_V == ROBOT_TO_CLIENT) == (End_Point_V == ROBOT_ENDPOINT));
-    constexpr static bool Is_Publisher =
-        ((Data_Flow_V == CLIENT_TO_ROBOT) == (End_Point_V == ROBOT_ENDPOINT));
-};
-
-template<typename Adapter_T, DataFlow D, EndPoint E>
-struct AdapterTraits : public ChannelTraits<D, E>
-{
-    // **traits check that adapter extends BaseAdapter**
-
-    using AdapterT = Adapter_T;
-    using RawSubscriberT = typename AdapterT::Subscriber;
-    using RawPublisherT = typename AdapterT::Publisher;
-
-    class ISubscriber : public RawSubscriberT
+    if (buf.empty())
     {
-        using RawT = RawSubscriberT;
+        return true;
+    }
 
-    public:
-        ISubscriber(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-    class IPublisher : public RawPublisherT
+    const size_t dst_cap = ZSTD_compressBound(buf.size());
+    std::vector<uint8_t> tmp(dst_cap);
+
+    const size_t compressed = ZSTD_compressCCtx(
+        ctx,
+        tmp.data(),
+        dst_cap,
+        buf.data(),
+        buf.size(),
+        level);
+
+    if (ZSTD_isError(compressed))
     {
-        using RawT = RawPublisherT;
+        return false;
+    }
 
-    public:
-        IPublisher(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-
-    using ChannelTraits<D, E>::Is_Subscriber;
-    using ChannelT = std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
-};
-
-
-// ---
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::ISubscriber::ISubscriber(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawSubscriberT{node, zsh, topic, qos, dq}
-{
+    tmp.resize(compressed);
+    buf = std::move(tmp);
+    return true;
 }
 
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::IPublisher::IPublisher(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawPublisherT{node, zsh, topic, qos}
+
+ZstdDecompressor::ZstdDecompressor() : ctx{ZSTD_createDCtx()} {}
+ZstdDecompressor::~ZstdDecompressor() { ZSTD_freeDCtx(ctx); }
+
+bool ZstdDecompressor::decompress(std::vector<uint8_t>& buf)
 {
-    (void)dq;
+    if (buf.empty())
+    {
+        return true;
+    }
+
+    const unsigned long long orig_size =
+        ZSTD_getFrameContentSize(buf.data(), buf.size());
+
+    if (orig_size == ZSTD_CONTENTSIZE_ERROR ||
+        orig_size == ZSTD_CONTENTSIZE_UNKNOWN)
+    {
+        return false;
+    }
+
+    if (orig_size == 0)
+    {
+        buf.clear();
+        return true;
+    }
+
+    std::vector<uint8_t> tmp(static_cast<size_t>(orig_size));
+
+    const size_t result = ZSTD_decompressDCtx(
+        ctx,
+        tmp.data(),
+        static_cast<size_t>(orig_size),
+        buf.data(),
+        buf.size());
+
+    if (ZSTD_isError(result))
+    {
+        return false;
+    }
+
+    buf = std::move(tmp);
+    return true;
 }
+
+};  // namespace util

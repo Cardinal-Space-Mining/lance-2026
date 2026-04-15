@@ -143,6 +143,7 @@
                 "/lance/watchdog_status",
                 "/lance/op_status",
                 "/lance/relay_status",
+                "/lance/mc_state",
 
                 "/lance/track_left/ctrl",
                 "/lance/track_left/faults",
@@ -165,7 +166,14 @@
                 "/lance/hopper_act/info",
 
                 "/lance/telemetry",
+                "/lance/net_latency",
+                "/lance/traversal_path",
+                "/lance/markers",
+                "/lance/mc_cursor",
+                "/arena_zones",
 
+                "/cardinal_perception/mining_eval_results",
+                "/cardinal_perception/reflector_hint",
                 "/cardinal_perception/planned_path",
 
                 "/cardinal_perception/trace_notifications",
