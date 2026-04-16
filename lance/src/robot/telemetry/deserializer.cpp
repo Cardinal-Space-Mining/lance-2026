@@ -229,16 +229,19 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
         COLLECTION_STATE_TOPIC("is_full_occ"),
         static_cast<bool>(state & (1 << 9)));
 
-    constexpr char const* FLOAT_TOPICS[] = {
-        COLLECTION_STATE_TOPIC("volume"),
-        COLLECTION_STATE_TOPIC("belt_usage")};
-    for (const char* TOPIC : FLOAT_TOPICS)
-    {
-        float val{0.f};
-        readAndIncrement(ptr, val);
+    float val;
+    readAndIncrement(ptr, val);
+    this->offloaded_volume += std::max(this->last_hopper_volume - val, 0.f);
+    this->last_hopper_volume = val;
+    this->pub_map.publish<Float32Msg>(COLLECTION_STATE_TOPIC("volume"), val);
+    this->pub_map.publish<Float32Msg>(
+        COLLECTION_STATE_TOPIC("offloaded_volume"),
+        this->offloaded_volume);
 
-        this->pub_map.publish<Float32Msg>(TOPIC, val);
-    }
+    readAndIncrement(ptr, val);
+    this->pub_map.publish<Float32Msg>(
+        COLLECTION_STATE_TOPIC("belt_usage"),
+        val);
 
     return true;
 }

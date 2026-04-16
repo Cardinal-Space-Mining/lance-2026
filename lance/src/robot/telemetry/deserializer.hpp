@@ -102,10 +102,12 @@ protected:
 
     BytesSharedSub sub;
 
-    std::vector<std::string> ctrl_chain;
-
     const size_t mining_marker_id;
     const size_t offload_marker_id;
+
+    std::vector<std::string> ctrl_chain;
+    float last_hopper_volume{0.f};
+    float offloaded_volume{0.f};
 };
 
 };  // namespace lance
