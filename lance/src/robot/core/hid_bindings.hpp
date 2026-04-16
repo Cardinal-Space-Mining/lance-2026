@@ -135,9 +135,6 @@ using TeleopHopperActuateAxis = Xbox::AxisRightY;
 using AssistedMiningToggleButton = Xbox::ButtonLeftCenter;
 using AssistedOffloadToggleButton = Xbox::ButtonRightCenter;
 
-using PresetMiningInitButton = Xbox::ButtonLeftStick;
-using PresetOffloadInitButton = Xbox::ButtonRightStick;
-
 using ToggleMiningObstacleConstraintButton = Xbox::DPadUp;
 using ToggleMiningHopperConstraintButton = Xbox::DPadRight;
 using ToggleMiningZoneConstraintButton = Xbox::DPadDown;
@@ -159,9 +156,12 @@ using SetMiningCursorButton = Xbox::ButtonLeftCenter;
 using SetOffloadCursorButton = Xbox::ButtonRightCenter;
 
 using TraversalCursorRotAxis = Xbox::AxisRightX;
-using TraversalCursorScaleAxis = Xbox::AxisRightY;
 using TraversalCursorPosAxes =
     util::StaticJoyStickAxes<Xbox::AxisLeftY::IDX, Xbox::AxisLeftX::IDX>;
+
+using OffloadCursorScaleUpAxis = Xbox::AxisRightTrigger;
+using OffloadCursorScaleDownAxis = Xbox::AxisLeftTrigger;
+using OffloadCursorAlignButton = Xbox::ButtonLeftStick;
 
 
 #undef Xbox

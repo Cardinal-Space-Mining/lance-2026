@@ -39,6 +39,8 @@
 
 #pragma once
 
+#include <string_view>
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <Eigen/Core>
@@ -51,7 +53,6 @@
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
 
 #include "util/ros_utils.hpp"
-#include "robot/core/robot_params.hpp"
 
 
 namespace lance
@@ -68,10 +69,10 @@ public:
     using Vec3f = Eigen::Vector3f;
 
 public:
-    PathPlanInterface(RclNode&, const RobotParams&);
+    PathPlanInterface(RclNode&);
 
 public:
-    void init(const Vec3f&);
+    void init(const Vec3f&, std::string_view);
     void init(const PoseStampedMsg&);
     void init(const PointStampedMsg&);
     void cancel();
@@ -81,14 +82,12 @@ public:
     void clearPath();
 
 protected:
-    const RobotParams& params;
     RclClock::ConstSharedPtr rcl_clock;
 
     RclSubPtr<PathMsg> path_sub;
     RclClientPtr<UpdatePathPlanSrv> pplan_control_client;
 
     PathMsg::ConstSharedPtr last_path{nullptr};
-
 };
 
-};
+};  // namespace lance

@@ -45,6 +45,7 @@
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
+#include "robot/model/geometry.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
 
 
@@ -60,9 +61,10 @@ class TraversalController
     using PoseStampedMsg = PathPlanInterface::PoseStampedMsg;
     using PointStampedMsg = PathPlanInterface::PointStampedMsg;
 
-    using Vec2f = Eigen::Vector2f;
-    using Vec3f = Eigen::Vector3f;
-    using Box2f = Eigen::AlignedBox2f;
+    using Vec2f = geom::Vec2f;
+    using Vec3f = geom::Vec3f;
+    using Box2f = geom::Box2f;
+    using Pose3f = geom::Pose3f;
 
 public:
     TraversalController(const RobotParams&, SensingInterfaces&);
@@ -76,6 +78,7 @@ public:
         const PointStampedMsg& dest,
         const Vec2f& dest_direction = Vec2f::Zero());
     void initializePose(const PoseStampedMsg& dest);
+    void initializePose(const Pose3f& dest, KeyFrame frame_id);
     void initializeZone(const Vec2f& dest_min, const Vec2f& dest_max);
 
     bool isFinished();
@@ -101,6 +104,8 @@ protected:
     };
 
 protected:
+    bool updateNeedsTraversal(const Vec2f& dest, KeyFrame frame);
+
     bool iterateTraversal(
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
@@ -131,6 +136,7 @@ protected:
     Box2f arena_dest_zone{};
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
+    bool need_traverse{true};
 
     float prev_left_velocity{0.f};
     float prev_right_velocity{0.f};

@@ -45,6 +45,8 @@
 
 #include <net_adapter/msg/bytes.hpp>
 
+#include "util/ros_utils.hpp"
+
 
 namespace lance
 {
@@ -88,10 +90,9 @@ enum class ControllerType : uint8_t
     TRAVERSAL
 };
 
-class TelemetryBase
+class TelemetryBase : public util::UsingRosAliases
 {
 public:
-    using RclNode = rclcpp::Node;
     using BytesMsg = net_adapter::msg::Bytes;
     using BytesSharedPub = rclcpp::Publisher<BytesMsg>::SharedPtr;
     using BytesSharedSub = rclcpp::Subscription<BytesMsg>::SharedPtr;
@@ -100,6 +101,12 @@ public:
     using Byte = Bytes::value_type;
     using BytePtr = const Byte*;
     using BytePtrRef = const Byte*&;
+
+    constexpr static uint8_t AUTO_MINING_STATE_STAGE_MASK = 0x3f;
+    constexpr static uint8_t AUTO_MINING_STATE_GRID_BIT = 0x40;
+    constexpr static uint8_t AUTO_MINING_STATE_PATHS_BIT = 0x80;
+    constexpr static size_t AUTO_MINING_MAX_GRID_DIVS = 64;
+    constexpr static size_t AUTO_MINING_MAX_PATHS = 64;
 };
 
 };  // namespace lance

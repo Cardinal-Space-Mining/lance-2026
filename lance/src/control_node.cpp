@@ -50,6 +50,7 @@
 #include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
 
+#include "robot/core/robot_status.hpp"
 #include "robot/core/ros_interface.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/control/robot_controller.hpp"
@@ -93,6 +94,7 @@ private:
 
     RobotMotorStatus robot_motor_status;
     JoyMsg::ConstSharedPtr last_joy_msg{nullptr};
+    RclTime last_joy_time;
     JoyState joy_state;
     int32_t control_status{0};
 };
@@ -131,7 +133,10 @@ RobotControlNode::RobotControlNode() :
         lance::JOY_CTRL_TOPIC,
         rclcpp::SensorDataQoS{},
         [this](const JoyMsg::ConstSharedPtr& msg)
-        { this->last_joy_msg = msg; })},
+        {
+            this->last_joy_msg = msg;
+            this->last_joy_time = this->get_clock()->now();
+        })},
     watchdog_sub{this->create_subscription<Int32Msg>(
         lance::WATCHDOG_TOPIC,
         rclcpp::SensorDataQoS{},
@@ -150,6 +155,14 @@ RobotControlNode::RobotControlNode() :
             {
                 this->joy_state.update(*this->last_joy_msg);
                 this->last_joy_msg = nullptr;
+            }
+            else if (
+                (this->get_clock()->now() - this->last_joy_time).nanoseconds() >
+                static_cast<int64_t>(
+                    ControlStatus::getTimeoutMs(this->control_status)) *
+                    1000000U)
+            {
+                this->joy_state.updateDisconnected();
             }
 
             RobotMotorCommands commands;
@@ -170,7 +183,9 @@ RobotControlNode::RobotControlNode() :
 
             PROFILING_NOTIFY_ALWAYS(iterate_control);
             PROFILING_FLUSH();
-        })}
+        })},
+
+    last_joy_time{0, 0, this->get_clock()->get_clock_type()}
 {
     std::cout << "LANCE-" << LANCE << " controller initialized!" << std::endl;
 }

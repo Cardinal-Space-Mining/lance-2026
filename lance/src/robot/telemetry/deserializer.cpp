@@ -67,16 +67,26 @@ using TransformStampedMsg = geometry_msgs::msg::TransformStamped;
 namespace lance
 {
 
-TelemetryDeserializer::TelemetryDeserializer(RclNode& node, TfCache& tf_cache) :
+TelemetryDeserializer::TelemetryDeserializer(
+    RclNode& node,
+    TfCache& tf_cache,
+    MarkerManager& markers) :
     pub_map{node, "", rclcpp::SensorDataQoS{}},
     tf_cache{tf_cache},
+    markers{markers},
     tf_broadcaster{node},
     rcl_clock{node.get_clock()},
     sub{node.create_subscription<BytesMsg>(
         lance::TELEMETRY_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })}
+        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })},
+    mining_marker_id{markers.reserveGroup(1, "robot")},
+    offload_marker_id{markers.reserveGroup(1, "robot")},
+    auto_mining_paths_marker_id{
+        markers.reserveGroup(AUTO_MINING_MAX_PATHS, "debug")},
+    auto_mining_grid_marker_id{markers.reserveGroup(3, "debug")}
 {
+    this->initMarkers();
 }
 
 
@@ -90,17 +100,19 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
 {
     constexpr size_t MAX_TELEMETRY_PACKET_BYTES = (512 * 1024);
 
+    if (msg.data.size() > MAX_TELEMETRY_PACKET_BYTES)
+    {
+        std::cerr
+            << "[TelemetryDeserializer] Dropping oversized telemetry packet: "
+            << msg.data.size() << " bytes\n";
+
+        return;
+    }
+
     try
     {
-        if (msg.data.size() > MAX_TELEMETRY_PACKET_BYTES)
-        {
-            std::cerr << "[TelemetryDeserializer] Dropping oversized telemetry packet: "
-                      << msg.data.size() << " bytes\n";
-            return;
-        }
-
         this->ctrl_chain.clear();
-        this->markers.markers.clear();
+        this->markers.clearOutput();
         this->tf_cache.refresh();
 
         const Byte* ptr = msg.data.data();
@@ -138,7 +150,9 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
 
         if (this->ctrl_chain.empty())
         {
-            this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, "Disabled");
+            this->pub_map.publish<StringMsg>(
+                lance::OP_STATUS_TOPIC,
+                "Disabled");
         }
         else
         {
@@ -152,30 +166,97 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
             this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, ss.str());
         }
 
-        if (!this->markers.markers.empty())
+        if (!this->markers.getOutputMarkers().markers.empty())
         {
-            this->pub_map.publish(lance::ROBOT_MARKERS_TOPIC, this->markers);
+            this->markers.pubOutputMarkers(
+                this->pub_map.getPub<MarkerArrayMsg>(
+                    lance::ROBOT_MARKERS_TOPIC),
+                this->rcl_clock->now(),
+                true);
         }
     }
     catch (const std::bad_alloc& e)
     {
-        this->ctrl_chain.clear();
-        this->markers.markers.clear();
-        std::cerr << "[TelemetryDeserializer] bad_alloc while decoding telemetry: "
-                  << e.what() << "\n";
+        std::cerr
+            << "[TelemetryDeserializer] bad_alloc while decoding telemetry: "
+            << e.what() << "\n";
     }
     catch (const std::exception& e)
     {
-        this->ctrl_chain.clear();
-        this->markers.markers.clear();
-        std::cerr << "[TelemetryDeserializer] exception while decoding telemetry: "
-                  << e.what() << "\n";
+        std::cerr
+            << "[TelemetryDeserializer] exception while decoding telemetry: "
+            << e.what() << "\n";
     }
     catch (...)
     {
-        this->ctrl_chain.clear();
-        this->markers.markers.clear();
-        std::cerr << "[TelemetryDeserializer] unknown exception while decoding telemetry\n";
+        std::cerr
+            << "[TelemetryDeserializer] unknown exception while decoding telemetry\n";
+    }
+}
+
+
+void TelemetryDeserializer::initMarkers()
+{
+    markers.getGroup(this->mining_marker_id)
+        .setFrameId(this->tf_cache.arena_frame_id)
+        .setType(MarkerMsg::CUBE)
+        .setDuration(RclDur{0, 100000000});
+    markers.getGroup(this->offload_marker_id)
+        .setFrameId(this->tf_cache.arena_frame_id)
+        .setType(MarkerMsg::CUBE)
+        .setDuration(RclDur{0, 100000000})
+        .setColor(0.1f, 0.4f, 0.7f, 0.5f);
+    {
+        auto g = markers.getGroup(this->auto_mining_paths_marker_id)
+                     .setFrameId(this->tf_cache.arena_frame_id)
+                     .setType(MarkerMsg::ARROW)
+                     .setDuration(RclDur{1, 500000000})
+                     .setColor(0.f, 0.f, 0.f, 0.9f);
+
+        for (auto itr = g.beg; itr < g.end; itr++)
+        {
+            itr->scale.x = 0.02f;
+            itr->scale.y = 0.06f;
+            itr->scale.z = 0.08f;
+            itr->points.resize(2);
+            itr->points[0].z = 0.05;
+            itr->points[1].z = 0.05;
+        }
+    }
+    {
+        auto g = markers.getGroup(this->auto_mining_grid_marker_id)
+                     .setFrameId(this->tf_cache.arena_frame_id)
+                     .setDuration(RclDur{1, 500000000});
+
+        auto& z = g[0];
+        z.type = MarkerMsg::LINE_STRIP;
+        z.scale.x = 0.03f;
+        z.color.r = 0.2f;
+        z.color.g = 0.95f;
+        z.color.b = 0.2f;
+        z.color.a = 0.9f;
+        z.points.resize(5);
+        z.points[0].z = 0.01;
+        z.points[1].z = 0.01;
+        z.points[2].z = 0.01;
+        z.points[3].z = 0.01;
+
+        auto& l = g[1];
+        l.type = MarkerMsg::LINE_LIST;
+        l.scale.x = 0.01f;
+        l.color.r = 0.2f;
+        l.color.g = 0.7f;
+        l.color.b = 1.0f;
+        l.color.a = 0.5f;
+
+        auto& p = g[2];
+        p.type = MarkerMsg::POINTS;
+        p.scale.x = 0.05f;
+        p.scale.y = 0.05f;
+        p.color.r = 1.0f;
+        p.color.g = 1.0f;
+        p.color.b = 1.0f;
+        p.color.a = 0.65f;
     }
 }
 
@@ -246,16 +327,19 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
         COLLECTION_STATE_TOPIC("is_full_occ"),
         static_cast<bool>(state & (1 << 9)));
 
-    constexpr char const* FLOAT_TOPICS[] = {
-        COLLECTION_STATE_TOPIC("volume"),
-        COLLECTION_STATE_TOPIC("belt_usage")};
-    for (const char* TOPIC : FLOAT_TOPICS)
-    {
-        float val{0.f};
-        readAndIncrement(ptr, val);
+    float val;
+    readAndIncrement(ptr, val);
+    this->offloaded_volume += std::max(this->last_hopper_volume - val, 0.f);
+    this->last_hopper_volume = val;
+    this->pub_map.publish<Float32Msg>(COLLECTION_STATE_TOPIC("volume"), val);
+    this->pub_map.publish<Float32Msg>(
+        COLLECTION_STATE_TOPIC("offloaded_volume"),
+        this->offloaded_volume);
 
-        this->pub_map.publish<Float32Msg>(TOPIC, val);
-    }
+    readAndIncrement(ptr, val);
+    this->pub_map.publish<Float32Msg>(
+        COLLECTION_STATE_TOPIC("belt_usage"),
+        val);
 
     return true;
 }
@@ -343,8 +427,11 @@ bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
         "Manual",
         "Assisted Mining",
         "Assisted Offload",
-        "Preset Offload",
-        "Assisted Trav"};
+        "Assisted Trav",
+        "Planned Mining : Traversal",
+        "Planned Mining : Mining",
+        "Planned Offload : Traversal",
+        "Planned Offload : Offload"};
 
     using Op = TeleopController::Operation;
 
@@ -355,8 +442,11 @@ bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
     {
         case AS_U8(Op::ASSISTED_MINING):
         case AS_U8(Op::ASSISTED_OFFLOAD):
-        case AS_U8(Op::PRESET_OFFLOAD):
-        case AS_U8(Op::AUTO_TRAVERSAL):
+        case AS_U8(Op::PLANNED_TRAVERSAL):
+        case AS_U8(Op::PLANNED_MINING_T):
+        case AS_U8(Op::PLANNED_MINING_E):
+        case AS_U8(Op::PLANNED_OFFLOAD_T):
+        case AS_U8(Op::PLANNED_OFFLOAD_E):
         {
             this->ctrl_chain.push_back(OP_TAGS[stage_id]);
 
@@ -419,44 +509,28 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
 {
     EXIT_IF_INSUFFICIENT_SIZE(1)
 
-    constexpr char const* STAGE_TAGS[] =
-        {"Initializing", "Planning", "Traversing", "Mining", "Finished"};
-    constexpr uint8_t EVAL_PATHS_FLAG = 0x80;
-    constexpr uint8_t GRID_INFO_FLAG = 0x40;
-    constexpr uint32_t MAX_AUTO_MINING_VIS_PATHS = 256;
-    constexpr uint32_t MAX_AUTO_MINING_GRID_DIVS = 256;
-    constexpr size_t PATH_ENTRY_SIZE =
-        ((sizeof(float) * 4) + sizeof(uint8_t));
-    constexpr float DIR_RENDER_OFFSET_M = 0.07f;
-    const auto path_marker_lifetime = rclcpp::Duration(1, 0);
-    const auto grid_marker_lifetime = rclcpp::Duration(2, 0);
-
     using Stage = AutoMiningController::Stage;
 
-    uint8_t val;
-    readAndIncrement(ptr, val);
+    constexpr char const* STAGE_TAGS[] =
+        {"Initializing", "Planning", "Traversing", "Mining", "Finished"};
 
-    const uint8_t stage_id = (val & 0x3f);
+    uint8_t state_bits;
+    readAndIncrement(ptr, state_bits);
 
     // Highest bit indicates serialized evaluated mining paths.
-    if (val & EVAL_PATHS_FLAG)
+    if (state_bits & AUTO_MINING_STATE_PATHS_BIT)
     {
         EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint32_t))
 
-        uint32_t raw_n_paths;
-        readAndIncrement(ptr, raw_n_paths);
+        size_t n_paths;
+        readAsAndIncrement<uint32_t>(ptr, n_paths);
 
-        const size_t bytes_left = static_cast<size_t>(end - ptr);
-        if (PATH_ENTRY_SIZE == 0 || (bytes_left / PATH_ENTRY_SIZE) < raw_n_paths)
-        {
-            return false;
-        }
+        constexpr size_t PATH_SIZE = ((sizeof(float) * 4) + sizeof(uint8_t));
+        EXIT_IF_INSUFFICIENT_SIZE(PATH_SIZE * n_paths)
 
-        const uint32_t n_paths =
-            std::min(raw_n_paths, MAX_AUTO_MINING_VIS_PATHS);
-
-        const auto stamp = this->rcl_clock->now();
-        for (uint32_t i = 0; i < raw_n_paths; i++)
+        BytePtr ptr_after_paths = ptr + (PATH_SIZE * n_paths);
+        auto m = this->markers.getGroup(this->auto_mining_paths_marker_id);
+        for (size_t i = 0; i < n_paths && i < AUTO_MINING_MAX_PATHS; i++)
         {
             float sx, sy, ex, ey;
             readAndIncrement(ptr, sx);
@@ -466,14 +540,12 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             uint8_t dir_id;
             readAndIncrement(ptr, dir_id);
 
-            if (i >= n_paths)
+            const float dx = ex - sx;
+            const float dy = ey - sy;
+            if ((dx * dx + dy * dy) < 1e-6f)
             {
                 continue;
             }
-
-            const float dx = ex - sx;
-            const float dy = ey - sy;
-            const float mag = std::sqrt((dx * dx) + (dy * dy));
 
             enum class PathDir
             {
@@ -516,6 +588,7 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
                 }
             }
 
+            constexpr float DIR_RENDER_OFFSET_M = 0.07f;
             float lateral_off_x = 0.f;
             float lateral_off_y = 0.f;
             switch (path_dir)
@@ -542,211 +615,143 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
                 }
             }
 
-            const float render_sx = sx + lateral_off_x;
-            const float render_sy = sy + lateral_off_y;
-            const float render_ex = ex + lateral_off_x;
-            const float render_ey = ey + lateral_off_y;
-
-            if (mag <= 0.0001f)
-            {
-                continue;
-            }
-
-            MarkerMsg& marker = this->markers.markers.emplace_back();
-
-            marker.header.frame_id = this->tf_cache.arena_frame_id;
-            marker.header.stamp = stamp;
-            marker.ns = "auto_mining_eval_paths";
-            marker.id = static_cast<int32_t>(1000 + i);
-            marker.type = MarkerMsg::ARROW;
-            marker.action = MarkerMsg::ADD;
-            marker.lifetime = path_marker_lifetime;
+            MarkerMsg& marker = m[i];
 
             switch (path_dir)
             {
                 case PathDir::UP:
                 {
-                    marker.color.r = 0.95f;
-                    marker.color.g = 0.95f;
-                    marker.color.b = 0.2f;
+                    marker.color.set__r(0.95f).set__g(0.95f).set__b(0.2f);
                     break;
                 }
                 case PathDir::DOWN:
                 {
-                    marker.color.r = 0.95f;
-                    marker.color.g = 0.25f;
-                    marker.color.b = 0.25f;
+                    marker.color.set__r(0.95f).set__g(0.25f).set__b(0.25f);
                     break;
                 }
                 case PathDir::LEFT:
                 {
-                    marker.color.r = 0.3f;
-                    marker.color.g = 0.55f;
-                    marker.color.b = 1.0f;
+                    marker.color.set__r(0.3f).set__g(0.55f).set__b(1.0f);
                     break;
                 }
                 case PathDir::RIGHT:
                 {
-                    marker.color.r = 1.0f;
-                    marker.color.g = 0.35f;
-                    marker.color.b = 0.9f;
+                    marker.color.set__r(1.0f).set__g(0.35f).set__b(0.9f);
                     break;
                 }
             }
-            marker.color.a = 0.9f;
 
-            marker.scale.x = 0.02f;
-            marker.scale.y = 0.06f;
-            marker.scale.z = 0.08f;
-
-            marker.points.resize(2);
-            marker.points[0].x = render_sx;
-            marker.points[0].y = render_sy;
-            marker.points[0].z = 0.05;
-            marker.points[1].x = render_ex;
-            marker.points[1].y = render_ey;
-            marker.points[1].z = 0.05;
+            marker.points[0].x = sx + lateral_off_x;
+            marker.points[0].y = sy + lateral_off_y;
+            marker.points[1].x = ex + lateral_off_x;
+            marker.points[1].y = ey + lateral_off_y;
         }
+
+        ptr = ptr_after_paths;
+
+        this->markers.addSubGroupToOutput(
+            this->auto_mining_paths_marker_id,
+            n_paths);
     }
 
-    if (val & GRID_INFO_FLAG)
+    if (state_bits & AUTO_MINING_STATE_GRID_BIT)
     {
         EXIT_IF_INSUFFICIENT_SIZE((sizeof(float) * 5) + (sizeof(uint32_t) * 2))
 
         float min_x, min_y, max_x, max_y, cell_size;
-        uint32_t x_divisions, y_divisions;
+        size_t x_divisions, y_divisions;
         readAndIncrement(ptr, min_x);
         readAndIncrement(ptr, min_y);
         readAndIncrement(ptr, max_x);
         readAndIncrement(ptr, max_y);
         readAndIncrement(ptr, cell_size);
-        readAndIncrement(ptr, x_divisions);
-        readAndIncrement(ptr, y_divisions);
+        readAsAndIncrement<uint32_t>(ptr, x_divisions);
+        readAsAndIncrement<uint32_t>(ptr, y_divisions);
 
-        const uint32_t render_x_divisions =
-            std::min(x_divisions, MAX_AUTO_MINING_GRID_DIVS);
-        const uint32_t render_y_divisions =
-            std::min(y_divisions, MAX_AUTO_MINING_GRID_DIVS);
+        const size_t render_x_divisions =
+            std::min(x_divisions, AUTO_MINING_MAX_GRID_DIVS);
+        const size_t render_y_divisions =
+            std::min(y_divisions, AUTO_MINING_MAX_GRID_DIVS);
 
-        const auto stamp = this->rcl_clock->now();
+        auto m = this->markers.getGroup(this->auto_mining_grid_marker_id);
 
-        MarkerMsg& zone = this->markers.markers.emplace_back();
-        zone.header.frame_id = this->tf_cache.arena_frame_id;
-        zone.header.stamp = stamp;
-        zone.ns = "auto_mining_zone";
-        zone.id = 3000;
-        zone.type = MarkerMsg::LINE_STRIP;
-        zone.action = MarkerMsg::ADD;
-        zone.lifetime = grid_marker_lifetime;
-        zone.scale.x = 0.03f;
-        zone.color.r = 0.2f;
-        zone.color.g = 0.95f;
-        zone.color.b = 0.2f;
-        zone.color.a = 0.9f;
-        zone.points.resize(5);
+        MarkerMsg& zone = m[0];
         zone.points[0].x = min_x;
         zone.points[0].y = min_y;
-        zone.points[0].z = 0.01;
         zone.points[1].x = max_x;
         zone.points[1].y = min_y;
-        zone.points[1].z = 0.01;
         zone.points[2].x = max_x;
         zone.points[2].y = max_y;
-        zone.points[2].z = 0.01;
         zone.points[3].x = min_x;
         zone.points[3].y = max_y;
-        zone.points[3].z = 0.01;
         zone.points[4] = zone.points[0];
 
         if (cell_size > 0.f)
         {
-            const float grid_max_x =
-                std::min(
-                    max_x,
-                    min_x +
-                        (static_cast<float>(render_x_divisions) * cell_size));
-            const float grid_max_y =
-                std::min(
-                    max_y,
-                    min_y +
-                        (static_cast<float>(render_y_divisions) * cell_size));
+            const float grid_max_x = std::min(
+                max_x,
+                min_x + (static_cast<float>(render_x_divisions) * cell_size));
+            const float grid_max_y = std::min(
+                max_y,
+                min_y + (static_cast<float>(render_y_divisions) * cell_size));
 
-            MarkerMsg& grid_lines = this->markers.markers.emplace_back();
-            grid_lines.header = zone.header;
-            grid_lines.ns = "auto_mining_zone_grid";
-            grid_lines.id = 3001;
-            grid_lines.type = MarkerMsg::LINE_LIST;
-            grid_lines.action = MarkerMsg::ADD;
-            grid_lines.lifetime = zone.lifetime;
-            grid_lines.scale.x = 0.01f;
-            grid_lines.color.r = 0.2f;
-            grid_lines.color.g = 0.7f;
-            grid_lines.color.b = 1.0f;
-            grid_lines.color.a = 0.5f;
+            MarkerMsg& grid_lines = m[1];
+            grid_lines.points.clear();
             grid_lines.points.reserve(
-                static_cast<size_t>(
-                    (render_x_divisions + render_y_divisions + 2) * 2));
+                (render_x_divisions + render_y_divisions + 2) * 2);
 
-            for (uint32_t ix = 0; ix <= render_x_divisions; ix++)
+            for (size_t ix = 0; ix <= render_x_divisions; ix++)
             {
                 const float x = min_x + (static_cast<float>(ix) * cell_size);
-                geometry_msgs::msg::Point p0, p1;
+                auto& p0 = grid_lines.points.emplace_back();
+                auto& p1 = grid_lines.points.emplace_back();
                 p0.x = x;
                 p0.y = min_y;
                 p0.z = 0.01;
                 p1.x = x;
                 p1.y = grid_max_y;
                 p1.z = 0.01;
-                grid_lines.points.push_back(p0);
-                grid_lines.points.push_back(p1);
             }
-            for (uint32_t iy = 0; iy <= render_y_divisions; iy++)
+            for (size_t iy = 0; iy <= render_y_divisions; iy++)
             {
                 const float y = min_y + (static_cast<float>(iy) * cell_size);
-                geometry_msgs::msg::Point p0, p1;
+                auto& p0 = grid_lines.points.emplace_back();
+                auto& p1 = grid_lines.points.emplace_back();
                 p0.x = min_x;
                 p0.y = y;
                 p0.z = 0.01;
                 p1.x = grid_max_x;
                 p1.y = y;
                 p1.z = 0.01;
-                grid_lines.points.push_back(p0);
-                grid_lines.points.push_back(p1);
             }
 
-            MarkerMsg& grid_points = this->markers.markers.emplace_back();
-            grid_points.header = zone.header;
-            grid_points.ns = "auto_mining_zone_points";
-            grid_points.id = 3002;
-            grid_points.type = MarkerMsg::POINTS;
-            grid_points.action = MarkerMsg::ADD;
-            grid_points.lifetime = zone.lifetime;
-            grid_points.scale.x = 0.05f;
-            grid_points.scale.y = 0.05f;
-            grid_points.color.r = 1.0f;
-            grid_points.color.g = 1.0f;
-            grid_points.color.b = 1.0f;
-            grid_points.color.a = 0.65f;
-            grid_points.points.reserve(
-                static_cast<size_t>(render_x_divisions) *
-                static_cast<size_t>(render_y_divisions));
+            MarkerMsg& grid_points = m[2];
+            grid_points.points.clear();
+            grid_points.points.reserve(render_x_divisions * render_y_divisions);
 
-            for (uint32_t ix = 0; ix < render_x_divisions; ix++)
+            for (size_t ix = 0; ix < render_x_divisions; ix++)
             {
-                for (uint32_t iy = 0; iy < render_y_divisions; iy++)
+                for (size_t iy = 0; iy < render_y_divisions; iy++)
                 {
-                    geometry_msgs::msg::Point p;
-                    p.x =
-                        min_x + ((static_cast<float>(ix) + 0.5f) * cell_size);
-                    p.y =
-                        min_y + ((static_cast<float>(iy) + 0.5f) * cell_size);
+                    auto& p = grid_points.points.emplace_back();
+                    p.x = min_x + ((static_cast<float>(ix) + 0.5f) * cell_size);
+                    p.y = min_y + ((static_cast<float>(iy) + 0.5f) * cell_size);
                     p.z = 0.015;
-                    grid_points.points.push_back(p);
                 }
             }
+
+            this->markers.addGroupToOutput(this->auto_mining_grid_marker_id);
+        }
+        else
+        {
+            this->markers.addSubGroupToOutput(
+                this->auto_mining_grid_marker_id,
+                1);
         }
     }
 
+
+    const uint8_t stage_id = (state_bits & AUTO_MINING_STATE_STAGE_MASK);
     switch (stage_id)
     {
         case AS_U8(Stage::TRAVERSING):
@@ -949,32 +954,38 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
         return;
     }
 
-    MarkerMsg& marker = this->markers.markers.emplace_back();
+    MarkerMsg& m = this->markers.getGroup(this->mining_marker_id)[0];
 
-    marker.header.frame_id = this->tf_cache.arena_frame_id;
-    marker.header.stamp = this->rcl_clock->now();
+    switch (constraint)
+    {
+        case MiningConstraints::CONSTRAINT_MOTOR_STALL:
+        {
+            m.color.set__r(0.9f).set__g(0.8f).set__b(0.2f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_OBSTACLE:
+        {
+            m.color.set__r(1.f).set__g(0.f).set__b(0.f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_HOPPER_FULL:
+        {
+            m.color.set__r(0.6f).set__g(0.2f).set__b(0.9f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_ZONE_BOUNDARY:
+        {
+            m.color.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f);
+            break;
+        }
+        default:
+        {
+        }
+    }
 
-    marker.ns = "robot";
-    marker.id = 1;
-    marker.type = MarkerMsg::CUBE;
-    marker.action = MarkerMsg::ADD;
-    marker.lifetime = rclcpp::Duration(0, 100000000);
-
-    static const ColorMsg CONSTRAINT_COLORS[] = {
-        ColorMsg{}.set__r(0.9f).set__g(0.8f).set__b(0.2f).set__a(0.5f),
-        ColorMsg{}.set__r(1.f).set__a(0.5f),
-        ColorMsg{}.set__r(0.6f).set__g(0.2f).set__b(0.9f).set__a(0.5f),
-        ColorMsg{}.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f),
-    };
-
-    marker.color = CONSTRAINT_COLORS
-        [(constraint > MiningConstraints::CONSTRAINT_MOTOR_STALL) +
-         (constraint > MiningConstraints::CONSTRAINT_OBSTACLE) +
-         (constraint > MiningConstraints::CONSTRAINT_HOPPER_FULL)];
-
-    marker.scale.x = dist;
-    marker.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;
-    marker.scale.z = lance::geom::PRIMARY_COLLISION_ZONE_HEIGHT;
+    m.scale.x = dist;
+    m.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;
+    m.scale.z = lance::geom::PRIMARY_COLLISION_ZONE_HEIGHT;
 
     const PoseTf3f* p = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
     const Quatf flattened_q = lance::geom::flattenToYaw(p->pose.quat);
@@ -984,15 +995,32 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
                           0.f,
                           lance::geom::PRIMARY_COLLISION_ZONE_Z_<float>};
 
-    marker.pose.position.x = p->pose.vec.x() + pos_off.x();
-    marker.pose.position.y = p->pose.vec.y() + pos_off.y();
-    marker.pose.position.z = p->pose.vec.z() + pos_off.z();
-    marker.pose.orientation.w = flattened_q.w();
-    marker.pose.orientation.x = flattened_q.x();
-    marker.pose.orientation.y = flattened_q.y();
-    marker.pose.orientation.z = flattened_q.z();
+    m.pose.position << Vec3f{p->pose.vec + pos_off};
+    m.pose.orientation << flattened_q;
+
+    this->markers.addGroupToOutput(this->mining_marker_id);
 }
 
-void TelemetryDeserializer::addOffloadMarker(float dist) { (void)dist; }
+void TelemetryDeserializer::addOffloadMarker(float dist)
+{
+    MarkerMsg& m = this->markers.getGroup(this->offload_marker_id)[0];
+
+    m.scale.x = lance::geom::OFFLOAD_FOOTPRINT_LENGTH;
+    m.scale.y = lance::geom::OFFLOAD_FOOTPRINT_WIDTH;
+    m.scale.z = 0.5;
+
+    const PoseTf3f* p = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+    const Quatf flattened_q = lance::geom::flattenToYaw(p->pose.quat);
+    const Vec3f pos_off =
+        flattened_q * Vec3f{
+                          -dist + lance::geom::OFFLOAD_FOOTPRINT_OFFSET_<float>,
+                          0.f,
+                          0.25f};
+
+    m.pose.position << Vec3f{p->pose.vec + pos_off};
+    m.pose.orientation << flattened_q;
+
+    this->markers.addGroupToOutput(this->offload_marker_id);
+}
 
 };  // namespace lance

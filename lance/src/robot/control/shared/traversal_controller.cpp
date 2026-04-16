@@ -77,6 +77,7 @@ TraversalController::TraversalController(
 {
 }
 
+
 void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
 {
     this->pplan_interface.clearPath();
@@ -84,10 +85,16 @@ void TraversalController::initializePoint(const Vec2f& dest, const Vec2f& dir)
     this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
                                                      : DestinationType::POINT;
 
-    this->pplan_interface.init(Vec3f{dest.x(), dest.y(), 0.f});
+    if (this->updateNeedsTraversal(dest, KeyFrame::ARENA_FRAME))
+    {
+        this->pplan_interface.init(
+            Vec3f{dest.x(), dest.y(), 0.f},
+            this->tf_cache.arena_frame_id);
+    }
 
     this->state = State::INITIALIZATION;
 }
+
 void TraversalController::initializePoint(
     const PointStampedMsg& dest,
     const Vec2f& dir)
@@ -96,34 +103,76 @@ void TraversalController::initializePoint(
     this->arena_dest_direction = dir.normalized();
     this->destination_type = dir.squaredNorm() > 0.f ? DestinationType::POSE
                                                      : DestinationType::POINT;
-    this->pplan_interface.init(dest);
+
+    if (this->updateNeedsTraversal(
+            Vec2f{dest.point.x, dest.point.y},
+            this->tf_cache.resolveKeyFrame(dest.header.frame_id)))
+    {
+        this->pplan_interface.init(dest);
+    }
 
     this->state = State::INITIALIZATION;
 }
+
 void TraversalController::initializePose(const PoseStampedMsg& dest)
 {
     this->pplan_interface.clearPath();
 
     lance::geom::Quatf q;
     q << dest.pose.orientation;
-    if (q.squaredNorm() > 0.5f)
+    const KeyFrame k = this->tf_cache.resolveKeyFrame(dest.header.frame_id);
+    if (q.squaredNorm() > 0.5f && k == KeyFrame::ARENA_FRAME)
     {
-        // TODO: this initialization assumes that the orientation is relative to
-        // the arena frame, but for cursor inputs this might not be true!
+        // TODO: compute target orientation in whatever frame is passed!
         const float theta = lance::geom::quatToYaw(q);
 
         this->destination_type = DestinationType::POSE;
         this->arena_dest_direction = Vec2f{std::cos(theta), std::sin(theta)};
-        this->pplan_interface.init(dest);
     }
     else
     {
         this->destination_type = DestinationType::POINT;
         this->arena_dest_direction = Vec2f::Zero();
+    }
+
+    if (this->updateNeedsTraversal(
+            Vec2f{dest.pose.position.x, dest.pose.position.y},
+            k))
+    {
         this->pplan_interface.init(dest);
     }
+
     this->state = State::INITIALIZATION;
 }
+
+void TraversalController::initializePose(const Pose3f& dest, KeyFrame frame_id)
+{
+    this->pplan_interface.clearPath();
+
+    if (dest.quat.squaredNorm() > 0.5f && frame_id == KeyFrame::ARENA_FRAME)
+    {
+        // TODO: compute target orientation in whatever frame is passed!
+        const float theta = lance::geom::quatToYaw(dest.quat);
+
+        this->destination_type = DestinationType::POSE;
+        this->arena_dest_direction = Vec2f{std::cos(theta), std::sin(theta)};
+    }
+    else
+    {
+        this->destination_type = DestinationType::POINT;
+        this->arena_dest_direction = Vec2f::Zero();
+    }
+
+    if (this->updateNeedsTraversal(dest.vec.template head<2>(), frame_id))
+    {
+        this->pplan_interface.init(
+            dest.vec,
+            this->tf_cache.getFrameId(frame_id));
+    }
+
+    this->state = State::INITIALIZATION;
+}
+
 void TraversalController::initializeZone(
     const Vec2f& dest_min,
     const Vec2f& dest_max)
@@ -134,14 +183,24 @@ void TraversalController::initializeZone(
     this->arena_dest_direction = Vec2f::Zero();
     this->destination_type = DestinationType::ZONE;
 
+    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF) &&
+        this->arena_dest_zone.contains(this->tf_cache.getTf(ROBOT_TO_ARENA_TF)
+                                           ->pose.vec.template head<2>()))
+    {
+        this->state = State::FINISHED;
+        return;
+    }
+
     this->pplan_interface.init(
         Vec3f{
             (dest_min.x() + dest_max.x()) * 0.5f,
             (dest_min.y() + dest_max.y()) * 0.5f,
-            0.f});
+            0.f},
+        this->tf_cache.arena_frame_id);
 
     this->state = State::INITIALIZATION;
 }
+
 
 bool TraversalController::isFinished()
 {
@@ -172,7 +231,7 @@ void TraversalController::iterate(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
-            if (!this->pplan_interface.hasPath())
+            if (this->need_traverse && !this->pplan_interface.hasPath())
             {
                 break;
             }
@@ -183,7 +242,9 @@ void TraversalController::iterate(
             this->prev_right_velocity =
                 static_cast<float>(lance::trackMotorRpsToGroundMps(
                     motor_status.track_right.velocity));
-            this->state = State::FOLLOW_PATH;
+
+            this->state =
+                this->need_traverse ? State::FOLLOW_PATH : State::REORIENT;
             [[fallthrough]];
         }
         case State::FOLLOW_PATH:
@@ -211,6 +272,27 @@ void TraversalController::iterate(
     }
 }
 
+
+
+bool TraversalController::updateNeedsTraversal(
+    const Vec2f& dest,
+    KeyFrame frame)
+{
+    if (this->tf_cache.hasTf(KeyFrame::ROBOT_FRAME, frame) &&
+        (this->tf_cache.getTf(KeyFrame::ROBOT_FRAME, frame)
+             ->pose.vec.template head<2>() -
+         dest)
+                .norm() <= this->params.auto_traversal_destination_thresh_m)
+    {
+        this->need_traverse = false;
+    }
+    else
+    {
+        this->need_traverse = true;
+    }
+
+    return this->need_traverse;
+}
 
 
 #define K1          (this->params.auto_traversal_stanley_k_coeff)

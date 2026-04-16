@@ -18,7 +18,7 @@
 *                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
 *                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
 *                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXX+     .;$$$$$$                   *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
 *              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
 *               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
 *                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
@@ -37,85 +37,71 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "zstd_utils.hpp"
+#pragma once
+
+#include <deque>
+#include <mutex>
+#include <atomic>
+#include <chrono>
+#include <vector>
+#include <utility>
+
+#include <zenoh.hxx>
+
+#include "delay_queue.hpp"
 
 
-namespace util
+class LatencyPing
 {
+    using steady_clock = std::chrono::steady_clock;
+    using steady_clock_time = steady_clock::time_point;
 
-ZstdCompressor::ZstdCompressor() : ctx{ZSTD_createCCtx()} {}
-ZstdCompressor::~ZstdCompressor() { ZSTD_freeCCtx(ctx); }
+    using Ping = std::pair<uint32_t, steady_clock_time>;
+    using PingResult = std::pair<steady_clock_time, steady_clock_time>;
 
-bool ZstdCompressor::compress(std::vector<uint8_t>& buf, int level)
+    static constexpr char const* PING_TOPIC = "latency_ping";
+
+public:
+    LatencyPing(zenoh::Session&, DelayQueue* = nullptr, uint32_t = 0);
+
+public:
+    void ping();
+    void clearResults();
+
+    bool hasResults() const;
+    template<typename DurT = std::chrono::milliseconds>
+    DurT avgLatency() const;
+    double avgLatencySeconds() const;
+
+protected:
+    void callback(const zenoh::Sample&);
+
+protected:
+    DelayQueue* dq{nullptr};
+    const uint32_t id;
+
+    zenoh::Publisher pub;
+    zenoh::Subscriber<void> sub;
+
+    std::deque<Ping> active_pings;
+    std::vector<PingResult> completed_pings;
+
+    std::atomic<uint32_t> ping_count{0};
+    mutable std::mutex mtx;
+};
+
+
+
+template<typename D>
+D LatencyPing::avgLatency() const
 {
-    if (buf.empty())
+    std::unique_lock l{this->mtx};
+
+    D sum{0};
+    for (const PingResult& p : this->completed_pings)
     {
-        return true;
+        sum += std::chrono::duration_cast<D>(p.second - p.first);
     }
 
-    const size_t dst_cap = ZSTD_compressBound(buf.size());
-    std::vector<uint8_t> tmp(dst_cap);
-
-    const size_t compressed = ZSTD_compressCCtx(
-        ctx,
-        tmp.data(),
-        dst_cap,
-        buf.data(),
-        buf.size(),
-        level);
-
-    if (ZSTD_isError(compressed))
-    {
-        return false;
-    }
-
-    tmp.resize(compressed);
-    buf = std::move(tmp);
-    return true;
+    return (sum / this->completed_pings.size());
 }
-
-
-ZstdDecompressor::ZstdDecompressor() : ctx{ZSTD_createDCtx()} {}
-ZstdDecompressor::~ZstdDecompressor() { ZSTD_freeDCtx(ctx); }
-
-bool ZstdDecompressor::decompress(std::vector<uint8_t>& buf)
-{
-    if (buf.empty())
-    {
-        return true;
-    }
-
-    const unsigned long long orig_size =
-        ZSTD_getFrameContentSize(buf.data(), buf.size());
-
-    if (orig_size == ZSTD_CONTENTSIZE_ERROR ||
-        orig_size == ZSTD_CONTENTSIZE_UNKNOWN)
-    {
-        return false;
-    }
-
-    if (orig_size == 0)
-    {
-        buf.clear();
-        return true;
-    }
-
-    std::vector<uint8_t> tmp(static_cast<size_t>(orig_size));
-
-    const size_t result = ZSTD_decompressDCtx(
-        ctx,
-        tmp.data(),
-        static_cast<size_t>(orig_size),
-        buf.data(),
-        buf.size());
-
-    if (ZSTD_isError(result))
-    {
-        return false;
-    }
-
-    buf = std::move(tmp);
-    return true;
-}
-
-};  // namespace util

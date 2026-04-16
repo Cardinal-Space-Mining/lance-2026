@@ -59,7 +59,7 @@ public:
 public:
     SensingInterfaces(RclNode& node, const RobotParams& params) :
         tf_cache{node, params},
-        path_plan_interface{node, params},
+        path_plan_interface{node},
         mining_eval_interface{node, params},
         reflector_hint_interface{node}
     {

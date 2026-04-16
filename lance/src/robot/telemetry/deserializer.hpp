@@ -49,6 +49,7 @@
 #include "util/pub_map.hpp"
 #include "robot/sensing/tf_cache.hpp"
 
+#include "markers.hpp"
 #include "telemetry.hpp"
 
 
@@ -59,19 +60,19 @@ class TelemetryDeserializer : public TelemetryBase
 {
     using GenericPubMap = util::GenericPubMap;
     using Tf2Broadcaster = tf2_ros::TransformBroadcaster;
-    using ConstSharedClock = rclcpp::Clock::ConstSharedPtr;
 
     using MarkerMsg = visualization_msgs::msg::Marker;
     using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 
 public:
-    TelemetryDeserializer(RclNode& node, TfCache& tf_cache);
+    TelemetryDeserializer(RclNode&, TfCache&, MarkerManager&);
 
 public:
     GenericPubMap& getPubMap();
 
 protected:
     void accept(const BytesMsg&);
+    void initMarkers();
 
 protected:
     bool pubArenaTf(BytePtrRef, BytePtr);
@@ -96,13 +97,20 @@ protected:
 protected:
     GenericPubMap pub_map;
     TfCache& tf_cache;
+    MarkerManager& markers;
     Tf2Broadcaster tf_broadcaster;
-    ConstSharedClock rcl_clock;
+    RclClock::ConstSharedPtr rcl_clock;
 
     BytesSharedSub sub;
 
+    const size_t mining_marker_id;
+    const size_t offload_marker_id;
+    const size_t auto_mining_paths_marker_id;
+    const size_t auto_mining_grid_marker_id;
+
     std::vector<std::string> ctrl_chain;
-    MarkerArrayMsg markers;
+    float last_hopper_volume{0.f};
+    float offloaded_volume{0.f};
 };
 
 };  // namespace lance

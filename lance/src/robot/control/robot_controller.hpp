@@ -52,9 +52,9 @@
 #include "robot/core/collection_state.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
 
-#include "teleop_controller.hpp"
 #include "auto/auto_controller.hpp"
 #include "shared/shared_controllers.hpp"
+#include "teleop/teleop_controller.hpp"
 
 
 namespace lance

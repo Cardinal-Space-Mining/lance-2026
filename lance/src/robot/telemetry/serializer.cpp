@@ -45,9 +45,11 @@
 #include "util/mem_helpers.hpp"
 #include "robot/core/ros_interface.hpp"
 #include "robot/model/dynamics.hpp"
+#include "robot/model/geometry.hpp"
 
 
 using namespace util;
+using namespace lance::geom;
 
 #define AS_U8(x) static_cast<uint8_t>(x)
 
@@ -192,17 +194,20 @@ void TelemetrySerializer::addTeleopController(
     switch (controller.op_mode)
     {
         case Op::ASSISTED_MINING:
+        case Op::PLANNED_MINING_E:
         {
             this->addMiningController(bytes, controller.mining_controller);
             break;
         }
         case Op::ASSISTED_OFFLOAD:
-        case Op::PRESET_OFFLOAD:
+        case Op::PLANNED_OFFLOAD_E:
         {
             this->addOffloadController(bytes, controller.offload_controller);
             break;
         }
-        case Op::AUTO_TRAVERSAL:
+        case Op::PLANNED_TRAVERSAL:
+        case Op::PLANNED_MINING_T:
+        case Op::PLANNED_OFFLOAD_T:
         {
             this->addTravController(bytes, controller.traversal_controller);
             break;
@@ -263,49 +268,31 @@ void TelemetrySerializer::addAutoMiningController(
     const AutoMiningController& controller)
 {
     using Stage = AutoMiningController::Stage;
-    constexpr uint8_t EVAL_PATHS_FLAG = 0x80;
-    constexpr uint8_t GRID_INFO_FLAG = 0x40;
-    constexpr uint32_t MAX_AUTO_MINING_VIS_PATHS = 64;
-    constexpr uint32_t MAX_AUTO_MINING_GRID_DIVS = 64;
-    constexpr auto AUTO_MINING_VIS_PUB_DT = std::chrono::milliseconds(500);
 
-    // TODO: pack these
     bytes.push_back(AS_U8(ControllerType::AUTO_MINING));
     bytes.push_back(AS_U8(controller.stage));
-    const size_t stage_byte_idx = bytes.size() - 1;
+    uint8_t& state_byte = bytes.back();
 
-    const auto now = steady_clock::now();
-    const bool publish_vis =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - this->last_auto_mining_vis_pub) >= AUTO_MINING_VIS_PUB_DT;
-    if (publish_vis)
-    {
-        this->last_auto_mining_vis_pub = now;
-    }
-
-    if (publish_vis)
+    if (this->filterFreq(this->last_auto_mining_vis_pub))
     {
         const auto& paths = controller.mining_planner.getCachedPaths();
-        const uint32_t n_paths = static_cast<uint32_t>(std::min<size_t>(
-            paths.size(),
-            MAX_AUTO_MINING_VIS_PATHS));
+        const size_t n_paths = std::min(paths.size(), AUTO_MINING_MAX_PATHS);
 
         if (n_paths > 0)
         {
             // Highest bit indicates serialized evaluated paths.
-            bytes[stage_byte_idx] |= EVAL_PATHS_FLAG;
+            state_byte |= AUTO_MINING_STATE_PATHS_BIT;
 
             const size_t reserve_size =
                 sizeof(uint32_t) +
-                (static_cast<size_t>(n_paths) *
-                 ((sizeof(float) * 4) + sizeof(uint8_t)));
+                (n_paths * ((sizeof(float) * 4) + sizeof(uint8_t)));
 
             bytes.resize(bytes.size() + reserve_size);
             Byte* ptr = (bytes.end() - reserve_size).base();
 
-            writeAndIncrement(ptr, n_paths);
+            writeAsAndIncrement<uint32_t>(ptr, n_paths);
 
-            for (uint32_t i = 0; i < n_paths; i++)
+            for (size_t i = 0; i < n_paths; i++)
             {
                 const auto& path = paths[i];
                 const DirectedMiningPath::MiningSwath swath =
@@ -314,44 +301,39 @@ void TelemetrySerializer::addAutoMiningController(
                         &controller.mining_planner.getGridGeometry());
                 const float swath_len_m =
                     path.getDistance() * TRACK_SEPARATION_M_<float>;
-                const Eigen::Vector2f end =
-                    swath.first + (swath.second * swath_len_m);
+                const Vec2f end = swath.first + (swath.second * swath_len_m);
 
                 writeAsAndIncrement<float>(ptr, swath.first.x());
                 writeAsAndIncrement<float>(ptr, swath.first.y());
                 writeAsAndIncrement<float>(ptr, end.x());
                 writeAsAndIncrement<float>(ptr, end.y());
-                writeAndIncrement(ptr, static_cast<uint8_t>(path.getDirection()));
+                writeAndIncrement(
+                    ptr,
+                    static_cast<uint8_t>(path.getDirection()));
             }
         }
 
-        bytes[stage_byte_idx] |= GRID_INFO_FLAG;
+        state_byte |= AUTO_MINING_STATE_GRID_BIT;
 
         const float r = geom::FOOTPRINT_R_MAX_<float>;
-        const Eigen::Vector2f min_corner_with_offset =
-            controller.params.bounds.mining_zone.min() +
-            Eigen::Vector2f::Constant(r);
-        const Eigen::Vector2f max_corner_with_offset =
-            controller.params.bounds.mining_zone.max() -
-            Eigen::Vector2f::Constant(r);
+        const Vec2f min_corner_with_offset =
+            controller.params.bounds.mining_zone.min() + Vec2f::Constant(r);
+        const Vec2f max_corner_with_offset =
+            controller.params.bounds.mining_zone.max() - Vec2f::Constant(r);
 
         const float actual_mining_x_length =
             max_corner_with_offset.x() - min_corner_with_offset.x();
         const float actual_mining_y_length =
             max_corner_with_offset.y() - min_corner_with_offset.y();
 
-        const uint32_t x_divisions = static_cast<uint32_t>(std::min<int>(
-            std::max(
-                0,
-                static_cast<int>(std::floor(
-                    actual_mining_x_length / TRACK_SEPARATION_M_<float>))),
-            static_cast<int>(MAX_AUTO_MINING_GRID_DIVS)));
-        const uint32_t y_divisions = static_cast<uint32_t>(std::min<int>(
-            std::max(
-                0,
-                static_cast<int>(std::floor(
-                    actual_mining_y_length / TRACK_SEPARATION_M_<float>))),
-            static_cast<int>(MAX_AUTO_MINING_GRID_DIVS)));
+        const uint32_t x_divisions = std::clamp<uint32_t>(
+            std::floor(actual_mining_x_length / TRACK_SEPARATION_M_<float>),
+            0,
+            AUTO_MINING_MAX_GRID_DIVS);
+        const uint32_t y_divisions = std::clamp<uint32_t>(
+            std::floor(actual_mining_y_length / TRACK_SEPARATION_M_<float>),
+            0,
+            AUTO_MINING_MAX_GRID_DIVS);
 
         const size_t grid_reserve_size =
             (sizeof(float) * 5) + (sizeof(uint32_t) * 2);
