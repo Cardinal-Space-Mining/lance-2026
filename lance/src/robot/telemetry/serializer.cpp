@@ -275,7 +275,7 @@ void TelemetrySerializer::addAutoMiningController(
 #if ENABLE_MINING_PLANNER_DEBUG
     if (this->filterFreq(this->last_auto_mining_vis_pub))
     {
-        this->addMiningPlannerDebug(bytes, controller, bytes.back());
+        this->addMiningPlannerDebug(bytes, controller, bytes.size() - 1);
     }
 #endif
 
@@ -403,14 +403,14 @@ void TelemetrySerializer::addTravController(
 void TelemetrySerializer::addMiningPlannerDebug(
     Bytes& bytes,
     const AutoMiningController& controller,
-    Byte& state_byte)
+    size_t state_byte_idx)
 {
     const auto& paths = controller.mining_planner.getCachedPaths();
     const size_t n_paths = std::min(paths.size(), AUTO_MINING_MAX_PATHS);
 
     if (n_paths > 0)
     {
-        state_byte |= AUTO_MINING_STATE_PATHS_BIT;
+        bytes[state_byte_idx] |= AUTO_MINING_STATE_PATHS_BIT;
 
         const size_t reserve_size =
             sizeof(uint32_t) +
@@ -440,7 +440,7 @@ void TelemetrySerializer::addMiningPlannerDebug(
         }
     }
 
-    state_byte |= AUTO_MINING_STATE_GRID_BIT;
+    bytes[state_byte_idx] |= AUTO_MINING_STATE_GRID_BIT;
 
     const float r = geom::FOOTPRINT_R_MAX_<float>;
     const Vec2f min_corner_with_offset =
