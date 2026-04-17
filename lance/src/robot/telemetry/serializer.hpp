@@ -77,6 +77,8 @@ protected:
     void addLocController(Bytes&, const LocalizationController&);
     void addTravController(Bytes&, const TraversalController&);
 
+    void addMiningPlannerDebug(Bytes&, const AutoMiningController&, Byte&);
+
 protected:
     BytesSharedPub pub;
 

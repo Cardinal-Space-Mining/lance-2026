@@ -109,4 +109,8 @@ public:
     constexpr static size_t AUTO_MINING_MAX_PATHS = 64;
 };
 
+#ifndef ENABLE_MINING_PLANNER_DEBUG
+#define ENABLE_MINING_PLANNER_DEBUG 1
+#endif
+
 };  // namespace lance

@@ -271,83 +271,13 @@ void TelemetrySerializer::addAutoMiningController(
 
     bytes.push_back(AS_U8(ControllerType::AUTO_MINING));
     bytes.push_back(AS_U8(controller.stage));
-    uint8_t& state_byte = bytes.back();
 
+#if ENABLE_MINING_PLANNER_DEBUG
     if (this->filterFreq(this->last_auto_mining_vis_pub))
     {
-        const auto& paths = controller.mining_planner.getCachedPaths();
-        const size_t n_paths = std::min(paths.size(), AUTO_MINING_MAX_PATHS);
-
-        if (n_paths > 0)
-        {
-            // Highest bit indicates serialized evaluated paths.
-            state_byte |= AUTO_MINING_STATE_PATHS_BIT;
-
-            const size_t reserve_size =
-                sizeof(uint32_t) +
-                (n_paths * ((sizeof(float) * 4) + sizeof(uint8_t)));
-
-            bytes.resize(bytes.size() + reserve_size);
-            Byte* ptr = (bytes.end() - reserve_size).base();
-
-            writeAsAndIncrement<uint32_t>(ptr, n_paths);
-
-            for (size_t i = 0; i < n_paths; i++)
-            {
-                const auto& path = paths[i];
-                const DirectedMiningPath::MiningSwath swath =
-                    path.getPathCoordinatesInWorldFrame(
-                        controller.params,
-                        &controller.mining_planner.getGridGeometry());
-                const float swath_len_m =
-                    path.getDistance() * TRACK_SEPARATION_M_<float>;
-                const Vec2f end = swath.first + (swath.second * swath_len_m);
-
-                writeAsAndIncrement<float>(ptr, swath.first.x());
-                writeAsAndIncrement<float>(ptr, swath.first.y());
-                writeAsAndIncrement<float>(ptr, end.x());
-                writeAsAndIncrement<float>(ptr, end.y());
-                writeAndIncrement(
-                    ptr,
-                    static_cast<uint8_t>(path.getDirection()));
-            }
-        }
-
-        state_byte |= AUTO_MINING_STATE_GRID_BIT;
-
-        const float r = geom::FOOTPRINT_R_MAX_<float>;
-        const Vec2f min_corner_with_offset =
-            controller.params.bounds.mining_zone.min() + Vec2f::Constant(r);
-        const Vec2f max_corner_with_offset =
-            controller.params.bounds.mining_zone.max() - Vec2f::Constant(r);
-
-        const float actual_mining_x_length =
-            max_corner_with_offset.x() - min_corner_with_offset.x();
-        const float actual_mining_y_length =
-            max_corner_with_offset.y() - min_corner_with_offset.y();
-
-        const uint32_t x_divisions = std::clamp<uint32_t>(
-            std::floor(actual_mining_x_length / TRACK_SEPARATION_M_<float>),
-            0,
-            AUTO_MINING_MAX_GRID_DIVS);
-        const uint32_t y_divisions = std::clamp<uint32_t>(
-            std::floor(actual_mining_y_length / TRACK_SEPARATION_M_<float>),
-            0,
-            AUTO_MINING_MAX_GRID_DIVS);
-
-        const size_t grid_reserve_size =
-            (sizeof(float) * 5) + (sizeof(uint32_t) * 2);
-        bytes.resize(bytes.size() + grid_reserve_size);
-        Byte* grid_ptr = (bytes.end() - grid_reserve_size).base();
-
-        writeAsAndIncrement<float>(grid_ptr, min_corner_with_offset.x());
-        writeAsAndIncrement<float>(grid_ptr, min_corner_with_offset.y());
-        writeAsAndIncrement<float>(grid_ptr, max_corner_with_offset.x());
-        writeAsAndIncrement<float>(grid_ptr, max_corner_with_offset.y());
-        writeAsAndIncrement<float>(grid_ptr, TRACK_SEPARATION_M_<float>);
-        writeAndIncrement(grid_ptr, x_divisions);
-        writeAndIncrement(grid_ptr, y_divisions);
+        this->addMiningPlannerDebug(bytes, controller, bytes.back());
     }
+#endif
 
     switch (controller.stage)
     {
@@ -467,6 +397,83 @@ void TelemetrySerializer::addTravController(
             writeAsAndIncrement<float>(ptr, p.pose.position.z);
         }
     }
+}
+
+
+void TelemetrySerializer::addMiningPlannerDebug(
+    Bytes& bytes,
+    const AutoMiningController& controller,
+    Byte& state_byte)
+{
+    const auto& paths = controller.mining_planner.getCachedPaths();
+    const size_t n_paths = std::min(paths.size(), AUTO_MINING_MAX_PATHS);
+
+    if (n_paths > 0)
+    {
+        state_byte |= AUTO_MINING_STATE_PATHS_BIT;
+
+        const size_t reserve_size =
+            sizeof(uint32_t) +
+            (n_paths * ((sizeof(float) * 4) + sizeof(uint8_t)));
+
+        bytes.resize(bytes.size() + reserve_size);
+        Byte* ptr = (bytes.end() - reserve_size).base();
+
+        writeAsAndIncrement<uint32_t>(ptr, n_paths);
+
+        for (size_t i = 0; i < n_paths; i++)
+        {
+            const auto& path = paths[i];
+            const DirectedMiningPath::MiningSwath swath =
+                path.getPathCoordinatesInWorldFrame(
+                    controller.params,
+                    &controller.mining_planner.getGridGeometry());
+            const float swath_len_m =
+                path.getDistance() * TRACK_SEPARATION_M_<float>;
+            const Vec2f end = swath.first + (swath.second * swath_len_m);
+
+            writeAndIncrement(ptr, swath.first.x());
+            writeAndIncrement(ptr, swath.first.y());
+            writeAndIncrement(ptr, end.x());
+            writeAndIncrement(ptr, end.y());
+            writeAndIncrement(ptr, static_cast<uint8_t>(path.getDirection()));
+        }
+    }
+
+    state_byte |= AUTO_MINING_STATE_GRID_BIT;
+
+    const float r = geom::FOOTPRINT_R_MAX_<float>;
+    const Vec2f min_corner_with_offset =
+        controller.params.bounds.mining_zone.min() + Vec2f::Constant(r);
+    const Vec2f max_corner_with_offset =
+        controller.params.bounds.mining_zone.max() - Vec2f::Constant(r);
+
+    const float actual_mining_x_length =
+        max_corner_with_offset.x() - min_corner_with_offset.x();
+    const float actual_mining_y_length =
+        max_corner_with_offset.y() - min_corner_with_offset.y();
+
+    const uint32_t x_divisions = std::clamp<uint32_t>(
+        std::floor(actual_mining_x_length / TRACK_SEPARATION_M_<float>),
+        0,
+        AUTO_MINING_MAX_GRID_DIVS);
+    const uint32_t y_divisions = std::clamp<uint32_t>(
+        std::floor(actual_mining_y_length / TRACK_SEPARATION_M_<float>),
+        0,
+        AUTO_MINING_MAX_GRID_DIVS);
+
+    const size_t grid_reserve_size =
+        (sizeof(float) * 5) + (sizeof(uint32_t) * 2);
+    bytes.resize(bytes.size() + grid_reserve_size);
+    Byte* grid_ptr = (bytes.end() - grid_reserve_size).base();
+
+    writeAndIncrement(grid_ptr, min_corner_with_offset.x());
+    writeAndIncrement(grid_ptr, min_corner_with_offset.y());
+    writeAndIncrement(grid_ptr, max_corner_with_offset.x());
+    writeAndIncrement(grid_ptr, max_corner_with_offset.y());
+    writeAndIncrement(grid_ptr, TRACK_SEPARATION_M_<float>);
+    writeAndIncrement(grid_ptr, x_divisions);
+    writeAndIncrement(grid_ptr, y_divisions);
 }
 
 };  // namespace lance
