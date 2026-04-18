@@ -149,6 +149,20 @@ void MarkerManager::addGroupToOutput(size_t i)
         g.end);
 }
 
+void MarkerManager::addSubGroupToOutput(size_t i, size_t n)
+{
+    if (i >= this->alloc_indices.size())
+    {
+        return;
+    }
+
+    MarkerGroup g = this->getGroup(i);
+    this->output_markers.markers.insert(
+        this->output_markers.markers.end(),
+        g.beg,
+        std::min(g.beg + n, g.end));
+}
+
 const MarkerManager::MarkerArrayMsg& MarkerManager::getAllMarkers() const
 {
     return this->all_markers;

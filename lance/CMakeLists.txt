@@ -76,7 +76,7 @@ set(lance_core_srcs
     "src/robot/sensing/path_plan.cpp"
     "src/robot/sensing/mining_eval.cpp"
     "src/robot/sensing/reflector_hint.cpp"
-    # "src/robot/planning/mining_planner.cpp"
+    "src/robot/planning/mining_planner.cpp"
     "src/robot/telemetry/markers.cpp"
     "src/robot/telemetry/serializer.cpp"
     "src/robot/telemetry/deserializer.cpp")

@@ -1,57 +1,56 @@
 /*******************************************************************************
-*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
-*                                                                              *
-*                                 ;xxxxxxx:                                    *
-*                                ;$$$$$$$$$       ...::..                      *
-*                                $$$$$$$$$$x   .:::::::::::..                  *
-*                             x$$$$$$$$$$$$$$::::::::::::::::.                 *
-*                         :$$$$$&X;      .xX:::::::::::::.::...                *
-*                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :               *
-*                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.              *
-*               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.              *
-*              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::               *
-*               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.               *
-*                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.                *
-*                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                  *
-*                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                    *
-*                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                    *
-*                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
-*                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
-*                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
-*              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
-*               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
-*                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
-*                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                     *
-*               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                            *
-*               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                               *
-*               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                   *
-*                .;;;;;;;;:;;    +$$$$$$$$$                                    *
-*                  .;;;;;;.       X$$$$$$$:                                    *
-*                                                                              *
-*   Unless required by applicable law or agreed to in writing, software        *
-*   distributed under the License is distributed on an "AS IS" BASIS,          *
-*   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   *
-*   See the License for the specific language governing permissions and        *
-*   limitations under the License.                                             *
-*                                                                              *
-*******************************************************************************/
+ *   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+ *                                                                              *
+ *                                 ;xxxxxxx:                                    *
+ *                                ;$$$$$$$$$       ...::..                      *
+ *                                $$$$$$$$$$x   .:::::::::::..                  *
+ *                             x$$$$$$$$$$$$$$::::::::::::::::.                 *
+ *                         :$$$$$&X;      .xX:::::::::::::.::...                *
+ *                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :               *
+ *                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.              *
+ *               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.              *
+ *              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::               *
+ *               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.               *
+ *                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.                *
+ *                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                  *
+ *                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                    *
+ *                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                    *
+ *                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
+ *                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
+ *                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
+ *               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+ *              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
+ *               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
+ *                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
+ *                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                     *
+ *               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                            *
+ *               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                               *
+ *               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                   *
+ *                .;;;;;;;;:;;    +$$$$$$$$$                                    *
+ *                  .;;;;;;.       X$$$$$$$:                                    *
+ *                                                                              *
+ *   Unless required by applicable law or agreed to in writing, software        *
+ *   distributed under the License is distributed on an "AS IS" BASIS,          *
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   *
+ *   See the License for the specific language governing permissions and        *
+ *   limitations under the License.                                             *
+ *                                                                              *
+ *******************************************************************************/
 
 #include "mining_planner.hpp"
 
 #include "robot/model/dynamics.hpp"
 #include "robot/model/geometry.hpp"
 
-
 namespace lance
 {
 
 // How many sections to exclude from the end of a mining path to ensure the robot can fit in the spot without hitting
-constexpr int NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE =
-    static_cast<int>(std::ceil(
-        geom::PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float> /
-        TRACK_SEPARATION_M_<float>));
+constexpr int ROBOT_CLEARANCE_EXCLUSION_COUNT = static_cast<int>(std::ceil(
+    geom::PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float> /
+    TRACK_SEPARATION_M_<float>));
 
+// Used for testing
 // inline const char* miningDirectionToString(MiningDirection dir)
 // {
 //     switch (dir)
@@ -69,8 +68,6 @@ constexpr int NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE =
 //     }
 // }
 
-
-
 DirectedMiningPath::DirectedMiningPath(
     DirectedMiningPath::MiningPath p,
     MiningDirection dir,
@@ -87,7 +84,15 @@ float DirectedMiningPath::getDistance() const { return distance; }
 void DirectedMiningPath::markMiningOnMatrix(
     Eigen::MatrixXi& mined_count_matrix) const
 {
-    MiningPath p = toBaseCoordinates();
+    MiningPath p = path;
+    if (p.first.x() > p.second.x())
+    {
+        std::swap(p.first.x(), p.second.x());
+    }
+    if (p.first.y() > p.second.y())
+    {
+        std::swap(p.first.y(), p.second.y());
+    }
     for (int i = p.first.x(); i <= p.second.x(); i++)
     {
         for (int j = p.first.y(); j <= p.second.y(); j++)
@@ -138,19 +143,25 @@ bool DirectedMiningPath::checkValidity() const
 }
 
 float DirectedMiningPath::getQuality(
-    const Eigen::MatrixXi& previously_minined_locations) const
+    const Eigen::MatrixXi& previously_mined_cells) const
 {
     float quality = 0.0f;
     quality += distance;
 
-    MiningPath p = toBaseCoordinates();
-
+    MiningPath p = path;
+    if (p.first.x() > p.second.x())
+    {
+        std::swap(p.first.x(), p.second.x());
+    }
+    if (p.first.y() > p.second.y())
+    {
+        std::swap(p.first.y(), p.second.y());
+    }
     for (int i = p.first.x(); i <= p.second.x(); i++)
     {
         for (int j = p.first.y(); j <= p.second.y(); j++)
         {
-            quality -=
-                previously_minined_locations(i, j) * previously_mined_penalty;
+            quality -= previously_mined_cells(i, j) * previously_mined_penalty;
         }
     }
 
@@ -164,16 +175,28 @@ bool DirectedMiningPath::adjustForRobotClearance()
     switch (direction)
     {
         case MiningDirection::DOWN:
-            path.first.x() += NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE;
+            if (path.first.x() != 0)
+            {
+                path.first.x() += ROBOT_CLEARANCE_EXCLUSION_COUNT;
+            }
             break;
         case MiningDirection::UP:
-            path.first.x() += NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE;
+            if (path.first.x() != matrix->rows() - 1)
+            {
+                path.first.x() -= ROBOT_CLEARANCE_EXCLUSION_COUNT;
+            }
             break;
         case MiningDirection::RIGHT:
-            path.first.x() += NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE;
+            if (path.first.y() != 0)
+            {
+                path.first.y() += ROBOT_CLEARANCE_EXCLUSION_COUNT;
+            }
             break;
         case MiningDirection::LEFT:
-            path.first.x() += NUM_SECTIONS_TO_EXLUDE_FROM_ROBOT_CLEARANCE;
+            if (path.first.y() != matrix->cols() - 1)
+            {
+                path.first.y() -= ROBOT_CLEARANCE_EXCLUSION_COUNT;
+            }
             break;
     }
 
@@ -182,47 +205,91 @@ bool DirectedMiningPath::adjustForRobotClearance()
         return false;
     }
     distance = this->getRecalculatedDistance();
-    // std::cout << "got new distance " << distance << " for point " << path.first.x() << ", "
-    // << path.first.y() << " to " << path.second.x() << ", " << path.second.y() << " after clearance adjustment: ";
+
+    if (distance <= 0.0f)
+    {
+        return false;
+    }
 
     return distance >= 0.0f;
 }
 
 DirectedMiningPath::MiningSwath
-    DirectedMiningPath::getPathCoordinatesInWorldFrame() const
+    DirectedMiningPath::getPathCoordinatesInWorldFrame(
+    const RobotParams& robot_params,
+    const MiningGridGeometry* grid_geometry) const
 {
-    MiningPath p = toBaseCoordinates();
 
 #define CELL_SIZE TRACK_SEPARATION_M_<float>
 
-    float stdX = p.first.y() * CELL_SIZE;
-    float stdY = p.first.x() * CELL_SIZE;
+    float stdX = path.first.x() * CELL_SIZE + geom::FOOTPRINT_R_MAX;
+    float stdY = path.first.y() * CELL_SIZE;
     Eigen::Vector2f target_pos;
     Eigen::Vector2f target_dir;
+
+    const int matrix_rows = (matrix == nullptr) ? 0 : matrix->rows();
+    const int matrix_cols = (matrix == nullptr) ? 0 : matrix->cols();
+
+    const float r = geom::FOOTPRINT_R_MAX_<float>;
+    const float half_track_sep = TRACK_SEPARATION_M_<float> / 2.0f;
+    const Eigen::Vector2f min_corner_with_offset =
+        (grid_geometry != nullptr)
+            ? grid_geometry->min_corner_with_offset
+            : robot_params.bounds.mining_zone.min() +
+                  Eigen::Vector2f::Constant(r);
+
+    Eigen::Vector2f max_corner_with_offset;
+    if (grid_geometry != nullptr)
+    {
+        max_corner_with_offset = grid_geometry->max_corner_with_offset;
+    }
+    else
+    {
+        max_corner_with_offset =
+            robot_params.bounds.mining_zone.min() + Eigen::Vector2f(
+                r + matrix_cols * TRACK_SEPARATION_M_<float>,
+                r + matrix_rows * TRACK_SEPARATION_M_<float>);
+    }
 
     switch (direction)
     {
         case MiningDirection::DOWN:
-            target_pos = Eigen::Vector2f(stdX, stdY + CELL_SIZE);
-            target_dir = Eigen::Vector2f({0.f, 1.f});
-            break;
-        case MiningDirection::UP:
-            target_pos = Eigen::Vector2f(stdX, stdY - CELL_SIZE);
+            stdX = path.first.y() * CELL_SIZE + min_corner_with_offset.x() +
+                   half_track_sep;
+            stdY = max_corner_with_offset.y() - (path.first.x() * CELL_SIZE);
+
+            target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({0.f, -1.f});
             break;
+        case MiningDirection::UP:
+            stdX = path.first.y() * CELL_SIZE + min_corner_with_offset.x() +
+                   half_track_sep;
+             stdY = min_corner_with_offset.y() +
+                 (matrix_rows - 1 - path.first.x()) * CELL_SIZE;
+
+            target_pos = Eigen::Vector2f(stdX, stdY);
+            target_dir = Eigen::Vector2f({0.f, 1.f});
+            break;
         case MiningDirection::RIGHT:
-            target_pos = Eigen::Vector2f(stdX - CELL_SIZE, stdY);
+            stdX = path.first.y() * CELL_SIZE + min_corner_with_offset.x();
+            stdY = max_corner_with_offset.y() - (path.first.x() * CELL_SIZE) -
+                   half_track_sep;
+
+            target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({1.f, 0.f});
             break;
         case MiningDirection::LEFT:
-            // path.second.x() -= c;
-            target_pos = Eigen::Vector2f(stdX + CELL_SIZE, stdY);
+            stdX = max_corner_with_offset.x() -
+                 ((matrix_cols - 1 - path.first.y()) * CELL_SIZE);
+            stdY = max_corner_with_offset.y() - (path.first.x() * CELL_SIZE) -
+                   half_track_sep;
+
+            target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({-1.f, 0.f});
             break;
     }
 
 #undef CELL_SIZE
-
     return {target_pos, target_dir};
 }
 
@@ -238,470 +305,616 @@ float DirectedMiningPath::getRecalculatedDistance() const
 
     if (end.x() != start.x())
     {
-        return std::abs(
-            end.x() - start.x() + 1 - (1 - (*matrix)(end.x(), end.y())));
+        return 
+            (end.x() - start.x()) * (direction == MiningDirection::UP ? -1 : 1) + 1 -
+            (1 - (*matrix)(end.x(), end.y()));
     }
-    return std::abs(
-        end.y() - start.y() + 1 - (1 - (*matrix)(end.x(), end.y())));
+    return 
+        ((end.y() - start.y()) * (direction == MiningDirection::LEFT ? -1 : 1)) + 1 - (1 - (*matrix)(end.x(), end.y()));
 }
 
-DirectedMiningPath::MiningPath DirectedMiningPath::toBaseCoordinates() const
+MiningGridGeometry MiningPlanner::computeMiningGridGeometry(
+    const RobotParams& robot_params)
 {
-    MiningPath p = path;
+    MiningGridGeometry geometry;
 
-    switch (direction)
-    {
-        case MiningDirection::DOWN:
-        {
-            break;
-        }
-        case MiningDirection::UP:
-        {
-            // std::swap(p.first, p.second);
-            p.first.x() = matrix->rows() - 1 - p.first.x();
-            p.second.x() = matrix->rows() - 1 - p.second.x();
-            break;
-        }
-        case MiningDirection::RIGHT:
-        {
-            p.first = Eigen::Vector2i(p.first.y(), p.first.x());
-            p.second = Eigen::Vector2i(p.second.y(), p.second.x());
-            // int first_y = p.first.y();
+    geometry.mining_zone_x_length =
+        robot_params.bounds.mining_zone.max().x() -
+        robot_params.bounds.mining_zone.min().x();
+    geometry.mining_zone_y_length =
+        robot_params.bounds.mining_zone.max().y() -
+        robot_params.bounds.mining_zone.min().y();
 
-            // p.first.y() = matrix->cols() - 1 - p.second.y();
-            // p.second.y() = matrix->cols() - 1 - first_y;
+    geometry.actual_mining_x_length = std::max(
+        0.0f,
+        geometry.mining_zone_x_length - geom::FOOTPRINT_R_MAX_<float> * 2.0f);
+    geometry.actual_mining_y_length = std::max(
+        0.0f,
+        geometry.mining_zone_y_length - geom::FOOTPRINT_R_MAX_<float> * 2.0f);
 
-            break;
-        }
-        case MiningDirection::LEFT:
-        {
-            p.first = Eigen::Vector2i(p.first.y(), p.first.x());
-            p.second = Eigen::Vector2i(p.second.y(), p.second.x());
-            std::swap(p.first, p.second);
-            // You want to use the rows because left basically a transpose of down
-            // so it needs cols of down which is rows of left
-            p.first.y() = matrix->rows() - 1 - p.first.y();
-            p.second.y() = matrix->rows() - 1 - p.second.y();
-            break;
-        }
-    }
+    geometry.x_divisions = std::max(
+        0,
+        static_cast<int>(std::floor(
+            geometry.actual_mining_x_length / TRACK_SEPARATION_M_<float>)));
+    geometry.y_divisions = std::max(
+        0,
+        static_cast<int>(std::floor(
+            geometry.actual_mining_y_length / TRACK_SEPARATION_M_<float>)));
 
-    if (p.first.x() > p.second.x() ||
-        (p.first.x() == p.second.x() && p.first.y() > p.second.y()))
-    {
-        std::swap(p.first, p.second);
-    }
+    const float r = geom::FOOTPRINT_R_MAX_<float>;
+    geometry.min_corner_with_offset =
+        robot_params.bounds.mining_zone.min() + Eigen::Vector2f::Constant(r);
+    geometry.max_corner_with_offset =
+        robot_params.bounds.mining_zone.min() + Eigen::Vector2f(
+            r + geometry.x_divisions * TRACK_SEPARATION_M_<float>,
+            r + geometry.y_divisions * TRACK_SEPARATION_M_<float>);
 
-    return p;
+    return geometry;
 }
 
-
-
-
-
-MiningPlanner::MiningPlanner(const RobotParams& robot_params) :
-    robot_params(robot_params)
+MiningPlanner::MiningPlanner(
+    MiningEvalInterface& mining_eval,
+    const RobotParams& robot_params) :
+    robot_params(robot_params),
+    mining_eval(mining_eval)
 {
     // Now that I have taken off part of full width and max length to avoid the hitting the walls,
     // The up and down, left and right must be done separately since the offsets are opposite
 
-    float actual_mining_x_length =
-        (mining_zone_x_length - this->max_length) * 2.0f;
-    float actual_mining_y_length =
-        (mining_zone_y_length - this->full_width) * 2.0f;
+    this->grid_geometry = computeMiningGridGeometry(this->robot_params);
+    // const int x_divisions = this->grid_geometry.x_divisions;
+    // const int y_divisions = this->grid_geometry.y_divisions;
 
-    int x_divisions =
-        static_cast<int>(actual_mining_x_length / TRACK_SEPARATION_M_<float>);
-    int y_divisions =
-        static_cast<int>(actual_mining_y_length / TRACK_SEPARATION_M_<float>);
+    if (this->grid_geometry.x_divisions == 0 || this->grid_geometry.y_divisions == 0)
+    {
+        std::cerr
+            << "Mining planner grid has no valid cells. Check bounds.mining_zone and robot footprint parameters.\n";
+    }
 
     // UP/DOWN are (width, height) = (5, 4)
-    strip_map_up = Eigen::MatrixXf::Zero(x_divisions, y_divisions);
-    strip_map_down = Eigen::MatrixXf::Zero(x_divisions, y_divisions);
-
-    actual_mining_x_length = (mining_zone_x_length - this->full_width) * 2.0f;
-    actual_mining_y_length = (mining_zone_y_length - this->max_length) * 2.0f;
-
-    x_divisions =
-        static_cast<int>(actual_mining_x_length / TRACK_SEPARATION_M_<float>);
-    y_divisions =
-        static_cast<int>(actual_mining_y_length / TRACK_SEPARATION_M_<float>);
+    strip_map_up = Eigen::MatrixXf::Zero(this->grid_geometry.y_divisions, this->grid_geometry.x_divisions);
+    strip_map_down = Eigen::MatrixXf::Zero(this->grid_geometry.y_divisions, this->grid_geometry.x_divisions);
 
     // LEFT/RIGHT are swapped: (height, width) = (4, 5)
-    strip_map_left = Eigen::MatrixXf::Zero(y_divisions, x_divisions);
-    strip_map_right = Eigen::MatrixXf::Zero(y_divisions, x_divisions);
+    strip_map_left = Eigen::MatrixXf::Zero(this->grid_geometry.y_divisions, this->grid_geometry.x_divisions);
+    strip_map_right = Eigen::MatrixXf::Zero(this->grid_geometry.y_divisions, this->grid_geometry.x_divisions);
+    strip_map_left_transposed = Eigen::MatrixXf::Zero(this->grid_geometry.x_divisions, this->grid_geometry.y_divisions);
+    strip_map_right_transposed =
+        Eigen::MatrixXf::Zero(this->grid_geometry.x_divisions, this->grid_geometry.y_divisions);
 
-    times_mined_count_matrix =  // same dimensions as the down strip map since it's the base coordinates
-        Eigen::MatrixXi::Zero(x_divisions, y_divisions);
+    // Base-coordinate mining paths are indexed in the up/down frame.
+    previously_mined_cells =
+        Eigen::MatrixXi::Zero(strip_map_down.rows(), strip_map_down.cols());
 }
 
-
-void MiningPlanner::updateMappedMatrices(
-    const std::vector<float>* mining_eval_distances)
+bool MiningPlanner::updateMappedMatrices()
 {
-    // take the output from the perception eval (mining_eval_distances) and put all the data into the 4 strips in order
-    int mining_eval_index = 0;
-
-    // first strip_map_up
-
-    for (int x = 0; x < strip_map_up.rows(); x++)
+    const size_t grid_cell_count = static_cast<size_t>(
+        this->strip_map_up.rows() * this->strip_map_up.cols());
+    if (grid_cell_count == 0)
     {
-        for (int y = 0; y < strip_map_up.cols(); y++)
+        // No valid planning grid means no query/results are needed.
+        this->sent_eval_request = false;
+        return true;
+    }
+
+    if (!sent_eval_request)
+    {
+        // Sends the starting locations to the eval
+        mining_eval.queryArenaFrame(this->getStartingLocations());
+        sent_eval_request = true;
+    }
+
+
+    if (!mining_eval.hasResult())
+    {
+        std::cerr << "Mining evaluation data not ready yet.\n";
+        return false;
+    }
+    sent_eval_request = false;
+    const std::vector<float>* mining_eval_distances = mining_eval.getDists();
+    if (mining_eval_distances == nullptr)
+    {
+        std::cerr << "Mining evaluation distances are missing.\n";
+        return false;
+    }
+
+    const size_t expected_eval_count = 4 * grid_cell_count;
+    if (mining_eval_distances->size() < expected_eval_count)
+    {
+        std::cerr << "Mining evaluation size mismatch: expected at least "
+                  << expected_eval_count << ", got "
+                  << mining_eval_distances->size() << ".\n";
+        return false;
+    }
+
+    size_t mining_eval_index = 0;
+    for (int i = 0; i < strip_map_up.cols(); i++)
+    {
+        for (int j = strip_map_up.rows() - 1; j >= 0; j--)
+        {
+            strip_map_up(j, i) = std::clamp(
+                (*mining_eval_distances)[mining_eval_index++],
+                0.0f,
+                1.0f);
+        }
+    }
+    // DOWN
+    for (int i = 0; i < strip_map_down.cols(); i++)
+    {
+        for (int j = 0; j < strip_map_down.rows(); j++)
+        {
+            strip_map_down(j, i) = std::clamp(
+                (*mining_eval_distances)[mining_eval_index++],
+                0.0f,
+                1.0f);
+        }
+    }
+    // LEFT
+    for (int i = strip_map_left.cols() - 1; i >= 0; i--)
+    {
+        for (int j = 0; j < strip_map_left.rows(); j++)
+        {
+            strip_map_left(j, i) = std::clamp(
+                (*mining_eval_distances)[mining_eval_index++],
+                0.0f,
+                1.0f);
+        }
+    }
+    // RIGHT
+    for (int i = 0; i < strip_map_right.cols(); i++)
+    {
+        for (int j = 0; j < strip_map_right.rows(); j++)
+        {
+            strip_map_right(j, i) = std::clamp(
+                (*mining_eval_distances)[mining_eval_index++],
+                0.0f,
+                1.0f);
+        }
+    }
+    strip_map_left_transposed = strip_map_left.transpose();
+    strip_map_right_transposed = strip_map_right.transpose();
+    return true;
+}
+const MiningPlanner::DirectedMiningPaths& MiningPlanner::finalOutput()
+{
+    std::cout << "Clearing all paths\n";
+    this->all_mining_paths.clear();
+    std::cout << "Appending planned paths\n";
+    this->appendPlannedMiningPaths();
+    std::cout << "Removing sections for robot clearance\n";
+    // print current lenght
+    std::cout << "Current path count: " << this->all_mining_paths.size() << "\n";
+    this->removeSectionsForRobotClearance();
+    std::cout << "After clearance path count: " << this->all_mining_paths.size() << "\n";
+    std::cout << "Sorting paths by quality\n";
+    this->sortPathsByQuality();
+    std::cout << "Final path count: " << this->all_mining_paths.size() << "\n";
+
+    return all_mining_paths;
+}
+
+void MiningPlanner::markMiningOnMatrix(const DirectedMiningPath& path)
+{
+    path.markMiningOnMatrix(this->previously_mined_cells);
+}
+
+const std::vector<MiningPlanner::Pose2f>& MiningPlanner::getStartingLocations()
+{
+    static std::vector<MiningPlanner::Pose2f> starting_vectors;
+    starting_vectors.clear();
+
+    const auto& geometry = this->grid_geometry;
+    const int x_divisions = geometry.x_divisions;
+    const int y_divisions = geometry.y_divisions;
+    const auto& min_corner_with_offset = geometry.min_corner_with_offset;
+    const auto& max_corner_with_offset = geometry.max_corner_with_offset;
+
+    for (int x = 0; x < x_divisions; x++)
+    {
+        for (int y = 0; y < y_divisions; y++)
         {
             // Up
-            strip_map_up(x, strip_map_up.cols() - y - 1) =
-                (*mining_eval_distances)[mining_eval_index];
-            mining_eval_index++;
-
-            // Down
-            strip_map_down(x, y) = (*mining_eval_distances)[mining_eval_index];
-            mining_eval_index++;
+            starting_vectors.push_back(Pose2f(
+                min_corner_with_offset.x() +
+                    (x + 0.5f) * TRACK_SEPARATION_M_<float>,
+                min_corner_with_offset.y() + y * TRACK_SEPARATION_M_<float>,
+                90.0f * (M_PI / 180.0f)));  // Convert degrees to radians
         }
     }
-
-    for (int x = 0; x < strip_map_left.rows(); x++)
+    for (int x = 0; x < x_divisions; x++)
     {
-        for (int y = 0; y < strip_map_left.cols(); y++)
+        for (int y = 0; y < y_divisions; y++)
+        {
+            // Down
+            starting_vectors.push_back(Pose2f(
+                min_corner_with_offset.x() +
+                    (x + 0.5f) * TRACK_SEPARATION_M_<float>,
+                max_corner_with_offset.y() - y * TRACK_SEPARATION_M_<float>,
+                270.0f * (M_PI / 180.0f)));  // Convert degrees to radians
+        }
+    }
+    for (int x = 0; x < x_divisions; x++)
+    {
+        for (int y = 0; y < y_divisions; y++)
+        {
+            std::cout << "Adding starting vector for Left at x=" << max_corner_with_offset.x() - x * TRACK_SEPARATION_M_<float> << " y=" << max_corner_with_offset.y() - (y + 0.5f) * TRACK_SEPARATION_M_<float>
+                      << "\n";
+            // Left
+            starting_vectors.push_back(Pose2f(
+                max_corner_with_offset.x() - x * TRACK_SEPARATION_M_<float>,
+                max_corner_with_offset.y() -
+                    (y + 0.5f) * TRACK_SEPARATION_M_<float>,
+                180.0f * (M_PI / 180.0f)));  // Convert degrees to radians
+        }
+    }
+    for (int x = 0; x < x_divisions; x++)
+    {
+        for (int y = 0; y < y_divisions; y++)
         {
             // Right
-            strip_map_right(x, y) = (*mining_eval_distances)[mining_eval_index];
-            mining_eval_index++;
-            // starting_vectors.push_back(Pose2f(
-            //     starting_corner_x + x * TRACK_SEPARATION_M_<float>,
-            //     starting_corner_y + y * TRACK_SEPARATION_M_<float>,
-            //     0.0f));
-            // Left
-            strip_map_left(x, y) = (*mining_eval_distances)[mining_eval_index];
-            mining_eval_index++;
-            // starting_vectors.push_back(Pose2f(
-            //     starting_corner_x + (x + 1) * RACK_SEPARATION_M_<float>,
-            //     starting_corner_y + y * TRACK_SEPARATION_M_<float>,
-            //     180.0f));
+            std::cout << "Adding starting vector for Right at x=" << min_corner_with_offset.x() + x * TRACK_SEPARATION_M_<float> << " y=" << max_corner_with_offset.y() - (y + 0.5f) * TRACK_SEPARATION_M_<float>
+                      << "\n";
+            starting_vectors.push_back(Pose2f(
+                min_corner_with_offset.x() + x * TRACK_SEPARATION_M_<float>,
+                max_corner_with_offset.y() -
+                    (y + 0.5f) * TRACK_SEPARATION_M_<float>,
+                0.0f * (M_PI /180.0f)));  // Convert degrees to radians (0 remains 0)
         }
     }
 
+    return starting_vectors;
+}
 
-    for (int i = 0; i < strip_map_up.rows(); i++)
+void MiningPlanner::appendPlannedMiningPaths()
+{
+    std::cerr << "[MiningPlanner][DBG] appendPlannedMiningPaths: begin\n";
+
+    int a = 0, b = 0;
+    size_t pushed_paths = 0;
+    size_t skipped_short_paths = 0;
+
+    const auto directionToString = [](MiningDirection dir)
     {
-        for (int j = 0; j < strip_map_up.cols(); j++)
+        switch (dir)
         {
-            int index = i * strip_map_up.cols() + j;
-
-            for (int i = 0; i < strip_map_left.rows(); i++)
-            {
-                for (int j = 0; j < strip_map_left.cols(); j++)
-                {
-                    int index = strip_map_up.size() + strip_map_down.size() +
-                                i * strip_map_left.cols() + j;
-                    if (index < mining_eval_distances->size())
-                    {
-                        strip_map_left(i, j) = (*mining_eval_distances)[index];
-                    }
-                }
-            }
-            for (int i = 0; i < strip_map_right.rows(); i++)
-            {
-                for (int j = 0; j < strip_map_right.cols(); j++)
-                {
-                    int index = strip_map_up.size() + strip_map_down.size() +
-                                strip_map_left.size() +
-                                i * strip_map_right.cols() + j;
-                    if (index < mining_eval_distances->size())
-                    {
-                        strip_map_right(i, j) = (*mining_eval_distances)[index];
-                    }
-                }
-            }
+            case MiningDirection::DOWN:
+                return "DOWN";
+            case MiningDirection::RIGHT:
+                return "RIGHT";
+            case MiningDirection::UP:
+                return "UP";
+            case MiningDirection::LEFT:
+                return "LEFT";
+            default:
+                return "UNKNOWN";
         }
-        // This function is used to populate the 4 strip maps based on the perception
-        // evaluation function. It doesn't need to be called very often but could
-        // be to refresh data
+    };
+
+    std::vector<MiningDirection> directions = {
+        MiningDirection::DOWN,
+        MiningDirection::RIGHT,
+        MiningDirection::UP,
+        MiningDirection::LEFT};
+    std::vector<Eigen::MatrixXf*> mats = {
+        &strip_map_down,
+        &strip_map_right_transposed,
+        &strip_map_up,
+        &strip_map_left_transposed};
+
+    // Print lots of relevant info for debugging
+    std::cout << "Mining zone bounds: min=("
+              << robot_params.bounds.mining_zone.min().x() << ","
+              << robot_params.bounds.mining_zone.min().y() << ") "
+              << "max=(" << robot_params.bounds.mining_zone.max().x() << ","
+              << robot_params.bounds.mining_zone.max().y() << ")\n";
+    std::cout << "Calculated grid size: cols=" << strip_map_up.cols()
+              << " rows=" << strip_map_up.rows() << "\n";
+    std::cout << "ROBOT_CLEARANCE_EXCLUSION_COUNT: "
+              << ROBOT_CLEARANCE_EXCLUSION_COUNT << "\n";
+    std::cout << "Actual mining zone x length: "
+              << (robot_params.bounds.mining_zone.max().x() -
+                  robot_params.bounds.mining_zone.min().x() -
+                  geom::FOOTPRINT_R_MAX * 2.0f)
+              << "\n";
+    std::cout << "Actual mining zone y length: "
+              << (robot_params.bounds.mining_zone.max().y() -
+                  robot_params.bounds.mining_zone.min().y() -
+                  geom::FOOTPRINT_R_MAX * 2.0f)
+              << "\n";
+    std::cout << "Grid cell size (TRACK_SEPARATION_M): "
+              << TRACK_SEPARATION_M_<float> << "\n";
+    std::cout << "Grid divisions: x=" << strip_map_up.cols()
+              << " y=" << strip_map_up.rows() << "\n";
+    std::cout << "Total grid cells: "
+              << strip_map_up.cols() * strip_map_up.rows() << "\n";
+    std::cout << "Expected mining eval count: "
+              << 4 * strip_map_up.cols() * strip_map_up.rows() << "\n";
+    std::cout << "Geom footprint r max: " << geom::FOOTPRINT_R_MAX << "\n";
+    // print all the strip maps
+    std::cout << "strip_map_down:\n" << strip_map_down << "\n";
+    std::cout << "strip_map_up:\n" << strip_map_up << "\n";
+    std::cout << "strip_map_right:\n" << strip_map_right << "\n";
+    std::cout << "strip_map_left:\n" << strip_map_left << "\n";
+    std::cout << "strip_map_right_transposed:\n"
+              << strip_map_right_transposed << "\n";
+    std::cout << "strip_map_left_transposed:\n"
+              << strip_map_left_transposed << "\n";
 
 
-        //     this->populateStripMap(strip_map_up, MiningDirection::UP);
-        //     this->populateStripMap(strip_map_down, MiningDirection::DOWN);
-        //     this->populateStripMap(strip_map_left, MiningDirection::LEFT);
-        //     this->populateStripMap(strip_map_right, MiningDirection::RIGHT);
-        // }
-    }
-    const MiningPlanner::DirectedMiningPaths& MiningPlanner::finalOutput()
+
+    // Top to Bottom search (DOWN and RIGHT)
+    for (int direction_index = 0; direction_index < 2; direction_index++)
     {
-        this->all_mining_paths.clear();
+        Eigen::MatrixXf* mat = mats[direction_index];
+        MiningDirection mining_dir = directions[direction_index];
 
-        this->appendPlannedMiningPaths(strip_map_up, MiningDirection::UP);
-        this->appendPlannedMiningPaths(strip_map_down, MiningDirection::DOWN);
-        this->appendPlannedMiningPaths(strip_map_left, MiningDirection::LEFT);
-        this->appendPlannedMiningPaths(strip_map_right, MiningDirection::RIGHT);
+        int width = mat->cols();
+        int height = mat->rows();
 
-        this->removeSectionsForRobotClearance();
-        this->sortPathsByQuality();
+        std::cerr << "[MiningPlanner][DBG] pass=TopToBottom dir="
+                  << directionToString(mining_dir) << " width=" << width
+                  << " height=" << height << "\n";
 
-        return all_mining_paths;
-    }
-
-    void MiningPlanner::markMiningOnMatrix(const DirectedMiningPath& path)
-    {
-        path.markMiningOnMatrix(this->times_mined_count_matrix);
-    }
-
-
-    const std::vector<MiningPlanner::Pose2f>&
-        MiningPlanner::getStartingLocations()
-    {
-        // Gets the starting locations based on the box2f mining zone and the two offsets full_width and max_length
-
-        float mining_zone_x_length =
-            (this->robot_params.bounds.mining_zone.max().x() -
-             this->robot_params.bounds.mining_zone.min().x());
-        float mining_zone_y_length =
-            (this->robot_params.bounds.mining_zone.max().y() -
-             this->robot_params.bounds.mining_zone.min().y());
-
-        static std::vector<MiningPlanner::Pose2f> starting_vectors;
-        starting_vectors.clear();
-
-        // First do the pos_x and neg_x - In theory you could remove one of the max_lengths for each
-        // because you could have the robot mine all the way but for now just remove both to be save
-        float actual_mining_x_length =
-            (mining_zone_x_length - this->max_length) * 2.0f;
-        float actual_mining_y_length =
-            (mining_zone_y_length - this->full_width) * 2.0f;
-
-        float starting_corner_x =
-            this->robot_params.bounds.mining_zone.min().x() + this->full_width;
-        float starting_corner_y =
-            this->robot_params.bounds.mining_zone.min().y() + this->max_length;
-
-        int x_divisions = static_cast<int>(
-            actual_mining_x_length / TRACK_SEPARATION_M_<float>);
-        int y_divisions = static_cast<int>(
-            actual_mining_y_length / TRACK_SEPARATION_M_<float>);
-
-
-
-        // NEED TO FIGURE OUT WHICH WAY I WANT THE MATRICES TO FACE AND COORDINATE SYSTEM
-        // CURRENTLY I DO X, Y FOR UP/DOWN BUT THAT DOESN'T FEEL RIGHT
-        // RIGHT DOWN HERE IT SEEMS TO DO THE OPPOSITE AND IN
-        // Areas to do
-        /*
-            updateMappedMatrices
-            getStartingLocations
-            constructor where the strip maps are initialized and the dimensions are calculated
-        
-        Once all of those are done I will export this and run tests on it
-        
-        */
-
-        for (int x = 0; x < x_divisions; x++)
-        {
-            for (int y = 0; y < y_divisions; y++)
-            {
-                // Up
-                starting_vectors.push_back(Pose2f(
-                    starting_corner_x + x * TRACK_SEPARATION_M_<float>,
-                    starting_corner_y + y * TRACK_SEPARATION_M_<float>,
-                    90.0f));
-
-                // Down
-                starting_vectors.push_back(Pose2f(
-                    starting_corner_x + x * TRACK_SEPARATION_M_<float>,
-                    starting_corner_y + (y + 1) * TRACK_SEPARATION_M_<float>,
-                    270.0f));
-            }
-        }
-
-        // Now do the pos_y and neg_y
-        actual_mining_x_length =
-            (mining_zone_x_length - this->full_width) * 2.0f;
-        actual_mining_y_length =
-            (mining_zone_y_length - this->max_length) * 2.0f;
-
-        starting_corner_x =
-            this->robot_params.bounds.mining_zone.min().x() + this->max_length;
-        starting_corner_y =
-            this->robot_params.bounds.mining_zone.min().y() + this->full_width;
-
-        x_divisions = static_cast<int>(
-            actual_mining_x_length / TRACK_SEPARATION_M_<float>);
-        y_divisions = static_cast<int>(
-            actual_mining_y_length / TRACK_SEPARATION_M_<float>);
-
-        for (int x = 0; x < x_divisions; x++)
-        {
-            for (int y = 0; y < y_divisions; y++)
-            {
-                // Right
-                starting_vectors.push_back(Pose2f(
-                    starting_corner_x + x * TRACK_SEPARATION_M_<float>,
-                    starting_corner_y + y * TRACK_SEPARATION_M_<float>,
-                    0.0f));
-                // Left
-                starting_vectors.push_back(Pose2f(
-                    starting_corner_x + (x + 1) * RACK_SEPARATION_M_<float>,
-                    starting_corner_y + y * TRACK_SEPARATION_M_<float>,
-                    180.0f));
-            }
-        }
-        return starting_vectors;
-    }
-
-
-
-    void MiningPlanner::populateStripMap(
-        Eigen::MatrixXf & strip_map,
-        MiningDirection direction)
-    {
-        // This function will take
-    }
-
-    // Helper function to populate a strip map for a given direction
-    // void MiningPlanner::populateStripMap(
-    //     Eigen::MatrixXf& strip_map,
-    //     MiningDirection direction)
-    // {
-    //     int primary_dim, secondary_dim;
-    //     float angle;
-    //     switch (direction)
-    //     {
-    //         case MiningDirection::UP:
-    //         case MiningDirection::DOWN:
-    //         {
-    //             primary_dim = this->mapped_matrix_width;
-    //             secondary_dim = this->mapped_matrix_height;
-    //             angle = 90.f;
-    //             break;
-    //         }
-    //         case MiningDirection::LEFT:
-    //         case MiningDirection::RIGHT:
-    //         {
-    //             primary_dim = this->mapped_matrix_height;
-    //             secondary_dim = this->mapped_matrix_width;
-    //             angle = 0.f;
-    //             break;
-    //         }
-    //     }
-
-    //     for (int i = 0; i < secondary_dim; i++)
-    //     {
-    //         float secondary_pos = i * TRACK_SEPARATION_M_<float>;
-
-    //         int row = 0;
-    //         while (row < primary_dim)
-    //         {
-    //             float primary_pos = row * TRACK_SEPARATION_M_<float>;
-    //             // float distance = perception_eval(secondary_pos, primary_pos, angle);
-    //             float distance = 0.f;
-    //             int cells_clear = (int)(distance / TRACK_SEPARATION_M_<float>);
-
-    //             for (int j = row; j < primary_dim; j++)
-    //             {
-    //                 float distance_to_cell_end =
-    //                     (j - row + 1) * TRACK_SEPARATION_M_<float>;
-    //                 if (distance >= distance_to_cell_end)
-    //                 {
-    //                     strip_map(j, i) = 1.0f;
-    //                 }
-    //                 else
-    //                 {
-    //                     float distance_to_cell_start =
-    //                         (j - row) * TRACK_SEPARATION_M_<float>;
-    //                     if (distance <= distance_to_cell_start)
-    //                     {
-    //                         strip_map(j, i) = 0.0f;
-    //                     }
-    //                     else
-    //                     {
-    //                         strip_map(j, i) = (distance - distance_to_cell_start) /
-    //                                           TRACK_SEPARATION_M_<float>;
-    //                     }
-    //                     break;
-    //                 }
-    //             }
-    //             row += cells_clear + 1;
-    //         }
-    //     }
-    // }
-
-    void MiningPlanner::appendPlannedMiningPaths(
-        const Eigen::MatrixXf& mat,
-        MiningDirection mining_dir)
-    {
-        int a = 0, b = 0;
-        int width = mat.cols();
-        int height = mat.rows();
-        // std::cout << "Matrix dimensions - Width: " << width << ", Height: " << height << "\n";
-        // std::cout << "Mining Direction: " << miningDirectionToString(mining_dir) << "\n";
-        // std::cout << mat << "\n";
         for (int i = 0; i < width; i++)
         {
             a = 0;
             b = 0;
+            int guard = 0;
+
             while (b < height)
             {
-                if (mat(a, i) == 0)
+                if (++guard > (height * 20 + 100))
+                {
+                    std::cerr
+                        << "[MiningPlanner][DBG][STALL] pass=TopToBottom dir="
+                        << directionToString(mining_dir) << " col=" << i
+                        << " a=" << a << " b=" << b << " guard=" << guard
+                        << "\n";
+                    break;
+                }
+
+                const float va = (*mat)(a, i);
+                const float vb = (*mat)(b, i);
+                if ((va != va) || (vb != vb))
+                {
+                    std::cerr
+                        << "[MiningPlanner][DBG][NAN] pass=TopToBottom dir="
+                        << directionToString(mining_dir) << " col=" << i
+                        << " a=" << a << " b=" << b << " va=" << va
+                        << " vb=" << vb << "\n";
+                }
+
+                if (va == 0)
                 {
                     a++;
                     b = a;
                 }
-                else if (mat(b, i) != 1 || b == height - 1)
+                else if (vb != 1 || b == height - 1)
                 {
-                    if (mat(b, i) > 0)
+                    if (vb > 0)
                     {
                         b++;
                     }
+
                     DirectedMiningPath::MiningPath possible_path = std::pair(
                         Eigen::Vector2i(a, i),
                         Eigen::Vector2i(b - 1, i));
 
+                    if (MiningDirection::RIGHT == mining_dir)
+                    {
+                        // Undo transpose for RIGHT directional search.
+                        possible_path = std::pair(
+                            Eigen::Vector2i(i, possible_path.first.x()),
+                            Eigen::Vector2i(i, possible_path.second.x()));
+                    }
+
+                    Eigen::MatrixXf* original_mat =
+                        (MiningDirection::DOWN == mining_dir)
+                            ? &strip_map_down
+                            : &strip_map_right;
                     DirectedMiningPath dir_mining_path(
                         possible_path,
                         mining_dir,
-                        &mat);
+                        original_mat);
 
-                    if (dir_mining_path.getDistance() >=
-                        robot_params.min_zone_length)
+                    const float dist = dir_mining_path.getDistance();
+                    std::cerr << "[MiningPlanner][DBG] candidate dir="
+                              << directionToString(mining_dir) << " col=" << i
+                              << " start=(" << possible_path.first.x() << ","
+                              << possible_path.first.y() << ")"
+                              << " end=(" << possible_path.second.x() << ","
+                              << possible_path.second.y() << ")"
+                              << " dist=" << dist << " min_required="
+                              << robot_params.minimum_mining_path_length
+                              << "\n";
+
+                    if (dist >= robot_params.minimum_mining_path_length)
                     {
                         this->all_mining_paths.push_back(dir_mining_path);
+                        pushed_paths++;
+                    }
+                    else
+                    {
+                        skipped_short_paths++;
+                    }
+
+                    if (a == b)
+                    {
+                        std::cerr
+                            << "[MiningPlanner][DBG][NO_PROGRESS] pass=TopToBottom dir="
+                            << directionToString(mining_dir) << " col=" << i
+                            << " a=" << a << " b=" << b << " forcing b++\n";
+                        b++;
                     }
                     a = b;
                 }
-                else if (mat(b, i) == 1)
+                else if (vb == 1)
                 {
+                    b++;
+                }
+                else
+                {
+                    std::cerr
+                        << "[MiningPlanner][DBG][UNEXPECTED] pass=TopToBottom dir="
+                        << directionToString(mining_dir) << " col=" << i
+                        << " a=" << a << " b=" << b << " va=" << va
+                        << " vb=" << vb << " forcing b++\n";
                     b++;
                 }
             }
         }
-        // std::cout << "\n=== Planned Mining Paths ===\n";
-        // for (auto& path : dir_mining_paths){
-        //     path.print();
-        // }
     }
 
-    void MiningPlanner::sortPathsByQuality()
+    // Bottom to Top search (UP and LEFT)
+    for (int direction_index = 2; direction_index < 4; direction_index++)
     {
-        std::sort(
-            this->all_mining_paths.begin(),
-            this->all_mining_paths.end(),
-            [this](const DirectedMiningPath& a, const DirectedMiningPath& b)
-            {
-                return a.getQuality(this->times_mined_count_matrix) >
-                       b.getQuality(this->times_mined_count_matrix);
-            });
-    }
+        Eigen::MatrixXf* mat = mats[direction_index];
+        MiningDirection mining_dir = directions[direction_index];
 
-    void MiningPlanner::removeSectionsForRobotClearance()
-    {
-        for (int i = this->all_mining_paths.size() - 1; i >= 0; --i)
+        int width = mat->cols();
+        int height = mat->rows();
+
+        std::cerr << "[MiningPlanner][DBG] pass=BottomToTop dir="
+                  << directionToString(mining_dir) << " width=" << width
+                  << " height=" << height << "\n";
+
+        for (int i = 0; i < width; i++)
         {
-            // std::cout << "\n=== Adjusting Path for Robot Clearance ===\n";
-            // dir_mining_paths[i].print();
-            if (!this->all_mining_paths[i].adjustForRobotClearance())
+            a = height - 1;
+            b = height - 1;
+            int guard = 0;
+
+            while (b >= 0)
             {
-                // std::cout << "Path removed.\n";
-                this->all_mining_paths.erase(
-                    this->all_mining_paths.begin() + i);
+                if (++guard > (height * 20 + 100))
+                {
+                    std::cerr
+                        << "[MiningPlanner][DBG][STALL] pass=BottomToTop dir="
+                        << directionToString(mining_dir) << " col=" << i
+                        << " a=" << a << " b=" << b << " guard=" << guard
+                        << "\n";
+                    break;
+                }
+
+                const float va = (*mat)(a, i);
+                const float vb = (*mat)(b, i);
+                if ((va != va) || (vb != vb))
+                {
+                    std::cerr
+                        << "[MiningPlanner][DBG][NAN] pass=BottomToTop dir="
+                        << directionToString(mining_dir) << " col=" << i
+                        << " a=" << a << " b=" << b << " va=" << va
+                        << " vb=" << vb << "\n";
+                }
+
+                if (va == 0)
+                {
+                    a--;
+                    b = a;
+                }
+                else if (vb != 1 || b == 0)
+                {
+                    if (vb > 0)
+                    {
+                        b--;
+                    }
+
+                    DirectedMiningPath::MiningPath possible_path = std::pair(
+                        Eigen::Vector2i(a, i),
+                        Eigen::Vector2i(b + 1, i));
+
+                    if (MiningDirection::LEFT == mining_dir)
+                    {
+                        // Undo transpose for LEFT directional search.
+                        possible_path = std::pair(
+                            Eigen::Vector2i(i, possible_path.first.x()),
+                            Eigen::Vector2i(i, possible_path.second.x()));
+                    }
+
+                    Eigen::MatrixXf* original_mat =
+                        (MiningDirection::UP == mining_dir) ? &strip_map_up
+                                                            : &strip_map_left;
+                    DirectedMiningPath dir_mining_path(
+                        possible_path,
+                        mining_dir,
+                        original_mat);
+
+                    const float dist = dir_mining_path.getDistance();
+                    std::cerr << "[MiningPlanner][DBG] candidate dir="
+                              << directionToString(mining_dir) << " col=" << i
+                              << " start=(" << possible_path.first.x() << ","
+                              << possible_path.first.y() << ")"
+                              << " end=(" << possible_path.second.x() << ","
+                              << possible_path.second.y() << ")"
+                              << " dist=" << dist << " min_required="
+                              << robot_params.minimum_mining_path_length
+                              << "\n";
+
+                    if (dist >= robot_params.minimum_mining_path_length)
+                    {
+                        this->all_mining_paths.push_back(dir_mining_path);
+                        pushed_paths++;
+                    }
+                    else
+                    {
+                        skipped_short_paths++;
+                    }
+
+                    if (a == b)
+                    {
+                        std::cerr
+                            << "[MiningPlanner][DBG][NO_PROGRESS] pass=BottomToTop dir="
+                            << directionToString(mining_dir) << " col=" << i
+                            << " a=" << a << " b=" << b << " forcing b--\n";
+                        b--;
+                    }
+                    a = b;
+                }
+                else if (vb == 1)
+                {
+                    b--;
+                }
+                else
+                {
+                    std::cerr
+                        << "[MiningPlanner][DBG][UNEXPECTED] pass=BottomToTop dir="
+                        << directionToString(mining_dir) << " col=" << i
+                        << " a=" << a << " b=" << b << " va=" << va
+                        << " vb=" << vb << " forcing b--\n";
+                    b--;
+                }
             }
         }
     }
+
+    std::cerr
+        << "[MiningPlanner][DBG] appendPlannedMiningPaths: end total_paths="
+        << this->all_mining_paths.size() << " pushed=" << pushed_paths
+        << " skipped_short=" << skipped_short_paths << "\n";
+}
+
+void MiningPlanner::sortPathsByQuality()
+{
+    std::sort(
+        this->all_mining_paths.begin(),
+        this->all_mining_paths.end(),
+        [this](const DirectedMiningPath& a, const DirectedMiningPath& b)
+        {
+            return a.getQuality(this->previously_mined_cells) >
+                   b.getQuality(this->previously_mined_cells);
+        });
+}
+
+void MiningPlanner::removeSectionsForRobotClearance()
+{
+    for (int i = this->all_mining_paths.size() - 1; i >= 0; --i)
+    {
+        if (!this->all_mining_paths[i].adjustForRobotClearance())
+        {
+            this->all_mining_paths.erase(this->all_mining_paths.begin() + i);
+        }
+    }
+}
 
 };  // namespace lance

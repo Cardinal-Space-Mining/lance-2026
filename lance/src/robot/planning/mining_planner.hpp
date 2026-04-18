@@ -37,16 +37,19 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
 #include <vector>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
 #include <functional>
 
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Geometry>
 
-#include "robot_params.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/sensing/mining_eval.hpp"
 
 
 namespace lance
@@ -58,6 +61,18 @@ enum class MiningDirection
     DOWN,
     LEFT,
     RIGHT
+};
+
+struct MiningGridGeometry
+{
+    float mining_zone_x_length = 0.0f;
+    float mining_zone_y_length = 0.0f;
+    float actual_mining_x_length = 0.0f;
+    float actual_mining_y_length = 0.0f;
+    int x_divisions = 0;
+    int y_divisions = 0;
+    Eigen::Vector2f min_corner_with_offset = Eigen::Vector2f::Zero();
+    Eigen::Vector2f max_corner_with_offset = Eigen::Vector2f::Zero();
 };
 
 
@@ -78,9 +93,24 @@ public:
         const Eigen::MatrixXf* mat);
 
 public:
-    float getDistance() const;
+    MiningSwath getPathCoordinatesInWorldFrame(
+        const RobotParams& robot_params,
+        const MiningGridGeometry* grid_geometry = nullptr) const;
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
+
+    void print() const
+    {
+        std::cout << "Path from (" << path.first.x() << ", " << path.first.y()
+                  << ") to (" << path.second.x() << ", " << path.second.y()
+                  << ") in direction " << static_cast<int>(direction)
+                  << " with distance " << distance << "\n";
+    }
+
+
+public:
+// public but only used by MiningPlanner
+    float getDistance() const;
 
     bool checkValidity() const;
 
@@ -88,12 +118,9 @@ public:
 
     bool adjustForRobotClearance();
 
-    MiningSwath getPathCoordinatesInWorldFrame() const;
+    MiningDirection getDirection() const { return direction; }
 
     float getRecalculatedDistance() const;
-
-private:
-    MiningPath toBaseCoordinates() const;
 
 private:
     MiningPath path;
@@ -113,31 +140,35 @@ public:
     using Pose2f = Eigen::Vector3f;
 
 public:
-    MiningPlanner(const RobotParams& robot_params);
+    MiningPlanner(MiningEvalInterface& mining_eval, const RobotParams& robot_params);
 
 public:
-    void updateMappedMatrices();
+    bool updateMappedMatrices();
     const DirectedMiningPaths& finalOutput();
+    const DirectedMiningPaths& getCachedPaths() const { return all_mining_paths; }
+    const MiningGridGeometry& getGridGeometry() const { return grid_geometry; }
 
     void markMiningOnMatrix(const DirectedMiningPath& path);
+    bool hasSentRequest() const { return sent_eval_request; }
 
 private:
-    const std::vector<Pose2f>& getStartingLocations();
-    
-    // Helper function to populate a strip map for a given direction
-    void populateStripMap(
-        Eigen::MatrixXf& strip_map,
-        MiningDirection direction);
+    static MiningGridGeometry
+        computeMiningGridGeometry(const RobotParams& robot_params);
 
-    void appendPlannedMiningPaths(
-        const Eigen::MatrixXf& mat,
-        MiningDirection mining_dir);
+    const std::vector<Pose2f>& getStartingLocations();
+
+    void appendPlannedMiningPaths();
 
     void sortPathsByQuality();
     void removeSectionsForRobotClearance();
 
 private:
     const RobotParams& robot_params;
+    MiningEvalInterface& mining_eval;
+
+
+    bool sent_eval_request{ false };
+    MiningGridGeometry grid_geometry;
 
     // The direction is the way the the robot would be moving in reference to the
     // base frame which is MiningDirection::DOWN
@@ -145,15 +176,13 @@ private:
     Eigen::MatrixXf strip_map_down;
     Eigen::MatrixXf strip_map_left;
     Eigen::MatrixXf strip_map_right;
-    Eigen::MatrixXi times_mined_count_matrix;
+    Eigen::MatrixXf strip_map_left_transposed;
+    Eigen::MatrixXf strip_map_right_transposed;
+    Eigen::MatrixXi previously_mined_cells;
 
     DirectedMiningPaths all_mining_paths;
 
-    // int mapped_matrix_width;
-    // int mapped_matrix_height;
-
-    const float full_width = 1; // edge of track to other far edge
-    const float max_length = 1.5;// the max length from the middle of the robot to the front and back
+    
 };
 
 };  // namespace lance

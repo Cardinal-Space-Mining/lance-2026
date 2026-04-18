@@ -45,7 +45,7 @@
 #include "robot/core/collection_state.hpp"
 #include "robot/control/shared/shared_controllers.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include "robot/planning/mining_planner.hpp"
 
 
 namespace lance
@@ -89,7 +89,7 @@ protected:
     TraversalController& traversal_controller;
     MiningController& mining_controller;
 
-    // MiningPlanner mining_planner;
+    MiningPlanner mining_planner;
 
     Stage stage{Stage::FINISHED};
 

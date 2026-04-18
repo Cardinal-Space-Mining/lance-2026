@@ -101,6 +101,16 @@ public:
     using Byte = Bytes::value_type;
     using BytePtr = const Byte*;
     using BytePtrRef = const Byte*&;
+
+    constexpr static uint8_t AUTO_MINING_STATE_STAGE_MASK = 0x3f;
+    constexpr static uint8_t AUTO_MINING_STATE_GRID_BIT = 0x40;
+    constexpr static uint8_t AUTO_MINING_STATE_PATHS_BIT = 0x80;
+    constexpr static size_t AUTO_MINING_MAX_GRID_DIVS = 64;
+    constexpr static size_t AUTO_MINING_MAX_PATHS = 64;
 };
+
+#ifndef ENABLE_MINING_PLANNER_DEBUG
+#define ENABLE_MINING_PLANNER_DEBUG 1
+#endif
 
 };  // namespace lance
