@@ -37,6 +37,7 @@
 *                                                                              *
 *******************************************************************************/
 
+#include <functional>
 #include <vector>
 #include <string>
 
@@ -85,6 +86,7 @@ public:
     struct RclMotorConfig
     {
         int follows_id;
+        std::string follower_type;
         phx6::signals::MotorAlignmentValue alignment;
         SensorSource sensor;
 
@@ -93,7 +95,7 @@ public:
             int remote_sensor_id;  // For any sensor that requires an ID: Remote*, Fused*, or Sync*
             struct
             {
-                int max_v;
+                double max_v;
                 bool invert_sensor;
             } pot;  // For AnalogPotentiometer sensor config
         };
@@ -124,10 +126,14 @@ public:
             phx6::configs::TalonFXSConfiguration>;
 
         MotorType motor;
+        std::string name;
+        rclcpp::Logger logger;
+        rclcpp::Clock::SharedPtr clock;
         RclMotorConfig config;
         SharedPub<TalonInfoMsg> info_pub;
         SharedPub<TalonFaultsMsg> faults_pub;
         SharedSub<TalonCtrlMsg> ctrl_sub;
+        std::function<bool(const TalonCtrlMsg&)> custom_ctrl_handler;
 
         RclMotor(
             rclcpp::Node* node,
@@ -146,20 +152,27 @@ public:
 private:
     void feedWatchdogStatus(int32_t status);
 
+    void setupCustomMechanisms();
+    void updateCustomMechanisms();
+
     void pubMotorInfo_cb();
     void pubMotorFault_cb();
 
 private:
+    struct CustomMechanismPair;
+
     CANBus bus;
     int diagnostic_server_port;
 
     std::vector<std::unique_ptr<RclMotor<TalonFX>>> FX_motors;
     std::vector<std::unique_ptr<RclMotor<TalonFXS>>> FXS_motors;
+    std::vector<std::unique_ptr<CustomMechanismPair>> custom_mechanisms;
 
     SharedSub<Int32Msg> watchdog_status_sub;
 
     RclTimer info_pub_timer;
     RclTimer fault_pub_timer;
+    RclTimer custom_mechanism_timer;
 
     bool is_disabled = false;
 };

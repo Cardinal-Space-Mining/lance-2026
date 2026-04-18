@@ -83,7 +83,7 @@ def get_driver_actions(config):
         actions.append(
             NodeAction(p6_cfg).format_node(
                 package='phoenix_ros_driver',
-                executable='',
+                executable='lance2_phx6_driver',
                 output='screen'
             )
         )

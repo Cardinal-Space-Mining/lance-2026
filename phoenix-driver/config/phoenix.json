@@ -1,27 +1,20 @@
 {
     "pragma:enable_preproc": true,
-
-    "phoenix5_driver":
-    {
+    "phoenix5_driver": {
         "pragma:default": null,
-        "enabled":
-        {
+        "enabled": {
             "diagnostics_port": 1250,
             "canbus": "canable_B"
         }
     },
-    
-    "phoenix6_driver_old":
-    {
+    "phoenix6_driver_old": {
         "pragma:default": null,
-        "enabled":
-        {
+        "enabled": {
             "diagnostics_port": 0,
             "canbus": "canable_A",
             "arduino_device": "",
             "power_cycle_fault_thresh_s": 1.5,
-            "common":
-            {
+            "common": {
                 "kP": 0.4,
                 "kI": 0.05,
                 "kD": 0.0001,
@@ -34,24 +27,19 @@
             }
         }
     },
-
-    "phoenix6_driver":
-    {
+    "phoenix6_driver": {
         "pragma:default": null,
-        "enabled":
-        {
+        "enabled": {
             "info_pub_rate_ms": 50,
             "fault_pub_rate_ms": 250,
             "diagnostics_port": 0,
             "canbus": "canable_A",
-            "motors":[
+            "motors": [
                 {
                     "name": "track_right",
                     "can_id": 0,
                     "controller": "FX",
                     "follows": "",
-                    "sensor": "",
-
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
@@ -60,15 +48,13 @@
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
                     "supply_current_limit": 2.0,
-                    "voltage_limit": 12.0                    
+                    "voltage_limit": 12.0
                 },
                 {
                     "name": "track_left",
                     "can_id": 1,
                     "controller": "FX",
                     "follows": "",
-                    "sensor": "",
-
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
@@ -77,15 +63,13 @@
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
                     "supply_current_limit": 2.0,
-                    "voltage_limit": 12.0                    
+                    "voltage_limit": 12.0
                 },
                 {
                     "name": "trencher",
                     "can_id": 2,
                     "controller": "FX",
                     "follows": "",
-                    "sensor": "",
-
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
@@ -94,15 +78,13 @@
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
                     "supply_current_limit": 2.0,
-                    "voltage_limit": 12.0                    
+                    "voltage_limit": 12.0
                 },
                 {
                     "name": "hopper_belt",
                     "can_id": 3,
                     "controller": "FX",
                     "follows": "",
-                    "sensor": "",
-
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
@@ -111,17 +93,17 @@
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
                     "supply_current_limit": 2.0,
-                    "voltage_limit": 12.0                    
+                    "voltage_limit": 12.0
                 },
                 {
                     "name": "hopper_act_left",
                     "can_id": 4,
                     "controller": "FXS",
-                    "follows": "",
+                    "follows": "hopper_act_right",
+                    "follower_type": "CustomMechanism",
                     "sensor": "analog_pot",
                     "pot_max_v": 3.3,
                     "pot_inverted": true,
-
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
@@ -130,17 +112,17 @@
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
                     "supply_current_limit": 2.0,
-                    "voltage_limit": 12.0                    
+                    "voltage_limit": 12.0
                 },
                 {
                     "name": "hopper_act_right",
                     "can_id": 5,
                     "controller": "FXS",
                     "follows": "hopper_act_left",
+                    "follower_type": "CustomMechanism",
                     "sensor": "analog_pot",
                     "pot_max_v": 3.3,
                     "pot_inverted": true,
-
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
@@ -149,7 +131,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
                     "supply_current_limit": 2.0,
-                    "voltage_limit": 12.0                    
+                    "voltage_limit": 12.0
                 }
             ]
         }

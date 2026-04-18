@@ -1,6 +1,6 @@
 import os
 import sys
-from pprint import pprint
+# from pprint import pprint
 
 from launch import LaunchDescription
 from launch.actions import OpaqueFunction
@@ -30,19 +30,19 @@ def launch(context, *args, **kwargs):
         launch_args = parse_launch_args(context.argv)
         json_data = try_load_json_from_args(launch_args, DEFAULT_JSON_PATH)
         config = preprocess_launch_json(json_data, launch_args)
-        print("---------------------------------------------")
-        pprint(config)
-        print("---------------------------------------------")
+        # print("---------------------------------------------")
+        # pprint(config)
+        # print("---------------------------------------------")
         if config is not json_data:
             actions.extend(get_util_actions(config, launch_args))
         actions.extend(get_driver_actions(config))
-        print("---------------------------------------------")
-        pprint(config)
-        print("---------------------------------------------")
+        # print("---------------------------------------------")
+        # pprint(config)
+        # print("---------------------------------------------")
     else:
         print("The 'launch_utils' package is needed to launch Phoenix Driver using JSON action configs.")
 
-    return None
+    return actions
 
 
 
