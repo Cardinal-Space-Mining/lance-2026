@@ -47,15 +47,15 @@
 #include <zenoh.hxx>
 #include <rclcpp/rclcpp.hpp>
 
-#include "../util/delay_queue.hpp"
-#include "../util/zstd_utils.hpp"
+#include "../core/zstd_ctx.hpp"
+#include "../core/delay_queue.hpp"
 
 
 /* Base class for adapter implementations (CRTP static polymorphism).
  *
  * Msg_T            : ROS message type the adapter interfaces with
  * Derived_T        : CRTP derivee class
- * Compression_Lvl: : Zstd compression level to use if >= 0
+ * Compression_Lvl: : Zstd compression level to use if > 0
  * PubState_T       : Optional extra storage for publishers (default = Derived_T)
  * SubState_T       : Optional extra storage for subscribers (default = Derived_T)
  *

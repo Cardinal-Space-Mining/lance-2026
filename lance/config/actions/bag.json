@@ -123,17 +123,7 @@
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
 
-                "/collection_state/is_full_volume",
-                "/collection_state/is_full_occ",
-                "/collection_state/volume",
-                "/collection_state/mining_target",
-                "/collection_state/offload_target",
-                "/collection_state/belt_pos_m",
-                "/collection_state/high_pos_m",
-                "/collection_state/low_pos_m",
-                "/collection_state/belt_usage_m",
-
-                "/cardinal_perception/planned_path",
+                "/lance/telemetry",
 
                 "/cardinal_perception/trace_notifications",
                 "/rosout"
@@ -153,6 +143,7 @@
                 "/lance/watchdog_status",
                 "/lance/op_status",
                 "/lance/relay_status",
+                "/lance/mc_state",
 
                 "/lance/track_left/ctrl",
                 "/lance/track_left/faults",
@@ -174,16 +165,15 @@
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
 
-                "/collection_state/is_full_volume",
-                "/collection_state/is_full_occ",
-                "/collection_state/volume",
-                "/collection_state/mining_target",
-                "/collection_state/offload_target",
-                "/collection_state/belt_pos_m",
-                "/collection_state/high_pos_m",
-                "/collection_state/low_pos_m",
-                "/collection_state/belt_usage_m",
+                "/lance/telemetry",
+                "/lance/net_latency",
+                "/lance/traversal_path",
+                "/lance/markers",
+                "/lance/mc_cursor",
+                "/arena_zones",
 
+                "/cardinal_perception/mining_eval_results",
+                "/cardinal_perception/reflector_hint",
                 "/cardinal_perception/planned_path",
 
                 "/cardinal_perception/trace_notifications",

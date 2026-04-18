@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,94 +39,47 @@
 
 #pragma once
 
+#include <rclcpp/rclcpp.hpp>
+
+#include <sensor_msgs/msg/joint_state.hpp>
+
 #include "util/ros_utils.hpp"
-#include "util/zenoh_utils.hpp"
-#include "core/delay_queue.hpp"
+
+#include "robot/core/ros_interface.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/model/dynamics.hpp"
 
 
-enum EndPoint
+namespace lance
 {
-    ROBOT_ENDPOINT,
-    CLIENT_ENDPOINT
-};
-enum DataFlow
+
+class JointPublisher : public util::UsingRosAliases
 {
-    ROBOT_TO_CLIENT,
-    CLIENT_TO_ROBOT
-};
+    using JointStateMsg = sensor_msgs::msg::JointState;
 
-template<DataFlow D, EndPoint E>
-struct ChannelTraits
-{
-    constexpr static int Data_Flow_V = D;
-    constexpr static int End_Point_V = E;
-
-    constexpr static bool Is_Subscriber =
-        ((Data_Flow_V == ROBOT_TO_CLIENT) == (End_Point_V == ROBOT_ENDPOINT));
-    constexpr static bool Is_Publisher =
-        ((Data_Flow_V == CLIENT_TO_ROBOT) == (End_Point_V == ROBOT_ENDPOINT));
-};
-
-template<typename Adapter_T, DataFlow D, EndPoint E>
-struct AdapterTraits : public ChannelTraits<D, E>
-{
-    // **traits check that adapter extends BaseAdapter**
-
-    using AdapterT = Adapter_T;
-    using RawSubscriberT = typename AdapterT::Subscriber;
-    using RawPublisherT = typename AdapterT::Publisher;
-
-    class ISubscriber : public RawSubscriberT
+public:
+    inline JointPublisher(RclNode& node) :
+        joint_pub{node.create_publisher<JointStateMsg>(
+            "joint_states",
+            rclcpp::SensorDataQoS{})},
+        hopper_info_sub{node.create_subscription<TalonInfoMsg>(
+            TALON_INFO_TOPIC("hopper_act"),
+            rclcpp::SensorDataQoS{},
+            [this](const TalonInfoMsg& info)
+            {
+                JointStateMsg msg;
+                msg.header = info.header;
+                msg.name.push_back(lance::HOPPER_JOINT_NAME);
+                msg.position.push_back(
+                    lance::linearActuatorToJointAngle(info.position / 1000.));
+                this->joint_pub->publish(msg);
+            })}
     {
-        using RawT = RawSubscriberT;
+    }
 
-    public:
-        ISubscriber(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-    class IPublisher : public RawPublisherT
-    {
-        using RawT = RawPublisherT;
-
-    public:
-        IPublisher(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-
-    using ChannelTraits<D, E>::Is_Subscriber;
-    using ChannelT = std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
+private:
+    RclPubPtr<JointStateMsg> joint_pub;
+    RclSubPtr<TalonInfoMsg> hopper_info_sub;
 };
 
-
-// ---
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::ISubscriber::ISubscriber(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawSubscriberT{node, zsh, topic, qos, dq}
-{
-}
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::IPublisher::IPublisher(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawPublisherT{node, zsh, topic, qos}
-{
-    (void)dq;
-}
+};  // namespace lance

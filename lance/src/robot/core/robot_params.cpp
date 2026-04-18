@@ -92,9 +92,6 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, belt_capacity_meters, 0.6f, float),
     INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
 
-    INIT_PARAM(preset_mining_traversal_dist_meters, 0.25f, float),
-    INIT_PARAM(preset_offload_backup_dist_meters, 0.25f, float),
-
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
     INIT_PARAM(robot_frame_id, "base_link", std::string),
     INIT_PARAM(odom_frame_id, "odom", std::string),
@@ -120,16 +117,17 @@ RobotParams::RobotParams(rclcpp::Node& node) :
 {
     std::vector<double> buff;
 
-#define INIT_BOX2F(zone)                                         \
-    declare_param(node, #zone "_bounds.min", buff, {0., 0.});    \
-    assert(buff.size() > 1);                                     \
-    this->zone##_bounds.min().x() = static_cast<float>(buff[0]); \
-    this->zone##_bounds.min().y() = static_cast<float>(buff[1]); \
-    declare_param(node, #zone "_bounds.max", buff, {0., 0.});    \
-    assert(buff.size() > 1);                                     \
-    this->zone##_bounds.max().x() = static_cast<float>(buff[0]); \
-    this->zone##_bounds.max().y() = static_cast<float>(buff[1]);
+#define INIT_BOX2F(zone)                                       \
+    declare_param(node, #zone "_bounds.min", buff, {0., 0.});  \
+    assert(buff.size() > 1);                                   \
+    this->bounds.zone.min().x() = static_cast<float>(buff[0]); \
+    this->bounds.zone.min().y() = static_cast<float>(buff[1]); \
+    declare_param(node, #zone "_bounds.max", buff, {0., 0.});  \
+    assert(buff.size() > 1);                                   \
+    this->bounds.zone.max().x() = static_cast<float>(buff[0]); \
+    this->bounds.zone.max().y() = static_cast<float>(buff[1]);
 
+    INIT_BOX2F(arena_zone)
     INIT_BOX2F(mining_zone)
     INIT_BOX2F(offload_zone)
     INIT_BOX2F(construction_zone)

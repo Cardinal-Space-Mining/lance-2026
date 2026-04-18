@@ -54,6 +54,15 @@ struct RobotParams
     using Box2f = Eigen::AlignedBox2f;
 
 public:
+    struct ZoneBounds
+    {
+        Box2f arena_zone;
+        Box2f mining_zone;
+        Box2f offload_zone;
+        Box2f construction_zone;
+    };
+
+public:
     const float default_stick_deadzone;
     const float driving_magnitude_deadzone;
     const float driving_low_scalar;
@@ -88,18 +97,13 @@ public:
     const float collection_model_belt_capacity_meters;
     const float collection_model_belt_offload_length_meters;
 
-    const float preset_mining_traversal_dist_meters;
-    const float preset_offload_backup_dist_meters;
-
     const float iteration_period_seconds;
 
     const std::string robot_frame_id;
     const std::string odom_frame_id;
     const std::string arena_frame_id;
 
-    Box2f mining_zone_bounds;
-    Box2f offload_zone_bounds;
-    Box2f construction_zone_bounds;
+    ZoneBounds bounds;
 
     const int auto_localization_min_num_search_samples;
     const float auto_localization_search_angular_velocity_rps;

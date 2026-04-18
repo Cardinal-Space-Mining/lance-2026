@@ -86,26 +86,29 @@
         "visible": true
       },
       "appearance": {
-        "fontSize": 18,
+        "fontSize": 14,
         "backgroundColor": "#27272b",
         "fontColor": "#e1e1e4",
         "fontFamily": "'Source Code Pro', 'Consolas', 'Courier New', monospace"
       }
     },
-    "Gauge!14u20zd": {
-      "path": "/lance/collection_state/volume.data",
+    "Bar Display.Bar Display!24ijj1u": {
+      "topicField": "/lance/collection_state/volume.data",
       "minValue": 0,
-      "maxValue": 30,
-      "colorMap": "red-yellow-green",
-      "colorMode": "gradient",
-      "gradient": [
-        "#ff0000ff",
-        "#0bff00ff"
-      ],
-      "reverse": false,
-      "foxglovePanelTitle": "Hopper Fullness",
-      "reverseDirection": false,
-      "style": "dial"
+      "maxValue": 50,
+      "barColor": "#0037ff",
+      "orientation": "horizontal",
+      "fillBehavior": "clamp",
+      "negateValue": false
+    },
+    "Bar Display.Bar Display!1aq54gx": {
+      "topicField": "/lance/collection_state/belt_usage.data",
+      "minValue": 0,
+      "maxValue": 1,
+      "barColor": "#00ff05",
+      "orientation": "horizontal",
+      "fillBehavior": "clamp",
+      "negateValue": false
     },
     "Bar Display.Bar Display!308m91j": {
       "topicField": "/lance/hopper_act/info.bus_voltage",
@@ -130,13 +133,13 @@
     "3D!wl899f": {
       "cameraState": {
         "perspective": false,
-        "distance": 7.169718448170314,
-        "phi": 0.7725894871752053,
-        "thetaOffset": 91.00560887294469,
+        "distance": 7.944286369134119,
+        "phi": 40.51381731626777,
+        "thetaOffset": 55.15944726331444,
         "targetOffset": [
-          0,
-          0,
-          0
+          -2.244055629377903,
+          -0.8839905590464912,
+          2.805535342104833e-16
         ],
         "target": [
           0,
@@ -237,6 +240,47 @@
             "#00f3ffff"
           ],
           "lineWidth": 0.1
+        },
+        "/lance/markers": {
+          "visible": true,
+          "showOutlines": true,
+          "namespaces": {
+            "robot": {
+              "visible": true
+            }
+          }
+        },
+        "/cardinal_perception/traversibility_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 6,
+          "minValue": 0,
+          "maxValue": 1
+        },
+        "/cardinal_perception/pplan_map": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 9,
+          "minValue": 10,
+          "maxValue": 100
+        },
+        "/lance/traversal_target": {
+          "visible": false
+        },
+        "/lance/traversal_cursor": {
+          "visible": true,
+          "axisScale": 0.5
+        },
+        "/lance/mc_cursor": {
+          "visible": true,
+          "axisScale": 0.5
+        },
+        "/cardinal_perception/pplan_target": {
+          "visible": false
         }
       },
       "layers": {
@@ -252,15 +296,16 @@
           "lineWidth": 1,
           "color": "#248eff",
           "position": [
-            0,
-            0,
+            5,
+            5,
             0
           ],
           "rotation": [
             0,
             0,
             0
-          ]
+          ],
+          "frameId": "map"
         }
       },
       "publish": {
@@ -273,7 +318,8 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "base_link"
+      "followTf": "odom",
+      "synchronize": false
     },
     "StateTransitions!xkp66y": {
       "paths": [
@@ -283,6 +329,35 @@
           "customStates": {
             "type": "discrete",
             "states": []
+          }
+        },
+        {
+          "value": "/lance/mc_state.data",
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": [
+              {
+                "value": "0",
+                "label": "Robot Control"
+              },
+              {
+                "value": "1",
+                "label": "MC Override"
+              },
+              {
+                "value": "2",
+                "label": "Traversal Planner"
+              },
+              {
+                "value": "3",
+                "label": "Mining Planner"
+              },
+              {
+                "value": "4",
+                "label": "Offload Planner"
+              }
+            ]
           }
         }
       ],
@@ -416,15 +491,83 @@
       "xAxisVal": "timestamp",
       "sidebarDimension": 354
     },
+    "Indicator!8ik4mm": {
+      "path": "/lance/mining_constraints/obstacle.data",
+      "style": "background",
+      "fontSize": 24,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Disabled",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#e63131",
+          "label": "Obstacles"
+        }
+      ]
+    },
+    "Indicator!vhh9yt": {
+      "path": "/lance/mining_constraints/hopper_model.data",
+      "style": "background",
+      "fontSize": 24,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Disabled",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#9d00ff",
+          "label": "Hopper"
+        }
+      ]
+    },
+    "Indicator!1ul4ret": {
+      "path": "/lance/mining_constraints/zone_boundary.data",
+      "style": "background",
+      "fontSize": 24,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Disabled",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#ffa400",
+          "label": "Boundary"
+        }
+      ]
+    },
+    "Indicator!2er2cap": {
+      "path": "/lance/mining_constraints/stall_event.data",
+      "style": "background",
+      "fontSize": 24,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Disabled",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#ffd500",
+          "label": "Stall"
+        }
+      ]
+    },
     "StateTransitions!3qedham": {
       "paths": [
         {
           "value": "/lance/track_left/info.status",
-          "timestampMethod": "receiveTime"
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
         },
         {
           "value": "/lance/track_right/info.status",
-          "timestampMethod": "receiveTime"
+          "timestampMethod": "receiveTime",
+          "customStates": {
+            "type": "discrete",
+            "states": []
+          }
         },
         {
           "value": "/lance/trencher/info.status",
@@ -452,14 +595,6 @@
         },
         {
           "value": "/lance/watchdog_status.data",
-          "timestampMethod": "receiveTime",
-          "customStates": {
-            "type": "discrete",
-            "states": []
-          }
-        },
-        {
-          "value": "/lance/phx6_op_status.data",
           "timestampMethod": "receiveTime",
           "customStates": {
             "type": "discrete",
@@ -601,16 +736,15 @@
     },
     "3D!18yg16o": {
       "cameraState": {
+        "distance": 20,
         "perspective": true,
-        "distance": 8.362406704381648,
-        "phi": 5.52141499262802,
-        "thetaOffset": -139.38773586903528,
-        "targetOffset": [
-          -0.37689614062994564,
-          -2.9071774719985553,
-          1.83336581754239e-24
-        ],
+        "phi": 56.319075696874144,
         "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
           0,
           0,
           0
@@ -621,6 +755,7 @@
           0,
           1
         ],
+        "thetaOffset": 137.18156123776046,
         "fovy": 45,
         "near": 0.5,
         "far": 5000
@@ -835,16 +970,15 @@
     },
     "3D!3qwg4qu": {
       "cameraState": {
+        "distance": 20,
         "perspective": true,
-        "distance": 8.362406704381648,
-        "phi": 5.52141499262802,
-        "thetaOffset": -139.38773586903528,
-        "targetOffset": [
-          -0.37689614062994564,
-          -2.9071774719985553,
-          1.83336581754239e-24
-        ],
+        "phi": 56.319075696874144,
         "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
           0,
           0,
           0
@@ -855,6 +989,7 @@
           0,
           1
         ],
+        "thetaOffset": 137.18156123776046,
         "fovy": 45,
         "near": 0.5,
         "far": 5000
@@ -1115,16 +1250,15 @@
     },
     "3D!hllzd3": {
       "cameraState": {
+        "distance": 20,
         "perspective": true,
-        "distance": 8.362406704381648,
-        "phi": 5.52141499262802,
-        "thetaOffset": -139.38773586903528,
-        "targetOffset": [
-          -0.37689614062994564,
-          -2.9071774719985553,
-          1.83336581754239e-24
-        ],
+        "phi": 56.319075696874144,
         "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
           0,
           0,
           0
@@ -1135,6 +1269,7 @@
           0,
           1
         ],
+        "thetaOffset": 137.18156123776046,
         "fovy": 45,
         "near": 0.5,
         "far": 5000
@@ -1317,6 +1452,9 @@
             "#00a2ffff",
             "#ff00eeff"
           ]
+        },
+        "/lance/markers": {
+          "visible": true
         }
       },
       "layers": {
@@ -1357,16 +1495,15 @@
     },
     "3D!q6dbn4": {
       "cameraState": {
+        "distance": 20,
         "perspective": true,
-        "distance": 8.362406704381648,
-        "phi": 5.52141499262802,
-        "thetaOffset": -139.38773586903528,
-        "targetOffset": [
-          -0.37689614062994564,
-          -2.9071774719985553,
-          1.83336581754239e-24
-        ],
+        "phi": 56.319075696874144,
         "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
           0,
           0,
           0
@@ -1377,6 +1514,7 @@
           0,
           1
         ],
+        "thetaOffset": 137.18156123776046,
         "fovy": 45,
         "near": 0.5,
         "far": 5000
@@ -3367,13 +3505,13 @@
     "3D!3vxc2ba": {
       "cameraState": {
         "perspective": true,
-        "distance": 21.05263157882629,
-        "phi": 20.321885770988434,
-        "thetaOffset": -48.27927373765629,
+        "distance": 58.72652247362074,
+        "phi": 42.90028298354821,
+        "thetaOffset": -139.01098105473005,
         "targetOffset": [
-          -0.23078536049816473,
-          1.0457489643157172,
-          -0.0000014749596446806354
+          0.33411773741585826,
+          -0.4121283929104509,
+          -0.0000014749596445974829
         ],
         "target": [
           0,
@@ -5481,13 +5619,13 @@
     "3D!2u55iff": {
       "cameraState": {
         "perspective": true,
-        "distance": 10.807201753065586,
-        "phi": 37.48066249602095,
-        "thetaOffset": -172.3525009706523,
+        "distance": 18.999999999989218,
+        "phi": 38.46695625304138,
+        "thetaOffset": -153.11905149110814,
         "targetOffset": [
-          0.6411215720998978,
-          -1.1689110226809254,
-          -1.553425191126605e-16
+          0,
+          0,
+          0
         ],
         "target": [
           0,
@@ -5702,6 +5840,13 @@
           "enabled": true,
           "color": "#cad660",
           "id": "7294dede-c17f-4149-b4e3-f20d56282af8"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/cardinal_perception/mining_eval_results.ranges[:]",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "3da0b530-146c-4d22-99d3-75b18b14a875"
         }
       ],
       "showPlotValuesInLegend": true
@@ -5745,7 +5890,12 @@
                       "direction": "column"
                     },
                     "second": {
-                      "first": "Gauge!14u20zd",
+                      "first": {
+                        "first": "Bar Display.Bar Display!24ijj1u",
+                        "second": "Bar Display.Bar Display!1aq54gx",
+                        "direction": "column",
+                        "splitPercentage": 52.667235051444564
+                      },
                       "second": {
                         "first": "Bar Display.Bar Display!308m91j",
                         "second": "Bar Display.Bar Display!k9azda",
@@ -5756,7 +5906,7 @@
                       "splitPercentage": 32.00869014212003
                     },
                     "direction": "column",
-                    "splitPercentage": 34.15560598352307
+                    "splitPercentage": 35.09333990511984
                   },
                   "direction": "column",
                   "splitPercentage": 8.314974863017566
@@ -5768,15 +5918,40 @@
                 "first": "3D!wl899f",
                 "second": "StateTransitions!xkp66y",
                 "direction": "column",
-                "splitPercentage": 80.37100724297848
+                "splitPercentage": 83.78927622322963
               },
               "direction": "row",
-              "splitPercentage": 16.153621599723568
+              "splitPercentage": 16.161137440758296
             },
             "second": {
               "first": {
                 "first": "Plot!1n7cgqb",
-                "second": "Plot!wy5z8y",
+                "second": {
+                  "first": {
+                    "first": "Plot!wy5z8y",
+                    "second": "Plot!3b2rqhx",
+                    "direction": "column",
+                    "splitPercentage": 58.309276664349596
+                  },
+                  "second": {
+                    "first": {
+                      "first": "Indicator!8ik4mm",
+                      "second": {
+                        "first": "Indicator!vhh9yt",
+                        "second": "Indicator!1ul4ret",
+                        "direction": "column",
+                        "splitPercentage": 50.68493150684932
+                      },
+                      "direction": "column",
+                      "splitPercentage": 35.24939872902401
+                    },
+                    "second": "Indicator!2er2cap",
+                    "direction": "column",
+                    "splitPercentage": 74.56514156430849
+                  },
+                  "direction": "row",
+                  "splitPercentage": 69.15039126717956
+                },
                 "direction": "column"
               },
               "second": "StateTransitions!3qedham",
@@ -5784,7 +5959,7 @@
               "splitPercentage": 63.61639824304539
             },
             "direction": "row",
-            "splitPercentage": 74.88542621448214
+            "splitPercentage": 79.73568281938326
           }
         },
         {
@@ -6177,6 +6352,23 @@
           }
         }
       ]
+    },
+    "Plot!3b2rqhx": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/net_latency.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "5118f7e4-5db1-4c21-bfcb-2e9c0b4ebd4a",
+          "showLine": true
+        }
+      ],
+      "showLegend": false,
+      "showYAxisLabels": true,
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp"
     }
   },
   "globalVariables": {

@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,94 +39,69 @@
 
 #pragma once
 
+#include <vector>
+#include <string_view>
+
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+
 #include "util/ros_utils.hpp"
-#include "util/zenoh_utils.hpp"
-#include "core/delay_queue.hpp"
+
+#include "robot/model/geometry.hpp"
 
 
-enum EndPoint
+namespace lance
 {
-    ROBOT_ENDPOINT,
-    CLIENT_ENDPOINT
-};
-enum DataFlow
+
+class MarkerManager : public util::UsingRosAliases
 {
-    ROBOT_TO_CLIENT,
-    CLIENT_TO_ROBOT
-};
+public:
+    using MarkerMsg = visualization_msgs::msg::Marker;
+    using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 
-template<DataFlow D, EndPoint E>
-struct ChannelTraits
-{
-    constexpr static int Data_Flow_V = D;
-    constexpr static int End_Point_V = E;
-
-    constexpr static bool Is_Subscriber =
-        ((Data_Flow_V == ROBOT_TO_CLIENT) == (End_Point_V == ROBOT_ENDPOINT));
-    constexpr static bool Is_Publisher =
-        ((Data_Flow_V == CLIENT_TO_ROBOT) == (End_Point_V == ROBOT_ENDPOINT));
-};
-
-template<typename Adapter_T, DataFlow D, EndPoint E>
-struct AdapterTraits : public ChannelTraits<D, E>
-{
-    // **traits check that adapter extends BaseAdapter**
-
-    using AdapterT = Adapter_T;
-    using RawSubscriberT = typename AdapterT::Subscriber;
-    using RawPublisherT = typename AdapterT::Publisher;
-
-    class ISubscriber : public RawSubscriberT
+    struct MarkerGroup
     {
-        using RawT = RawSubscriberT;
+        using MarkerIter = MarkerArrayMsg::_markers_type::iterator;
 
-    public:
-        ISubscriber(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-    class IPublisher : public RawPublisherT
-    {
-        using RawT = RawPublisherT;
+        MarkerIter beg, end;
 
-    public:
-        IPublisher(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
+        size_t size() const;
+        MarkerMsg& operator[](size_t i);
+
+        MarkerGroup& setFrameId(std::string_view frame_id);
+        MarkerGroup& setType(int32_t type);
+        MarkerGroup& setDuration(RclDur dur);
+        MarkerGroup& setColor(float r, float g, float b, float a);
+
+        // MarkerGroup& updateMiningSweep(const geom::Pose2f& p, float dist);
+        // MarkerGroup& updateMiningSweep(const geom::Pose3f& p, float dist);
     };
 
-    using ChannelTraits<D, E>::Is_Subscriber;
-    using ChannelT = std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
+public:
+    MarkerManager() = default;
+
+public:
+    size_t reserveGroup(size_t n, std::string_view ns = "default_ns");
+    MarkerGroup getGroup(size_t i);
+
+    void clearAll();
+    void clearOutput();
+    void addGroupToOutput(size_t i);
+
+    const MarkerArrayMsg& getAllMarkers() const;
+    const MarkerArrayMsg& getOutputMarkers() const;
+
+    void pubAllMarkers(RclPubPtr<MarkerArrayMsg> pub, RclTime stamp);
+    void pubOutputMarkers(
+        RclPubPtr<MarkerArrayMsg> pub,
+        RclTime stamp,
+        bool clear = true);
+
+protected:
+    MarkerArrayMsg all_markers;
+    MarkerArrayMsg output_markers;
+
+    std::vector<size_t> alloc_indices;
 };
 
-
-// ---
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::ISubscriber::ISubscriber(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawSubscriberT{node, zsh, topic, qos, dq}
-{
-}
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::IPublisher::IPublisher(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawPublisherT{node, zsh, topic, qos}
-{
-    (void)dq;
-}
+};  // namespace lance

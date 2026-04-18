@@ -201,4 +201,29 @@ const TfCache::PoseTf* TfCache::getTf(KeyTf k) const
     }
 }
 
+const std::string& TfCache::getFrameId(KeyFrame f) const
+{
+    static const std::string EMPTY = "";
+
+    switch(f)
+    {
+        case ARENA_FRAME:
+        {
+            return this->arena_frame_id;
+        }
+        case ODOM_FRAME:
+        {
+            return this->odom_frame_id;
+        }
+        case ROBOT_FRAME:
+        {
+            return this->robot_frame_id;
+        }
+        default:
+        {
+            return EMPTY;
+        }
+    }
+}
+
 };  // namespace lance

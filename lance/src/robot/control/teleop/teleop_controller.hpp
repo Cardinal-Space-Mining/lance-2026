@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,94 +39,106 @@
 
 #pragma once
 
+#include <rclcpp/rclcpp.hpp>
+
+#include <net_adapter/msg/bytes.hpp>
+
+#include "util/joy_utils.hpp"
 #include "util/ros_utils.hpp"
-#include "util/zenoh_utils.hpp"
-#include "core/delay_queue.hpp"
+#include "robot/core/robot_params.hpp"
+#include "robot/core/motor_interface.hpp"
+#include "robot/sensing/sensing_interfaces.hpp"
+#include "robot/control/shared/shared_controllers.hpp"
 
 
-enum EndPoint
+namespace lance
 {
-    ROBOT_ENDPOINT,
-    CLIENT_ENDPOINT
-};
-enum DataFlow
+
+class TeleopController : public util::UsingRosAliases
 {
-    ROBOT_TO_CLIENT,
-    CLIENT_TO_ROBOT
-};
+    friend class TelemetrySerializer;
+    friend class TelemetryDeserializer;
 
-template<DataFlow D, EndPoint E>
-struct ChannelTraits
-{
-    constexpr static int Data_Flow_V = D;
-    constexpr static int End_Point_V = E;
+    using BytesMsg = net_adapter::msg::Bytes;
+    using JoyState = util::JoyState;
 
-    constexpr static bool Is_Subscriber =
-        ((Data_Flow_V == ROBOT_TO_CLIENT) == (End_Point_V == ROBOT_ENDPOINT));
-    constexpr static bool Is_Publisher =
-        ((Data_Flow_V == CLIENT_TO_ROBOT) == (End_Point_V == ROBOT_ENDPOINT));
-};
+public:
+    TeleopController(
+        RclNode&,
+        const RobotParams&,
+        SensingInterfaces&,
+        SharedControllerCollection&);
+    ~TeleopController() = default;
 
-template<typename Adapter_T, DataFlow D, EndPoint E>
-struct AdapterTraits : public ChannelTraits<D, E>
-{
-    // **traits check that adapter extends BaseAdapter**
+public:
+    void initialize();
+    void setCancelled();
 
-    using AdapterT = Adapter_T;
-    using RawSubscriberT = typename AdapterT::Subscriber;
-    using RawPublisherT = typename AdapterT::Publisher;
+    void iterate(
+        const JoyState& joy,
+        const RobotMotorStatus& motor_status,
+        RobotMotorCommands& commands);
 
-    class ISubscriber : public RawSubscriberT
+protected:
+    enum class Operation
     {
-        using RawT = RawSubscriberT;
+        MANUAL = 0,
+        ASSISTED_MINING,
+        ASSISTED_OFFLOAD,
 
-    public:
-        ISubscriber(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
-    };
-    class IPublisher : public RawPublisherT
-    {
-        using RawT = RawPublisherT;
-
-    public:
-        IPublisher(
-            rclcpp::Node&,
-            zenoh::Session&,
-            const std::string&,
-            const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
+        PLANNED_TRAVERSAL,
+        PLANNED_MINING_T,
+        PLANNED_MINING_E,
+        PLANNED_OFFLOAD_T,
+        PLANNED_OFFLOAD_E
     };
 
-    using ChannelTraits<D, E>::Is_Subscriber;
-    using ChannelT = std::conditional_t<Is_Subscriber, ISubscriber, IPublisher>;
+protected:
+    bool handleGlobalControls(const JoyState&);
+    void cancelCurrentCommand();
+    void clearRemoteCommand();
+    void handleRemoteCommand();
+    void iterateCurrentCommand(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void handleManualControl(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+
+protected:
+    void iterateAssistedMining(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iterateAssistedOffload(
+        const JoyState&,
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedTraversal(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedMining(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+    void iteratePlannedOffload(
+        const RobotMotorStatus&,
+        RobotMotorCommands&);
+
+protected:
+    const RobotParams& params;
+    SensingInterfaces& sensing_interfaces;
+
+    MiningController& mining_controller;
+    OffloadController& offload_controller;
+    TraversalController& traversal_controller;
+
+    RclSubPtr<BytesMsg> remote_commands_sub;
+    BytesMsg::ConstSharedPtr remote_command;
+
+    Operation op_mode{Operation::MANUAL};
+    float driving_rps_scalar;
 };
 
-
-// ---
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::ISubscriber::ISubscriber(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawSubscriberT{node, zsh, topic, qos, dq}
-{
-}
-
-template<typename A, DataFlow D, EndPoint E>
-AdapterTraits<A, D, E>::IPublisher::IPublisher(
-    rclcpp::Node& node,
-    zenoh::Session& zsh,
-    const std::string& topic,
-    const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawPublisherT{node, zsh, topic, qos}
-{
-    (void)dq;
-}
+};  // namespace lance

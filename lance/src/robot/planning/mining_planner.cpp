@@ -451,11 +451,11 @@ void MiningPlanner::updateMappedMatrices(
         // Gets the starting locations based on the box2f mining zone and the two offsets full_width and max_length
 
         float mining_zone_x_length =
-            (this->robot_params.mining_zone_bounds.max().x() -
-             this->robot_params.mining_zone_bounds.min().x());
+            (this->robot_params.bounds.mining_zone.max().x() -
+             this->robot_params.bounds.mining_zone.min().x());
         float mining_zone_y_length =
-            (this->robot_params.mining_zone_bounds.max().y() -
-             this->robot_params.mining_zone_bounds.min().y());
+            (this->robot_params.bounds.mining_zone.max().y() -
+             this->robot_params.bounds.mining_zone.min().y());
 
         static std::vector<MiningPlanner::Pose2f> starting_vectors;
         starting_vectors.clear();
@@ -468,9 +468,9 @@ void MiningPlanner::updateMappedMatrices(
             (mining_zone_y_length - this->full_width) * 2.0f;
 
         float starting_corner_x =
-            this->robot_params.mining_zone_bounds.min().x() + this->full_width;
+            this->robot_params.bounds.mining_zone.min().x() + this->full_width;
         float starting_corner_y =
-            this->robot_params.mining_zone_bounds.min().y() + this->max_length;
+            this->robot_params.bounds.mining_zone.min().y() + this->max_length;
 
         int x_divisions = static_cast<int>(
             actual_mining_x_length / TRACK_SEPARATION_M_<float>);
@@ -517,9 +517,9 @@ void MiningPlanner::updateMappedMatrices(
             (mining_zone_y_length - this->max_length) * 2.0f;
 
         starting_corner_x =
-            this->robot_params.mining_zone_bounds.min().x() + this->max_length;
+            this->robot_params.bounds.mining_zone.min().x() + this->max_length;
         starting_corner_y =
-            this->robot_params.mining_zone_bounds.min().y() + this->full_width;
+            this->robot_params.bounds.mining_zone.min().y() + this->full_width;
 
         x_divisions = static_cast<int>(
             actual_mining_x_length / TRACK_SEPARATION_M_<float>);

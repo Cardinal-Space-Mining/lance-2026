@@ -58,20 +58,11 @@ message(STATUS
 include_directories("src")
 
 
-# --- Watchdog -----------------------------------------------------------------
-add_executable(robot_status
-    "src/watchdog_node.cpp")
-ament_target_dependencies(robot_status
-    rclcpp
-    std_msgs
-    std_srvs)
-
 # --- Common Lib ---------------------------------------------------------------
 set(lance_core_srcs
     "src/robot/core/robot_params.cpp"
     "src/robot/core/collection_state.cpp"
     "src/robot/control/robot_controller.cpp"
-    "src/robot/control/teleop_controller.cpp"
     "src/robot/control/auto/auto_controller.cpp"
     "src/robot/control/auto/auto_mining_controller.cpp"
     "src/robot/control/auto/auto_offload_controller.cpp"
@@ -79,11 +70,14 @@ set(lance_core_srcs
     "src/robot/control/shared/offload_controller.cpp"
     "src/robot/control/shared/traversal_controller.cpp"
     "src/robot/control/shared/localization_controller.cpp"
+    "src/robot/control/teleop/remote_commands.cpp"
+    "src/robot/control/teleop/teleop_controller.cpp"
     "src/robot/sensing/tf_cache.cpp"
     "src/robot/sensing/path_plan.cpp"
     "src/robot/sensing/mining_eval.cpp"
     "src/robot/sensing/reflector_hint.cpp"
     # "src/robot/planning/mining_planner.cpp"
+    "src/robot/telemetry/markers.cpp"
     "src/robot/telemetry/serializer.cpp"
     "src/robot/telemetry/deserializer.cpp")
 set(lance_core_libs
@@ -182,7 +176,8 @@ endif()
 
 # --- Mission Control ----------------------------------------------------------
 set(mission_control_srcs
-    "src/client_node.cpp")
+    "src/client_node.cpp"
+    "src/mission_control/advanced_controls.cpp")
 set(mission_control_ament_deps)     # rest of deps included from core lib
 
 if(BUILD_LANCE1)
@@ -234,9 +229,6 @@ if(BUILD_LANCE2)
         DESTINATION lib/${PROJECT_NAME} )
 endif()
 
-install(TARGETS
-    robot_status
-    DESTINATION lib/${PROJECT_NAME} )
 install(DIRECTORY
     config
     launch

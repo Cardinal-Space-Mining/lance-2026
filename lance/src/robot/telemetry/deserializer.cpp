@@ -64,16 +64,31 @@ using TransformStampedMsg = geometry_msgs::msg::TransformStamped;
 namespace lance
 {
 
-TelemetryDeserializer::TelemetryDeserializer(RclNode& node, TfCache& tf_cache) :
+TelemetryDeserializer::TelemetryDeserializer(
+    RclNode& node,
+    TfCache& tf_cache,
+    MarkerManager& markers) :
     pub_map{node, "", rclcpp::SensorDataQoS{}},
     tf_cache{tf_cache},
+    markers{markers},
     tf_broadcaster{node},
     rcl_clock{node.get_clock()},
     sub{node.create_subscription<BytesMsg>(
         lance::TELEMETRY_TOPIC,
         rclcpp::SensorDataQoS{},
-        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })}
+        [this](const BytesMsg::ConstSharedPtr& msg) { this->accept(*msg); })},
+    mining_marker_id{markers.reserveGroup(1, "robot")},
+    offload_marker_id{markers.reserveGroup(1, "robot")}
 {
+    markers.getGroup(this->mining_marker_id)
+        .setFrameId(this->tf_cache.arena_frame_id)
+        .setType(MarkerMsg::CUBE)
+        .setDuration(RclDur{0, 100000000});
+    markers.getGroup(this->offload_marker_id)
+        .setFrameId(this->tf_cache.arena_frame_id)
+        .setType(MarkerMsg::CUBE)
+        .setDuration(RclDur{0, 100000000})
+        .setColor(0.1f, 0.4f, 0.7f, 0.5f);
 }
 
 
@@ -86,7 +101,7 @@ TelemetryDeserializer::GenericPubMap& TelemetryDeserializer::getPubMap()
 void TelemetryDeserializer::accept(const BytesMsg& msg)
 {
     this->ctrl_chain.clear();
-    this->markers.markers.clear();
+    this->markers.clearOutput();
     this->tf_cache.refresh();
 
     const Byte* ptr = msg.data.data();
@@ -138,9 +153,12 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
         this->pub_map.publish<StringMsg>(lance::OP_STATUS_TOPIC, ss.str());
     }
 
-    if (!this->markers.markers.empty())
+    if (!this->markers.getOutputMarkers().markers.empty())
     {
-        this->pub_map.publish(lance::ROBOT_MARKERS_TOPIC, this->markers);
+        this->markers.pubOutputMarkers(
+            this->pub_map.getPub<MarkerArrayMsg>(lance::ROBOT_MARKERS_TOPIC),
+            this->rcl_clock->now(),
+            true);
     }
 }
 
@@ -193,16 +211,16 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
 
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/stall_event"),
-        static_cast<bool>(state & MiningController::Constraint::STALL_EVENT));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_MOTOR_STALL));
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/obstacle"),
-        static_cast<bool>(state & MiningController::Constraint::OBSTACLE));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_OBSTACLE));
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/hopper_model"),
-        static_cast<bool>(state & MiningController::Constraint::HOPPER_MODEL));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_HOPPER_FULL));
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/zone_boundary"),
-        static_cast<bool>(state & MiningController::Constraint::ZONE_BOUNDARY));
+        static_cast<bool>(state & MiningConstraints::CONSTRAINT_ZONE_BOUNDARY));
 
     this->pub_map.publish<BoolMsg>(
         COLLECTION_STATE_TOPIC("is_full_volume"),
@@ -210,8 +228,6 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
     this->pub_map.publish<BoolMsg>(
         COLLECTION_STATE_TOPIC("is_full_occ"),
         static_cast<bool>(state & (1 << 9)));
-
-    std::cout << state << std::endl;
 
     constexpr char const* FLOAT_TOPICS[] = {
         COLLECTION_STATE_TOPIC("volume"),
@@ -310,8 +326,11 @@ bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
         "Manual",
         "Assisted Mining",
         "Assisted Offload",
-        "Preset Offload",
-        "Assisted Trav"};
+        "Assisted Trav",
+        "Planned Mining : Traversal",
+        "Planned Mining : Mining",
+        "Planned Offload : Traversal",
+        "Planned Offload : Offload"};
 
     using Op = TeleopController::Operation;
 
@@ -322,8 +341,11 @@ bool TelemetryDeserializer::pubTeleopController(BytePtrRef ptr, BytePtr end)
     {
         case AS_U8(Op::ASSISTED_MINING):
         case AS_U8(Op::ASSISTED_OFFLOAD):
-        case AS_U8(Op::PRESET_OFFLOAD):
-        case AS_U8(Op::AUTO_TRAVERSAL):
+        case AS_U8(Op::PLANNED_TRAVERSAL):
+        case AS_U8(Op::PLANNED_MINING_T):
+        case AS_U8(Op::PLANNED_MINING_E):
+        case AS_U8(Op::PLANNED_OFFLOAD_T):
+        case AS_U8(Op::PLANNED_OFFLOAD_E):
         {
             this->ctrl_chain.push_back(OP_TAGS[stage_id]);
 
@@ -598,32 +620,38 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
         return;
     }
 
-    MarkerMsg& marker = this->markers.markers.emplace_back();
+    MarkerMsg& m = this->markers.getGroup(this->mining_marker_id)[0];
 
-    marker.header.frame_id = this->tf_cache.arena_frame_id;
-    marker.header.stamp = this->rcl_clock->now();
+    switch (constraint)
+    {
+        case MiningConstraints::CONSTRAINT_MOTOR_STALL:
+        {
+            m.color.set__r(0.9f).set__g(0.8f).set__b(0.2f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_OBSTACLE:
+        {
+            m.color.set__r(1.f).set__g(0.f).set__b(0.f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_HOPPER_FULL:
+        {
+            m.color.set__r(0.6f).set__g(0.2f).set__b(0.9f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_ZONE_BOUNDARY:
+        {
+            m.color.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f);
+            break;
+        }
+        default:
+        {
+        }
+    }
 
-    marker.ns = "robot";
-    marker.id = 1;
-    marker.type = MarkerMsg::CUBE;
-    marker.action = MarkerMsg::ADD;
-    marker.lifetime = rclcpp::Duration(0, 100000000);
-
-    static const ColorMsg CONSTRAINT_COLORS[] = {
-        ColorMsg{}.set__r(0.9f).set__g(0.8f).set__b(0.2f).set__a(0.5f),
-        ColorMsg{}.set__r(1.f).set__a(0.5f),
-        ColorMsg{}.set__r(0.6f).set__g(0.2f).set__b(0.9f).set__a(0.5f),
-        ColorMsg{}.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f),
-    };
-
-    marker.color = CONSTRAINT_COLORS
-        [(constraint > MiningController::Constraint::STALL_EVENT) +
-         (constraint > MiningController::Constraint::OBSTACLE) +
-         (constraint > MiningController::Constraint::HOPPER_MODEL)];
-
-    marker.scale.x = dist;
-    marker.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;
-    marker.scale.z = lance::geom::PRIMARY_COLLISION_ZONE_HEIGHT;
+    m.scale.x = dist;
+    m.scale.y = lance::geom::PRIMARY_COLLISION_ZONE_WIDTH;
+    m.scale.z = lance::geom::PRIMARY_COLLISION_ZONE_HEIGHT;
 
     const PoseTf3f* p = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
     const Quatf flattened_q = lance::geom::flattenToYaw(p->pose.quat);
@@ -633,15 +661,32 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
                           0.f,
                           lance::geom::PRIMARY_COLLISION_ZONE_Z_<float>};
 
-    marker.pose.position.x = p->pose.vec.x() + pos_off.x();
-    marker.pose.position.y = p->pose.vec.y() + pos_off.y();
-    marker.pose.position.z = p->pose.vec.z() + pos_off.z();
-    marker.pose.orientation.w = flattened_q.w();
-    marker.pose.orientation.x = flattened_q.x();
-    marker.pose.orientation.y = flattened_q.y();
-    marker.pose.orientation.z = flattened_q.z();
+    m.pose.position << Vec3f{p->pose.vec + pos_off};
+    m.pose.orientation << flattened_q;
+
+    this->markers.addGroupToOutput(this->mining_marker_id);
 }
 
-void TelemetryDeserializer::addOffloadMarker(float dist) { (void)dist; }
+void TelemetryDeserializer::addOffloadMarker(float dist)
+{
+    MarkerMsg& m = this->markers.getGroup(this->offload_marker_id)[0];
+
+    m.scale.x = lance::geom::OFFLOAD_FOOTPRINT_LENGTH;
+    m.scale.y = lance::geom::OFFLOAD_FOOTPRINT_WIDTH;
+    m.scale.z = 0.5;
+
+    const PoseTf3f* p = this->tf_cache.getTf(ROBOT_TO_ARENA_TF);
+    const Quatf flattened_q = lance::geom::flattenToYaw(p->pose.quat);
+    const Vec3f pos_off =
+        flattened_q * Vec3f{
+                          -dist + lance::geom::OFFLOAD_FOOTPRINT_OFFSET_<float>,
+                          0.f,
+                          0.25f};
+
+    m.pose.position << Vec3f{p->pose.vec + pos_off};
+    m.pose.orientation << flattened_q;
+
+    this->markers.addGroupToOutput(this->offload_marker_id);
+}
 
 };  // namespace lance

@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -37,115 +37,148 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "auto_offload_controller.hpp"
+#include "latency_ping.hpp"
 
-#include <Eigen/Core>
+#include <random>
+
+#include "../util/mem_helpers.hpp"
+#include "../util/zenoh_utils.hpp"
 
 
-namespace lance
+inline static uint32_t getId(uint32_t id)
 {
-
-AutoOffloadController::AutoOffloadController(
-    const RobotParams& params,
-    SharedControllerCollection& controllers) :
-    params{params},
-    traversal_controller{controllers.traversal_controller},
-    offload_controller{controllers.offload_controller}
-{
-}
-
-void AutoOffloadController::initialize()
-{
-    this->stage = Stage::INITIALIZATION;
-}
-
-bool AutoOffloadController::isFinished()
-{
-    return this->stage == Stage::FINISHED;
-}
-
-void AutoOffloadController::setCancelled()
-{
-    switch (this->stage)
+    if (id > 0)
     {
-        case Stage::TRAVERSING:
-        {
-            this->traversal_controller.setCancelled();
-            break;
-        }
-        case Stage::OFFLOADING:
-        {
-            this->traversal_controller.setCancelled();
-            break;
-        }
-        default:
-        {
-        }
+        return id;
     }
-    this->stage = Stage::FINISHED;
-}
-
-void AutoOffloadController::iterate(
-    const RobotMotorStatus& motor_status,
-    RobotMotorCommands& commands)
-{
-    switch (this->stage)
+    else
     {
-        case Stage::INITIALIZATION:
-        {
-            this->stage = Stage::PLANNING;
-            [[fallthrough]];
-        }
-        case Stage::PLANNING:
-        {
-            if (false)  // *if not finished planning*
-            {
-                // planning algo here
-
-                break;  // break if more work is required
-            }
-
-            // placeholder for testing
-            Eigen::Vector2f target_dir{0.f, 1.f};
-            Eigen::Vector2f target_pos =
-                ((this->params.bounds.offload_zone.max() +
-                  this->params.bounds.offload_zone.min()) *
-                 0.5f) +
-                (target_dir * 0.35f);
-
-            // init with planned destination
-            this->traversal_controller.initializePoint(target_pos, target_dir);
-            this->stage = Stage::TRAVERSING;
-            [[fallthrough]];
-        }
-        case Stage::TRAVERSING:
-        {
-            this->traversal_controller.iterate(motor_status, commands);
-            if (!this->traversal_controller.isFinished())
-            {
-                break;
-            }
-
-            // initialize with backup if necessary
-            this->offload_controller.initialize(0.f);
-            this->stage = Stage::OFFLOADING;
-            [[fallthrough]];
-        }
-        case Stage::OFFLOADING:
-        {
-            this->offload_controller.iterate(motor_status, commands);
-            if (!this->offload_controller.isFinished())
-            {
-                break;
-            }
-
-            this->stage = Stage::FINISHED;
-            [[fallthrough]];
-        }
-        case Stage::FINISHED:
-        {
-        }
+        std::mt19937_64 gen{std::random_device{}()};
+        std::uniform_int_distribution<uint32_t> d;
+        return d(gen);
     }
 }
 
-};  // namespace lance
+
+LatencyPing::LatencyPing(
+    zenoh::Session& zsh,
+    DelayQueue* delay_q,
+    uint32_t id) :
+    dq{delay_q},
+    id{getId(id)},
+    pub{zsh.declare_publisher(PING_TOPIC)},
+    sub{zsh.declare_subscriber(
+        PING_TOPIC,
+        [this](const zenoh::Sample& sample) { this->callback(sample); },
+        []() {})}
+{
+}
+
+
+void LatencyPing::ping()
+{
+    const uint32_t ping_id = this->ping_count++;
+    if (this->ping_count >=
+        (1U << (sizeof(decltype(this->ping_count)) * 8 - 1)))
+    {
+        this->ping_count = 0;
+    }
+
+    std::vector<uint8_t> bytes;
+    bytes.resize(sizeof(uint32_t) * 2);
+    util::write(bytes.data(), (ping_id << 1));
+    util::write(bytes.data() + sizeof(uint32_t), this->id);
+
+    {
+        std::unique_lock l{this->mtx};
+        this->active_pings.emplace_back(ping_id, steady_clock::now());
+    }
+
+    if (this->dq)
+    {
+        this->dq->push(
+            [this](std::vector<uint8_t>&& b)
+            { this->pub.put(zenoh::Bytes(std::move(b))); },
+            std::move(bytes));
+    }
+    else
+    {
+        this->pub.put(zenoh::Bytes(std::move(bytes)));
+    }
+}
+
+bool LatencyPing::hasResults() const
+{
+    std::unique_lock l{this->mtx};
+    return !this->completed_pings.empty();
+}
+
+double LatencyPing::avgLatencySeconds() const
+{
+    return this->avgLatency<std::chrono::duration<double>>().count();
+}
+
+void LatencyPing::clearResults()
+{
+    std::unique_lock l{this->mtx};
+    this->completed_pings.clear();
+}
+
+
+void LatencyPing::callback(const zenoh::Sample& sample)
+{
+    const steady_clock_time n = steady_clock::now();
+
+    std::vector<uint8_t> bytes = sample.get_payload().as_vector();
+    if (bytes.size() < (sizeof(uint32_t) * 2))
+    {
+        return;
+    }
+
+    uint32_t val, id;
+    util::read(bytes.data(), val);
+    util::read(bytes.data() + sizeof(uint32_t), id);
+
+    if (id == this->id)
+    {
+        return;
+    }
+
+    if (val & 0x1)
+    {
+        std::unique_lock l{this->mtx};
+
+        while (!this->active_pings.empty())
+        {
+            if ((val >> 1) == this->active_pings.front().first)
+            {
+                this->completed_pings.emplace_back(
+                    this->active_pings.front().second,
+                    n);
+                this->active_pings.pop_front();
+                break;
+            }
+            else
+            {
+                this->active_pings.pop_front();
+            }
+        }
+    }
+    else
+    {
+        util::write(bytes.data(), (val | 0x1));
+        util::write(bytes.data() + sizeof(uint32_t), this->id);
+
+        if (this->dq)
+        {
+            this->dq->push(
+                [this](std::vector<uint8_t>&& b)
+                { this->pub.put(zenoh::Bytes(std::move(b))); },
+                std::move(bytes));
+        }
+        else
+        {
+            this->pub.put(zenoh::Bytes(std::move(bytes)));
+        }
+    }
+}

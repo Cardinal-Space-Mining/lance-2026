@@ -11,7 +11,6 @@
                 "motor_sim": "lance1_gz_sim",
                 "robot_tf": "lance",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "robot_control": "lance1_ksc_sim",
                 "mission_control": "lance1_ksc_sim",
                 "perception": "lance1_sim",
@@ -47,7 +46,6 @@
                 "motor_sim": "lance2_gz_sim",
                 "robot_tf": "lance2",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "robot_control": "lance2_ksc_sim",
                 "mission_control": "lance2_ksc_sim",
                 "perception": "lance2_sim",
@@ -159,7 +157,6 @@
             {
                 "robot_tf": "lance",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "mission_control": "lance1_ksc_sim",
                 "redux": "client_dev_1_sim",
                 "perception": "lance1_sim",
@@ -191,7 +188,6 @@
             {
                 "robot_tf": "lance2",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "mission_control": "lance2_ksc_sim",
                 "redux": "client_dev_1_sim",
                 "perception": "lance2_sim",

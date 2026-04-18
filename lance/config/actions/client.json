@@ -5,12 +5,6 @@
         "enabled": {}
     },
 
-    "robot_status":
-    {
-        "pragma:default": null,
-        "enabled": {}
-    },
-
     "joy_node":
     {
         "pragma:default": null,

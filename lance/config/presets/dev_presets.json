@@ -23,7 +23,6 @@
             {
                 "robot_tf": "lance",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "mission_control": "lance1_ksc",
                 "redux": "client_mac_wifi",
                 "perception": "lance1",
@@ -52,7 +51,6 @@
             "pragma:action_overrides":
             {
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "redux": "client_mac_wifi",
                 "mission_control": "lance2_ksc",
                 "perception": "lidar_only",
@@ -65,7 +63,6 @@
             "pragma:action_overrides":
             {
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "robot_control": "lance2_ksc",
                 "mission_control": "lance2_ksc",
                 "motor_sim": "lance2",

@@ -50,13 +50,13 @@
 #include <std_msgs/msg/int8.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
-#include <geometry_msgs/msg/point_stamped.hpp>
 
 #include <net_adapter/msg/bytes.hpp>
 
 #include "util/ros_utils.hpp"
 #include "util/zenoh_utils.hpp"
-#include "util/delay_queue.hpp"
+#include "core/delay_queue.hpp"
+#include "core/latency_ping.hpp"
 
 #include "adapters/joy_adapter.hpp"
 #include "adapters/talon_adapter.hpp"
@@ -85,9 +85,8 @@ private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
     using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
-    using PointStampedAdapter =
-        GenericAdapter<geometry_msgs::msg::PointStamped>;
-    using BytesAdapterCompressed = GenericAdapter<net_adapter::msg::Bytes, 15>;
+    template<int Compression = 0>
+    using BytesAdapter = GenericAdapter<net_adapter::msg::Bytes, Compression>;
 
 private:
     template<typename AdapterT, DataFlow D>
@@ -99,12 +98,36 @@ private:
     constexpr static bool Is_Client = (E == CLIENT_ENDPOINT);
 
 private:
-    constexpr static char const* Node_Name =
+    constexpr static char const* NODE_NAME =
         (Is_Robot ? "robot_redux_endpoint" : "client_redux_endpoint");
-    constexpr static char const* Connection_Param_Name =
+    constexpr static char const* CONNECTION_PARAM_NAME =
         (Is_Robot ? "client_hostname" : "robot_hostname");
-    constexpr static char const* Default_Connection_Hostname =
+    constexpr static char const* DEFAULT_CONNECTION_HOSTNAME =
         (Is_Robot ? DEFAULT_CLIENT_HOSTNAME : DEFAULT_ROBOT_HOSTNAME);
+
+private:
+    class LatencyPublisher
+    {
+    public:
+        LatencyPublisher(rclcpp::Node&, LatencyPing&, const std::string&);
+
+    private:
+        rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr latency_pub;
+        rclcpp::TimerBase::SharedPtr ping_timer;
+    };
+    class NoLatencyPublisher
+    {
+    public:
+        inline NoLatencyPublisher(
+            rclcpp::Node&,
+            LatencyPing&,
+            const std::string&)
+        {
+        }
+    };
+
+    using LatencyPublisherT =
+        std::conditional_t<Is_Client, LatencyPublisher, NoLatencyPublisher>;
 
 private:
     template<DataFlow D>
@@ -164,7 +187,7 @@ private:
     /* Returns a pointer to the delay queue when a delay is configured,
      * nullptr otherwise. Used during member initialisation so that adapters
      * self-wire onto the buffer (non-null) or go direct to zenoh (null). */
-    DelayQueue* getQueue()
+    inline DelayQueue* getQueue()
     {
 #if ENABLE_NET_DELAY
         return this->delay_queue.getDelay().count() > 0 ? &this->delay_queue
@@ -178,18 +201,21 @@ private:
     zenoh::Session zsh;
     DelayQueue delay_queue;
 
+    LatencyPing latency_ping;
+    LatencyPublisherT latency_pub;
+
     const bool is_sim;
 
     Channel<JoyAdapter, CLIENT_TO_ROBOT> joy;
     Channel<StdInt32Adapter, CLIENT_TO_ROBOT> watchdog_status;
-    Channel<PointStampedAdapter, CLIENT_TO_ROBOT> clicked_point;
+    Channel<BytesAdapter<0>, CLIENT_TO_ROBOT> remote_commands;
 
     MS136ScanChannel<ROBOT_TO_CLIENT> lidar_scan;
     Channel<MS136ImuAdapter, ROBOT_TO_CLIENT> imu;
 
     TalonDataChannelsGroup<ROBOT_TO_CLIENT> talon_data;
 
-    Channel<BytesAdapterCompressed, ROBOT_TO_CLIENT> telemetry;
+    Channel<BytesAdapter<15>, ROBOT_TO_CLIENT> telemetry;
     Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
 
     SimClockChannel<ROBOT_TO_CLIENT> sim_clock;
@@ -208,21 +234,24 @@ private:
 
 template<EndPoint E>
 EndPointNode<E>::EndPointNode() :
-    Node{Node_Name},
+    Node{NODE_NAME},
     zsh{zenoh::Session::open(
         util::configDirectConnectTo(
             util::declare_and_get_param<std::string>(
                 *this,
-                Connection_Param_Name,
-                Default_Connection_Hostname)))},
+                CONNECTION_PARAM_NAME,
+                DEFAULT_CONNECTION_HOSTNAME)))},
     delay_queue{std::chrono::duration<double>{
         util::declare_and_get_param(*this, "net_delay_s", 0.0)}},
 
+    latency_ping{zsh, this->getQueue(), Is_Client ? 1 : 2},
+    latency_pub{*this, this->latency_ping, "lance/net_latency"},
+
     is_sim{util::declare_and_get_param(*this, "is_sim", false)},
 
-    joy{PARAMS_FROM_TOPIC("/joy")},
+    joy{PARAMS_FROM_TOPIC("lance/joy_ctrl")},
     watchdog_status{PARAMS_FROM_TOPIC("lance/watchdog_status")},
-    clicked_point{PARAMS_FROM_TOPIC("/clicked_point")},
+    remote_commands{PARAMS_FROM_TOPIC("lance/remote_cmds")},
 
     lidar_scan{PARAMS_FROM_TOPIC_SIM("multiscan/lidar_scan")},
     imu{PARAMS_FROM_TOPIC("multiscan/imu")},
@@ -248,6 +277,33 @@ EndPointNode<E>::EndPointNode() :
 #undef PARAMS_FROM_TOPIC_SIM
 #undef PARAMS_FROM_TOPICS
 
+
+
+template<EndPoint E>
+EndPointNode<E>::LatencyPublisher::LatencyPublisher(
+    rclcpp::Node& node,
+    LatencyPing& pinger,
+    const std::string& topic) :
+    latency_pub{node.create_publisher<std_msgs::msg::Int32>(
+        topic,
+        rclcpp::SensorDataQoS{})},
+    ping_timer{node.create_wall_timer(
+        std::chrono::milliseconds{250},
+        [&pinger, this]()
+        {
+            pinger.ping();
+            if (pinger.hasResults())
+            {
+                this->latency_pub->publish(
+                    std_msgs::msg::Int32{}.set__data(
+                        static_cast<int32_t>(
+                            pinger.avgLatency<std::chrono::milliseconds>()
+                                .count())));
+                pinger.clearResults();
+            }
+        })}
+{
+}
 
 
 template<EndPoint E>
