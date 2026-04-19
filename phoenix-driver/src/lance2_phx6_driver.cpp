@@ -63,8 +63,10 @@ using namespace util;
 using namespace util::ros_aliases;
 using namespace std::chrono_literals;
 
-namespace
-{
+#define TALON_CTRL_SUB_QOS                                               \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
+
+
 bool isSupportedTalonCtrlMode(int8_t mode)
 {
     switch (mode)
@@ -80,11 +82,12 @@ bool isSupportedTalonCtrlMode(int8_t mode)
             return false;
     }
 }
-}  // namespace
+
 
 Phoenix6Driver::Phoenix6Driver() :
     Node("lance2_phoenix6_driver"),
-    bus(declare_and_get_param(*this, "canbus", std::string("canable_A"))),
+    bus_name{declare_and_get_param(*this, "canbus", std::string("canable_A"))},
+    bus(this->bus_name),
     diagnostic_server_port(declare_and_get_param(*this, "diagnostics_port", 0)),
     watchdog_status_sub{this->create_subscription<Int32Msg>(
         "lance/watchdog_status",
@@ -100,6 +103,17 @@ Phoenix6Driver::Phoenix6Driver() :
         20ms,
         [this]() { this->updateCustomMechanisms(); })}
 {
+    // --- Init phoenix -------------------------------------------------------------
+    if (diagnostic_server_port > 0)
+    {
+        c_Phoenix_Diagnostics_Create_On_Port(diagnostic_server_port);
+    }
+    else
+    {
+        // this might not be needed
+        c_Phoenix_Diagnostics_SetSecondsToStart(-1);
+    }
+
     // --- Get motors params-------------------------------------------------------------
     auto motor_names =
         declare_and_get_param<std::vector<std::string>>(*this, "names", {});
@@ -161,13 +175,11 @@ Phoenix6Driver::Phoenix6Driver() :
             *this,
             param_prefix + "alignment",
             "Aligned");
-        static const std::unordered_map<
-            std::string,
-            phx6::signals::MotorAlignmentValue>
-            kAlignmentMap =
-                {
-                    { "Aligned",  phx6::signals::MotorAlignmentValue::Aligned},
-                    { "Opposed",  phx6::signals::MotorAlignmentValue::Opposed},
+        static const std::
+            unordered_map<std::string, phx6::signals::MotorAlignmentValue>
+                kAlignmentMap = {
+                    {"Aligned", phx6::signals::MotorAlignmentValue::Aligned},
+                    {"Opposed", phx6::signals::MotorAlignmentValue::Opposed},
         };
         auto alignment_it = kAlignmentMap.find(alignment);
         if (alignment_it == kAlignmentMap.end())
@@ -186,11 +198,10 @@ Phoenix6Driver::Phoenix6Driver() :
             param_prefix + "follower_type",
             "normal");
 
-        static const std::unordered_set<std::string> kFollowerTypes =
-            {
-                "normal",
-                "DifferentialFollower",
-                "CustomMechanism",
+        static const std::unordered_set<std::string> kFollowerTypes = {
+            "normal",
+            "DifferentialFollower",
+            "CustomMechanism",
         };
         if (kFollowerTypes.find(params.follower_type) == kFollowerTypes.end())
         {
@@ -357,6 +368,7 @@ Phoenix6Driver::Phoenix6Driver() :
                     id,
                     params,
                     bus));
+            std::cout << "creating FX motor " << name << std::endl;
         }
         else if (controller == "FXS")
         {
@@ -367,6 +379,8 @@ Phoenix6Driver::Phoenix6Driver() :
                     id,
                     params,
                     bus));
+
+            std::cout << "creating FXS motor " << name << std::endl;
         }
         else
         {
@@ -379,18 +393,6 @@ Phoenix6Driver::Phoenix6Driver() :
     }
 
     setupCustomMechanisms();
-
-    // --- Init phoenix -------------------------------------------------------------
-
-    if (diagnostic_server_port > 0)
-    {
-        c_Phoenix_Diagnostics_Create_On_Port(diagnostic_server_port);
-    }
-    else
-    {
-        // this might not be needed
-        c_Phoenix_Diagnostics_SetSecondsToStart(-1);
-    }
 }
 
 Phoenix6Driver::~Phoenix6Driver() { c_Phoenix_Diagnostics_Dispose(); }
@@ -411,13 +413,13 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
     config(config),
     info_pub(node->template create_publisher<TalonInfoMsg>(
         "lance/" + name + "/info",
-        10)),
+        rclcpp::SensorDataQoS{})),
     faults_pub(node->template create_publisher<TalonFaultsMsg>(
         "lance/" + name + "/faults",
-        10)),
+        rclcpp::SensorDataQoS{})),
     ctrl_sub(node->create_subscription<TalonCtrlMsg>(
         "lance/" + name + "/ctrl",
-        10,
+        TALON_CTRL_SUB_QOS,
         [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); }))
 
 {
@@ -528,7 +530,7 @@ void Phoenix6Driver::RclMotor<MotorType>::executeCtrl(const TalonCtrlMsg& msg)
         return;
     }
 
-    auto control_status = motor << msg;
+    auto control_status = (motor << msg);
     if (!control_status.IsOK())
     {
         RCLCPP_ERROR_THROTTLE(
@@ -589,8 +591,7 @@ struct Phoenix6Driver::CustomMechanismPair
     {
         const double leader_limit = leader->config.voltage_limit;
         const double follower_limit = follower->config.voltage_limit;
-        const double configured_limit =
-            std::min(leader_limit, follower_limit);
+        const double configured_limit = std::min(leader_limit, follower_limit);
         return configured_limit > 0.0 ? configured_limit : 12.0;
     }
 
@@ -598,8 +599,9 @@ struct Phoenix6Driver::CustomMechanismPair
     {
         const double limit = voltageLimit();
         const double clamped_voltage = std::clamp(voltage, -limit, limit);
-        auto control_status = motor.motor.SetControl(phx6::controls::VoltageOut{
-            units::voltage::volt_t{clamped_voltage}});
+        auto control_status = motor.motor.SetControl(
+            phx6::controls::VoltageOut{
+                units::voltage::volt_t{clamped_voltage}});
         if (!control_status.IsOK())
         {
             RCLCPP_ERROR_THROTTLE(
@@ -666,11 +668,9 @@ struct Phoenix6Driver::CustomMechanismPair
         const double balance_error = follower_position - leader_position;
 
         const double base_voltage =
-            ((leader->config.kV + follower->config.kV) / 2.0) *
-            target_velocity;
+            ((leader->config.kV + follower->config.kV) / 2.0) * target_velocity;
         const double balance_voltage =
-            ((leader->config.kP + follower->config.kP) / 4.0) *
-            balance_error;
+            ((leader->config.kP + follower->config.kP) / 4.0) * balance_error;
 
         setVoltage(*leader, base_voltage + balance_voltage);
         setVoltage(*follower, base_voltage - balance_voltage);
@@ -794,11 +794,9 @@ void Phoenix6Driver::setupCustomMechanisms()
             get_logger(),
             get_clock());
         CustomMechanismPair* pair_ptr = pair.get();
-        leader->custom_ctrl_handler =
-            [pair_ptr](const TalonCtrlMsg& msg)
+        leader->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
         { return pair_ptr->executeCtrl(msg); };
-        follower->custom_ctrl_handler =
-            [pair_ptr](const TalonCtrlMsg& msg)
+        follower->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
         { return pair_ptr->executeCtrl(msg); };
         custom_mechanisms.emplace_back(std::move(pair));
 

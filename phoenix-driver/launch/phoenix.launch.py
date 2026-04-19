@@ -20,7 +20,7 @@ PKG_PATH = get_package_share_directory('phoenix_ros_driver')
 DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'phoenix.json')
 
 sys.path.append(os.path.join(PKG_PATH, 'launch'))
-from phoenix_launch_utils import get_driver_actions
+from phoenix_launch_utils import get_phoenix_actions
 
 
 def launch(context, *args, **kwargs):
@@ -35,7 +35,7 @@ def launch(context, *args, **kwargs):
         # print("---------------------------------------------")
         if config is not json_data:
             actions.extend(get_util_actions(config, launch_args))
-        actions.extend(get_driver_actions(config))
+        actions.extend(get_phoenix_actions(config))
         # print("---------------------------------------------")
         # pprint(config)
         # print("---------------------------------------------")

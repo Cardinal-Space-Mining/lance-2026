@@ -1,13 +1,17 @@
 {
     "pragma:enable_preproc": true,
-    "phoenix5_driver": {
+
+    "phoenix5_driver":
+    {
         "pragma:default": null,
         "enabled": {
             "diagnostics_port": 1250,
             "canbus": "canable_B"
         }
     },
-    "phoenix6_driver_old": {
+
+    "phoenix6_driver_old":
+    {
         "pragma:default": null,
         "enabled": {
             "diagnostics_port": 0,
@@ -27,14 +31,18 @@
             }
         }
     },
-    "phoenix6_driver": {
+
+    "phoenix6_driver":
+    {
         "pragma:default": null,
-        "enabled": {
+        "enabled":
+        {
             "info_pub_rate_ms": 50,
             "fault_pub_rate_ms": 250,
             "diagnostics_port": 0,
-            "canbus": "canable_A",
-            "motors": [
+            "canbus": "canable_C",
+            "motors":
+            [
                 {
                     "name": "track_right",
                     "can_id": 0,
@@ -97,7 +105,7 @@
                 },
                 {
                     "name": "hopper_act_left",
-                    "can_id": 4,
+                    "can_id": 5,
                     "controller": "FXS",
                     "follows": "hopper_act_right",
                     "follower_type": "CustomMechanism",
@@ -116,7 +124,7 @@
                 },
                 {
                     "name": "hopper_act_right",
-                    "can_id": 5,
+                    "can_id": 4,
                     "controller": "FXS",
                     "follows": "hopper_act_left",
                     "follower_type": "CustomMechanism",

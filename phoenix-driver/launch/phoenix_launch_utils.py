@@ -49,7 +49,7 @@ def preproc_phoenix6_config(profile_cfg: dict):
     flatten_motors(profile_cfg)
 
 
-def get_driver_actions(config):
+def get_phoenix_actions(config):
     actions = []
 
     # ---- phoenix5_driver ----

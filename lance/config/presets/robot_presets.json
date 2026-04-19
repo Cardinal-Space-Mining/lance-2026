@@ -9,7 +9,7 @@
             {
                 "robot_tf": "lance",
                 "phoenix5_driver": "enabled",
-                "phoenix6_driver": "enabled",
+                "phoenix6_driver_old": "enabled",
                 "robot_control": "lance1_ksc",
                 "redux": "robot",
                 "multiscan_driver": "net2",
@@ -39,7 +39,6 @@
             "pragma:action_overrides":
             {
                 "robot_tf": "lance2",
-                "phoenix5_driver": "enabled",
                 "phoenix6_driver": "enabled",
                 "robot_control": "lance2_ksc",
                 "redux": "robot",

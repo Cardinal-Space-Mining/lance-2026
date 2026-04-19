@@ -161,6 +161,7 @@ private:
 private:
     struct CustomMechanismPair;
 
+    std::string bus_name;
     CANBus bus;
     int diagnostic_server_port;
 
