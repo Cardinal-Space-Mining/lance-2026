@@ -48,18 +48,37 @@
 namespace util
 {
 
-namespace ros_aliases
+struct UsingRosAliases
 {
+public:
+    using RclNode = rclcpp::Node;
+    using RclClock = rclcpp::Clock;
+    using RclTimer = rclcpp::TimerBase;
 
-using RclNode = rclcpp::Node;
-using RclTimer = rclcpp::TimerBase::SharedPtr;
+    using RclTime = rclcpp::Time;
+    using RclDur = rclcpp::Duration;
 
-template<typename T>
-using SharedPub = typename rclcpp::Publisher<T>::SharedPtr;
-template<typename T>
-using SharedSub = typename rclcpp::Subscription<T>::SharedPtr;
-template<typename T>
-using SharedSrv = typename rclcpp::Service<T>::SharedPtr;
+    template<typename T>
+    using RclPub = rclcpp::Publisher<T>;
+    template<typename T>
+    using RclSub = rclcpp::Subscription<T>;
+    template<typename T>
+    using RclSrv = rclcpp::Service<T>;
+    template<typename T>
+    using RclClient = rclcpp::Client<T>;
+
+    template<typename T>
+    using RclPubPtr = typename RclPub<T>::SharedPtr;
+    template<typename T>
+    using RclSubPtr = typename RclSub<T>::SharedPtr;
+    template<typename T>
+    using RclSrvPtr = typename RclSrv<T>::SharedPtr;
+    template<typename T>
+    using RclClientPtr = typename RclClient<T>::SharedPtr;
+
+};
+
+using ros_aliases = UsingRosAliases;
 
 #define BUILD_MSG_ALIAS(pkg, name)    using name##Msg = pkg::msg::name;
 #define BUILD_SRV_ALIAS(pkg, name)    using name##Srv = pkg::srv::name;
@@ -68,7 +87,6 @@ using SharedSrv = typename rclcpp::Service<T>::SharedPtr;
 #define BUILD_GEOM_MSG_ALIAS(name)    BUILD_MSG_ALIAS(geometry_msgs, name)
 #define BUILD_BUILTIN_MSG_ALIAS(name) BUILD_MSG_ALIAS(builtin_interfaces, name)
 
-};  // namespace ros_aliases
 
 
 template<typename T>
@@ -80,30 +98,48 @@ struct identity
 template<typename T>
 inline void declare_param(
     rclcpp::Node* node,
-    const std::string param_name,
+    const std::string& param_name,
     T& param,
     const typename identity<T>::type& default_value)
 {
-    node->declare_parameter(param_name, default_value);
+    try
+    {
+        node->declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
     node->get_parameter(param_name, param);
 }
 template<typename T>
 inline void declare_param(
     rclcpp::Node& node,
-    const std::string param_name,
+    const std::string& param_name,
     T& param,
     const typename identity<T>::type& default_value)
 {
-    node.declare_parameter(param_name, default_value);
+    try
+    {
+        node.declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
     node.get_parameter(param_name, param);
 }
 template<typename T>
 inline T declare_and_get_param(
     rclcpp::Node& node,
-    const std::string param_name,
+    const std::string& param_name,
     const T& default_value)
 {
-    node.declare_parameter(param_name, default_value);
+    try
+    {
+        node.declare_parameter(param_name, default_value);
+    }
+    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
+    {
+    }
     return node.get_parameter_or(param_name, default_value);
 }
 

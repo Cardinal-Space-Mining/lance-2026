@@ -11,9 +11,8 @@
                 "motor_sim": "lance1_gz_sim",
                 "robot_tf": "lance",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "robot_control": "lance1_ksc_sim",
-                "zone_viz": "ksc",
+                "mission_control": "lance1_ksc_sim",
                 "perception": "lance1_sim",
                 "foxglove_bridge": "all"
             }
@@ -25,7 +24,7 @@
             {
                 "gz_sim": "lance1_ucf_right_ms",
                 "robot_control": "lance1_ucf_right_sim",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance1_ucf_right_sim"
             }
         },
         "lance1_ucf_left":
@@ -35,7 +34,7 @@
             {
                 "gz_sim": "lance1_ucf_left_ms",
                 "robot_control": "lance1_ucf_left_sim",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance1_ucf_left_sim"
             }
         },
 
@@ -47,9 +46,8 @@
                 "motor_sim": "lance2_gz_sim",
                 "robot_tf": "lance2",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
                 "robot_control": "lance2_ksc_sim",
-                "zone_viz": "ksc",
+                "mission_control": "lance2_ksc_sim",
                 "perception": "lance2_sim",
                 "foxglove_bridge": "all"
             }
@@ -61,7 +59,7 @@
             {
                 "gz_sim": "lance2_ucf_right_ms",
                 "robot_control": "lance2_ucf_right_sim",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance2_ucf_right_sim"
             }
         },
         "lance2_ucf_left":
@@ -71,7 +69,7 @@
             {
                 "gz_sim": "lance2_ucf_left_ms",
                 "robot_control": "lance2_ucf_left_sim",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance2_ucf_left_sim"
             }
         }
     },
@@ -159,10 +157,8 @@
             {
                 "robot_tf": "lance",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
-                "robot_control": "lance1_ksc_sim",
+                "mission_control": "lance1_ksc_sim",
                 "redux": "client_dev_1_sim",
-                "zone_viz": "ksc",
                 "perception": "lance1_sim",
                 "foxglove_bridge": "all"
             }
@@ -173,8 +169,7 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance1_ucf_right_ms",
-                "robot_control": "lance1_ucf_right_sim",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance1_ucf_right_sim"
             }
         },
         "lance1_ucf_left":
@@ -183,8 +178,7 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance1_ucf_left_ms",
-                "robot_control": "lance1_ucf_left_sim",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance1_ucf_left_sim"
             }
         },
 
@@ -194,10 +188,8 @@
             {
                 "robot_tf": "lance2",
                 "joy_node": "enabled",
-                "robot_status": "enabled",
-                "robot_control": "lance2_ksc_sim",
+                "mission_control": "lance2_ksc_sim",
                 "redux": "client_dev_1_sim",
-                "zone_viz": "ksc",
                 "perception": "lance2_sim",
                 "foxglove_bridge": "all"
             }
@@ -208,8 +200,7 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance2_ucf_right_ms",
-                "robot_control": "lance2_ucf_right_sim",
-                "zone_viz": "ucf_right"
+                "mission_control": "lance2_ucf_right_sim"
             }
         },
         "lance2_ucf_left":
@@ -218,8 +209,7 @@
             "pragma:action_overrides":
             {
                 "gz_sim": "lance2_ucf_left_ms",
-                "robot_control": "lance2_ucf_left_sim",
-                "zone_viz": "ucf_left"
+                "mission_control": "lance2_ucf_left_sim"
             }
         }
     }

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.12)
 project(net_adapter)
 
 # --- Dependencies -------------------------------------------------------------
+find_package(rosidl_default_generators REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -20,6 +21,8 @@ find_package(Eigen3 REQUIRED)
 find_package(zenohc REQUIRED)
 find_package(zenohcxx REQUIRED)
 
+find_package(zstd REQUIRED)
+
 # --- Presets ------------------------------------------------------------------
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
@@ -35,17 +38,28 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# --- Messages -----------------------------------------------------------------
+rosidl_generate_interfaces(${PROJECT_NAME}
+    "msg/Bytes.msg")
+
+rosidl_get_typesupport_target(${PROJECT_NAME}_custom_types
+    ${PROJECT_NAME} rosidl_typesupport_cpp)
+
 # --- Common -------------------------------------------------------------------
 add_library(adapters_core STATIC
-    "src/util/delay_queue.cpp"
+    "src/core/zstd_ctx.cpp"
+    "src/core/delay_queue.cpp"
+    "src/core/latency_ping.cpp"
     "src/adapters/joy_adapter.cpp"
     "src/adapters/ms136_imu_adapter.cpp"
     "src/adapters/ms136_scan_adapter.cpp"
     "src/adapters/talon_adapter.cpp"
     "src/adapters/path_adapter.cpp")
 target_link_libraries(adapters_core
+    ${${PROJECT_NAME}_custom_types}
     Eigen3::Eigen
-    zenohcxx::zenohc)
+    zenohcxx::zenohc
+    zstd::libzstd_shared)
 ament_target_dependencies(adapters_core
     rclcpp
     std_msgs
@@ -62,26 +76,27 @@ ament_target_dependencies(adapters_core
 add_executable(robot_endpoint
     "src/robot_endpoint.cpp")
 target_link_libraries(robot_endpoint
-    adapters_core
+    adapters_core)
     # csm_metrics::profiling
-    zenohcxx::zenohc)
-ament_target_dependencies(robot_endpoint
-    rclcpp)
+    # zenohcxx::zenohc)
+# ament_target_dependencies(robot_endpoint
+#     rclcpp)
     # csm_metrics)
 
 add_executable(client_endpoint
     "src/client_endpoint.cpp")
 target_link_libraries(client_endpoint
-    adapters_core
+    adapters_core)
     # csm_metrics::profiling
-    zenohcxx::zenohc)
-ament_target_dependencies(client_endpoint
-    rclcpp)
+    # zenohcxx::zenohc)
+# ament_target_dependencies(client_endpoint
+#     rclcpp)
     # csm_metrics)
 
 # --- Export -------------------------------------------------------------------
 ament_export_dependencies(
     rclcpp
+    rosidl_default_runtime
     std_msgs
     sensor_msgs
     geometry_msgs

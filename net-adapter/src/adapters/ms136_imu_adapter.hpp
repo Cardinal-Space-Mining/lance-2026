@@ -62,6 +62,7 @@ class MS136ImuAdapter :
     public BaseAdapter<
         sensor_msgs::msg::Imu,
         MS136ImuAdapter,
+        0,
         MS136ImuAdapterPubState,
         void>
 {

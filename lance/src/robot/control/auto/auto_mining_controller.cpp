@@ -1,0 +1,285 @@
+/*******************************************************************************
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
+*                                                                              *
+*                                 ;xxxxxxx:                                    *
+*                                ;$$$$$$$$$       ...::..                      *
+*                                $$$$$$$$$$x   .:::::::::::..                  *
+*                             x$$$$$$$$$$$$$$::::::::::::::::.                 *
+*                         :$$$$$&X;      .xX:::::::::::::.::...                *
+*                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :               *
+*                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.              *
+*               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.              *
+*              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::               *
+*               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.               *
+*                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.                *
+*                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                  *
+*                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                    *
+*                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                    *
+*                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
+*                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
+*                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
+*               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
+*                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
+*                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                     *
+*               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                            *
+*               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                               *
+*               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                   *
+*                .;;;;;;;;:;;    +$$$$$$$$$                                    *
+*                  .;;;;;;.       X$$$$$$$:                                    *
+*                                                                              *
+*   Unless required by applicable law or agreed to in writing, software        *
+*   distributed under the License is distributed on an "AS IS" BASIS,          *
+*   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   *
+*   See the License for the specific language governing permissions and        *
+*   limitations under the License.                                             *
+*                                                                              *
+*******************************************************************************/
+
+#include "auto_mining_controller.hpp"
+
+
+namespace lance
+{
+
+AutoMiningController::AutoMiningController(
+    const RobotParams& params,
+    SensingInterfaces& sensing_interfaces,
+    SharedControllerCollection& controllers) :
+    params{params},
+    sensing_interfaces{sensing_interfaces},
+    traversal_controller{controllers.traversal_controller},
+    mining_controller{controllers.mining_controller},
+    mining_planner{sensing_interfaces.mining_eval_interface, params}
+{
+}
+
+void AutoMiningController::initialize() { this->stage = Stage::INITIALIZATION; }
+
+bool AutoMiningController::isFinished()
+{
+    return this->stage == Stage::FINISHED;
+}
+
+void AutoMiningController::setCancelled()
+{
+    switch (this->stage)
+    {
+        case Stage::TRAVERSING:
+        {
+            this->traversal_controller.setCancelled();
+            break;
+        }
+        case Stage::MINING:
+        {
+            this->mining_controller.setCancelled();
+            break;
+        }
+        default:
+        {
+        }
+    }
+    this->stage = Stage::FINISHED;
+}
+
+void AutoMiningController::iterate(
+    const RobotMotorStatus& motor_status,
+    RobotMotorCommands& commands)
+{
+    switch (this->stage)
+    {
+        case Stage::INITIALIZATION:
+        {
+            this->stage = Stage::PLANNING;
+            [[fallthrough]];
+        }
+        case Stage::PLANNING:
+        {
+            // if (!mining_planner.hasSentRequest())
+            // {
+            //     this->traversal_controller.initializePoint(
+            //     this->params.mining_zone_bounds.max() -
+            //         Eigen::Vector2f::Constant(0.8f),
+            //     Eigen::Vector2f{0.f, -1.f});
+                
+            //     this->stage = Stage::TRAVERSING;
+            //     break;
+            // }
+            
+            
+            std::cout << "Planning mining path...\n";
+            // -----------------------------------------------------------------
+            // 1. generate target evals
+            // 2. geometry converter to build eval list
+            // 3. >>
+            // this->mining_eval_client->async_send_request(
+            //     req,
+            //     [](rclcpp::Client<UpdateMiningSrv>::SharedFuture f){ /* Use the response here! */ } );
+            // 4. update planner accordingly >>
+
+            // This will update the mining planner's internal matrices based on the current state of the world as perceived by the robot. It should be called periodically to ensure the planner has up-to-date information, but for now we will call it once at the beginning of the routine.
+           
+           
+           
+           
+           
+           
+           
+            // this->mining_planner.iterate();
+            if (!this->mining_planner.updateMappedMatrices())
+            {
+                break;
+            }
+
+
+            std::cout << "Mining evaluation results received. Generating mining paths...\n";
+
+            const MiningPlanner::DirectedMiningPaths& paths =
+                mining_planner.finalOutput();
+
+            std::cout << "Passed final output: " << paths.size() << " mining paths.\n";
+
+            const auto miningDirectionToString = [](lance::MiningDirection dir)
+            {
+                switch (dir)
+                {
+                    case lance::MiningDirection::UP:
+                        return "UP";
+                    case lance::MiningDirection::DOWN:
+                        return "DOWN";
+                    case lance::MiningDirection::LEFT:
+                        return "LEFT";
+                    case lance::MiningDirection::RIGHT:
+                        return "RIGHT";
+                    default:
+                        return "UNKNOWN";
+                }
+            };
+            std::cout << "Evaluated " << paths.size() << " mining paths:\n";
+            for (const auto& path : paths)
+            {
+                std::cout << "\n=== Evaluating Path ===\n";
+                lance::DirectedMiningPath::MiningSwath p =
+                    path.getPathCoordinatesInWorldFrame(
+                        this->params,
+                        &this->mining_planner.getGridGeometry());
+                std::cout << "Base Frame - Start: (" << p.first.x() << ", "
+                          << p.first.y() << ")  Direction (In Coords): ("
+                          << p.second.x() << ", " << p.second.y()
+                          << ") | Direction: "
+                          << miningDirectionToString(path.getDirection())
+                          << " | Distance: " << path.getDistance() << "\n";
+
+                path.print();
+                          
+            }
+
+
+            if (paths.empty())
+            {
+                std::cout
+                    << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
+                this->stage = Stage::FINISHED;
+                break;
+            }
+
+            const DirectedMiningPath::MiningSwath swath =
+                paths.front().getPathCoordinatesInWorldFrame(
+                    this->params,
+                    &this->mining_planner.getGridGeometry());
+            
+            std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
+                      << swath.first.y() << ")  Direction (In Coords): ("
+                      << swath.second.x() << ", " << swath.second.y()
+                      << ") | Direction: "
+                      << miningDirectionToString(paths.front().getDirection())
+                      << " | Distance: " << paths.front().getDistance() << "\n";
+
+            this->traversal_controller.initializePoint(
+                swath.first,
+                swath.second);
+
+            this->stage = Stage::TRAVERSING;
+            [[fallthrough]];
+
+
+
+
+
+
+
+            
+            // bool received_request = mining_planner.updateMappedMatrices();
+
+            // I don't know how to do the query service, but the updateMappedMatrices() would call that a bunch of times
+            // I don't think it would have to be called here because it really only needs to be called once (or very periodically)
+            // it saves the results in a matrix that is used later on
+
+            // Wouldn't be a bad idea to check the best path it gives you one more time though
+            // The final ouput is sorted so the top has the highest quality
+
+            
+
+            // if (paths.empty())
+            // {
+            //     std::cout
+            //         << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
+            //     this->stage = Stage::FINISHED;
+            //     break;
+            // }
+            // -----------------------------------------------------------------
+            // if (!received_request)
+            // {
+            //     std::cerr << "Failed to receive mining evaluation results.\n";
+            //     this->stage = Stage::PLANNING;
+            //     break;  // stay in planning on next iterate()
+            // }
+            // Optional but recommended guard to avoid front() on empty vector
+            // if (paths.empty())
+            // {
+            //     std::cout
+            //         << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
+            //     this->stage = Stage::FINISHED;
+            //     break;
+            // }
+
+            // const DirectedMiningPath::MiningSwath swath =
+            //     paths.front().getPathCoordinatesInWorldFrame(this->params);
+
+            // this->traversal_controller.initializePoint(
+            //     swath.first,
+            //     swath.second);
+            // this->stage = Stage::TRAVERSING;
+            // [[fallthrough]];
+        }
+        case Stage::TRAVERSING:
+        {
+            this->traversal_controller.iterate(motor_status, commands);
+            if (!this->traversal_controller.isFinished())
+            {   
+                break;
+            }
+
+            this->mining_controller.initialize();
+            this->stage = Stage::MINING;
+            [[fallthrough]];
+        }
+        case Stage::MINING:
+        {
+            this->mining_controller.iterate(motor_status, commands);
+            if (!this->mining_controller.isFinished())
+            {
+                break;
+            }
+
+            this->stage = Stage::FINISHED;
+            [[fallthrough]];
+        }
+        case Stage::FINISHED:
+        {
+        }
+    }
+}
+
+};  // namespace lance

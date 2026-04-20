@@ -47,21 +47,24 @@
 #include <zenoh.hxx>
 #include <rclcpp/rclcpp.hpp>
 
-#include "../util/delay_queue.hpp"
+#include "../core/zstd_ctx.hpp"
+#include "../core/delay_queue.hpp"
 
 
 /* Base class for adapter implementations (CRTP static polymorphism).
  *
- * Msg_T      : ROS message type the adapter interfaces with
- * Derived_T  : CRTP derivee class
- * PubState_T : Optional extra storage for publishers (default = Derived_T)
- * SubState_T : Optional extra storage for subscribers (default = Derived_T)
+ * Msg_T            : ROS message type the adapter interfaces with
+ * Derived_T        : CRTP derivee class
+ * Compression_Lvl: : Zstd compression level to use if > 0
+ * PubState_T       : Optional extra storage for publishers (default = Derived_T)
+ * SubState_T       : Optional extra storage for subscribers (default = Derived_T)
  *
  * Both PubState_T / SubState_T must have a constructor that accepts
  * rclcpp::Node& when they equal Derived_T. */
 template<
     typename Msg_T,
     typename Derived_T = void,
+    int Compression_Lvl = 0,
     typename PubState_T = Derived_T,
     typename SubState_T = Derived_T>
 class BaseAdapter
@@ -69,11 +72,24 @@ class BaseAdapter
 public:
     using MsgT = Msg_T;
     using DerivedT = Derived_T;
-    using BaseT = BaseAdapter<MsgT, DerivedT, PubState_T, SubState_T>;
+    using BaseT =
+        BaseAdapter<MsgT, DerivedT, Compression_Lvl, PubState_T, SubState_T>;
     using PubStateT =
         std::conditional_t<std::is_void_v<PubState_T>, BaseT, PubState_T>;
     using SubStateT =
         std::conditional_t<std::is_void_v<SubState_T>, BaseT, SubState_T>;
+
+    static constexpr int COMPRESSION_LEVEL = Compression_Lvl;
+    static constexpr bool USING_COMPRESSION = (COMPRESSION_LEVEL > 0);
+
+    using CompressorT = std::conditional_t<
+        USING_COMPRESSION,
+        util::ZstdCompressor,
+        util::ZstdNoCompression>;
+    using DecompressorT = std::conditional_t<
+        USING_COMPRESSION,
+        util::ZstdDecompressor,
+        util::ZstdNoCompression>;
 
     using ZenohPub = zenoh::Publisher;
     using ZenohSub = zenoh::Subscriber<void>;
@@ -102,6 +118,9 @@ public:
         SubStateT state;
         ZenohPub zpub;
         RosSub rsub;
+
+        [[no_unique_address]]
+        CompressorT compress_ctx;
     };
 
     /* Subscribes to the zenoh network and publishes onto the local ROS network. */
@@ -121,6 +140,9 @@ public:
         PubStateT state;
         RosPub rpub;
         ZenohSub zsub;
+
+        [[no_unique_address]]
+        DecompressorT decompress_ctx;
     };
 
 public:
@@ -170,8 +192,8 @@ protected:
 
 // --- Implementation ----------------------------------------------------------
 
-template<typename M, typename D, typename P, typename S>
-BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
+template<typename M, typename D, int C, typename P, typename S>
+BaseAdapter<M, D, C, P, S>::Subscriber::Subscriber(
     rclcpp::Node& node,
     zenoh::Session& zsh,
     const std::string& topic,
@@ -182,12 +204,30 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
     rsub{node.create_subscription<MsgT>(
         topic,
         qos,
-        [this, delay_q](const MsgT& msg)
+        [this,
+         delay_q,
+         logger = node.get_logger(),
+         clock = node.get_clock(),
+         topic](const MsgT& msg)
         {
             ByteBuffer bytes;
             if (!DerivedT::serializeMsg(bytes, msg, this->state))
             {
                 return;
+            }
+
+            if constexpr (USING_COMPRESSION)
+            {
+                if (!this->compress_ctx.compress(bytes, COMPRESSION_LEVEL))
+                {
+                    RCLCPP_ERROR_THROTTLE(
+                        logger,
+                        *clock,
+                        1000,
+                        "zstd compression failed on topic '%s'; dropping message",
+                        topic.c_str());
+                    return;
+                }
             }
 
             if (delay_q)
@@ -209,8 +249,8 @@ BaseAdapter<M, D, P, S>::Subscriber::Subscriber(
 {
 }
 
-template<typename M, typename D, typename P, typename S>
-BaseAdapter<M, D, P, S>::Publisher::Publisher(
+template<typename M, typename D, int C, typename P, typename S>
+BaseAdapter<M, D, C, P, S>::Publisher::Publisher(
     rclcpp::Node& node,
     zenoh::Session& zsh,
     const std::string& topic,
@@ -219,9 +259,24 @@ BaseAdapter<M, D, P, S>::Publisher::Publisher(
     rpub{node.create_publisher<MsgT>(topic, qos)},
     zsub{zsh.declare_subscriber(
         topic.front() == '/' ? topic.substr(1) : topic,
-        [this](const zenoh::Sample& sample)
+        [this, logger = node.get_logger(), clock = node.get_clock(), topic](
+            const zenoh::Sample& sample)
         {
             ByteBuffer bytes = sample.get_payload().as_vector();
+            if constexpr (USING_COMPRESSION)
+            {
+                if (!this->decompress_ctx.decompress(bytes))
+                {
+                    RCLCPP_ERROR_THROTTLE(
+                        logger,
+                        *clock,
+                        1000,
+                        "zstd decompression failed on topic '%s'; dropping message",
+                        topic.c_str());
+                    return;
+                }
+            }
+
             MsgT msg;
             if (DerivedT::deserializeMsg(msg, bytes, this->state))
             {
@@ -232,9 +287,9 @@ BaseAdapter<M, D, P, S>::Publisher::Publisher(
 {
 }
 
-template<typename M, typename D, typename P, typename S>
-typename BaseAdapter<M, D, P, S>::Subscriber
-    BaseAdapter<M, D, P, S>::createSubscriber(
+template<typename M, typename D, int C, typename P, typename S>
+typename BaseAdapter<M, D, C, P, S>::Subscriber
+    BaseAdapter<M, D, C, P, S>::createSubscriber(
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
@@ -244,9 +299,9 @@ typename BaseAdapter<M, D, P, S>::Subscriber
     return Subscriber(node, zsh, topic, qos, delay_q);
 }
 
-template<typename M, typename D, typename P, typename S>
-typename BaseAdapter<M, D, P, S>::Publisher
-    BaseAdapter<M, D, P, S>::createPublisher(
+template<typename M, typename D, int C, typename P, typename S>
+typename BaseAdapter<M, D, C, P, S>::Publisher
+    BaseAdapter<M, D, C, P, S>::createPublisher(
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
@@ -255,9 +310,9 @@ typename BaseAdapter<M, D, P, S>::Publisher
     return Publisher(node, zsh, topic, qos);
 }
 
-template<typename M, typename D, typename P, typename S>
-std::shared_ptr<typename BaseAdapter<M, D, P, S>::Subscriber>
-    BaseAdapter<M, D, P, S>::createSharedSubscriber(
+template<typename M, typename D, int C, typename P, typename S>
+std::shared_ptr<typename BaseAdapter<M, D, C, P, S>::Subscriber>
+    BaseAdapter<M, D, C, P, S>::createSharedSubscriber(
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
@@ -272,9 +327,9 @@ std::shared_ptr<typename BaseAdapter<M, D, P, S>::Subscriber>
         delay_q);
 }
 
-template<typename M, typename D, typename P, typename S>
-std::shared_ptr<typename BaseAdapter<M, D, P, S>::Publisher>
-    BaseAdapter<M, D, P, S>::createSharedPublisher(
+template<typename M, typename D, int C, typename P, typename S>
+std::shared_ptr<typename BaseAdapter<M, D, C, P, S>::Publisher>
+    BaseAdapter<M, D, C, P, S>::createSharedPublisher(
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
