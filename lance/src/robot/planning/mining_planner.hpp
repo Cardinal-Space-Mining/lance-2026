@@ -40,6 +40,7 @@
 #pragma once
 
 #include <vector>
+#include <map>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
@@ -57,11 +58,44 @@ namespace lance
 
 enum class MiningDirection
 {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
+    YPLUS,
+    YMINUS,
+    XMINUS,
+    XPLUS
 };
+
+// Utility to iterate over all mining directions in a range-based for loop
+inline constexpr std::array<MiningDirection, 4> ALL_MINING_DIRECTIONS = {
+    MiningDirection::YPLUS,
+    MiningDirection::YMINUS,
+    MiningDirection::XMINUS,
+    MiningDirection::XPLUS,
+};
+
+using MiningZoneLimiterVector = std::array<float, 4>; // {Yplus, Yminus, Xminus, Xplus} limits to how far into the mining zone the robot can mine in each direction based on its footprint and the geometry of the zone
+
+// test version with all geom_FOOTPRINT_R_MAX_ as limits
+inline constexpr MiningZoneLimiterVector MINING_ZONE_OFFSETS[4] = {
+    MiningZoneLimiterVector{
+        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+    MiningZoneLimiterVector{
+        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+    MiningZoneLimiterVector{
+        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+    MiningZoneLimiterVector{
+        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,}
+};
+// inline constexpr std::array<std::array<float, 4>, 4> MINING_ZONE_OFFSETS = {
+//     MiningZoneLimiterVector{
+//         0.f, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>/2.0f,0.f,},
+//     MiningZoneLimiterVector{
+//         geom::FOOTPRINT_R_MAX_<float>,0.f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.f,},
+//     MiningZoneLimiterVector{
+//         geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.f,geom::FOOTPRINT_R_MAX_<float>},
+//     MiningZoneLimiterVector{
+//         geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>,0.f,}
+// };
+
 
 struct MiningGridGeometry
 {
@@ -69,8 +103,8 @@ struct MiningGridGeometry
     float mining_zone_y_length = 0.0f;
     float actual_mining_x_length = 0.0f;
     float actual_mining_y_length = 0.0f;
-    int x_divisions = 0;
-    int y_divisions = 0;
+    float cell_length_x = 0.0f;
+    float cell_length_y = 0.0f;
     Eigen::Vector2f min_corner_with_offset = Eigen::Vector2f::Zero();
     Eigen::Vector2f max_corner_with_offset = Eigen::Vector2f::Zero();
 };
@@ -90,12 +124,11 @@ public:
     DirectedMiningPath(
         MiningPath p,
         MiningDirection dir,
-        const Eigen::MatrixXf* mat);
+        const Eigen::MatrixXf* mat,
+        const MiningGridGeometry* grid_geometry);
 
 public:
-    MiningSwath getPathCoordinatesInWorldFrame(
-        const RobotParams& robot_params,
-        const MiningGridGeometry* grid_geometry = nullptr) const;
+    MiningSwath getPathCoordinatesInWorldFrame() const;
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
@@ -123,6 +156,8 @@ public:
     float getRecalculatedDistance() const;
 
 private:
+
+    MiningGridGeometry grid_geometry;
     MiningPath path;
     MiningDirection direction;
     const Eigen::MatrixXf* matrix;
@@ -146,14 +181,19 @@ public:
     bool updateMappedMatrices();
     const DirectedMiningPaths& finalOutput();
     const DirectedMiningPaths& getCachedPaths() const { return all_mining_paths; }
-    const MiningGridGeometry& getGridGeometry() const { return grid_geometry; }
+
+
+
+    std::map<MiningDirection, MiningGridGeometry> getGridGeometriesByDirection() const;
+    
+    
+    // const MiningGridGeometry& getGridGeometry() const { return grid_geometry; }
 
     void markMiningOnMatrix(const DirectedMiningPath& path);
     bool hasSentRequest() const { return sent_eval_request; }
 
 private:
-    static MiningGridGeometry
-        computeMiningGridGeometry(const RobotParams& robot_params);
+    MiningGridGeometry computeMiningGridGeometry(const RobotParams& robot_params, const MiningZoneLimiterVector& direction_offset) const;
 
     const std::vector<Pose2f>& getStartingLocations();
 
@@ -168,19 +208,22 @@ private:
 
 
     bool sent_eval_request{ false };
-    MiningGridGeometry grid_geometry;
+    std::map<MiningDirection, MiningGridGeometry> grid_geometry;
+    std::map<MiningDirection, Eigen::MatrixXi> previously_mined_cells_by_direction;
 
     // The direction is the way the the robot would be moving in reference to the
-    // base frame which is MiningDirection::DOWN
-    Eigen::MatrixXf strip_map_up;
-    Eigen::MatrixXf strip_map_down;
-    Eigen::MatrixXf strip_map_left;
-    Eigen::MatrixXf strip_map_right;
-    Eigen::MatrixXf strip_map_left_transposed;
-    Eigen::MatrixXf strip_map_right_transposed;
-    Eigen::MatrixXi previously_mined_cells;
+    // base frame which is MiningDirection::YMINUS
+    Eigen::MatrixXf strip_map_yplus;
+    Eigen::MatrixXf strip_map_yminus;
+    Eigen::MatrixXf strip_map_xminus;
+    Eigen::MatrixXf strip_map_xplus;
+    Eigen::MatrixXf strip_map_xminus_transposed;
+    Eigen::MatrixXf strip_map_xplus_transposed;
+    
 
     DirectedMiningPaths all_mining_paths;
+    static constexpr int x_divisions = 5;
+    static constexpr int y_divisions = 4;
 
     
 };

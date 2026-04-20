@@ -144,14 +144,14 @@ void AutoMiningController::iterate(
             {
                 switch (dir)
                 {
-                    case lance::MiningDirection::UP:
-                        return "UP";
-                    case lance::MiningDirection::DOWN:
-                        return "DOWN";
-                    case lance::MiningDirection::LEFT:
-                        return "LEFT";
-                    case lance::MiningDirection::RIGHT:
-                        return "RIGHT";
+                    case lance::MiningDirection::YPLUS:
+                        return "YPLUS";
+                    case lance::MiningDirection::YMINUS:
+                        return "YMINUS";
+                    case lance::MiningDirection::XMINUS:
+                        return "XMINUS";
+                    case lance::MiningDirection::XPLUS:
+                        return "XPLUS";
                     default:
                         return "UNKNOWN";
                 }
@@ -161,9 +161,7 @@ void AutoMiningController::iterate(
             {
                 std::cout << "\n=== Evaluating Path ===\n";
                 lance::DirectedMiningPath::MiningSwath p =
-                    path.getPathCoordinatesInWorldFrame(
-                        this->params,
-                        &this->mining_planner.getGridGeometry());
+                    path.getPathCoordinatesInWorldFrame();
                 std::cout << "Base Frame - Start: (" << p.first.x() << ", "
                           << p.first.y() << ")  Direction (In Coords): ("
                           << p.second.x() << ", " << p.second.y()
@@ -185,9 +183,7 @@ void AutoMiningController::iterate(
             }
 
             const DirectedMiningPath::MiningSwath swath =
-                paths.front().getPathCoordinatesInWorldFrame(
-                    this->params,
-                    &this->mining_planner.getGridGeometry());
+                paths.front().getPathCoordinatesInWorldFrame();
             
             std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
                       << swath.first.y() << ")  Direction (In Coords): ("

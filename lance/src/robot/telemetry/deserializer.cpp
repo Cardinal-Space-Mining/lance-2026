@@ -729,10 +729,10 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
 
         switch (dir_id)
         {
-            case AS_U8(MiningDirection::UP):
-            case AS_U8(MiningDirection::DOWN):
-            case AS_U8(MiningDirection::LEFT):
-            case AS_U8(MiningDirection::RIGHT):
+            case AS_U8(MiningDirection::YPLUS):
+            case AS_U8(MiningDirection::YMINUS):
+            case AS_U8(MiningDirection::XMINUS):
+            case AS_U8(MiningDirection::XPLUS):
             {
                 break;
             }
@@ -741,10 +741,10 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
                 // Fallback for mixed-version payloads.
                 dir_id = AS_U8(
                     (std::abs(dx) >= std::abs(dy))
-                        ? (dx >= 0.f ? MiningDirection::RIGHT
-                                     : MiningDirection::LEFT)
-                        : (dy >= 0.f ? MiningDirection::UP
-                                     : MiningDirection::DOWN));
+                        ? (dx >= 0.f ? MiningDirection::XPLUS
+                                     : MiningDirection::XMINUS)
+                        : (dy >= 0.f ? MiningDirection::YPLUS
+                                     : MiningDirection::YMINUS));
             }
         }
 
@@ -752,22 +752,22 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
 
         switch (dir_id)
         {
-            case AS_U8(MiningDirection::UP):
+            case AS_U8(MiningDirection::YPLUS):
             {
                 marker.color.set__r(0.95f).set__g(0.95f).set__b(0.2f);
                 break;
             }
-            case AS_U8(MiningDirection::DOWN):
+            case AS_U8(MiningDirection::YMINUS):
             {
                 marker.color.set__r(0.95f).set__g(0.25f).set__b(0.25f);
                 break;
             }
-            case AS_U8(MiningDirection::LEFT):
+            case AS_U8(MiningDirection::XMINUS):
             {
                 marker.color.set__r(0.3f).set__g(0.55f).set__b(1.0f);
                 break;
             }
-            case AS_U8(MiningDirection::RIGHT):
+            case AS_U8(MiningDirection::XPLUS):
             {
                 marker.color.set__r(1.0f).set__g(0.35f).set__b(0.9f);
                 break;
