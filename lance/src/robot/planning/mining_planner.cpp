@@ -170,9 +170,9 @@ bool DirectedMiningPath::adjustForRobotClearance()
 
 
     int robot_clearance_exclusion_count_x = static_cast<int>(std::ceil(
-        geom::PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float> / this->grid_geometry.cell_length_x));
+        (geom::PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float>/2.0f) / this->grid_geometry.cell_length_x));
     int robot_clearance_exclusion_count_y = static_cast<int>(std::ceil(
-        geom::PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float> / this->grid_geometry.cell_length_y));
+        (geom::PRIMARY_COLLISION_ZONE_LENGTH_OFFSET_<float>/2.0f) / this->grid_geometry.cell_length_y));
 
     switch (direction)
     {
@@ -436,7 +436,7 @@ bool MiningPlanner::updateMappedMatrices()
                   << mining_eval_distances->size() << ".\n";
         return false;
     }
-
+    
     size_t mining_eval_index = 0;
     for (int i = 0; i < strip_map_yplus.cols(); i++)
     {

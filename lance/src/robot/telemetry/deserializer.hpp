@@ -113,6 +113,7 @@ protected:
 #if ENABLE_MINING_PLANNER_DEBUG
     const size_t auto_mining_paths_marker_id;
     const size_t auto_mining_grid_marker_id;
+    uint8_t active_mining_directions_mask{0};
 #endif
 
     std::vector<std::string> ctrl_chain;

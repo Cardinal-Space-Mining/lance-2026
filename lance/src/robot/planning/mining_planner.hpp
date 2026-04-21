@@ -75,25 +75,38 @@ inline constexpr std::array<MiningDirection, 4> ALL_MINING_DIRECTIONS = {
 using MiningZoneLimiterVector = std::array<float, 4>; // {Yplus, Yminus, Xminus, Xplus} limits to how far into the mining zone the robot can mine in each direction based on its footprint and the geometry of the zone
 
 // test version with all geom_FOOTPRINT_R_MAX_ as limits
-inline constexpr MiningZoneLimiterVector MINING_ZONE_OFFSETS[4] = {
+// inline constexpr MiningZoneLimiterVector MINING_ZONE_OFFSETS[4] = {
+//     MiningZoneLimiterVector{
+//         geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+//     MiningZoneLimiterVector{
+//         geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+//     MiningZoneLimiterVector{
+//         geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+//     MiningZoneLimiterVector{
+//         geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,}
+// };
+// For ksc
+inline constexpr std::array<std::array<float, 4>, 4> MINING_ZONE_OFFSETS = {
+    // 4 mining limiters in order of Yplus, Yminus, Xplus, Xminus
     MiningZoneLimiterVector{
-        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+        geom::FOOTPRINT_R_MAX_<float>, 0.0f, geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,},
     MiningZoneLimiterVector{
-        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+        0.0f,geom::FOOTPRINT_R_MAX_<float>,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,},
     MiningZoneLimiterVector{
-        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,},
+        geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,0.0f,},
     MiningZoneLimiterVector{
-        geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>,}
+        geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>,0.0f,}
 };
 // inline constexpr std::array<std::array<float, 4>, 4> MINING_ZONE_OFFSETS = {
+//     // 4 mining limiters in order of Yplus, Yminus, Xminus, Xplus
 //     MiningZoneLimiterVector{
-//         0.f, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>/2.0f,0.f,},
+//         0.0f, geom::FOOTPRINT_R_MAX_<float>, geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,},
 //     MiningZoneLimiterVector{
-//         geom::FOOTPRINT_R_MAX_<float>,0.f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.f,},
+//         geom::FOOTPRINT_R_MAX_<float>,0.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,},
 //     MiningZoneLimiterVector{
-//         geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.f,geom::FOOTPRINT_R_MAX_<float>},
+//         geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,geom::FOOTPRINT_R_MAX_<float>},
 //     MiningZoneLimiterVector{
-//         geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>,0.f,}
+//         geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>,0.0f,}
 // };
 
 
@@ -222,8 +235,8 @@ private:
     
 
     DirectedMiningPaths all_mining_paths;
-    static constexpr int x_divisions = 5;
-    static constexpr int y_divisions = 4;
+    static constexpr int x_divisions = 8;
+    static constexpr int y_divisions = 12;
 
     
 };

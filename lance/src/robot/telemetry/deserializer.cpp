@@ -40,6 +40,7 @@
 #include "deserializer.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "util/geometry.hpp"
@@ -67,6 +68,103 @@ using TransformStampedMsg = geometry_msgs::msg::TransformStamped;
 namespace lance
 {
 
+namespace
+{
+constexpr size_t AUTO_MINING_GRID_ZONE_MARKER_COUNT = 4;
+constexpr size_t AUTO_MINING_GRID_LINE_MARKER_COUNT = 4;
+constexpr size_t AUTO_MINING_GRID_LINES_BEG_IDX =
+    AUTO_MINING_GRID_ZONE_MARKER_COUNT;
+constexpr size_t AUTO_MINING_GRID_MARKER_COUNT =
+    AUTO_MINING_GRID_ZONE_MARKER_COUNT + AUTO_MINING_GRID_LINE_MARKER_COUNT;
+
+inline const char* miningDirectionNamespace(uint8_t dir_id)
+{
+    switch (dir_id)
+    {
+        case AS_U8(MiningDirection::YPLUS):
+        {
+            return "mining_planner/yplus";
+        }
+        case AS_U8(MiningDirection::YMINUS):
+        {
+            return "mining_planner/yminus";
+        }
+        case AS_U8(MiningDirection::XMINUS):
+        {
+            return "mining_planner/xminus";
+        }
+        case AS_U8(MiningDirection::XPLUS):
+        {
+            return "mining_planner/xplus";
+        }
+        default:
+        {
+            return "mining_planner/unknown";
+        }
+    }
+}
+
+inline const char* miningDirectionGridLinesNamespace(uint8_t dir_id)
+{
+    switch (dir_id)
+    {
+        case AS_U8(MiningDirection::YPLUS):
+        {
+            return "mining_planner/grid_lines/yplus";
+        }
+        case AS_U8(MiningDirection::YMINUS):
+        {
+            return "mining_planner/grid_lines/yminus";
+        }
+        case AS_U8(MiningDirection::XMINUS):
+        {
+            return "mining_planner/grid_lines/xminus";
+        }
+        case AS_U8(MiningDirection::XPLUS):
+        {
+            return "mining_planner/grid_lines/xplus";
+        }
+        default:
+        {
+            return "mining_planner/grid_lines/unknown";
+        }
+    }
+}
+
+inline void setMiningDirectionColor(
+    visualization_msgs::msg::Marker& marker,
+    uint8_t dir_id)
+{
+    switch (dir_id)
+    {
+        case AS_U8(MiningDirection::YPLUS):
+        {
+            marker.color.set__r(0.95f).set__g(0.95f).set__b(0.2f);
+            break;
+        }
+        case AS_U8(MiningDirection::YMINUS):
+        {
+            marker.color.set__r(0.95f).set__g(0.25f).set__b(0.25f);
+            break;
+        }
+        case AS_U8(MiningDirection::XMINUS):
+        {
+            marker.color.set__r(0.3f).set__g(0.55f).set__b(1.0f);
+            break;
+        }
+        case AS_U8(MiningDirection::XPLUS):
+        {
+            marker.color.set__r(1.0f).set__g(0.35f).set__b(0.9f);
+            break;
+        }
+        default:
+        {
+            marker.color.set__r(0.2f).set__g(0.95f).set__b(0.2f);
+        }
+    }
+}
+}  // namespace
+
 TelemetryDeserializer::TelemetryDeserializer(
     RclNode& node,
     TfCache& tf_cache,
@@ -86,7 +184,8 @@ TelemetryDeserializer::TelemetryDeserializer(
     ,
     auto_mining_paths_marker_id{
         markers.reserveGroup(AUTO_MINING_MAX_PATHS, "mining_planner")},
-    auto_mining_grid_marker_id{markers.reserveGroup(3, "mining_planner")}
+    auto_mining_grid_marker_id{
+        markers.reserveGroup(AUTO_MINING_GRID_MARKER_COUNT, "mining_planner")}
 #endif
 {
     this->initMarkers();
@@ -133,35 +232,33 @@ void TelemetryDeserializer::initMarkers()
                      .setFrameId(this->tf_cache.arena_frame_id)
                      .setDuration(RclDur{1, 500000000});
 
-        auto& z = g[0];
-        z.type = MarkerMsg::LINE_STRIP;
-        z.scale.x = 0.03f;
-        z.color.r = 0.2f;
-        z.color.g = 0.95f;
-        z.color.b = 0.2f;
-        z.color.a = 0.9f;
-        z.points.resize(5);
-        z.points[0].z = 0.01;
-        z.points[1].z = 0.01;
-        z.points[2].z = 0.01;
-        z.points[3].z = 0.01;
+        for (size_t dir_id = 0; dir_id < AUTO_MINING_GRID_ZONE_MARKER_COUNT;
+             dir_id++)
+        {
+            auto& z = g[dir_id];
+            z.ns =
+                miningDirectionGridLinesNamespace(static_cast<uint8_t>(dir_id));
+            z.type = MarkerMsg::LINE_STRIP;
+            z.scale.x = 0.03f;
+            setMiningDirectionColor(z, static_cast<uint8_t>(dir_id));
+            z.color.a = 0.9f;
+            z.points.resize(5);
+            for (auto& pt : z.points)
+            {
+                pt.z = 0.01;
+            }
+        }
 
-        auto& l = g[1];
-        l.type = MarkerMsg::LINE_LIST;
-        l.scale.x = 0.01f;
-        l.color.r = 0.2f;
-        l.color.g = 0.7f;
-        l.color.b = 1.0f;
-        l.color.a = 0.5f;
-
-        auto& p = g[2];
-        p.type = MarkerMsg::POINTS;
-        p.scale.x = 0.05f;
-        p.scale.y = 0.05f;
-        p.color.r = 1.0f;
-        p.color.g = 1.0f;
-        p.color.b = 1.0f;
-        p.color.a = 0.65f;
+        for (size_t dir_id = 0; dir_id < AUTO_MINING_GRID_LINE_MARKER_COUNT;
+             dir_id++)
+        {
+            auto& l = g[AUTO_MINING_GRID_LINES_BEG_IDX + dir_id];
+            l.ns = miningDirectionGridLinesNamespace(static_cast<uint8_t>(dir_id));
+            l.type = MarkerMsg::LINE_LIST;
+            l.scale.x = 0.01f;
+            setMiningDirectionColor(l, static_cast<uint8_t>(dir_id));
+            l.color.a = 0.5f;
+        }
     }
 #endif
 }
@@ -172,6 +269,9 @@ void TelemetryDeserializer::accept(const BytesMsg& msg)
     this->ctrl_chain.clear();
     this->markers.clearOutput();
     this->tf_cache.refresh();
+#if ENABLE_MINING_PLANNER_DEBUG
+    this->active_mining_directions_mask = 0;
+#endif
 
     const Byte* ptr = msg.data.data();
     const Byte* const end_ptr = msg.data.end().base();
@@ -749,30 +849,9 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
         }
 
         MarkerMsg& marker = m[i];
-
-        switch (dir_id)
-        {
-            case AS_U8(MiningDirection::YPLUS):
-            {
-                marker.color.set__r(0.95f).set__g(0.95f).set__b(0.2f);
-                break;
-            }
-            case AS_U8(MiningDirection::YMINUS):
-            {
-                marker.color.set__r(0.95f).set__g(0.25f).set__b(0.25f);
-                break;
-            }
-            case AS_U8(MiningDirection::XMINUS):
-            {
-                marker.color.set__r(0.3f).set__g(0.55f).set__b(1.0f);
-                break;
-            }
-            case AS_U8(MiningDirection::XPLUS):
-            {
-                marker.color.set__r(1.0f).set__g(0.35f).set__b(0.9f);
-                break;
-            }
-        }
+        marker.ns = miningDirectionNamespace(dir_id);
+        setMiningDirectionColor(marker, dir_id);
+        this->active_mining_directions_mask |= (static_cast<uint8_t>(1u) << dir_id);
 
         constexpr float PATH_VIS_OFFSET_M = 0.07f;
         constexpr float LATERAL_X_OFFS[] = {
@@ -803,57 +882,81 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
 
 bool TelemetryDeserializer::pubMiningPlannerGrid(BytePtrRef ptr, BytePtr end)
 {
-    EXIT_IF_INSUFFICIENT_SIZE((sizeof(float) * 5) + (sizeof(uint32_t) * 2))
+    constexpr size_t DIRECTION_COUNT = 4;
+    constexpr size_t FLOATS_PER_DIRECTION = 6;  // min/max corners + cell lengths
+    EXIT_IF_INSUFFICIENT_SIZE(
+        sizeof(float) * (DIRECTION_COUNT * FLOATS_PER_DIRECTION))
 
-    float min_x, min_y, max_x, max_y, cell_size;
-    size_t x_divisions, y_divisions;
-    readAndIncrement(ptr, min_x);
-    readAndIncrement(ptr, min_y);
-    readAndIncrement(ptr, max_x);
-    readAndIncrement(ptr, max_y);
-    readAndIncrement(ptr, cell_size);
-    readAsAndIncrement<uint32_t>(ptr, x_divisions);
-    readAsAndIncrement<uint32_t>(ptr, y_divisions);
-
-    const size_t render_x_divisions =
-        std::min(x_divisions, AUTO_MINING_MAX_GRID_DIVS);
-    const size_t render_y_divisions =
-        std::min(y_divisions, AUTO_MINING_MAX_GRID_DIVS);
+    std::array<float, DIRECTION_COUNT> min_xs{};
+    std::array<float, DIRECTION_COUNT> min_ys{};
+    std::array<float, DIRECTION_COUNT> max_xs{};
+    std::array<float, DIRECTION_COUNT> max_ys{};
+    std::array<float, DIRECTION_COUNT> cell_len_xs{};
+    std::array<float, DIRECTION_COUNT> cell_len_ys{};
+    for (size_t i = 0; i < DIRECTION_COUNT; i++)
+    {
+        readAndIncrement(ptr, min_xs[i]);
+        readAndIncrement(ptr, min_ys[i]);
+        readAndIncrement(ptr, max_xs[i]);
+        readAndIncrement(ptr, max_ys[i]);
+        readAndIncrement(ptr, cell_len_xs[i]);
+        readAndIncrement(ptr, cell_len_ys[i]);
+    }
 
     auto m = this->markers.getGroup(this->auto_mining_grid_marker_id);
 
-    MarkerMsg& zone = m[0];
-    zone.points[0].x = min_x;
-    zone.points[0].y = min_y;
-    zone.points[1].x = max_x;
-    zone.points[1].y = min_y;
-    zone.points[2].x = max_x;
-    zone.points[2].y = max_y;
-    zone.points[3].x = min_x;
-    zone.points[3].y = max_y;
-    zone.points[4] = zone.points[0];
-
-    if (cell_size > 0.f)
+    for (size_t dir_id = 0; dir_id < DIRECTION_COUNT; dir_id++)
     {
-        const float grid_max_x = std::min(
-            max_x,
-            min_x + (static_cast<float>(render_x_divisions) * cell_size));
-        const float grid_max_y = std::min(
-            max_y,
-            min_y + (static_cast<float>(render_y_divisions) * cell_size));
-
-        MarkerMsg& grid_lines = m[1];
+        MarkerMsg& zone = m[dir_id];
+        MarkerMsg& grid_lines = m[AUTO_MINING_GRID_LINES_BEG_IDX + dir_id];
         grid_lines.points.clear();
+
+        zone.points.resize(5);
+        zone.points[0].x = min_xs[dir_id];
+        zone.points[0].y = min_ys[dir_id];
+        zone.points[1].x = max_xs[dir_id];
+        zone.points[1].y = min_ys[dir_id];
+        zone.points[2].x = max_xs[dir_id];
+        zone.points[2].y = max_ys[dir_id];
+        zone.points[3].x = min_xs[dir_id];
+        zone.points[3].y = max_ys[dir_id];
+        zone.points[4] = zone.points[0];
+
+        const float cell_x = cell_len_xs[dir_id];
+        const float cell_y = cell_len_ys[dir_id];
+        if ((cell_x <= 0.f) || (cell_y <= 0.f) || !std::isfinite(cell_x) ||
+            !std::isfinite(cell_y))
+        {
+            continue;
+        }
+
+        const float x_len = std::max(0.f, max_xs[dir_id] - min_xs[dir_id]);
+        const float y_len = std::max(0.f, max_ys[dir_id] - min_ys[dir_id]);
+
+        const size_t render_x_divisions = std::min(
+            AUTO_MINING_MAX_GRID_DIVS,
+            static_cast<size_t>(std::round(x_len / cell_x)));
+        const size_t render_y_divisions = std::min(
+            AUTO_MINING_MAX_GRID_DIVS,
+            static_cast<size_t>(std::round(y_len / cell_y)));
+
+        const float grid_max_x = std::min(
+            max_xs[dir_id],
+            min_xs[dir_id] + (static_cast<float>(render_x_divisions) * cell_x));
+        const float grid_max_y = std::min(
+            max_ys[dir_id],
+            min_ys[dir_id] + (static_cast<float>(render_y_divisions) * cell_y));
+
         grid_lines.points.reserve(
             (render_x_divisions + render_y_divisions + 2) * 2);
 
         for (size_t ix = 0; ix <= render_x_divisions; ix++)
         {
-            const float x = min_x + (static_cast<float>(ix) * cell_size);
+            const float x = min_xs[dir_id] + (static_cast<float>(ix) * cell_x);
             auto& p0 = grid_lines.points.emplace_back();
             auto& p1 = grid_lines.points.emplace_back();
             p0.x = x;
-            p0.y = min_y;
+            p0.y = min_ys[dir_id];
             p0.z = 0.01;
             p1.x = x;
             p1.y = grid_max_y;
@@ -861,38 +964,19 @@ bool TelemetryDeserializer::pubMiningPlannerGrid(BytePtrRef ptr, BytePtr end)
         }
         for (size_t iy = 0; iy <= render_y_divisions; iy++)
         {
-            const float y = min_y + (static_cast<float>(iy) * cell_size);
+            const float y = min_ys[dir_id] + (static_cast<float>(iy) * cell_y);
             auto& p0 = grid_lines.points.emplace_back();
             auto& p1 = grid_lines.points.emplace_back();
-            p0.x = min_x;
+            p0.x = min_xs[dir_id];
             p0.y = y;
             p0.z = 0.01;
             p1.x = grid_max_x;
             p1.y = y;
             p1.z = 0.01;
         }
-
-        MarkerMsg& grid_points = m[2];
-        grid_points.points.clear();
-        grid_points.points.reserve(render_x_divisions * render_y_divisions);
-
-        for (size_t ix = 0; ix < render_x_divisions; ix++)
-        {
-            for (size_t iy = 0; iy < render_y_divisions; iy++)
-            {
-                auto& p = grid_points.points.emplace_back();
-                p.x = min_x + ((static_cast<float>(ix) + 0.5f) * cell_size);
-                p.y = min_y + ((static_cast<float>(iy) + 0.5f) * cell_size);
-                p.z = 0.015;
-            }
-        }
-
-        this->markers.addGroupToOutput(this->auto_mining_grid_marker_id);
     }
-    else
-    {
-        this->markers.addSubGroupToOutput(this->auto_mining_grid_marker_id, 1);
-    }
+
+    this->markers.addGroupToOutput(this->auto_mining_grid_marker_id);
 
     return true;
 }
