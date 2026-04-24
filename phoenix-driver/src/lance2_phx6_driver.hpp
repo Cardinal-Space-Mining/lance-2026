@@ -40,6 +40,8 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
@@ -113,6 +115,16 @@ public:
         double voltage_limit;
     };
 
+    struct MechanismConfig
+    {
+        std::string name;
+        std::string type;
+        std::vector<std::string> motors;
+        phx6::signals::MotorAlignmentValue alignment;
+        double sensor_to_differential_ratio;
+        double closed_loop_rate_hz;
+    };
+
 
     template<typename MotorType>
     struct RclMotor
@@ -142,7 +154,8 @@ public:
             const std::string& name,
             int id,
             const RclMotorConfig& config,
-            const CANBus& bus);
+            const CANBus& bus,
+            bool enable_ctrl_sub);
 
         void executeCtrl(const TalonCtrlMsg& msg);
     };
@@ -154,7 +167,8 @@ public:
 private:
     void feedWatchdogStatus(int32_t status);
 
-    void setupCustomMechanisms();
+    void parseMechanismConfigs();
+    void setupMechanisms();
     void updateCustomMechanisms();
 
     void setupMotors();
@@ -172,6 +186,10 @@ private:
     std::vector<std::unique_ptr<RclMotor<TalonFX>>> FX_motors;
     std::vector<std::unique_ptr<RclMotor<TalonFXS>>> FXS_motors;
     std::vector<std::unique_ptr<CustomMechanismPair>> custom_mechanisms;
+    std::vector<MechanismConfig> mechanism_configs;
+    std::unordered_set<std::string> mechanism_motor_names;
+    std::unordered_map<std::string, RclMotor<TalonFX>*> FX_motors_by_name;
+    std::unordered_map<std::string, RclMotor<TalonFXS>*> FXS_motors_by_name;
 
     SharedSub<Int32Msg> watchdog_status_sub;
 
