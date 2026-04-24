@@ -100,6 +100,8 @@ public:
             } pot;  // For AnalogPotentiometer sensor config
         };
 
+        bool output_inverted;
+
         double kP;
         double kI;
         double kD;
@@ -154,6 +156,8 @@ private:
 
     void setupCustomMechanisms();
     void updateCustomMechanisms();
+
+    void setupMotors();
 
     void pubMotorInfo_cb();
     void pubMotorFault_cb();

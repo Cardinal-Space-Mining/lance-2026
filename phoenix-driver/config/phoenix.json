@@ -47,6 +47,7 @@
                     "name": "track_right",
                     "can_id": 0,
                     "controller": "FX",
+                    "output_inverted": true,
                     "follows": "",
                     "kP": 0.4,
                     "kI": 0.05,

@@ -114,7 +114,15 @@ Phoenix6Driver::Phoenix6Driver() :
         c_Phoenix_Diagnostics_SetSecondsToStart(-1);
     }
 
-    // --- Get motors params-------------------------------------------------------------
+    setupMotors();
+    setupCustomMechanisms();
+}
+
+Phoenix6Driver::~Phoenix6Driver() { c_Phoenix_Diagnostics_Dispose(); }
+
+void Phoenix6Driver::setupMotors()
+{
+    // --- Get Motors-------------------------------------------------------------
     auto motor_names =
         declare_and_get_param<std::vector<std::string>>(*this, "names", {});
 
@@ -131,6 +139,7 @@ Phoenix6Driver::Phoenix6Driver() :
     {
         const std::string param_prefix = "motors." + name + ".";
 
+        // Basic Motor Info
         std::string controller = declare_and_get_param<std::string>(
             *this,
             param_prefix + "controller",
@@ -146,6 +155,7 @@ Phoenix6Driver::Phoenix6Driver() :
             continue;
         }
 
+        // Motor Config, Includes all items from readme
         RclMotorConfig params;
 
         std::string follows = declare_and_get_param<std::string>(
@@ -170,6 +180,11 @@ Phoenix6Driver::Phoenix6Driver() :
             }
             params.follows_id = follows_it->second;
         }
+
+        params.output_inverted = declare_and_get_param<bool>(
+            *this,
+            param_prefix + "output_inverted",
+            false);
 
         std::string alignment = declare_and_get_param<std::string>(
             *this,
@@ -359,6 +374,7 @@ Phoenix6Driver::Phoenix6Driver() :
             params.voltage_limit,
             12.0);
 
+        // --- Create Motors -------------------------------------------------------------
         if (controller == "FX")
         {
             FX_motors.emplace_back(
@@ -391,11 +407,7 @@ Phoenix6Driver::Phoenix6Driver() :
                 controller.c_str());
         }
     }
-
-    setupCustomMechanisms();
 }
-
-Phoenix6Driver::~Phoenix6Driver() { c_Phoenix_Diagnostics_Dispose(); }
 
 // --- RclMotor implementation --------------------------------------------------
 
@@ -434,6 +446,12 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
         config.stator_current_limit,
         config.supply_current_limit,
         config.voltage_limit);
+
+    if (config.output_inverted)
+    {
+        phxConfig.MotorOutput.Inverted =
+            ctre::phoenix6::signals::InvertedValue::Clockwise_Positive; //Counter Clockwise is positive by default
+    }
 
     if constexpr (std::is_same_v<MotorType, TalonFXS>)
     {

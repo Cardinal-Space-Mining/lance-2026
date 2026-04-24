@@ -211,6 +211,7 @@ The launch helper flattens this list into ROS parameters:
     "name": "hopper_act_left",
     "can_id": 4,
     "controller": "FXS",
+    "output_inverted": false,
     "follows": "",
     "sensor": "analog_pot",
     "pot_max_v": 3.3,
@@ -251,6 +252,14 @@ Supported values:
 ## Optional LANCE 2 Motor Fields
 
 ### PID and Motor Output Fields
+
+#### `output_inverted`
+
+Whether to invert the motor output direction. Defaults to `false`.
+
+With the default `false` value, positive output is counter-clockwise positive.
+When `true`, positive output is clockwise positive. Direction is defined as
+viewed from the front of the motor, looking at the shaft.
 
 #### `kP`
 
