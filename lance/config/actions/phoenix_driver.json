@@ -1,4 +1,6 @@
 {
+    "pragma:enable_preproc": true,
+
     "phoenix5_driver":
     {
         "pragma:default": null,
@@ -48,11 +50,12 @@
                     "name": "track_right",
                     "can_id": 0,
                     "controller": "FX",
+                    "output_inverted": true,
                     "follows": "",
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
-                    "kV": 0.12,
+                    "kV": 0.1,
                     "neutral_deadband": 0.05,
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
@@ -62,6 +65,21 @@
                 {
                     "name": "track_left",
                     "can_id": 1,
+                    "controller": "FX",
+                    "follows": "",
+                    "kP": 0.4,
+                    "kI": 0.05,
+                    "kD": 0.0001,
+                    "kV": 0.1,
+                    "neutral_deadband": 0.05,
+                    "neutral_brake": false,
+                    "stator_current_limit": 10.0,
+                    "supply_current_limit": 2.0,
+                    "voltage_limit": 12.0
+                },
+                {
+                    "name": "trencher",
+                    "can_id": 2,
                     "controller": "FX",
                     "follows": "",
                     "kP": 0.4,
@@ -82,7 +100,7 @@
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
-                    "kV": 0.12,
+                    "kV": 0.1,
                     "neutral_deadband": 0.05,
                     "neutral_brake": false,
                     "stator_current_limit": 10.0,
