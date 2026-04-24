@@ -114,11 +114,116 @@ Phoenix6Driver::Phoenix6Driver() :
         c_Phoenix_Diagnostics_SetSecondsToStart(-1);
     }
 
+    parseMechanismConfigs();
     setupMotors();
-    setupCustomMechanisms();
+    setupMechanisms();
 }
 
 Phoenix6Driver::~Phoenix6Driver() { c_Phoenix_Diagnostics_Dispose(); }
+
+static std::optional<phx6::signals::MotorAlignmentValue> parseMotorAlignment(
+    const std::string& alignment)
+{
+    static const std::
+        unordered_map<std::string, phx6::signals::MotorAlignmentValue>
+            kAlignmentMap = {
+                {"Aligned", phx6::signals::MotorAlignmentValue::Aligned},
+                {"Opposed", phx6::signals::MotorAlignmentValue::Opposed},
+    };
+
+    auto it = kAlignmentMap.find(alignment);
+    if (it == kAlignmentMap.end())
+    {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+void Phoenix6Driver::parseMechanismConfigs()
+{
+    auto mechanism_names =
+        declare_and_get_param<std::vector<std::string>>(
+            *this,
+            "mechanism_names",
+            {});
+
+    std::unordered_set<std::string> mechanism_names_seen;
+    for (const auto& name : mechanism_names)
+    {
+        if (!mechanism_names_seen.emplace(name).second)
+        {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Mechanism name '%s' is configured more than once",
+                name.c_str());
+            continue;
+        }
+
+        const std::string param_prefix = "mechanisms." + name + ".";
+        MechanismConfig config;
+        config.name = name;
+        config.type = declare_and_get_param<std::string>(
+            *this,
+            param_prefix + "type",
+            "");
+        config.motors = declare_and_get_param<std::vector<std::string>>(
+            *this,
+            param_prefix + "motors",
+            {});
+
+        const std::string alignment = declare_and_get_param<std::string>(
+            *this,
+            param_prefix + "alignment",
+            "Aligned");
+        auto parsed_alignment = parseMotorAlignment(alignment);
+        if (!parsed_alignment)
+        {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Mechanism %s has invalid alignment '%s'",
+                name.c_str(),
+                alignment.c_str());
+            continue;
+        }
+        config.alignment = *parsed_alignment;
+
+        config.sensor_to_differential_ratio = declare_and_get_param<double>(
+            *this,
+            param_prefix + "sensor_to_differential_ratio",
+            1.0);
+        config.closed_loop_rate_hz = declare_and_get_param<double>(
+            *this,
+            param_prefix + "closed_loop_rate_hz",
+            100.0);
+
+        static const std::unordered_set<std::string> kMechanismTypes = {
+            "CustomMechanism",
+            "SimpleDifferentialMechanism",
+        };
+        if (kMechanismTypes.find(config.type) == kMechanismTypes.end())
+        {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Mechanism %s has invalid type '%s'",
+                name.c_str(),
+                config.type.c_str());
+            continue;
+        }
+
+        for (const auto& motor_name : config.motors)
+        {
+            if (!mechanism_motor_names.emplace(motor_name).second)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "Motor %s is owned by more than one mechanism",
+                    motor_name.c_str());
+            }
+        }
+
+        mechanism_configs.emplace_back(std::move(config));
+    }
+}
 
 void Phoenix6Driver::setupMotors()
 {
@@ -190,14 +295,8 @@ void Phoenix6Driver::setupMotors()
             *this,
             param_prefix + "alignment",
             "Aligned");
-        static const std::
-            unordered_map<std::string, phx6::signals::MotorAlignmentValue>
-                kAlignmentMap = {
-                    {"Aligned", phx6::signals::MotorAlignmentValue::Aligned},
-                    {"Opposed", phx6::signals::MotorAlignmentValue::Opposed},
-        };
-        auto alignment_it = kAlignmentMap.find(alignment);
-        if (alignment_it == kAlignmentMap.end())
+        auto parsed_alignment = parseMotorAlignment(alignment);
+        if (!parsed_alignment)
         {
             RCLCPP_ERROR(
                 get_logger(),
@@ -206,7 +305,7 @@ void Phoenix6Driver::setupMotors()
                 alignment.c_str());
             continue;
         }
-        params.alignment = alignment_it->second;
+        params.alignment = *parsed_alignment;
 
         params.follower_type = declare_and_get_param<std::string>(
             *this,
@@ -375,6 +474,8 @@ void Phoenix6Driver::setupMotors()
             12.0);
 
         // --- Create Motors -------------------------------------------------------------
+        const bool enable_ctrl_sub =
+            mechanism_motor_names.find(name) == mechanism_motor_names.end();
         if (controller == "FX")
         {
             FX_motors.emplace_back(
@@ -383,7 +484,9 @@ void Phoenix6Driver::setupMotors()
                     name,
                     id,
                     params,
-                    bus));
+                    bus,
+                    enable_ctrl_sub));
+            FX_motors_by_name.emplace(name, FX_motors.back().get());
             std::cout << "creating FX motor " << name << std::endl;
         }
         else if (controller == "FXS")
@@ -394,7 +497,9 @@ void Phoenix6Driver::setupMotors()
                     name,
                     id,
                     params,
-                    bus));
+                    bus,
+                    enable_ctrl_sub));
+            FXS_motors_by_name.emplace(name, FXS_motors.back().get());
 
             std::cout << "creating FXS motor " << name << std::endl;
         }
@@ -417,7 +522,8 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
     const std::string& name,
     int id,
     const RclMotorConfig& config,
-    const CANBus& bus) :
+    const CANBus& bus,
+    bool enable_ctrl_sub) :
     motor(id, bus),
     name(name),
     logger(node->get_logger()),
@@ -428,13 +534,17 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
         rclcpp::SensorDataQoS{})),
     faults_pub(node->template create_publisher<TalonFaultsMsg>(
         "lance/" + name + "/faults",
-        rclcpp::SensorDataQoS{})),
-    ctrl_sub(node->create_subscription<TalonCtrlMsg>(
-        "lance/" + name + "/ctrl",
-        TALON_CTRL_SUB_QOS,
-        [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); }))
+        rclcpp::SensorDataQoS{}))
 
 {
+    if (enable_ctrl_sub)
+    {
+        ctrl_sub = node->create_subscription<TalonCtrlMsg>(
+            "lance/" + name + "/ctrl",
+            TALON_CTRL_SUB_QOS,
+            [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); });
+    }
+
     // --- Init Motors -------------------------------------------------------------
     ConfigurationT phxConfig = buildMotorConfig<ConfigurationT>(
         config.kP,
@@ -580,21 +690,30 @@ template class Phoenix6Driver::RclMotor<TalonFXS>;
 
 struct Phoenix6Driver::CustomMechanismPair
 {
+    std::string name;
     RclMotor<TalonFXS>* leader;
     RclMotor<TalonFXS>* follower;
     rclcpp::Logger logger;
     rclcpp::Clock::SharedPtr clock;
+    SharedSub<TalonCtrlMsg> ctrl_sub;
     std::optional<TalonCtrlMsg> active_ctrl;
 
     CustomMechanismPair(
+        const std::string& name,
+        rclcpp::Node* node,
         RclMotor<TalonFXS>* leader,
         RclMotor<TalonFXS>* follower,
         const rclcpp::Logger& logger,
         rclcpp::Clock::SharedPtr clock) :
+        name(name),
         leader(leader),
         follower(follower),
         logger(logger),
-        clock(clock)
+        clock(clock),
+        ctrl_sub(node->create_subscription<TalonCtrlMsg>(
+            "lance/" + name + "/ctrl",
+            TALON_CTRL_SUB_QOS,
+            [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); }))
     {
     }
 
@@ -603,6 +722,27 @@ struct Phoenix6Driver::CustomMechanismPair
         const double volts = motor.motor.GetAnalogVoltage().GetValueAsDouble();
         const double raw = volts / motor.config.pot.max_v;
         return motor.config.pot.invert_sensor ? (1.0 - raw) : raw;
+    }
+
+    void logPotState(const char* context) const
+    {
+        const double leader_volts =
+            leader->motor.GetAnalogVoltage().GetValueAsDouble();
+        const double follower_volts =
+            follower->motor.GetAnalogVoltage().GetValueAsDouble();
+
+        RCLCPP_INFO(
+            logger,
+            "CustomMechanism %s %s: %s analog=%.3f V position=%.3f; "
+            "%s analog=%.3f V position=%.3f",
+            name.c_str(),
+            context,
+            leader->name.c_str(),
+            leader_volts,
+            potPosition(*leader),
+            follower->name.c_str(),
+            follower_volts,
+            potPosition(*follower));
     }
 
     double voltageLimit() const
@@ -700,6 +840,7 @@ struct Phoenix6Driver::CustomMechanismPair
         {
             case TalonCtrlMsg::POSITION:
             case TalonCtrlMsg::VELOCITY:
+                logPotState("before control");
                 active_ctrl = msg;
                 update();
                 return true;
@@ -711,6 +852,7 @@ struct Phoenix6Driver::CustomMechanismPair
             case TalonCtrlMsg::PERCENT_OUTPUT:
             case TalonCtrlMsg::VOLTAGE:
             case TalonCtrlMsg::MUSIC_TONE:
+                logPotState("before mirrored control");
                 active_ctrl.reset();
                 sendMirroredCtrl(msg);
                 return true;
@@ -751,78 +893,148 @@ struct Phoenix6Driver::CustomMechanismPair
     }
 };
 
-void Phoenix6Driver::setupCustomMechanisms()
+void Phoenix6Driver::setupMechanisms()
 {
-    std::unordered_map<int, RclMotor<TalonFXS>*> fxs_by_id;
-    for (auto& motor : FXS_motors)
+    std::unordered_set<std::string> claimed_motors;
+    for (const auto& config : mechanism_configs)
     {
-        fxs_by_id.emplace(motor->motor.GetDeviceID(), motor.get());
-    }
-
-    for (auto& motor : FXS_motors)
-    {
-        if (motor->config.follower_type != "CustomMechanism")
+        bool overlaps_existing_mechanism = false;
+        for (const auto& motor_name : config.motors)
+        {
+            if (!claimed_motors.emplace(motor_name).second)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "Mechanism %s overlaps another mechanism on motor %s",
+                    config.name.c_str(),
+                    motor_name.c_str());
+                overlaps_existing_mechanism = true;
+            }
+        }
+        if (overlaps_existing_mechanism)
         {
             continue;
         }
-        if (motor->custom_ctrl_handler)
-        {
-            continue;
-        }
 
-        auto leader_it = fxs_by_id.find(motor->config.follows_id);
-        if (leader_it == fxs_by_id.end())
+        if (config.type == "CustomMechanism")
         {
-            RCLCPP_ERROR(
+            if (config.motors.size() != 2)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s requires exactly two motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            auto leader_it = FXS_motors_by_name.find(config.motors[0]);
+            auto follower_it = FXS_motors_by_name.find(config.motors[1]);
+            if (leader_it == FXS_motors_by_name.end() ||
+                follower_it == FXS_motors_by_name.end())
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s requires two FXS motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            RclMotor<TalonFXS>* leader = leader_it->second;
+            RclMotor<TalonFXS>* follower = follower_it->second;
+            if (leader->config.sensor != SensorSource::AnalogPotentiometer ||
+                follower->config.sensor != SensorSource::AnalogPotentiometer)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s requires analog potentiometer feedback "
+                    "on both motors",
+                    config.name.c_str());
+                continue;
+            }
+            if (leader->custom_ctrl_handler || follower->custom_ctrl_handler)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s overlaps another custom mechanism",
+                    config.name.c_str());
+                continue;
+            }
+
+            auto pair = std::make_unique<CustomMechanismPair>(
+                config.name,
+                this,
+                leader,
+                follower,
                 get_logger(),
-                "CustomMechanism motor %s follows CAN ID %d, but that FXS "
-                "motor was not found",
-                motor->name.c_str(),
-                motor->config.follows_id);
-            continue;
-        }
+                get_clock());
+            CustomMechanismPair* pair_ptr = pair.get();
+            leader->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
+            { return pair_ptr->executeCtrl(msg); };
+            follower->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
+            { return pair_ptr->executeCtrl(msg); };
+            custom_mechanisms.emplace_back(std::move(pair));
+            custom_mechanisms.back()->logPotState("startup");
 
-        RclMotor<TalonFXS>* leader = leader_it->second;
-        RclMotor<TalonFXS>* follower = motor.get();
-        if (leader->config.sensor != SensorSource::AnalogPotentiometer ||
-            follower->config.sensor != SensorSource::AnalogPotentiometer)
-        {
-            RCLCPP_ERROR(
+            RCLCPP_INFO(
                 get_logger(),
-                "CustomMechanism pair %s/%s requires analog potentiometer "
-                "feedback on both motors",
+                "Configured CustomMechanism %s on motors %s/%s with control "
+                "topic lance/%s/ctrl",
+                config.name.c_str(),
+                leader->name.c_str(),
+                follower->name.c_str(),
+                config.name.c_str());
+        }
+        else if (config.type == "SimpleDifferentialMechanism")
+        {
+            if (config.motors.size() != 2)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "SimpleDifferentialMechanism %s requires exactly two motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            auto leader_it = FX_motors_by_name.find(config.motors[0]);
+            auto follower_it = FX_motors_by_name.find(config.motors[1]);
+            if (leader_it == FX_motors_by_name.end() ||
+                follower_it == FX_motors_by_name.end())
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "SimpleDifferentialMechanism %s requires two FX motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            RclMotor<TalonFX>* leader = leader_it->second;
+            RclMotor<TalonFX>* follower = follower_it->second;
+            ctre::phoenix6::controls::DifferentialFollower follower_ctrl(
+                leader->motor.GetDeviceID(),
+                config.alignment);
+            auto follower_status = follower->motor.SetControl(follower_ctrl);
+            if (!follower_status.IsOK())
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "Failed to configure SimpleDifferentialMechanism %s "
+                    "follower %s following %s: %s (%d): %s",
+                    config.name.c_str(),
+                    follower->name.c_str(),
+                    leader->name.c_str(),
+                    follower_status.GetName(),
+                    static_cast<int>(follower_status),
+                    follower_status.GetDescription());
+                continue;
+            }
+
+            RCLCPP_INFO(
+                get_logger(),
+                "Configured SimpleDifferentialMechanism %s on motors %s/%s",
+                config.name.c_str(),
                 leader->name.c_str(),
                 follower->name.c_str());
-            continue;
         }
-        if (leader->custom_ctrl_handler || follower->custom_ctrl_handler)
-        {
-            RCLCPP_ERROR(
-                get_logger(),
-                "CustomMechanism pair %s/%s overlaps another custom "
-                "mechanism pair",
-                leader->name.c_str(),
-                follower->name.c_str());
-            continue;
-        }
-
-        auto pair = std::make_unique<CustomMechanismPair>(
-            leader,
-            follower,
-            get_logger(),
-            get_clock());
-        CustomMechanismPair* pair_ptr = pair.get();
-        leader->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
-        { return pair_ptr->executeCtrl(msg); };
-        follower->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
-        { return pair_ptr->executeCtrl(msg); };
-        custom_mechanisms.emplace_back(std::move(pair));
-
-        RCLCPP_INFO(
-            get_logger(),
-            "Configured Lance 2 CustomMechanism pair %s/%s",
-            leader->name.c_str(),
-            follower->name.c_str());
     }
 }
 

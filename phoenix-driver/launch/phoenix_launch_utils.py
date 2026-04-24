@@ -45,8 +45,44 @@ def flatten_motors(config):
             config['motors'] = {'names': []}
 
 
+def flatten_mechanisms(config):
+    """
+    Convert:
+      mechanisms: [ {name:..., type:..., motors:[...]}, {...}, ... ]
+    into a flat dict:
+      mechanism_names: [ "hopper_actuators", ... ]
+      mechanisms.hopper_actuators.type: "CustomMechanism"
+      mechanisms.hopper_actuators.motors: ["hopper_act_left", ...]
+      ...
+    """
+
+    if 'mechanisms' in config:
+        mechanisms_list = config['mechanisms']
+        flattened = {
+            'mechanism_names': []
+        }
+
+        for mech in mechanisms_list:
+            name = mech.get('name', '')
+            if not name:
+                continue
+
+            flattened['mechanism_names'].append(name)
+
+            for k, v in mech.items():
+                if k == 'name':
+                    continue
+                flattened[f'mechanisms.{name}.{k}'] = v
+
+        del config['mechanisms']
+        config.update(flattened)
+    else:
+        config['mechanism_names'] = []
+
+
 def preproc_phoenix6_config(profile_cfg: dict):
     flatten_motors(profile_cfg)
+    flatten_mechanisms(profile_cfg)
 
 
 def get_phoenix_actions(config):
