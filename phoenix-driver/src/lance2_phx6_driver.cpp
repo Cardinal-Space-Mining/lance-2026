@@ -141,11 +141,10 @@ static std::optional<phx6::signals::MotorAlignmentValue> parseMotorAlignment(
 
 void Phoenix6Driver::parseMechanismConfigs()
 {
-    auto mechanism_names =
-        declare_and_get_param<std::vector<std::string>>(
-            *this,
-            "mechanism_names",
-            {});
+    auto mechanism_names = declare_and_get_param<std::vector<std::string>>(
+        *this,
+        "mechanism_names",
+        {});
 
     std::unordered_set<std::string> mechanism_names_seen;
     for (const auto& name : mechanism_names)
@@ -560,7 +559,8 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
     if (config.output_inverted)
     {
         phxConfig.MotorOutput.Inverted =
-            ctre::phoenix6::signals::InvertedValue::Clockwise_Positive; //Counter Clockwise is positive by default
+            ctre::phoenix6::signals::InvertedValue::
+                Clockwise_Positive;  //Counter Clockwise is positive by default
     }
 
     if constexpr (std::is_same_v<MotorType, TalonFXS>)
@@ -777,6 +777,10 @@ struct Phoenix6Driver::CustomMechanismPair
 
     void sendMirroredCtrl(const TalonCtrlMsg& msg)
     {
+        std::cout << "set raw control for both motors in mechanism - type is "
+                  << static_cast<int>(msg.mode) << ", val is " << msg.value
+                  << std::endl;
+
         auto leader_status = leader->motor << msg;
         if (!leader_status.IsOK())
         {

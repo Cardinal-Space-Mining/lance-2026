@@ -94,6 +94,7 @@
                     "name": "hopper_belt",
                     "can_id": 3,
                     "controller": "FX",
+                    "output_inverted": true,
                     "kP": 0.4,
                     "kI": 0.05,
                     "kD": 0.0001,
