@@ -579,6 +579,7 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
         // else: AnalogPotentiometer uses default Commutation; position computed in publishInfo()
 
         phxConfig.WithExternalFeedback(feedback);
+        phxConfig.Commutation.MotorArrangement = ctre::phoenix6::signals::MotorArrangementValue::Brushed_DC;
     }
 
     auto config_status = motor.GetConfigurator().Apply(phxConfig);
@@ -777,11 +778,14 @@ struct Phoenix6Driver::CustomMechanismPair
 
     void sendMirroredCtrl(const TalonCtrlMsg& msg)
     {
-        std::cout << "set raw control for both motors in mechanism - type is "
-                  << static_cast<int>(msg.mode) << ", val is " << msg.value
-                  << std::endl;
+        std::cout
+            << "PRE // set raw control for both motors in mechanism - type is "
+            << static_cast<int>(msg.mode) << ", val is " << msg.value
+            << std::endl;
 
-        auto leader_status = leader->motor << msg;
+        // auto leader_status = leader->motor << msg;
+        auto leader_status = leader->motor.SetControl(
+            phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}}.WithEnableFOC(false));
         if (!leader_status.IsOK())
         {
             RCLCPP_ERROR_THROTTLE(
@@ -797,7 +801,9 @@ struct Phoenix6Driver::CustomMechanismPair
                 leader_status.GetDescription());
         }
 
-        auto follower_status = follower->motor << msg;
+        // auto follower_status = follower->motor << msg;
+        auto follower_status = follower->motor.SetControl(
+            phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}}.WithEnableFOC(false));
         if (!follower_status.IsOK())
         {
             RCLCPP_ERROR_THROTTLE(
@@ -812,6 +818,11 @@ struct Phoenix6Driver::CustomMechanismPair
                 static_cast<int>(follower_status),
                 follower_status.GetDescription());
         }
+
+        std::cout << "Applied control for actuators is \n1. "
+                  << leader->motor.GetAppliedControl()->ToString() << "2. "
+                  << follower->motor.GetAppliedControl()->ToString()
+                  << std::endl;
     }
 
     void setPosition(double target_position) const
