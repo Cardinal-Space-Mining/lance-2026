@@ -15,8 +15,8 @@
 
             "trencher":
             {
-                "max_velocity_rps": 80.0,
-                "mining_velocity_rps": 80.0
+                "max_velocity_rps": 160.0,
+                "mining_velocity_rps": 160.0
             },
 
             "hopper_belt":
@@ -93,6 +93,11 @@
             "pragma:derived": "lance2",
             "controller": 1,
 
+            "trencher":
+            {
+                "max_velocity_rps": 80.0,
+                "mining_velocity_rps": 80.0
+            },
             "collection_model":
             {
                 "initial_volume_liters": 10.0,
