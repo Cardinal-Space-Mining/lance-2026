@@ -558,9 +558,8 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
 
     if (config.output_inverted)
     {
-        phxConfig.MotorOutput.Inverted =
-            ctre::phoenix6::signals::InvertedValue::
-                Clockwise_Positive;  //Counter Clockwise is positive by default
+        phxConfig.MotorOutput.Inverted = phx6::signals::InvertedValue::
+            Clockwise_Positive;  //Counter Clockwise is positive by default
     }
 
     if constexpr (std::is_same_v<MotorType, TalonFXS>)
@@ -579,7 +578,10 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
         // else: AnalogPotentiometer uses default Commutation; position computed in publishInfo()
 
         phxConfig.WithExternalFeedback(feedback);
-        phxConfig.Commutation.MotorArrangement = ctre::phoenix6::signals::MotorArrangementValue::Brushed_DC;
+        phxConfig.Commutation.MotorArrangement =
+            phx6::signals::MotorArrangementValue::Brushed_DC;
+        phxConfig.ExternalTemp.TempSensorRequired =
+            phx6::signals::TempSensorRequiredValue::Not_Required;
     }
 
     auto config_status = motor.GetConfigurator().Apply(phxConfig);
@@ -598,7 +600,7 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
     {
         if (config.follower_type == "normal")
         {
-            ctre::phoenix6::controls::Follower followerCtrl(
+            phx6::controls::Follower followerCtrl(
                 config.follows_id,
                 config.alignment);
             auto follower_status = motor.SetControl(followerCtrl);
@@ -617,7 +619,7 @@ Phoenix6Driver::RclMotor<MotorType>::RclMotor(
         }
         else if (config.follower_type == "DifferentialFollower")
         {
-            ctre::phoenix6::controls::DifferentialFollower followerCtrl(
+            phx6::controls::DifferentialFollower followerCtrl(
                 config.follows_id,
                 config.alignment);
             auto follower_status = motor.SetControl(followerCtrl);
@@ -785,7 +787,8 @@ struct Phoenix6Driver::CustomMechanismPair
 
         // auto leader_status = leader->motor << msg;
         auto leader_status = leader->motor.SetControl(
-            phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}}.WithEnableFOC(false));
+            phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}}
+                .WithEnableFOC(false));
         if (!leader_status.IsOK())
         {
             RCLCPP_ERROR_THROTTLE(
@@ -803,7 +806,8 @@ struct Phoenix6Driver::CustomMechanismPair
 
         // auto follower_status = follower->motor << msg;
         auto follower_status = follower->motor.SetControl(
-            phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}}.WithEnableFOC(false));
+            phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}}
+                .WithEnableFOC(false));
         if (!follower_status.IsOK())
         {
             RCLCPP_ERROR_THROTTLE(
@@ -1024,7 +1028,7 @@ void Phoenix6Driver::setupMechanisms()
 
             RclMotor<TalonFX>* leader = leader_it->second;
             RclMotor<TalonFX>* follower = follower_it->second;
-            ctre::phoenix6::controls::DifferentialFollower follower_ctrl(
+            phx6::controls::DifferentialFollower follower_ctrl(
                 leader->motor.GetDeviceID(),
                 config.alignment);
             auto follower_status = follower->motor.SetControl(follower_ctrl);
