@@ -19,22 +19,22 @@ FOUND=0
 for DEV in /dev/ttyACM*; do
     [ -e "$DEV" ] || continue
 
-    echo "[DEBUG] Checking $DEV"
+    # echo "[DEBUG] Checking $DEV"
 
     # Get USB device info
     USB_PATH=$(udevadm info -q path -n "$DEV")
     USB_INFO=$(udevadm info -q all -p "$USB_PATH")
 
-    echo "[DEBUG] USB info for $DEV:"
-    echo "$USB_INFO"
+    # echo "[DEBUG] USB info for $DEV:"
+    # echo "$USB_INFO"
 
     VID=$(echo "$USB_INFO" | grep ID_VENDOR_ID | cut -d'=' -f2)
     PID=$(echo "$USB_INFO" | grep ID_MODEL_ID | cut -d'=' -f2)
     SERIAL=$(echo "$USB_INFO" | grep ID_SERIAL_SHORT= | cut -d'=' -f2 || true)
 
-    if [[ -z "${SERIAL:-}" ]]; then
-        echo "[WARN] No serial found for $DEV"
-    fi
+    # if [[ -z "${SERIAL:-}" ]]; then
+    #     echo "[WARN] No serial found for $DEV"
+    # fi
 
     # Skip non-CANable devices
     if [[ "$VID" != "$CANABLE_VID" || "$PID" != "$CANABLE_PID" ]]; then
