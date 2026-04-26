@@ -123,6 +123,7 @@ public:
         phx6::signals::MotorAlignmentValue alignment;
         double sensor_to_differential_ratio;
         double closed_loop_rate_hz;
+        int update_period_ms;
     };
 
 
@@ -169,7 +170,6 @@ private:
 
     void parseMechanismConfigs();
     void setupMechanisms();
-    void updateCustomMechanisms();
 
     void setupMotors();
 
@@ -195,7 +195,6 @@ private:
 
     RclTimer info_pub_timer;
     RclTimer fault_pub_timer;
-    RclTimer custom_mechanism_timer;
 
     bool is_disabled = false;
 };

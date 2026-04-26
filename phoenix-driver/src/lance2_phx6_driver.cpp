@@ -98,10 +98,7 @@ Phoenix6Driver::Phoenix6Driver() :
         [this]() { this->pubMotorInfo_cb(); })},
     fault_pub_timer{this->create_wall_timer(
         declare_and_get_param(*this, "fault_pub_rate_ms", 250) * 1ms,
-        [this]() { this->pubMotorFault_cb(); })},
-    custom_mechanism_timer{this->create_wall_timer(
-        20ms,
-        [this]() { this->updateCustomMechanisms(); })}
+        [this]() { this->pubMotorFault_cb(); })}
 {
     // --- Init phoenix -------------------------------------------------------------
     if (diagnostic_server_port > 0)
@@ -195,6 +192,19 @@ void Phoenix6Driver::parseMechanismConfigs()
             *this,
             param_prefix + "closed_loop_rate_hz",
             100.0);
+        config.update_period_ms = declare_and_get_param<int>(
+            *this,
+            param_prefix + "update_period_ms",
+            20);
+        if (config.update_period_ms <= 0)
+        {
+            RCLCPP_ERROR(
+                get_logger(),
+                "Mechanism %s has invalid update_period_ms %d; using 20 ms",
+                name.c_str(),
+                config.update_period_ms);
+            config.update_period_ms = 20;
+        }
 
         static const std::unordered_set<std::string> kMechanismTypes = {
             "CustomMechanism",
@@ -695,7 +705,11 @@ struct Phoenix6Driver::CustomMechanismPair
     RclMotor<TalonFXS>* follower;
     rclcpp::Logger logger;
     rclcpp::Clock::SharedPtr clock;
+    SharedPub<TalonInfoMsg> info_pub;
+    SharedPub<TalonFaultsMsg> faults_pub;
     SharedSub<TalonCtrlMsg> ctrl_sub;
+    RclTimer update_timer;
+    const bool* is_disabled;
     std::optional<TalonCtrlMsg> active_ctrl;
 
     CustomMechanismPair(
@@ -703,6 +717,8 @@ struct Phoenix6Driver::CustomMechanismPair
         rclcpp::Node* node,
         RclMotor<TalonFXS>* leader,
         RclMotor<TalonFXS>* follower,
+        int update_period_ms,
+        const bool* is_disabled,
         const rclcpp::Logger& logger,
         rclcpp::Clock::SharedPtr clock) :
         name(name),
@@ -710,10 +726,20 @@ struct Phoenix6Driver::CustomMechanismPair
         follower(follower),
         logger(logger),
         clock(clock),
+        info_pub(node->create_publisher<TalonInfoMsg>(
+            "lance/" + name + "/info",
+            rclcpp::SensorDataQoS{})),
+        faults_pub(node->create_publisher<TalonFaultsMsg>(
+            "lance/" + name + "/faults",
+            rclcpp::SensorDataQoS{})),
         ctrl_sub(node->create_subscription<TalonCtrlMsg>(
             "lance/" + name + "/ctrl",
             TALON_CTRL_SUB_QOS,
-            [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); }))
+            [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); })),
+        update_timer(node->create_wall_timer(
+            update_period_ms * 1ms,
+            [this]() { this->timerUpdate(); })),
+        is_disabled(is_disabled)
     {
     }
 
@@ -722,6 +748,135 @@ struct Phoenix6Driver::CustomMechanismPair
         const double volts = motor.motor.GetAnalogVoltage().GetValueAsDouble();
         const double raw = volts / motor.config.pot.max_v;
         return motor.config.pot.invert_sensor ? (1.0 - raw) : raw;
+    }
+
+    TalonInfoMsg motorInfo(RclMotor<TalonFXS>& motor) const
+    {
+        TalonInfoMsg info{};
+        info << motor.motor;
+        info.status |= static_cast<uint8_t>(!(*is_disabled));
+        info.position = potPosition(motor);
+        return info;
+    }
+
+    static uint8_t averageUint8(uint8_t a, uint8_t b)
+    {
+        return static_cast<uint8_t>(
+            (static_cast<uint16_t>(a) + static_cast<uint16_t>(b)) / 2U);
+    }
+
+    void publishInfo(const rclcpp::Time& stamp) const
+    {
+        const TalonInfoMsg leader_info = motorInfo(*leader);
+        const TalonInfoMsg follower_info = motorInfo(*follower);
+
+        TalonInfoMsg info{};
+        info.header.stamp = stamp;
+        info.position = (leader_info.position + follower_info.position) / 2.0;
+        info.velocity = (leader_info.velocity + follower_info.velocity) / 2.0;
+        info.acceleration =
+            (leader_info.acceleration + follower_info.acceleration) / 2.0;
+        info.device_temp =
+            (leader_info.device_temp + follower_info.device_temp) / 2.0F;
+        info.processor_temp =
+            (leader_info.processor_temp + follower_info.processor_temp) / 2.0F;
+        info.bus_voltage =
+            (leader_info.bus_voltage + follower_info.bus_voltage) / 2.0F;
+        info.supply_current =
+            (leader_info.supply_current + follower_info.supply_current) / 2.0F;
+        info.output_percent =
+            (leader_info.output_percent + follower_info.output_percent) / 2.0F;
+        info.output_voltage =
+            (leader_info.output_voltage + follower_info.output_voltage) / 2.0F;
+        info.output_current =
+            (leader_info.output_current + follower_info.output_current) / 2.0F;
+        info.motor_state =
+            averageUint8(leader_info.motor_state, follower_info.motor_state);
+        info.bridge_mode =
+            averageUint8(leader_info.bridge_mode, follower_info.bridge_mode);
+        info.control_mode =
+            averageUint8(leader_info.control_mode, follower_info.control_mode);
+        info.status = averageUint8(leader_info.status, follower_info.status);
+
+        info_pub->publish(info);
+    }
+
+    void publishFaults(const rclcpp::Time& stamp) const
+    {
+        TalonFaultsMsg leader_faults{};
+        TalonFaultsMsg follower_faults{};
+        leader_faults << leader->motor;
+        follower_faults << follower->motor;
+
+        TalonFaultsMsg faults{};
+        faults.header.stamp = stamp;
+        faults.faults = leader_faults.faults | follower_faults.faults;
+        faults.sticky_faults =
+            leader_faults.sticky_faults | follower_faults.sticky_faults;
+
+        faults.hardware_fault =
+            leader_faults.hardware_fault || follower_faults.hardware_fault;
+        faults.proc_temp_fault =
+            leader_faults.proc_temp_fault || follower_faults.proc_temp_fault;
+        faults.device_temp_fault =
+            leader_faults.device_temp_fault || follower_faults.device_temp_fault;
+        faults.undervoltage_fault = leader_faults.undervoltage_fault ||
+                                    follower_faults.undervoltage_fault;
+        faults.boot_fault =
+            leader_faults.boot_fault || follower_faults.boot_fault;
+        faults.unliscensed_fault = leader_faults.unliscensed_fault ||
+                                   follower_faults.unliscensed_fault;
+        faults.bridge_brownout_fault = leader_faults.bridge_brownout_fault ||
+                                       follower_faults.bridge_brownout_fault;
+        faults.overvoltage_fault =
+            leader_faults.overvoltage_fault || follower_faults.overvoltage_fault;
+        faults.unstable_voltage_fault = leader_faults.unstable_voltage_fault ||
+                                        follower_faults.unstable_voltage_fault;
+        faults.stator_current_limit_fault =
+            leader_faults.stator_current_limit_fault ||
+            follower_faults.stator_current_limit_fault;
+        faults.supply_current_limit_fault =
+            leader_faults.supply_current_limit_fault ||
+            follower_faults.supply_current_limit_fault;
+        faults.static_brake_disabled_fault =
+            leader_faults.static_brake_disabled_fault ||
+            follower_faults.static_brake_disabled_fault;
+
+        faults.sticky_hardware_fault = leader_faults.sticky_hardware_fault ||
+                                       follower_faults.sticky_hardware_fault;
+        faults.sticky_proc_temp_fault = leader_faults.sticky_proc_temp_fault ||
+                                        follower_faults.sticky_proc_temp_fault;
+        faults.sticky_device_temp_fault =
+            leader_faults.sticky_device_temp_fault ||
+            follower_faults.sticky_device_temp_fault;
+        faults.sticky_undervoltage_fault =
+            leader_faults.sticky_undervoltage_fault ||
+            follower_faults.sticky_undervoltage_fault;
+        faults.sticky_boot_fault =
+            leader_faults.sticky_boot_fault || follower_faults.sticky_boot_fault;
+        faults.sticky_unliscensed_fault =
+            leader_faults.sticky_unliscensed_fault ||
+            follower_faults.sticky_unliscensed_fault;
+        faults.sticky_bridge_brownout_fault =
+            leader_faults.sticky_bridge_brownout_fault ||
+            follower_faults.sticky_bridge_brownout_fault;
+        faults.sticky_overvoltage_fault =
+            leader_faults.sticky_overvoltage_fault ||
+            follower_faults.sticky_overvoltage_fault;
+        faults.sticky_unstable_voltage_fault =
+            leader_faults.sticky_unstable_voltage_fault ||
+            follower_faults.sticky_unstable_voltage_fault;
+        faults.sticky_stator_current_limit_fault =
+            leader_faults.sticky_stator_current_limit_fault ||
+            follower_faults.sticky_stator_current_limit_fault;
+        faults.sticky_supply_current_limit_fault =
+            leader_faults.sticky_supply_current_limit_fault ||
+            follower_faults.sticky_supply_current_limit_fault;
+        faults.sticky_static_brake_disabled_fault =
+            leader_faults.sticky_static_brake_disabled_fault ||
+            follower_faults.sticky_static_brake_disabled_fault;
+
+        faults_pub->publish(faults);
     }
 
     void logPotState(const char* context) const
@@ -891,6 +1046,16 @@ struct Phoenix6Driver::CustomMechanismPair
                 break;
         }
     }
+
+    void timerUpdate()
+    {
+        if (is_disabled && *is_disabled)
+        {
+            return;
+        }
+
+        update();
+    }
 };
 
 void Phoenix6Driver::setupMechanisms()
@@ -965,6 +1130,8 @@ void Phoenix6Driver::setupMechanisms()
                 this,
                 leader,
                 follower,
+                config.update_period_ms,
+                &is_disabled,
                 get_logger(),
                 get_clock());
             CustomMechanismPair* pair_ptr = pair.get();
@@ -978,11 +1145,12 @@ void Phoenix6Driver::setupMechanisms()
             RCLCPP_INFO(
                 get_logger(),
                 "Configured CustomMechanism %s on motors %s/%s with control "
-                "topic lance/%s/ctrl",
+                "topic lance/%s/ctrl and update period %d ms",
                 config.name.c_str(),
                 leader->name.c_str(),
                 follower->name.c_str(),
-                config.name.c_str());
+                config.name.c_str(),
+                config.update_period_ms);
         }
         else if (config.type == "SimpleDifferentialMechanism")
         {
@@ -1038,19 +1206,6 @@ void Phoenix6Driver::setupMechanisms()
     }
 }
 
-void Phoenix6Driver::updateCustomMechanisms()
-{
-    if (is_disabled)
-    {
-        return;
-    }
-
-    for (auto& pair : custom_mechanisms)
-    {
-        pair->update();
-    }
-}
-
 void Phoenix6Driver::feedWatchdogStatus(int32_t status)
 {
     /* Watchdog feed decoding:
@@ -1083,8 +1238,9 @@ void Phoenix6Driver::feedWatchdogStatus(int32_t status)
 
 void Phoenix6Driver::pubMotorInfo_cb()
 {
+    const rclcpp::Time stamp = this->get_clock()->now();
     TalonInfoMsg info_msg{};
-    info_msg.header.stamp = this->get_clock()->now();
+    info_msg.header.stamp = stamp;
     for (auto& m : this->FX_motors)
     {
         info_msg << m->motor;
@@ -1104,12 +1260,17 @@ void Phoenix6Driver::pubMotorInfo_cb()
         }
         m->info_pub->publish(info_msg);
     }
+    for (auto& pair : custom_mechanisms)
+    {
+        pair->publishInfo(stamp);
+    }
 }
 
 void Phoenix6Driver::pubMotorFault_cb()
 {
+    const rclcpp::Time stamp = this->get_clock()->now();
     TalonFaultsMsg faults_msg{};
-    faults_msg.header.stamp = this->get_clock()->now();
+    faults_msg.header.stamp = stamp;
 
     for (auto& m : this->FX_motors)
     {
@@ -1120,6 +1281,10 @@ void Phoenix6Driver::pubMotorFault_cb()
     {
         faults_msg << m->motor;
         m->faults_pub->publish(faults_msg);
+    }
+    for (auto& pair : custom_mechanisms)
+    {
+        pair->publishFaults(stamp);
     }
 }
 

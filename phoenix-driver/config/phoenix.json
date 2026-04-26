@@ -140,7 +140,8 @@
                 {
                     "name": "hopper_actuators",
                     "type": "CustomMechanism",
-                    "motors": ["hopper_act_left", "hopper_act_right"]
+                    "motors": ["hopper_act_left", "hopper_act_right"],
+                    "update_period_ms": 20
                 }
             ]
         }
