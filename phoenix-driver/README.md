@@ -212,6 +212,8 @@ The launch helper flattens this list into ROS parameters:
     "name": "hopper_act_left",
     "can_id": 4,
     "controller": "FXS",
+    "motor_arrangement": "brushed_dc",
+    "temp_sensor_required": false,
     "output_inverted": false,
     "sensor": "analog_pot",
     "pot_max_v": 3.3,
@@ -349,6 +351,32 @@ Supported values:
 
 - `Aligned`
 - `Opposed`
+
+### FXS Motor Setup Fields
+
+Use these fields on `FXS` motors. TalonFXS motor output depends on the selected
+motor arrangement, and brushless arrangements may require a matching external
+temperature sensor.
+
+#### `motor_arrangement`
+
+Optional TalonFXS motor arrangement. Defaults to `Disabled`.
+
+Supported values in the LANCE 2 driver:
+
+- `Disabled`
+- `Minion_JST`
+- `Brushed_DC`
+- `brushed_dc`
+- `NEO_JST`
+- `NEO550_JST`
+- `VORTEX_JST`
+- `CustomBrushless`
+
+#### `temp_sensor_required`
+
+Optional TalonFXS external motor temperature sensor requirement. Defaults to
+`false`.
 
 ### Sensor Fields
 

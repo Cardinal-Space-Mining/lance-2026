@@ -37,6 +37,8 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
 #include <functional>
 #include <vector>
 #include <string>
@@ -91,6 +93,8 @@ public:
         std::string follower_type;
         phx6::signals::MotorAlignmentValue alignment;
         SensorSource sensor;
+        phx6::signals::MotorArrangementValue motor_arrangement;
+        bool temp_sensor_required;
 
         union
         {

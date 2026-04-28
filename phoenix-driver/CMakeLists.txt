@@ -105,7 +105,9 @@ endif()
 # --- Lance 2 ---------------------------------------------------------
 if(BUILD_LANCE2)
     # --- Phoenix 6 Driver ---------------------------------------------------------
-    add_executable(lance2_phx6_driver src/lance2_phx6_driver.cpp)
+    add_executable(lance2_phx6_driver
+        src/lance2_phx6_driver.cpp
+        src/lance2_phx6_mechanisms.cpp)
     target_link_libraries(lance2_phx6_driver
         ${phoenix_ros_driver_custom_types})
     ament_target_dependencies(lance2_phx6_driver
