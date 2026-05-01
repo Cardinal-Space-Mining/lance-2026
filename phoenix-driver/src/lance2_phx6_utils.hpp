@@ -219,28 +219,72 @@ inline phx_::StatusCode operator<<(TalonT& motor, const TalonCtrlMsg& msg)
         std::is_same<TalonT, TalonFX>::value ||
         std::is_same<TalonT, TalonFXS>::value);
 
+    std::cout << "CTRL Mode: " << static_cast<int>(msg.mode)
+        << ", Value: " << msg.value << std::endl;
+
     switch (msg.mode)
     {
         case TalonCtrlMsg::PERCENT_OUTPUT:
         {
-            return motor.SetControl(phx6::controls::DutyCycleOut{msg.value});
+            if constexpr (std::is_same<TalonT, TalonFXS>::value)
+            {
+                return motor.SetControl(
+                    phx6::controls::DutyCycleOut{msg.value}
+                        .WithEnableFOC(false));
+            }
+            else
+            {
+                return motor.SetControl(phx6::controls::DutyCycleOut{msg.value});
+            }
         }
         case TalonCtrlMsg::POSITION:
         {
-            return motor.SetControl(
-                phx6::controls::PositionVoltage{
-                    units::angle::turn_t{msg.value}});
+            if constexpr (std::is_same<TalonT, TalonFXS>::value)
+            {
+                return motor.SetControl(
+                    phx6::controls::PositionVoltage{
+                        units::angle::turn_t{msg.value}}
+                        .WithEnableFOC(false));
+            }
+            else
+            {
+                return motor.SetControl(
+                    phx6::controls::PositionVoltage{
+                        units::angle::turn_t{msg.value}});
+            }
         }
         case TalonCtrlMsg::VELOCITY:
         {
-            return motor.SetControl(
-                phx6::controls::VelocityVoltage{
-                    units::angular_velocity::turns_per_second_t{msg.value}});
+            if constexpr (std::is_same<TalonT, TalonFXS>::value)
+            {
+                return motor.SetControl(
+                    phx6::controls::VelocityVoltage{
+                        units::angular_velocity::turns_per_second_t{msg.value}}
+                        .WithEnableFOC(false));
+            }
+            else
+            {
+                return motor.SetControl(
+                    phx6::controls::VelocityVoltage{
+                        units::angular_velocity::turns_per_second_t{
+                            msg.value}});
+            }
         }
         case TalonCtrlMsg::VOLTAGE:
         {
-            return motor.SetControl(
-                phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}});
+            if constexpr (std::is_same<TalonT, TalonFXS>::value)
+            {
+                return motor.SetControl(
+                    phx6::controls::VoltageOut{
+                        units::voltage::volt_t{msg.value}}
+                        .WithEnableFOC(false));
+            }
+            else
+            {
+                return motor.SetControl(
+                    phx6::controls::VoltageOut{
+                        units::voltage::volt_t{msg.value}});
+            }
         }
         case TalonCtrlMsg::DISABLED:
         {

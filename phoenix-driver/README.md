@@ -212,6 +212,8 @@ The launch helper flattens this list into ROS parameters:
     "name": "hopper_act_left",
     "can_id": 4,
     "controller": "FXS",
+    "motor_arrangement": "brushed_dc",
+    "temp_sensor_required": false,
     "output_inverted": false,
     "sensor": "analog_pot",
     "pot_max_v": 3.3,
@@ -307,7 +309,8 @@ Mechanisms are declared separately from motor device definitions:
     {
         "name": "hopper_actuators",
         "type": "CustomMechanism",
-        "motors": ["hopper_act_left", "hopper_act_right"]
+        "motors": ["hopper_act_left", "hopper_act_right"],
+        "update_period_ms": 20
     }
 ]
 ```
@@ -325,7 +328,14 @@ subscriptions for the motors it owns.
 For `POSITION` commands on `CustomMechanism`, `msg.value` is the target
 normalized potentiometer position. For `VELOCITY` commands, `msg.value` is
 treated as the shared velocity request with a balancing correction from the
-difference between the two potentiometer positions.
+difference between the two potentiometer positions. Each `CustomMechanism` owns
+its own update timer; no custom-mechanism update timer is created when no
+`CustomMechanism` is configured.
+
+#### `update_period_ms`
+
+Optional update interval, in milliseconds, for `CustomMechanism` position and
+velocity control. Defaults to `20`.
 
 `SimpleDifferentialMechanism` requires exactly two `FX` motors. In this pass it
 is config-only: the driver configures the Phoenix differential follower
@@ -341,6 +351,32 @@ Supported values:
 
 - `Aligned`
 - `Opposed`
+
+### FXS Motor Setup Fields
+
+Use these fields on `FXS` motors. TalonFXS motor output depends on the selected
+motor arrangement, and brushless arrangements may require a matching external
+temperature sensor.
+
+#### `motor_arrangement`
+
+Optional TalonFXS motor arrangement. Defaults to `Disabled`.
+
+Supported values in the LANCE 2 driver:
+
+- `Disabled`
+- `Minion_JST`
+- `Brushed_DC`
+- `brushed_dc`
+- `NEO_JST`
+- `NEO550_JST`
+- `VORTEX_JST`
+- `CustomBrushless`
+
+#### `temp_sensor_required`
+
+Optional TalonFXS external motor temperature sensor requirement. Defaults to
+`false`.
 
 ### Sensor Fields
 
@@ -424,23 +460,6 @@ When `true`, the driver publishes:
 position = 1.0 - (analog_voltage / pot_max_v)
 ```
 
-## Current LANCE 2 Motors
-
-The current `phoenix.json` defines these LANCE 2 motors:
-
-| Name | CAN ID | Controller | Sensor | Mechanism |
-| --- | ---: | --- | --- | --- |
-| `track_right` | 0 | `FX` | none | none |
-| `track_left` | 1 | `FX` | none | none |
-| `trencher` | 2 | `FX` | none | none |
-| `hopper_belt` | 3 | `FX` | none | none |
-| `hopper_act_left` | 5 | `FXS` | `analog_pot` | `hopper_actuators` |
-| `hopper_act_right` | 4 | `FXS` | `analog_pot` | `hopper_actuators` |
-
-Both hopper actuator potentiometers currently use:
-
-- `pot_max_v`: `3.3`
-- `pot_inverted`: `true`
 
 ## Runtime Topics
 
@@ -459,6 +478,12 @@ For each `CustomMechanism` named `<mechanism_name>`, the driver creates:
 
 - `lance/<mechanism_name>/ctrl`: subscribes to
   `phoenix_ros_driver/msg/TalonCtrl`.
+- `lance/<mechanism_name>/info`: publishes
+  `phoenix_ros_driver/msg/TalonInfo` with motor values averaged across the
+  mechanism.
+- `lance/<mechanism_name>/faults`: publishes
+  `phoenix_ros_driver/msg/TalonFaults` with motor fault fields ORed across the
+  mechanism.
 
 The driver also subscribes to:
 

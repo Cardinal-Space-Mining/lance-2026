@@ -37,6 +37,8 @@
 *                                                                              *
 *******************************************************************************/
 
+#pragma once
+
 #include <functional>
 #include <vector>
 #include <string>
@@ -91,6 +93,8 @@ public:
         std::string follower_type;
         phx6::signals::MotorAlignmentValue alignment;
         SensorSource sensor;
+        phx6::signals::MotorArrangementValue motor_arrangement;
+        bool temp_sensor_required;
 
         union
         {
@@ -123,6 +127,7 @@ public:
         phx6::signals::MotorAlignmentValue alignment;
         double sensor_to_differential_ratio;
         double closed_loop_rate_hz;
+        int update_period_ms;
     };
 
 
@@ -169,7 +174,6 @@ private:
 
     void parseMechanismConfigs();
     void setupMechanisms();
-    void updateCustomMechanisms();
 
     void setupMotors();
 
@@ -195,7 +199,6 @@ private:
 
     RclTimer info_pub_timer;
     RclTimer fault_pub_timer;
-    RclTimer custom_mechanism_timer;
 
     bool is_disabled = false;
 };
