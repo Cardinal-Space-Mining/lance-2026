@@ -109,6 +109,8 @@
                     "name": "hopper_act_left",
                     "can_id": 5,
                     "controller": "FXS",
+                    "motor_arrangement": "brushed_dc",
+                    "temp_sensor_required": false,
                     "sensor": "analog_pot",
                     "pot_max_v": 5.0,
                     "pot_inverted": true,
@@ -126,6 +128,8 @@
                     "name": "hopper_act_right",
                     "can_id": 4,
                     "controller": "FXS",
+                    "motor_arrangement": "brushed_dc",
+                    "temp_sensor_required": false,
                     "sensor": "analog_pot",
                     "pot_max_v": 5.0,
                     "pot_inverted": true,
@@ -145,7 +149,8 @@
                 {
                     "name": "hopper_act",
                     "type": "CustomMechanism",
-                    "motors": ["hopper_act_left", "hopper_act_right"]
+                    "motors": ["hopper_act_left", "hopper_act_right"],
+                    "update_period_ms": 20
                 }
             ]
         }
