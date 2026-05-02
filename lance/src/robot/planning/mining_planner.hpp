@@ -148,6 +148,8 @@ public:
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
+    // JCOMMENT: This should be marked as inline or it will be an ODR violation on multiple includes
+    // JCOMMENT: Implement std::ostream& operator<<(std::ostream& os, const DirectedMiningPath& i) override
     void print() const
     {
         std::cout << "Path from (" << path.first.x() << ", " << path.first.y()
@@ -177,8 +179,10 @@ private:
     MiningGridGeometry grid_geometry;
     MiningPath path;
     MiningDirection direction;
+    // JCOMMENT: What does this do? Why is it a pointer
     const Eigen::MatrixXf* matrix;
     float distance = -1.0;
+     // JCOMMENT: I am a fan of ALL_CAPS for constants like this
     static constexpr float previously_mined_penalty = 0.1f;
 };
 
@@ -201,6 +205,7 @@ public:
 
 
 
+    // JCOMMENT: Why std::map over std::unordered_map?
     std::map<MiningDirection, MiningGridGeometry> getGridGeometriesByDirection() const;
     
     
@@ -212,6 +217,7 @@ public:
 private:
     MiningGridGeometry computeMiningGridGeometry(const RobotParams& robot_params, const MiningZoneLimiterVector& direction_offset) const;
 
+    // JCOMMENT: This is static but not thread local. What are your MT guarentees/reqs?
     const std::vector<Pose2f>& getStartingLocations();
 
     void appendPlannedMiningPaths();
@@ -225,8 +231,10 @@ private:
 
 
     bool sent_eval_request{ false };
+     // JCOMMENT: why map vs std::unordered_map?
     std::map<MiningDirection, MiningGridGeometry> grid_geometry;
     // Each previously mined cell matrix is offset by the same amounts as it's corresponding strip map so their indices align.
+     // JCOMMENT: why map vs std::unordered_map?
     std::map<MiningDirection, Eigen::MatrixXi> previously_mined_cells_by_direction;
 
     // The direction is the way the the robot would be moving in reference to the
@@ -240,7 +248,8 @@ private:
     
 
     DirectedMiningPaths all_mining_paths;
-    static constexpr int x_divisions = 8;
+    // JCOMMENT: Why are these hard coded? I would expect as the mining zone size changes, these would change too
+    static constexpr int x_divisions = 8; 
     static constexpr int y_divisions = 12;
 
     

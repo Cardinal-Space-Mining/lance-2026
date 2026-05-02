@@ -68,7 +68,7 @@ DirectedMiningPath::DirectedMiningPath(
     const Eigen::MatrixXf* mat,
     const MiningGridGeometry* geometry) :
     grid_geometry(*geometry),
-    path(std::move(p)),
+    path(std::move(p)), // JCOMMENT: std::move is superfluous here because of move & copy elision
     direction(dir),
     matrix(mat)
 {
@@ -362,6 +362,8 @@ DirectedMiningPath::MiningSwath
     return {target_pos, target_dir};
 }
 
+// JCOMMENT: Instead of returning -1 on failure, I would either make this take a matrix reference so it can't be null, OR I would return
+// an std::optional<float>. This forces users of this function to handle the error case, instead of it silently returning bad data
 float DirectedMiningPath::getRecalculatedDistance() const
 {
     if (this->matrix == nullptr)
@@ -455,6 +457,7 @@ MiningPlanner::MiningPlanner(
             strip_map_xplus.cols());
 }
 
+// JCOMMENT: Use std::unordered_map
 std::map<MiningDirection, MiningGridGeometry> MiningPlanner::getGridGeometriesByDirection() const
     {
         std::map<MiningDirection, MiningGridGeometry> geometries;
@@ -618,9 +621,14 @@ void MiningPlanner::markMiningOnMatrix(const DirectedMiningPath& path)
 
 const std::vector<MiningPlanner::Pose2f>& MiningPlanner::getStartingLocations()
 {
+    // JCOMMENT: This is static but not thread local. What are your MT guarentees/reqs?
     static std::vector<MiningPlanner::Pose2f> starting_vectors;
     starting_vectors.clear();
 
+    // JCOMMENT: Replace these push_back calls with emplace_back calls
+    // pushback is for adding an existing object to the end of the vector, emplace_back is for bringing a new
+    // object into existance at the end of the vector. The difference is negligable in this instance, but thats
+    // a good habit to get into
     for (int x = 0; x < x_divisions; x++)
     {
         for (int y = 0; y < y_divisions; y++)
@@ -679,12 +687,16 @@ const std::vector<MiningPlanner::Pose2f>& MiningPlanner::getStartingLocations()
 
 void MiningPlanner::appendPlannedMiningPaths()
 {
+    // JCOMMENT: I would consider using RCLCPP_ERR instead. If you need a logger object, you can use rclcpp::get_logger
+    // This way we can see your log messages no matter how std::cerr/clog/cout & friends are configured
+    // See: https://docs.ros2.org/ardent/api/rclcpp/namespacerclcpp.html#ae7295751947c08312aa69f45fd673171
     std::cerr << "[MiningPlanner][DBG] appendPlannedMiningPaths: begin\n";
 
     int a = 0, b = 0;
     size_t pushed_paths = 0;
     size_t skipped_short_paths = 0;
 
+    // JCOMMENT: I would implement operator std::string_view for MiningDirection
     const auto directionToString = [](MiningDirection dir)
     {
         switch (dir)
@@ -702,6 +714,7 @@ void MiningPlanner::appendPlannedMiningPaths()
         }
     };
 
+    // JCOMMENT: why not using ALL_MINING_DIRECTIONS?
     std::vector<MiningDirection> directions = {
         MiningDirection::YMINUS,
         MiningDirection::XPLUS,
@@ -813,7 +826,8 @@ void MiningPlanner::appendPlannedMiningPaths()
                             Eigen::Vector2i(i, possible_path.first.x()),
                             Eigen::Vector2i(i, possible_path.second.x()));
                     }
-
+                    
+                    // JCOMMENT: I would use a reference here instead of pointer
                     Eigen::MatrixXf* original_mat =
                         (MiningDirection::YMINUS == mining_dir)
                             ? &strip_map_yminus
@@ -1015,6 +1029,7 @@ void MiningPlanner::sortPathsByQuality()
 
 void MiningPlanner::removeSectionsForRobotClearance()
 {
+    // JCOMMENT: I would std::erase_if. 
     for (int i = this->all_mining_paths.size() - 1; i >= 0; --i)
     {
         if (!this->all_mining_paths[i].adjustForRobotClearance())
