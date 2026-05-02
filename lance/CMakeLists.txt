@@ -229,6 +229,10 @@ if(BUILD_LANCE2)
         DESTINATION lib/${PROJECT_NAME} )
 endif()
 
+install(PROGRAMS
+    scripts/hopper_fullness.py
+    DESTINATION lib/${PROJECT_NAME})
+
 install(DIRECTORY
     config
     launch
