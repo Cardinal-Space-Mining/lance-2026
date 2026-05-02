@@ -216,11 +216,53 @@ bool DirectedMiningPath::adjustForRobotClearance()
     return distance >= 0.0f;
 }
 
-DirectedMiningPath::MiningSwath
-    DirectedMiningPath::getPathCoordinatesInWorldFrame() const
+DirectedMiningPath::Vec2f DirectedMiningPath::getPointInWorldFrame(const Vec2i& point) const
+{
+    Vec2f world_point;
+
+    const int matrix_rows = matrix->rows();
+    const int matrix_cols = matrix->cols();
+    const float cell_size_x = grid_geometry.cell_length_x;
+    const float cell_size_y = grid_geometry.cell_length_y;
+    const float half_cell_x = cell_size_x / 2.0f;
+    const float half_cell_y = cell_size_y / 2.0f;
+
+    const Eigen::Vector2f min_corner_with_offset = grid_geometry.min_corner_with_offset;
+    const Eigen::Vector2f max_corner_with_offset = grid_geometry.max_corner_with_offset;
+    switch (direction)
+    {
+        case MiningDirection::YMINUS:
+            world_point.x() = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x() +
+                   half_cell_x;
+            world_point.y() = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y);
+            break;
+        case MiningDirection::YPLUS:
+            world_point.x() = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x() +
+                   half_cell_x;
+             world_point.y() = min_corner_with_offset.y() +
+                 (matrix_rows - 1 - path.first.x()) * grid_geometry.cell_length_y;
+            break;
+        case MiningDirection::XPLUS:
+            world_point.x() = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x();
+            world_point.y() = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y) -
+                   half_cell_y;
+            break;
+        case MiningDirection::XMINUS:
+            world_point.x() = max_corner_with_offset.x() -
+                 ((matrix_cols - 1 - path.first.y()) * grid_geometry.cell_length_x);
+            world_point.y() = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y) -
+                   half_cell_y;
+            break;
+    }
+    return world_point;
+}
+
+std::vector<DirectedMiningPath::Vec2f> DirectedMiningPath::getFullPathInWorldFrame() const
 {
     float stdX = 0.f;
     float stdY = 0.f;
+    std::vector<Vec2f> full_path;
+
     Eigen::Vector2f target_pos;
     Eigen::Vector2f target_dir;
 
@@ -242,41 +284,77 @@ DirectedMiningPath::MiningSwath
     //         : robot_params.bounds.mining_zone.min() +
     //               Eigen::Vector2f::Constant(r);
 
+    switch (direction)
+    {
+        case MiningDirection::YMINUS:
+            for (int i = 0; i < path.second.x() - path.first.x(); i++)
+            {
+                stdX = path.first.y() * grid_geometry.cell_length_x +
+                             min_corner_with_offset.x() + half_cell_x;
+                stdY = max_corner_with_offset.y() -
+                             ((path.first.x() + i) * grid_geometry.cell_length_y);
+
+                full_path.emplace_back(stdX, stdY);
+            }
+            break;
+        case MiningDirection::YPLUS:
+            for (int i = 0; i < path.first.x() - path.second.x(); i++) 
+            {
+                stdX = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x() +
+                             half_cell_x;
+                stdY = min_corner_with_offset.y() +
+                             (matrix_rows - 1 - (path.first.x() - i)) * grid_geometry.cell_length_y;
+
+                full_path.emplace_back(stdX, stdY);
+            }
+            break;
+        case MiningDirection::XPLUS:
+            for (int i = 0; i < path.second.y() - path.first.y(); i++)
+            {
+                stdX = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x() +
+                              (i * grid_geometry.cell_length_x);
+                stdY = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y) -
+                   half_cell_y;
+
+                full_path.emplace_back(stdX, stdY);
+            }
+            break;
+        case MiningDirection::XMINUS:
+            for (int i = 0; i < path.first.y() - path.second.y(); i++)
+            {
+                stdX = max_corner_with_offset.x() -
+                             ((matrix_cols - 1 - path.first.y()) * grid_geometry.cell_length_x) - (i * grid_geometry.cell_length_x);
+                stdY = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y) -
+                   half_cell_y;
+
+                full_path.emplace_back(stdX, stdY);
+            }
+            break;
+    }
+    return full_path;
+}
+DirectedMiningPath::MiningSwath
+    DirectedMiningPath::getPathStartInWorldFrame() const
+{
+
+
+    Vec2f world_point = getPointInWorldFrame(path.first);
+
+    Eigen::Vector2f target_pos = world_point;
+    Eigen::Vector2f target_dir;
 
     switch (direction)
     {
         case MiningDirection::YMINUS:
-            stdX = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x() +
-                   half_cell_x;
-            stdY = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y);
-
-            target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({0.f, -1.f});
             break;
         case MiningDirection::YPLUS:
-            stdX = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x() +
-                   half_cell_x;
-             stdY = min_corner_with_offset.y() +
-                 (matrix_rows - 1 - path.first.x()) * grid_geometry.cell_length_y;
-
-            target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({0.f, 1.f});
             break;
         case MiningDirection::XPLUS:
-            stdX = path.first.y() * grid_geometry.cell_length_x + min_corner_with_offset.x();
-            stdY = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y) -
-                   half_cell_y;
-
-            target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({1.f, 0.f});
             break;
         case MiningDirection::XMINUS:
-            stdX = max_corner_with_offset.x() -
-                 ((matrix_cols - 1 - path.first.y()) * grid_geometry.cell_length_x);
-            stdY = max_corner_with_offset.y() - (path.first.x() * grid_geometry.cell_length_y) -
-                   half_cell_y;
-
-            target_pos = Eigen::Vector2f(stdX, stdY);
             target_dir = Eigen::Vector2f({-1.f, 0.f});
             break;
     }
@@ -363,9 +441,6 @@ MiningPlanner::MiningPlanner(
     strip_map_xminus_transposed = Eigen::MatrixXf::Zero(x_divisions, y_divisions);
     strip_map_xplus_transposed = Eigen::MatrixXf::Zero(x_divisions, y_divisions);
 
-    // // Base-coordinate mining paths are indexed in the up/down frame.
-    // previously_mined_cells =
-    //     Eigen::MatrixXi::Zero(strip_map_yminus.rows(), strip_map_yminus.cols());
     this->previously_mined_cells_by_direction[MiningDirection::YPLUS] = Eigen::MatrixXi::Zero(
             strip_map_yplus.rows(),
             strip_map_yplus.cols());
@@ -505,17 +580,46 @@ const MiningPlanner::DirectedMiningPaths& MiningPlanner::finalOutput()
 
 void MiningPlanner::markMiningOnMatrix(const DirectedMiningPath& path)
 {
+    
     path.markMiningOnMatrix(this->previously_mined_cells_by_direction[path.getDirection()]);
+
+    // Loop through the other 3 matrices and mark the corresponding cells as mined
+    //  To do this, you'll need to convert each of the indices to a box with the real world coordinates then check to see if it overlaps with any of the indices in the path 
+    std::vector<DirectedMiningPath::Vec2f> path_full = path.getFullPathInWorldFrame();
+    // make one big box for the whole mining path
+    Eigen::Vector2f min_point = path_full[0];
+    Eigen::Vector2f max_point = path_full[0];
+    
+    Eigen::AlignedBox2f path_box(min_point, max_point);
+
+    for (const auto& [direction, matrix] : this->previously_mined_cells_by_direction)
+    {
+        if (direction != path.getDirection())
+        {
+            // loop through each cell in the matrix
+            for (int i = 0; i < matrix.rows(); i++)
+            {
+                for (int j = 0; j < matrix.cols(); j++)
+                {
+                    // Loop through the mined cells
+                    float positionx = j * grid_geometry[direction].cell_length_x + grid_geometry[direction].min_corner_with_offset.x() + grid_geometry[direction].cell_length_x / 2.0f;
+                    float positiony = i * grid_geometry[direction].cell_length_y + grid_geometry[direction].min_corner_with_offset.y() + grid_geometry[direction].cell_length_y / 2.0f;
+                    Eigen::Vector2f cell_pos(positionx, positiony);
+                    if (path_box.contains(cell_pos))
+                    {
+                        // Do something with the overlapping cell
+                    }
+                }
+            }
+
+        }
+    }
 }
 
 const std::vector<MiningPlanner::Pose2f>& MiningPlanner::getStartingLocations()
 {
     static std::vector<MiningPlanner::Pose2f> starting_vectors;
     starting_vectors.clear();
-
-    // const auto& geometry = this->grid_geometry;
-    // const auto& min_corner_with_offset = geometry.min_corner_with_offset;
-    // const auto& max_corner_with_offset = geometry.max_corner_with_offset;
 
     for (int x = 0; x < x_divisions; x++)
     {

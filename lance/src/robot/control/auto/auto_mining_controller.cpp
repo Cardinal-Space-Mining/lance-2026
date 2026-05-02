@@ -161,7 +161,7 @@ void AutoMiningController::iterate(
             {
                 std::cout << "\n=== Evaluating Path ===\n";
                 lance::DirectedMiningPath::MiningSwath p =
-                    path.getPathCoordinatesInWorldFrame();
+                    path.getPathStartInWorldFrame();
                 std::cout << "Base Frame - Start: (" << p.first.x() << ", "
                           << p.first.y() << ")  Direction (In Coords): ("
                           << p.second.x() << ", " << p.second.y()
@@ -183,7 +183,7 @@ void AutoMiningController::iterate(
             }
 
             const DirectedMiningPath::MiningSwath swath =
-                paths.front().getPathCoordinatesInWorldFrame();
+                paths.front().getPathStartInWorldFrame();
             
             std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
                       << swath.first.y() << ")  Direction (In Coords): ("
@@ -241,7 +241,7 @@ void AutoMiningController::iterate(
             // }
 
             // const DirectedMiningPath::MiningSwath swath =
-            //     paths.front().getPathCoordinatesInWorldFrame(this->params);
+            //     paths.front().getPathStartInWorldFrame(this->params);
 
             // this->traversal_controller.initializePoint(
             //     swath.first,

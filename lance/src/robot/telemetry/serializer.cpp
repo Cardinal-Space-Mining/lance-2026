@@ -425,7 +425,7 @@ void TelemetrySerializer::addMiningPlannerDebug(
         {
             const auto& path = paths[i];
             const DirectedMiningPath::MiningSwath swath =
-                path.getPathCoordinatesInWorldFrame();
+                path.getPathStartInWorldFrame();
             const float swath_len_m = path.getDistance();
             const Vec2f end = swath.first + (swath.second * swath_len_m);
 

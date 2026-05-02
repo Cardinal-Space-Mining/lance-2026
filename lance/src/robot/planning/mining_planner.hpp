@@ -87,7 +87,7 @@ using MiningZoneLimiterVector = std::array<float, 4>; // {Yplus, Yminus, Xminus,
 // };
 // For ksc
 inline constexpr std::array<std::array<float, 4>, 4> MINING_ZONE_OFFSETS = {
-    // 4 mining limiters in order of Yplus, Yminus, Xplus, Xminus
+    // 4 mining limiters in order of Yplus, Yminus, Xminus, Xplus
     MiningZoneLimiterVector{
         geom::FOOTPRINT_R_MAX_<float>, 0.0f, geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,},
     MiningZoneLimiterVector{
@@ -141,7 +141,10 @@ public:
         const MiningGridGeometry* grid_geometry);
 
 public:
-    MiningSwath getPathCoordinatesInWorldFrame() const;
+    Vec2f getPointInWorldFrame(const Vec2i& point) const;
+    MiningSwath getPathStartInWorldFrame() const;
+    std::vector<Vec2f> getFullPathInWorldFrame() const;
+
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
@@ -167,6 +170,7 @@ public:
     MiningDirection getDirection() const { return direction; }
 
     float getRecalculatedDistance() const;
+
 
 private:
 
@@ -222,6 +226,7 @@ private:
 
     bool sent_eval_request{ false };
     std::map<MiningDirection, MiningGridGeometry> grid_geometry;
+    // Each previously mined cell matrix is offset by the same amounts as it's corresponding strip map so their indices align.
     std::map<MiningDirection, Eigen::MatrixXi> previously_mined_cells_by_direction;
 
     // The direction is the way the the robot would be moving in reference to the
