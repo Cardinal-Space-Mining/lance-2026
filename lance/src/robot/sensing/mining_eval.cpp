@@ -66,6 +66,8 @@ MiningEvalInterface::MiningEvalInterface(
 
 void MiningEvalInterface::queryArenaFrame(const std::vector<Pose2f>& poses)
 {
+    std::cout << "Querying mining eval arena frame with " << poses.size()
+              << " poses...\n";
     UpdateMiningEvalSrv::Request::SharedPtr req =
         std::make_shared<UpdateMiningEvalSrv::Request>();
 

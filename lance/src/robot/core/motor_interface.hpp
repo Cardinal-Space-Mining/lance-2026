@@ -93,6 +93,15 @@ struct RobotMotorCommands
         this->hopper_actuator.set__mode(TalonCtrlMsg::PERCENT_OUTPUT)
             .set__value(percent);
     }
+    inline void setHopperActVelocity(double val)
+    {
+        this->hopper_actuator.set__mode(TalonCtrlMsg::VELOCITY).set__value(val);
+    }
+    inline void setHopperActVoltage(double volts)
+    {
+        this->hopper_actuator.set__mode(TalonCtrlMsg::VOLTAGE)
+            .set__value(volts);
+    }
 
     inline void disableTracks()
     {

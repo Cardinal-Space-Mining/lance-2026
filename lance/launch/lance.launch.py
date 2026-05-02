@@ -1,6 +1,6 @@
 import os
 import sys
-import glob
+# import glob
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -9,9 +9,11 @@ from launch_ros.actions import Node
 from launch.actions import OpaqueFunction
 
 sys.path.append(os.path.join(get_package_share_directory('launch_utils'), 'src'))
+sys.path.append(os.path.join(get_package_share_directory('phoenix_ros_driver'), 'launch'))
 from launch_utils.preprocess import preprocess_launch_json
 from launch_utils.actions import NodeAction, get_util_actions
 from launch_utils.common import try_load_json_from_args, parse_launch_args, get_local_ips, get_matched_local_ip
+from phoenix_launch_utils import get_phoenix_actions
 
 try:
     sys.path.append(os.path.join(get_package_share_directory('cardinal_perception'), 'launch'))
@@ -31,11 +33,11 @@ PKG_PATH = get_package_share_directory('lance')
 DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'launch.json')
 
 
-def find_arduino():
-    matches = glob.glob("/dev/serial/by-id/*Arduino*")
-    if not matches:
-        return None
-    return matches[0]
+# def find_arduino():
+#     matches = glob.glob("/dev/serial/by-id/*Arduino*")
+#     if not matches:
+#         return None
+#     return matches[0]
 
 
 def get_multiscan_driver_action(config):
@@ -49,23 +51,23 @@ def get_multiscan_driver_action(config):
         output = 'screen'
     )
 
-def get_phx5_action(config):
-    return NodeAction(config).format_node(
-        package = 'phoenix_ros_driver',
-        executable = 'phx5_driver',
-        output = 'screen'
-    )
+# def get_phx5_action(config):
+#     return NodeAction(config).format_node(
+#         package = 'phoenix_ros_driver',
+#         executable = 'phx5_driver',
+#         output = 'screen'
+#     )
 
-def get_phx6_action(config):
-    arduino_device = find_arduino()
-    print(f'ARDUINO DEVICE IS {arduino_device}')
-    if arduino_device:
-        config['arduino_device'] = arduino_device
-    return NodeAction(config).format_node(
-        package = 'phoenix_ros_driver',
-        executable = 'phx6_driver',
-        output = 'screen'
-    )
+# def get_phx6_action(config):
+#     arduino_device = find_arduino()
+#     print(f'ARDUINO DEVICE IS {arduino_device}')
+#     if arduino_device:
+#         config['arduino_device'] = arduino_device
+#     return NodeAction(config).format_node(
+#         package = 'phoenix_ros_driver',
+#         executable = 'phx6_driver',
+#         output = 'screen'
+#     )
 
 def get_hopper_fullness_action(config):
     return NodeAction(config).format_node(
@@ -146,12 +148,14 @@ def get_robot_actions(config, launch_args = {}):
     a = []
     if 'multiscan_driver' in config:
         a.append(get_multiscan_driver_action(config['multiscan_driver']))
-    if 'phoenix5_driver' in config:
-        a.append(get_phx5_action(config['phoenix5_driver']))
-    if 'phoenix6_driver' in config:
-        a.append(get_phx6_action(config['phoenix6_driver']))
+
+    # if 'phoenix5_driver' in config:
+    #     a.append(get_phx5_action(config['phoenix5_driver']))
+    # if 'phoenix6_driver' in config:
+    #     a.append(get_phx6_action(config['phoenix6_driver']))
     if 'hopper_fullness' in config:
         a.append(get_hopper_fullness_action(config['hopper_fullness']))
+
     if 'redux' in config:
         a.append(get_redux_action(config['redux']))
     if 'motor_sim' in config:
@@ -171,6 +175,7 @@ def launch(context, *args, **kwargs):
     config = preprocess_launch_json(json_data, launch_args)
 
     actions.extend(get_util_actions(config, launch_args))
+    actions.extend(get_phoenix_actions(config))
     actions.extend(get_robot_actions(config, launch_args))
 
     if HAVE_PERCEPTION_UTILS:

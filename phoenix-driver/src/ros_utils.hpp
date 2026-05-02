@@ -84,7 +84,10 @@ inline void declare_param(
     T& param,
     const typename identity<T>::type& default_value)
 {
-    node->declare_parameter(param_name, default_value);
+    if (!node->has_parameter(param_name))
+    {
+        node->declare_parameter(param_name, default_value);
+    }
     node->get_parameter(param_name, param);
 }
 template<typename T>
@@ -94,7 +97,10 @@ inline void declare_param(
     T& param,
     const typename identity<T>::type& default_value)
 {
-    node.declare_parameter(param_name, default_value);
+    if (!node.has_parameter(param_name))
+    {
+        node.declare_parameter(param_name, default_value);
+    }
     node.get_parameter(param_name, param);
 }
 template<typename T>
@@ -103,7 +109,10 @@ inline T declare_and_get_param(
     const std::string param_name,
     const T& default_value)
 {
-    node.declare_parameter(param_name, default_value);
+    if (!node.has_parameter(param_name))
+    {
+        node.declare_parameter(param_name, default_value);
+    }
     return node.get_parameter_or(param_name, default_value);
 }
 

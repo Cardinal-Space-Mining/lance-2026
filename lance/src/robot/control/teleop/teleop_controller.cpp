@@ -320,14 +320,14 @@ void TeleopController::handleManualControl(
             hopper_belt_percent * this->params.hopper_belt_max_velocity_rps);
 
         float hopper_act_scalar = TeleopHopperActuateAxis::rawValue(joy);
-        if ((std::abs(hopper_act_scalar) <
-             this->params.default_stick_deadzone) ||
-            (motor_status.getHopperActNormalizedValue() < 0. &&
-             hopper_act_scalar < 0.f))
-        {
-            hopper_act_scalar = 0.f;
-        }
-        commands.setHopperActPercent(hopper_act_scalar);
+        // if ((std::abs(hopper_act_scalar) <
+        //      this->params.default_stick_deadzone) ||
+        //     (motor_status.getHopperActNormalizedValue() < 0. &&
+        //      hopper_act_scalar < 0.f))
+        // {
+        //     hopper_act_scalar = 0.f;
+        // }
+        commands.setHopperActVoltage(hopper_act_scalar * 20.0);
     }
 }
 

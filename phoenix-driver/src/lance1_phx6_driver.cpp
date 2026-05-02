@@ -62,7 +62,7 @@
 #include <ctre/phoenix6/unmanaged/Unmanaged.hpp>
 
 #include "ros_utils.hpp"
-#include "phx6_utils.hpp"
+#include "lance1_phx6_utils.hpp"
 
 
 using namespace util;
@@ -642,7 +642,7 @@ void Phoenix6Driver::SerialRelay::enable()
         if (write(this->port, "1", 1) == -1)
         {
             // Error, this should not happen
-            std::cerr << "Phoenix6Driver::SerialRelay::enable write failure!"
+            std::cerr << "Phoenix6Driver::SerialRelay::enable phx5_driverwrite failure!"
                       << std::flush;
         };
         this->state = true;
@@ -667,7 +667,7 @@ void Phoenix6Driver::SerialRelay::disable()
 // --- Driver Node -------------------------------------------------------------
 
 Phoenix6Driver::Phoenix6Driver() :
-    Node{"phoenix6_driver"},
+    Node{"lance1_phoenix6_driver"},
     relay_state_pub{this->create_publisher<Int8Msg>(
         ROBOT_TOPIC("relay_status"),
         rclcpp::SensorDataQoS{})},

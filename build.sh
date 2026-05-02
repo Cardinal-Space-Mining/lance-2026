@@ -37,7 +37,8 @@ colcon build \
     --packages-ignore lance \
     --cmake-args \
         -Wno-dev \
-        -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON
+        -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
+        ${ROBOT_TARGET}
 
 colcon build \
     --symlink-install \
