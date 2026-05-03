@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include <optional>
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
@@ -89,6 +90,7 @@ protected:
     TraversalController& traversal_controller;
     MiningController& mining_controller;
 
+    std::optional<DirectedMiningPath> current_mining_path;
     MiningPlanner mining_planner;
 
     Stage stage{Stage::FINISHED};

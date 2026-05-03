@@ -142,6 +142,8 @@ public:
 
 public:
     Vec2f getPointInWorldFrame(const Vec2i& point) const;
+    static Vec2f computePointInWorldFrame(const Vec2i& point, MiningDirection dir, int matrix_rows, int matrix_cols, const MiningGridGeometry& geom);
+    static Eigen::AlignedBox2f computeCellBoxInWorldFrame(const Vec2i& point, MiningDirection dir, int matrix_rows, int matrix_cols, const MiningGridGeometry& geom);
     MiningSwath getPathStartInWorldFrame() const;
     std::vector<Vec2f> getFullPathInWorldFrame() const;
 
@@ -208,6 +210,9 @@ public:
 
     void markMiningOnMatrix(const DirectedMiningPath& path);
     bool hasSentRequest() const { return sent_eval_request; }
+
+    // REMOVE LATER JUST FOR TESTING
+    std::map<MiningDirection, Eigen::MatrixXi> getPreviouslyMinedCellsByDirection() const;
 
 private:
     MiningGridGeometry computeMiningGridGeometry(const RobotParams& robot_params, const MiningZoneLimiterVector& direction_offset) const;

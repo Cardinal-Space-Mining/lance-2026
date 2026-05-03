@@ -167,7 +167,8 @@ void AutoMiningController::iterate(
                           << p.second.x() << ", " << p.second.y()
                           << ") | Direction: "
                           << miningDirectionToString(path.getDirection())
-                          << " | Distance: " << path.getDistance() << "\n";
+                          << " | Distance: " << path.getDistance()
+                          << " | Quality: " << path.getQuality(mining_planner.getPreviouslyMinedCellsByDirection()[path.getDirection()]) << "\n";
 
                 path.print();
                           
@@ -184,6 +185,8 @@ void AutoMiningController::iterate(
 
             const DirectedMiningPath::MiningSwath swath =
                 paths.front().getPathStartInWorldFrame();
+            
+            this->current_mining_path = paths.front();
             
             std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
                       << swath.first.y() << ")  Direction (In Coords): ("
@@ -267,6 +270,12 @@ void AutoMiningController::iterate(
             if (!this->mining_controller.isFinished())
             {
                 break;
+            }
+
+            if (this->current_mining_path.has_value())
+            {
+                this->mining_planner.markMiningOnMatrix(this->current_mining_path.value());
+                this->current_mining_path.reset();
             }
 
             this->stage = Stage::FINISHED;
