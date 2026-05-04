@@ -45,6 +45,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <functional>
+#include <string_view>
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
@@ -63,6 +64,18 @@ enum class MiningDirection
     XMINUS,
     XPLUS
 };
+
+inline constexpr std::string_view toString(MiningDirection dir)
+{
+    switch (dir)
+    {
+        case MiningDirection::YPLUS:  return "YPLUS";
+        case MiningDirection::YMINUS: return "YMINUS";
+        case MiningDirection::XMINUS: return "XMINUS";
+        case MiningDirection::XPLUS:  return "XPLUS";
+        default:                      return "UNKNOWN";
+    }
+}
 
 // Utility to iterate over all mining directions in a range-based for loop
 inline constexpr std::array<MiningDirection, 4> ALL_MINING_DIRECTIONS = {
@@ -120,6 +133,19 @@ struct MiningGridGeometry
     float cell_length_y = 0.0f;
     Eigen::Vector2f min_corner_with_offset = Eigen::Vector2f::Zero();
     Eigen::Vector2f max_corner_with_offset = Eigen::Vector2f::Zero();
+
+    friend std::ostream& operator<<(std::ostream& os, const MiningGridGeometry& geom)
+    {
+        os << "  mining_zone_x_length: " << geom.mining_zone_x_length << "\n"
+           << "  mining_zone_y_length: " << geom.mining_zone_y_length << "\n"
+           << "  actual_mining_x_length: " << geom.actual_mining_x_length << "\n"
+           << "  actual_mining_y_length: " << geom.actual_mining_y_length << "\n"
+           << "  cell_length_x: " << geom.cell_length_x << "\n"
+           << "  cell_length_y: " << geom.cell_length_y << "\n"
+           << "  min_corner_with_offset: (" << geom.min_corner_with_offset.x() << ", " << geom.min_corner_with_offset.y() << ")\n"
+           << "  max_corner_with_offset: (" << geom.max_corner_with_offset.x() << ", " << geom.max_corner_with_offset.y() << ")";
+        return os;
+    }
 };
 
 
@@ -137,7 +163,7 @@ public:
     DirectedMiningPath(
         MiningPath p,
         MiningDirection dir,
-        const Eigen::MatrixXf* mat,
+        const Eigen::MatrixXf& mat,
         const MiningGridGeometry* grid_geometry);
 
 public:
@@ -150,7 +176,7 @@ public:
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
-    void print() const
+    inline void print() const
     {
         std::cout << "Path from (" << path.first.x() << ", " << path.first.y()
                   << ") to (" << path.second.x() << ", " << path.second.y()
@@ -163,11 +189,11 @@ public:
 // public but only used by MiningPlanner
     float getDistance() const;
 
-    bool checkValidity() const;
+    bool checkValidity();
 
     float getQuality(const Eigen::MatrixXi& previously_minined_locations) const;
 
-    bool adjustForRobotClearance();
+    void adjustForRobotClearance();
 
     MiningDirection getDirection() const { return direction; }
 
@@ -179,9 +205,9 @@ private:
     MiningGridGeometry grid_geometry;
     MiningPath path;
     MiningDirection direction;
-    const Eigen::MatrixXf* matrix;
+    std::reference_wrapper<const Eigen::MatrixXf> matrix;
     float distance = -1.0;
-    static constexpr float previously_mined_penalty = 0.1f;
+    static constexpr float PREVIOUSLY_MINED_PENALTY = 0.1f;
 };
 
 
@@ -203,7 +229,7 @@ public:
 
 
 
-    std::map<MiningDirection, MiningGridGeometry> getGridGeometriesByDirection() const;
+    std::unordered_map<MiningDirection, MiningGridGeometry> getGridGeometriesByDirection() const;
     
     
     // const MiningGridGeometry& getGridGeometry() const { return grid_geometry; }
@@ -212,12 +238,12 @@ public:
     bool hasSentRequest() const { return sent_eval_request; }
 
     // REMOVE LATER JUST FOR TESTING
-    std::map<MiningDirection, Eigen::MatrixXi> getPreviouslyMinedCellsByDirection() const;
+    std::unordered_map<MiningDirection, Eigen::MatrixXi> getPreviouslyMinedCellsByDirection() const;
 
 private:
     MiningGridGeometry computeMiningGridGeometry(const RobotParams& robot_params, const MiningZoneLimiterVector& direction_offset) const;
 
-    const std::vector<Pose2f>& getStartingLocations();
+    std::vector<Pose2f> getStartingLocations();
 
     void appendPlannedMiningPaths();
 
@@ -230,9 +256,9 @@ private:
 
 
     bool sent_eval_request{ false };
-    std::map<MiningDirection, MiningGridGeometry> grid_geometry;
+    std::unordered_map<MiningDirection, MiningGridGeometry> grid_geometry;
     // Each previously mined cell matrix is offset by the same amounts as it's corresponding strip map so their indices align.
-    std::map<MiningDirection, Eigen::MatrixXi> previously_mined_cells_by_direction;
+    std::unordered_map<MiningDirection, Eigen::MatrixXi> previously_mined_cells_by_direction;
 
     // The direction is the way the the robot would be moving in reference to the
     // base frame which is MiningDirection::YMINUS
