@@ -442,7 +442,7 @@ MiningPlanner::MiningPlanner(
             strip_map_xplus.cols());
 }
 
-std::unordered_map<MiningDirection, MiningGridGeometry> MiningPlanner::getGridGeometriesByDirection() const
+    std::unordered_map<MiningDirection, MiningGridGeometry> MiningPlanner::getGridGeometriesByDirection() const
     {
         std::unordered_map<MiningDirection, MiningGridGeometry> geometries;
         for (const auto& direction : ALL_MINING_DIRECTIONS)
@@ -677,7 +677,7 @@ std::vector<MiningPlanner::Pose2f> MiningPlanner::getStartingLocations()
 
 void MiningPlanner::appendPlannedMiningPaths()
 {
-    int a = 0, b = 0;
+        int a = 0, b = 0;
     size_t pushed_paths = 0;
     size_t skipped_short_paths = 0;
 
@@ -771,7 +771,7 @@ void MiningPlanner::appendPlannedMiningPaths()
                             Eigen::Vector2i(i, possible_path.first.x()),
                             Eigen::Vector2i(i, possible_path.second.x()));
                     }
-
+                    
                     Eigen::MatrixXf& original_mat =
                         (MiningDirection::YMINUS == mining_dir)
                             ? strip_map_yminus

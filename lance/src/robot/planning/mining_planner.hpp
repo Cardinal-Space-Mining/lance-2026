@@ -271,7 +271,8 @@ private:
     
 
     DirectedMiningPaths all_mining_paths;
-    static constexpr int x_divisions = 8;
+    // JCOMMENT: Why are these hard coded? I would expect as the mining zone size changes, these would change too
+    static constexpr int x_divisions = 8; 
     static constexpr int y_divisions = 12;
 
     
