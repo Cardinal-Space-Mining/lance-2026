@@ -115,18 +115,6 @@ protected:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
-    // void runStanley(
-    //     const RobotMotorStatus& motor_status,
-    //     const std::vector<Vec2f>& keypoints,
-    //     size_t seg_beg_idx,
-    //     size_t seg_end_idx,
-    //     float seg_proj_t,
-    //     RobotMotorCommands& commands);
-    // void runStanley2(
-    //     const RobotMotorStatus& motor_status,
-    //     const std::vector<Vec2f>& keypoints,
-    //     RobotMotorCommands& commands);
-
     void getFilteredPrevVelocities(
         const RobotMotorStatus& motor_status,
         float& Vl_prev,
@@ -138,7 +126,7 @@ protected:
     PathPlanInterface& pplan_interface;
 
     mpc::MPCParams mpc_params;
-    mpc::sim::FrameLogger mpc_logger;
+    mpc::FrameLogger mpc_logger;
     mpc::MPCController mpc_controller;
 
     State state{State::FINISHED};

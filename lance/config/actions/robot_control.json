@@ -72,13 +72,13 @@
 
             "auto_traversal":
             {
-                "max_track_velocity_mps": 0.35,
+                "max_track_velocity_mps": 0.75,
                 "max_track_acceleration_mpss": 1.0,
                 "max_angular_velocity_rps": 0.8,
-                "max_angular_accel_rpss": 0.5,
+                "max_angular_accel_rpss": 1.0,
                 "destination_thresh_m": 0.03,
                 "max_path_deviation_m": 0.02,
-                "stanley_k_coeff": 0.8,
+                "stanley_k_coeff": 2.5,
                 "angular_kp": 1.5,
                 "min_theta_window_deg": 2.0,
                 "align_angular_thresh_deg": 0.5
@@ -103,13 +103,13 @@
             },
             "auto_traversal":
             {
-                "max_track_velocity_mps": 0.35,
+                "max_track_velocity_mps": 0.75,
                 "max_track_acceleration_mpss": 1.0,
                 "max_angular_velocity_rps": 0.7,
-                "max_angular_accel_rpss": 0.5,
+                "max_angular_accel_rpss": 1.0,
                 "destination_thresh_m": 0.03,
-                "max_path_deviation_m": 0.05,
-                "stanley_k_coeff": 0.5,
+                "max_path_deviation_m": 0.02,
+                "stanley_k_coeff": 2.5,
                 "angular_kp": 1.5,
                 "min_theta_window_deg": 2.0,
                 "align_angular_thresh_deg": 0.5

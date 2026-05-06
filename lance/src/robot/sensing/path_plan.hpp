@@ -81,11 +81,6 @@ public:
     const PathMsg* getPath() const;
     void clearPath();
 
-    inline const RclClock::ConstSharedPtr& getClock() const
-    {
-        return this->rcl_clock;
-    }
-
 protected:
     RclClock::ConstSharedPtr rcl_clock;
 
