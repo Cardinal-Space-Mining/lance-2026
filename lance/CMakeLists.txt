@@ -58,6 +58,30 @@ message(STATUS
 include_directories("src")
 
 
+# --- OSQP and MPC -------------------------------------------------------------
+set(OSQP_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+add_subdirectory(dep/osqp)
+
+add_library(dd_mpc STATIC
+    src/mpc/solver.cpp
+    src/mpc/reference.cpp
+    src/mpc/sim_utils.cpp
+    src/mpc/qp_builder.cpp
+    src/mpc/projection.cpp
+    src/mpc/path_smoother.cpp
+    src/mpc/linearization.cpp
+    src/mpc/mpc_controller.cpp)
+target_include_directories(dd_mpc
+    PUBLIC
+        dep/osqp/include
+        dep/osqp/include/public
+        ${CMAKE_BINARY_DIR}/osqp/include/public)
+target_link_libraries(dd_mpc
+    PUBLIC Eigen3::Eigen
+    PUBLIC osqpstatic)
+
+
+
 # --- Common Lib ---------------------------------------------------------------
 set(lance_core_srcs
     "src/robot/core/robot_params.cpp"
@@ -101,6 +125,7 @@ if(BUILD_LANCE1)
         STATIC
         ${lance_core_srcs})
     target_link_libraries(lance1_core
+        dd_mpc
         ${lance_core_libs})
     target_compile_definitions(lance1_core
         PUBLIC LANCE=1)
@@ -112,6 +137,7 @@ if(BUILD_LANCE2)
         STATIC
         ${lance_core_srcs})
     target_link_libraries(lance2_core
+        dd_mpc
         ${lance_core_libs})
     target_compile_definitions(lance2_core
         PUBLIC LANCE=2)

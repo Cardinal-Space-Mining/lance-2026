@@ -42,6 +42,8 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "mpc/sim_utils.hpp"
+#include "mpc/mpc_controller.hpp"
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
@@ -113,17 +115,17 @@ protected:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
-    void runStanley(
-        const RobotMotorStatus& motor_status,
-        const std::vector<Vec2f>& keypoints,
-        size_t seg_beg_idx,
-        size_t seg_end_idx,
-        float seg_proj_t,
-        RobotMotorCommands& commands);
-    void runStanley2(
-        const RobotMotorStatus& motor_status,
-        const std::vector<Vec2f>& keypoints,
-        RobotMotorCommands& commands);
+    // void runStanley(
+    //     const RobotMotorStatus& motor_status,
+    //     const std::vector<Vec2f>& keypoints,
+    //     size_t seg_beg_idx,
+    //     size_t seg_end_idx,
+    //     float seg_proj_t,
+    //     RobotMotorCommands& commands);
+    // void runStanley2(
+    //     const RobotMotorStatus& motor_status,
+    //     const std::vector<Vec2f>& keypoints,
+    //     RobotMotorCommands& commands);
 
     void getFilteredPrevVelocities(
         const RobotMotorStatus& motor_status,
@@ -135,14 +137,16 @@ protected:
     const TfCache& tf_cache;
     PathPlanInterface& pplan_interface;
 
+    mpc::MPCParams mpc_params;
+    mpc::sim::FrameLogger mpc_logger;
+    mpc::MPCController mpc_controller;
+
     State state{State::FINISHED};
 
     Box2f arena_dest_zone{};
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
     bool need_traverse{true};
-
-    PathSampler path_sampler;
 
     float prev_left_velocity{0.f};
     float prev_right_velocity{0.f};
