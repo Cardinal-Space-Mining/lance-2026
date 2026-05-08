@@ -6,6 +6,7 @@ IGNORE_PATTERNS=(
     phoenix-driver/libs/
     foxglove_layout.json
     csm-sim/assets/
+    lance/dep/
 )
 
 declare -A COLORS=(
