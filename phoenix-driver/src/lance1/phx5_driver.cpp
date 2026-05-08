@@ -197,6 +197,7 @@ void Phoenix5Driver::pub_motor_info_cb()
     info_msg.header.stamp = this->get_clock()->now();
 
     info_msg << this->hopper_act.motor;
+    info_msg.position /= 1000.;
     info_msg.status |= static_cast<uint8_t>(!this->is_disabled);
 
     this->hopper_act.info_pub->publish(info_msg);
@@ -222,6 +223,7 @@ void Phoenix5Driver::execute_ctrl(TalonSRX& motor, const TalonCtrlMsg& msg)
         switch (msg.mode)
         {
             case TalonCtrlMsg::PERCENT_OUTPUT:
+            case TalonCtrlMsg::VELOCITY:
             {
                 motor.Set(ControlMode::PercentOutput, msg.value);
                 break;
@@ -229,11 +231,6 @@ void Phoenix5Driver::execute_ctrl(TalonSRX& motor, const TalonCtrlMsg& msg)
             case TalonCtrlMsg::POSITION:
             {
                 motor.Set(ControlMode::Position, msg.value);
-                break;
-            }
-            case TalonCtrlMsg::VELOCITY:
-            {
-                motor.Set(ControlMode::Velocity, msg.value);
                 break;
             }
             case TalonCtrlMsg::CURRENT:
