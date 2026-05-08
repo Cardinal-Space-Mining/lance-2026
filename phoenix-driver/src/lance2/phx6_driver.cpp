@@ -1,33 +1,33 @@
 /*******************************************************************************
 *   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
-*                                 ;xxxxxxx:                                   *
-*                                ;$$$$$$$$$       ...::..                     *
-*                                $$$$$$$$$$x   .:::::::::::..                 *
-*                             x$$$$$$$$$$$$$$::::::::::::::::.                *
-*                         :$$$$$&X;      .xX:::::::::::::.::...               *
-*                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :              *
-*                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.             *
-*               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.             *
-*              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::              *
-*               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.              *
-*                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.               *
-*                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                 *
-*                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                   *
-*                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                   *
-*                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                   *
-*                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                    *
-*                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                   *
-*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                  *
-*              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                 *
-*               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                  *
-*                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                   *
-*                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                    *
-*               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                           *
-*               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                              *
-*               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                  *
-*                .;;;;;;;;:;;    +$$$$$$$$$                                   *
-*                  .;;;;;;.       X$$$$$$$:                                   *
+*                                 ;xxxxxxx:                                    *
+*                                ;$$$$$$$$$       ...::..                      *
+*                                $$$$$$$$$$x   .:::::::::::..                  *
+*                             x$$$$$$$$$$$$$$::::::::::::::::.                 *
+*                         :$$$$$&X;      .xX:::::::::::::.::...                *
+*                 .$$Xx++$$$$+  :::.     :;:   .::::::.  ....  :               *
+*                :$$$$$$$$$  ;:      ;xXXXXXXXx  .::.  .::::. .:.              *
+*               :$$$$$$$$: ;      ;xXXXXXXXXXXXXx: ..::::::  .::.              *
+*              ;$$$$$$$$ ::   :;XXXXXXXXXXXXXXXXXX+ .::::.  .:::               *
+*               X$$$$$X : +XXXXXXXXXXXXXXXXXXXXXXXX; .::  .::::.               *
+*                .$$$$ :xXXXXXXXXXXXXXXXXXXXXXXXXXXX.   .:::::.                *
+*                 X$$X XXXXXXXXXXXXXXXXXXXXXXXXXXXXx:  .::::.                  *
+*                 $$$:.XXXXXXXXXXXXXXXXXXXXXXXXXXX  ;; ..:.                    *
+*                 $$& :XXXXXXXXXXXXXXXXXXXXXXXX;  +XX; X$$;                    *
+*                 $$$: XXXXXXXXXXXXXXXXXXXXXX; :XXXXX; X$$;                    *
+*                 X$$X XXXXXXXXXXXXXXXXXXX; .+XXXXXXX; $$$                     *
+*                 $$$$ ;XXXXXXXXXXXXXXX+  +XXXXXXXXx+ X$$$+                    *
+*               x$$$$$X ;XXXXXXXXXXX+ :xXXXXXXXX+   .;$$$$$$                   *
+*              +$$$$$$$$ ;XXXXXXx;;+XXXXXXXXX+    : +$$$$$$$$                  *
+*               +$$$$$$$$: xXXXXXXXXXXXXXX+      ; X$$$$$$$$                   *
+*                :$$$$$$$$$. +XXXXXXXXX;      ;: x$$$$$$$$$                    *
+*                ;x$$$$XX$$$$+ .;+X+      :;: :$$$$$xX$$$X                     *
+*               ;;;;;;;;;;X$$$$$$$+      :X$$$$$$&.                            *
+*               ;;;;;;;:;;;;;x$$$$$$$$$$$$$$$$x.                               *
+*               :;;;;;;;;;;;;.  :$$$$$$$$$$X                                   *
+*                .;;;;;;;;:;;    +$$$$$$$$$                                    *
+*                  .;;;;;;.       X$$$$$$$:                                    *
 *                                                                              *
 *   Unless required by applicable law or agreed to in writing, software        *
 *   distributed under the License is distributed on an "AS IS" BASIS,          *
@@ -36,52 +36,63 @@
 *   limitations under the License.                                             *
 *                                                                              *
 *******************************************************************************/
-#include "lance2_phx6_driver.hpp"
-#include "lance2_phx6_mechanisms.hpp"
+#include "phx6_driver.hpp"
 
-#include <vector>
 #include <algorithm>
 #include <cmath>
 #include <optional>
-#include <unordered_map>
-#include <unordered_set>
-
-#include <rclcpp/rclcpp.hpp>
-#include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/string.hpp>
 
 #define Phoenix_No_WPI  // remove WPI dependencies
 #include <ctre/phoenix/cci/Diagnostics_CCI.h>
-#include <ctre/phoenix6/controls/DifferentialFollower.hpp>
 #include <ctre/phoenix6/controls/Follower.hpp>
-#include <ctre/phoenix6/TalonFX.hpp>
 #include <ctre/phoenix6/unmanaged/Unmanaged.hpp>
 
+#include "common.hpp"
 #include "ros_utils.hpp"
-#include "lance2_phx6_utils.hpp"
+#include "phx6_utils.hpp"
+
 
 using namespace util;
-using namespace util::ros_aliases;
-using namespace std::chrono_literals;
-
-#define TALON_CTRL_SUB_QOS                                               \
-    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
 
 
-bool isSupportedTalonCtrlMode(int8_t mode)
+static std::optional<MotorAlignmentValue> parseMotorAlignment(
+    const std::string& alignment)
 {
-    switch (mode)
+    static const std::unordered_map<std::string, MotorAlignmentValue>
+        kAlignmentMap = {
+            {"Aligned", MotorAlignmentValue::Aligned},
+            {"Opposed", MotorAlignmentValue::Opposed},
+    };
+
+    auto it = kAlignmentMap.find(alignment);
+    if (it == kAlignmentMap.end())
     {
-        case TalonCtrlMsg::PERCENT_OUTPUT:
-        case TalonCtrlMsg::POSITION:
-        case TalonCtrlMsg::VELOCITY:
-        case TalonCtrlMsg::VOLTAGE:
-        case TalonCtrlMsg::MUSIC_TONE:
-        case TalonCtrlMsg::DISABLED:
-            return true;
-        default:
-            return false;
+        return std::nullopt;
     }
+    return it->second;
+}
+
+static std::optional<MotorArrangementValue> parseMotorArrangement(
+    const std::string& arrangement)
+{
+    static const std::unordered_map<std::string, MotorArrangementValue>
+        kArrangementMap = {
+            {       "Disabled",        MotorArrangementValue::Disabled},
+            {     "Minion_JST",      MotorArrangementValue::Minion_JST},
+            {     "Brushed_DC",      MotorArrangementValue::Brushed_DC},
+            {     "brushed_dc",      MotorArrangementValue::Brushed_DC},
+            {        "NEO_JST",         MotorArrangementValue::NEO_JST},
+            {     "NEO550_JST",      MotorArrangementValue::NEO550_JST},
+            {     "VORTEX_JST",      MotorArrangementValue::VORTEX_JST},
+            {"CustomBrushless", MotorArrangementValue::CustomBrushless},
+    };
+
+    auto it = kArrangementMap.find(arrangement);
+    if (it == kArrangementMap.end())
+    {
+        return std::nullopt;
+    }
+    return it->second;
 }
 
 
@@ -89,17 +100,26 @@ Phoenix6Driver::Phoenix6Driver() :
     Node("lance2_phoenix6_driver"),
     bus_name{declare_and_get_param(*this, "canbus", std::string("canable_A"))},
     bus(this->bus_name),
-    diagnostic_server_port(declare_and_get_param(*this, "diagnostics_port", 0)),
+    diagnostic_server_port(declare_and_get_param(
+        *this,
+        "diagnostics_port",
+        DEFAULT_DIAG_SERVER_PORT)),
     watchdog_status_sub{this->create_subscription<Int32Msg>(
         "lance/watchdog_status",
         rclcpp::SensorDataQoS{},
         [this](const Int32Msg& msg) { this->feedWatchdogStatus(msg.data); })},
     info_pub_timer{this->create_wall_timer(
-        declare_and_get_param(*this, "info_pub_rate_ms", 50) * 1ms,
-        [this]() { this->pubMotorInfo_cb(); })},
+        std::chrono::milliseconds(declare_and_get_param(
+            *this,
+            "info_pub_rate_ms",
+            DEFAULT_MOTOR_INFO_PUB_DT_MS)),
+        [this]() { this->pubMotorInfoCb(); })},
     fault_pub_timer{this->create_wall_timer(
-        declare_and_get_param(*this, "fault_pub_rate_ms", 250) * 1ms,
-        [this]() { this->pubMotorFault_cb(); })}
+        std::chrono::milliseconds(declare_and_get_param(
+            *this,
+            "fault_pub_rate_ms",
+            DEFAULT_MOTOR_FAULTS_PUB_DT_MS)),
+        [this]() { this->pubMotorFaultCb(); })}
 {
     // --- Init phoenix -------------------------------------------------------------
     if (diagnostic_server_port > 0)
@@ -112,56 +132,15 @@ Phoenix6Driver::Phoenix6Driver() :
         c_Phoenix_Diagnostics_SetSecondsToStart(-1);
     }
 
-    parseMechanismConfigs();
-    setupMotors();
-    setupMechanisms();
+    this->parseMechanismConfigs();
+    this->setupMotors();
+    this->setupMechanisms();
 }
 
 Phoenix6Driver::~Phoenix6Driver() { c_Phoenix_Diagnostics_Dispose(); }
 
-static std::optional<phx6::signals::MotorAlignmentValue> parseMotorAlignment(
-    const std::string& alignment)
-{
-    static const std::
-        unordered_map<std::string, phx6::signals::MotorAlignmentValue>
-            kAlignmentMap = {
-                {"Aligned", phx6::signals::MotorAlignmentValue::Aligned},
-                {"Opposed", phx6::signals::MotorAlignmentValue::Opposed},
-    };
 
-    auto it = kAlignmentMap.find(alignment);
-    if (it == kAlignmentMap.end())
-    {
-        return std::nullopt;
-    }
-    return it->second;
-}
 
-static std::optional<phx6::signals::MotorArrangementValue>
-    parseMotorArrangement(const std::string& arrangement)
-{
-    static const std::unordered_map<
-        std::string,
-        phx6::signals::MotorArrangementValue>
-        kArrangementMap = {
-            {       "Disabled",phx6::signals::MotorArrangementValue::Disabled                               },
-            {     "Minion_JST", phx6::signals::MotorArrangementValue::Minion_JST},
-            {     "Brushed_DC", phx6::signals::MotorArrangementValue::Brushed_DC},
-            {     "brushed_dc", phx6::signals::MotorArrangementValue::Brushed_DC},
-            {        "NEO_JST",    phx6::signals::MotorArrangementValue::NEO_JST},
-            {     "NEO550_JST", phx6::signals::MotorArrangementValue::NEO550_JST},
-            {     "VORTEX_JST", phx6::signals::MotorArrangementValue::VORTEX_JST},
-            {"CustomBrushless",
-             phx6::signals::MotorArrangementValue::CustomBrushless              },
-    };
-
-    auto it = kArrangementMap.find(arrangement);
-    if (it == kArrangementMap.end())
-    {
-        return std::nullopt;
-    }
-    return it->second;
-}
 
 void Phoenix6Driver::parseMechanismConfigs()
 {
@@ -258,6 +237,152 @@ void Phoenix6Driver::parseMechanismConfigs()
         }
 
         mechanism_configs.emplace_back(std::move(config));
+    }
+}
+
+void Phoenix6Driver::setupMechanisms()
+{
+    std::unordered_set<std::string> claimed_motors;
+    for (const auto& config : mechanism_configs)
+    {
+        bool overlaps_existing_mechanism = false;
+        for (const auto& motor_name : config.motors)
+        {
+            if (!claimed_motors.emplace(motor_name).second)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "Mechanism %s overlaps another mechanism on motor %s",
+                    config.name.c_str(),
+                    motor_name.c_str());
+                overlaps_existing_mechanism = true;
+            }
+        }
+        if (overlaps_existing_mechanism)
+        {
+            continue;
+        }
+
+        if (config.type == "CustomMechanism")
+        {
+            if (config.motors.size() != 2)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s requires exactly two motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            auto leader_it = FXS_motors_by_name.find(config.motors[0]);
+            auto follower_it = FXS_motors_by_name.find(config.motors[1]);
+            if (leader_it == FXS_motors_by_name.end() ||
+                follower_it == FXS_motors_by_name.end())
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s requires two FXS motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            RclMotor<TalonFXS>* leader = leader_it->second;
+            RclMotor<TalonFXS>* follower = follower_it->second;
+            if (leader->config.sensor != SensorSource::AnalogPotentiometer ||
+                follower->config.sensor != SensorSource::AnalogPotentiometer)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s requires analog potentiometer feedback "
+                    "on both motors",
+                    config.name.c_str());
+                continue;
+            }
+            if (leader->custom_ctrl_handler || follower->custom_ctrl_handler)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "CustomMechanism %s overlaps another custom mechanism",
+                    config.name.c_str());
+                continue;
+            }
+
+            auto pair = std::make_unique<CustomMechanismPair>(
+                this,
+                config.name,
+                leader,
+                follower,
+                config.update_period_ms,
+                &is_disabled);
+            CustomMechanismPair* pair_ptr = pair.get();
+            leader->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
+            { return pair_ptr->executeCtrl(msg); };
+            follower->custom_ctrl_handler = [pair_ptr](const TalonCtrlMsg& msg)
+            { return pair_ptr->executeCtrl(msg); };
+            custom_mechanisms.emplace_back(std::move(pair));
+            custom_mechanisms.back()->logPotState("startup");
+
+            RCLCPP_INFO(
+                get_logger(),
+                "Configured CustomMechanism %s on motors %s/%s with control "
+                "topic lance/%s/ctrl and update period %d ms",
+                config.name.c_str(),
+                leader->name.c_str(),
+                follower->name.c_str(),
+                config.name.c_str(),
+                config.update_period_ms);
+        }
+        else if (config.type == "SimpleDifferentialMechanism")
+        {
+            if (config.motors.size() != 2)
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "SimpleDifferentialMechanism %s requires exactly two motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            auto leader_it = FX_motors_by_name.find(config.motors[0]);
+            auto follower_it = FX_motors_by_name.find(config.motors[1]);
+            if (leader_it == FX_motors_by_name.end() ||
+                follower_it == FX_motors_by_name.end())
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "SimpleDifferentialMechanism %s requires two FX motors",
+                    config.name.c_str());
+                continue;
+            }
+
+            RclMotor<TalonFX>* leader = leader_it->second;
+            RclMotor<TalonFX>* follower = follower_it->second;
+            ctre::phoenix6::controls::DifferentialFollower follower_ctrl(
+                leader->motor.GetDeviceID(),
+                config.alignment);
+            auto follower_status = follower->motor.SetControl(follower_ctrl);
+            if (!follower_status.IsOK())
+            {
+                RCLCPP_ERROR(
+                    get_logger(),
+                    "Failed to configure SimpleDifferentialMechanism %s "
+                    "follower %s following %s: %s (%d): %s",
+                    config.name.c_str(),
+                    follower->name.c_str(),
+                    leader->name.c_str(),
+                    follower_status.GetName(),
+                    static_cast<int>(follower_status),
+                    follower_status.GetDescription());
+                continue;
+            }
+
+            RCLCPP_INFO(
+                get_logger(),
+                "Configured SimpleDifferentialMechanism %s on motors %s/%s",
+                config.name.c_str(),
+                leader->name.c_str(),
+                follower->name.c_str());
+        }
     }
 }
 
@@ -574,193 +699,6 @@ void Phoenix6Driver::setupMotors()
     }
 }
 
-// --- RclMotor implementation --------------------------------------------------
-
-template<typename MotorType>
-Phoenix6Driver::RclMotor<MotorType>::RclMotor(
-    rclcpp::Node* node,
-    const std::string& name,
-    int id,
-    const RclMotorConfig& config,
-    const CANBus& bus,
-    bool enable_ctrl_sub) :
-    motor(id, bus),
-    name(name),
-    logger(node->get_logger()),
-    clock(node->get_clock()),
-    config(config),
-    info_pub(node->template create_publisher<TalonInfoMsg>(
-        "lance/" + name + "/info",
-        rclcpp::SensorDataQoS{})),
-    faults_pub(node->template create_publisher<TalonFaultsMsg>(
-        "lance/" + name + "/faults",
-        rclcpp::SensorDataQoS{}))
-
-{
-    if (enable_ctrl_sub)
-    {
-        ctrl_sub = node->create_subscription<TalonCtrlMsg>(
-            "lance/" + name + "/ctrl",
-            TALON_CTRL_SUB_QOS,
-            [this](const TalonCtrlMsg& msg) { this->executeCtrl(msg); });
-    }
-
-    // --- Init Motors -------------------------------------------------------------
-    ConfigurationT phxConfig = buildMotorConfig<ConfigurationT>(
-        config.kP,
-        config.kI,
-        config.kD,
-        config.kV,
-        config.neutral_deadband,
-        config.neutral_brake,
-        config.stator_current_limit,
-        config.supply_current_limit,
-        config.voltage_limit);
-
-    if (config.output_inverted)
-    {
-        phxConfig.MotorOutput.Inverted = phx6::signals::InvertedValue::
-            Clockwise_Positive;  //Counter Clockwise is positive by default
-    }
-
-    if constexpr (std::is_same_v<MotorType, TalonFXS>)
-    {
-        phxConfig.WithCommutation(
-            phx6::configs::CommutationConfigs{}.WithMotorArrangement(
-                config.motor_arrangement));
-        phxConfig.WithExternalTemp(
-            phx6::configs::ExternalTempConfigs{}.WithTempSensorRequired(
-                config.temp_sensor_required
-                    ? phx6::signals::TempSensorRequiredValue::Required
-                    : phx6::signals::TempSensorRequiredValue::Not_Required));
-
-        // configure feedback source if provided (FXS only)
-        ExternalFeedbackConfigs feedback{};
-        if (config.sensor != Phoenix6Driver::SensorSource::AnalogPotentiometer)
-        {
-            feedback.WithExternalFeedbackSensorSource(
-                static_cast<int>(config.sensor));
-            if (config.remote_sensor_id > -1)
-            {
-                feedback.WithFeedbackRemoteSensorID(config.remote_sensor_id);
-            }
-        }
-        // else: AnalogPotentiometer uses default Commutation; position computed in publishInfo()
-
-        phxConfig.WithExternalFeedback(feedback);
-        phxConfig.Commutation.MotorArrangement =
-            phx6::signals::MotorArrangementValue::Brushed_DC;
-        phxConfig.ExternalTemp.TempSensorRequired =
-            phx6::signals::TempSensorRequiredValue::Not_Required;
-    }
-
-    auto config_status = motor.GetConfigurator().Apply(phxConfig);
-    if (!config_status.IsOK())
-    {
-        RCLCPP_ERROR(
-            logger,
-            "Failed to apply config for motor %s: %s (%d): %s",
-            name.c_str(),
-            config_status.GetName(),
-            static_cast<int>(config_status),
-            config_status.GetDescription());
-    }
-
-    if (config.follows_id != -1)
-    {
-        if (config.follower_type == "normal")
-        {
-            phx6::controls::Follower followerCtrl(
-                config.follows_id,
-                config.alignment);
-            auto follower_status = motor.SetControl(followerCtrl);
-            if (!follower_status.IsOK())
-            {
-                RCLCPP_ERROR(
-                    logger,
-                    "Failed to configure follower for motor %s following CAN "
-                    "ID %d: %s (%d): %s",
-                    name.c_str(),
-                    config.follows_id,
-                    follower_status.GetName(),
-                    static_cast<int>(follower_status),
-                    follower_status.GetDescription());
-            }
-        }
-        else if (config.follower_type == "DifferentialFollower")
-        {
-            phx6::controls::DifferentialFollower followerCtrl(
-                config.follows_id,
-                config.alignment);
-            auto follower_status = motor.SetControl(followerCtrl);
-            if (!follower_status.IsOK())
-            {
-                RCLCPP_ERROR(
-                    logger,
-                    "Failed to configure differential follower for motor %s "
-                    "following CAN ID %d: %s (%d): %s",
-                    name.c_str(),
-                    config.follows_id,
-                    follower_status.GetName(),
-                    static_cast<int>(follower_status),
-                    follower_status.GetDescription());
-            }
-        }
-        else if (config.follower_type == "CustomMechanism")
-        {
-            // CustomMechanism is paired after all FXS motors are created.
-        }
-    }
-}
-
-template<typename MotorType>
-void Phoenix6Driver::RclMotor<MotorType>::executeCtrl(const TalonCtrlMsg& msg)
-{
-    if (custom_ctrl_handler && custom_ctrl_handler(msg))
-    {
-        return;
-    }
-
-    if (!isSupportedTalonCtrlMode(msg.mode))
-    {
-        RCLCPP_ERROR(
-            logger,
-            "Motor %s does not support control mode %d",
-            name.c_str(),
-            msg.mode);
-        return;
-    }
-
-    auto control_status = (motor << msg);
-    if (!control_status.IsOK())
-    {
-        RCLCPP_ERROR_THROTTLE(
-            logger,
-            *clock,
-            5000,
-            "Failed to send control mode %d to motor %s: %s (%d): %s",
-            msg.mode,
-            name.c_str(),
-            control_status.GetName(),
-            static_cast<int>(control_status),
-            control_status.GetDescription());
-    }
-
-    // TODO possible add dynamic load gains, or FOC
-    // TODO add new functionality for seprate slot for pos control
-
-    // if constexpr (std::is_same_v<MotorType, TalonFX>)
-    // {
-    // }
-    // else if constexpr (std::is_same_v<MotorType, TalonFXS>)
-    // {
-    // }
-}
-
-// Explicit template instantiations
-template class Phoenix6Driver::RclMotor<TalonFX>;
-template class Phoenix6Driver::RclMotor<TalonFXS>;
-
 void Phoenix6Driver::feedWatchdogStatus(int32_t status)
 {
     /* Watchdog feed decoding:
@@ -791,7 +729,7 @@ void Phoenix6Driver::feedWatchdogStatus(int32_t status)
     }
 }
 
-void Phoenix6Driver::pubMotorInfo_cb()
+void Phoenix6Driver::pubMotorInfoCb()
 {
     const rclcpp::Time stamp = this->get_clock()->now();
     TalonInfoMsg info_msg{};
@@ -808,7 +746,6 @@ void Phoenix6Driver::pubMotorInfo_cb()
         info_msg.status |= static_cast<uint8_t>(!is_disabled);
         if (m->config.sensor == SensorSource::AnalogPotentiometer)
         {
-            // Software handled sensor position for AnalogPotentiometer
             double v = m->motor.GetAnalogVoltage().GetValueAsDouble();
             double raw = v / m->config.pot.max_v;
             info_msg.position = m->config.pot.invert_sensor ? (1.0 - raw) : raw;
@@ -821,7 +758,7 @@ void Phoenix6Driver::pubMotorInfo_cb()
     }
 }
 
-void Phoenix6Driver::pubMotorFault_cb()
+void Phoenix6Driver::pubMotorFaultCb()
 {
     const rclcpp::Time stamp = this->get_clock()->now();
     TalonFaultsMsg faults_msg{};
@@ -843,15 +780,19 @@ void Phoenix6Driver::pubMotorFault_cb()
     }
 }
 
+
+
+
+
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<Phoenix6Driver>();
-    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix6) has started");
+    RCLCPP_INFO(node->get_logger(), "LANCE-2 phoenix6 driver initialized.");
 
     rclcpp::spin(node);
 
-    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix6) shutting down...");
+    RCLCPP_INFO(node->get_logger(), "Phoenix6 driver shutting down...");
     rclcpp::shutdown();
 
     return EXIT_SUCCESS;

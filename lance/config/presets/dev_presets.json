@@ -8,8 +8,8 @@
             "pragma:action_overrides":
             {
                 "robot_tf": "lance",
-                "phoenix5_driver": "enabled",
-                "phoenix6_driver": "enabled",
+                "lance1_phx5_driver": "enabled",
+                "lance1_phx6_driver": "enabled",
                 "robot_control": "lance1_ksc",
                 "redux": "robot",
                 "multiscan_driver": "net2",

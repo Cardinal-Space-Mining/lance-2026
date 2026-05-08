@@ -1,7 +1,7 @@
 {
     "pragma:enable_preproc": true,
 
-    "phoenix5_driver":
+    "lance1_phx5_driver":
     {
         "pragma:default": null,
         "enabled":
@@ -11,7 +11,7 @@
         }
     },
 
-    "phoenix6_driver_old":
+    "lance1_phx6_driver":
     {
         "pragma:default": null,
         "enabled":
@@ -35,7 +35,7 @@
         }
     },
 
-    "phoenix6_driver":
+    "phx6_driver":
     {
         "pragma:default": null,
         "enabled":
@@ -59,7 +59,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 0.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 24.0
+                    "voltage_limit": 0.0
                 },
                 {
                     "name": "track_left",

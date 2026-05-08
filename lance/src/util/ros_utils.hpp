@@ -54,6 +54,7 @@ public:
     using RclNode = rclcpp::Node;
     using RclClock = rclcpp::Clock;
     using RclTimer = rclcpp::TimerBase;
+    using RclLogger = rclcpp::Logger;
 
     using RclTime = rclcpp::Time;
     using RclDur = rclcpp::Duration;

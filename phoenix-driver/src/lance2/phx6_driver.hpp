@@ -1,5 +1,5 @@
 /*******************************************************************************
-*   Copyright (C) 2024-2026 Cardinal Space Mining Club                         *
+*   Copyright (C) 2025-2026 Cardinal Space Mining Club                         *
 *                                                                              *
 *                                 ;xxxxxxx:                                    *
 *                                ;$$$$$$$$$       ...::..                      *
@@ -39,118 +39,60 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
-#include <type_traits>
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/int32.hpp>
+
+#include "ros_utils.hpp"
+#include "phx6_base.hpp"
+#include "phx6_utils.hpp"
 
 
-namespace util
-{
-
-struct UsingRosAliases
+class Phoenix6Driver :
+    public rclcpp::Node,
+    public Phoenix6Base,
+    private util::UsingRosAliases
 {
 public:
-    using RclNode = rclcpp::Node;
-    using RclClock = rclcpp::Clock;
-    using RclTimer = rclcpp::TimerBase;
-    using RclLogger = rclcpp::Logger;
+    using Int32Msg = std_msgs::msg::Int32;
 
-    using RclTime = rclcpp::Time;
-    using RclDur = rclcpp::Duration;
+public:
+    Phoenix6Driver();
+    ~Phoenix6Driver();
 
-    template<typename T>
-    using RclPub = rclcpp::Publisher<T>;
-    template<typename T>
-    using RclSub = rclcpp::Subscription<T>;
-    template<typename T>
-    using RclSrv = rclcpp::Service<T>;
-    template<typename T>
-    using RclClient = rclcpp::Client<T>;
+private:
+    void feedWatchdogStatus(int32_t status);
 
-    template<typename T>
-    using RclPubPtr = typename RclPub<T>::SharedPtr;
-    template<typename T>
-    using RclSubPtr = typename RclSub<T>::SharedPtr;
-    template<typename T>
-    using RclSrvPtr = typename RclSrv<T>::SharedPtr;
-    template<typename T>
-    using RclClientPtr = typename RclClient<T>::SharedPtr;
+    void parseMechanismConfigs();
+    void setupMechanisms();
 
+    void setupMotors();
+
+    void pubMotorInfoCb();
+    void pubMotorFaultCb();
+
+private:
+    std::string bus_name;
+    CANBus bus;
+    int diagnostic_server_port;
+
+    std::vector<std::unique_ptr<RclMotor<TalonFX>>> FX_motors;
+    std::vector<std::unique_ptr<RclMotor<TalonFXS>>> FXS_motors;
+    std::vector<std::unique_ptr<CustomMechanismPair>> custom_mechanisms;
+    std::vector<MechanismConfig> mechanism_configs;
+    std::unordered_set<std::string> mechanism_motor_names;
+    std::unordered_map<std::string, RclMotor<TalonFX>*> FX_motors_by_name;
+    std::unordered_map<std::string, RclMotor<TalonFXS>*> FXS_motors_by_name;
+
+    RclSubPtr<Int32Msg> watchdog_status_sub;
+
+    RclTimer::SharedPtr info_pub_timer;
+    RclTimer::SharedPtr fault_pub_timer;
+
+    bool is_disabled = false;
 };
-
-using ros_aliases = UsingRosAliases;
-
-#define BUILD_MSG_ALIAS(pkg, name)    using name##Msg = pkg::msg::name;
-#define BUILD_SRV_ALIAS(pkg, name)    using name##Srv = pkg::srv::name;
-#define BUILD_STD_MSG_ALIAS(name)     BUILD_MSG_ALIAS(std_msgs, name)
-#define BUILD_SENSORS_MSG_ALIAS(name) BUILD_MSG_ALIAS(sensor_msgs, name)
-#define BUILD_GEOM_MSG_ALIAS(name)    BUILD_MSG_ALIAS(geometry_msgs, name)
-#define BUILD_BUILTIN_MSG_ALIAS(name) BUILD_MSG_ALIAS(builtin_interfaces, name)
-
-
-
-template<typename T>
-struct identity
-{
-    typedef T type;
-};
-
-template<typename T>
-inline void declare_param(
-    rclcpp::Node* node,
-    const std::string& param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
-{
-    try
-    {
-        node->declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node->get_parameter(param_name, param);
-}
-template<typename T>
-inline void declare_param(
-    rclcpp::Node& node,
-    const std::string& param_name,
-    T& param,
-    const typename identity<T>::type& default_value)
-{
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    node.get_parameter(param_name, param);
-}
-template<typename T>
-inline T declare_and_get_param(
-    rclcpp::Node& node,
-    const std::string& param_name,
-    const T& default_value)
-{
-    try
-    {
-        node.declare_parameter(param_name, default_value);
-    }
-    catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException& e)
-    {
-    }
-    return node.get_parameter_or(param_name, default_value);
-}
-
-
-template<typename ros_T, typename primitive_T>
-inline ros_T to_ros_val(primitive_T v)
-{
-    static_assert(std::is_same<typename ros_T::_data_type, primitive_T>::value);
-
-    return ros_T{}.set__data(v);
-}
-
-};  // namespace util

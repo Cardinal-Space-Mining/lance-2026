@@ -88,36 +88,36 @@ def preproc_phoenix6_config(profile_cfg: dict):
 def get_phoenix_actions(config):
     actions = []
 
-    # ---- phoenix5_driver ----
-    if 'phoenix5_driver' in config:
-        p5_cfg = config['phoenix5_driver']
+    # ---- lance1_phx5_driver ----
+    if 'lance1_phx5_driver' in config:
+        cfg = config['lance1_phx5_driver']
         # No special preproc needed
         actions.append(
-            NodeAction(p5_cfg).format_node(
+            NodeAction(cfg).format_node(
                 package='phoenix_ros_driver',
-                executable='phx5_driver',
+                executable='lance1_phx5_driver',
                 output='screen'
             )
         )
 
-    # ---- phoenix6_driver_old ----
-    if 'phoenix6_driver_old' in config:
-        p6o_cfg = config['phoenix6_driver_old']
+    # ---- lance1_phx6_driver ----
+    if 'lance1_phx6_driver' in config:
+        cfg = config['lance1_phx6_driver']
         # No special preproc needed
         actions.append(
-            NodeAction(p6o_cfg).format_node(
+            NodeAction(cfg).format_node(
                 package='phoenix_ros_driver',
-                executable='phx6_driver',
+                executable='lance1_phx6_driver',
                 output='screen'
             )
         )
 
-    # ---- phoenix6_driver ----
-    if 'phoenix6_driver' in config:
-        p6_cfg = config['phoenix6_driver']
-        preproc_phoenix6_config(p6_cfg)
+    # ---- phx6_driver (new) ----
+    if 'phx6_driver' in config:
+        cfg = config['phx6_driver']
+        preproc_phoenix6_config(cfg)
         actions.append(
-            NodeAction(p6_cfg).format_node(
+            NodeAction(cfg).format_node(
                 package='phoenix_ros_driver',
                 executable='lance2_phx6_driver',
                 output='screen'
