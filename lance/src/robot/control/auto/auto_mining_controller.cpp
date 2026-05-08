@@ -144,14 +144,14 @@ void AutoMiningController::iterate(
             {
                 switch (dir)
                 {
-                    case lance::MiningDirection::UP:
-                        return "UP";
-                    case lance::MiningDirection::DOWN:
-                        return "DOWN";
-                    case lance::MiningDirection::LEFT:
-                        return "LEFT";
-                    case lance::MiningDirection::RIGHT:
-                        return "RIGHT";
+                    case lance::MiningDirection::YPLUS:
+                        return "YPLUS";
+                    case lance::MiningDirection::YMINUS:
+                        return "YMINUS";
+                    case lance::MiningDirection::XMINUS:
+                        return "XMINUS";
+                    case lance::MiningDirection::XPLUS:
+                        return "XPLUS";
                     default:
                         return "UNKNOWN";
                 }
@@ -161,15 +161,14 @@ void AutoMiningController::iterate(
             {
                 std::cout << "\n=== Evaluating Path ===\n";
                 lance::DirectedMiningPath::MiningSwath p =
-                    path.getPathCoordinatesInWorldFrame(
-                        this->params,
-                        &this->mining_planner.getGridGeometry());
+                    path.getPathStartInWorldFrame();
                 std::cout << "Base Frame - Start: (" << p.first.x() << ", "
                           << p.first.y() << ")  Direction (In Coords): ("
                           << p.second.x() << ", " << p.second.y()
                           << ") | Direction: "
                           << miningDirectionToString(path.getDirection())
-                          << " | Distance: " << path.getDistance() << "\n";
+                          << " | Distance: " << path.getDistance()
+                          << " | Quality: " << path.getQuality(mining_planner.getPreviouslyMinedCellsByDirection()[path.getDirection()]) << "\n";
 
                 path.print();
                           
@@ -185,9 +184,9 @@ void AutoMiningController::iterate(
             }
 
             const DirectedMiningPath::MiningSwath swath =
-                paths.front().getPathCoordinatesInWorldFrame(
-                    this->params,
-                    &this->mining_planner.getGridGeometry());
+                paths.front().getPathStartInWorldFrame();
+            
+            this->current_mining_path = paths.front();
             
             std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
                       << swath.first.y() << ")  Direction (In Coords): ("
@@ -245,7 +244,7 @@ void AutoMiningController::iterate(
             // }
 
             // const DirectedMiningPath::MiningSwath swath =
-            //     paths.front().getPathCoordinatesInWorldFrame(this->params);
+            //     paths.front().getPathStartInWorldFrame(this->params);
 
             // this->traversal_controller.initializePoint(
             //     swath.first,
@@ -271,6 +270,12 @@ void AutoMiningController::iterate(
             if (!this->mining_controller.isFinished())
             {
                 break;
+            }
+
+            if (this->current_mining_path.has_value())
+            {
+                this->mining_planner.markMiningOnMatrix(this->current_mining_path.value());
+                this->current_mining_path.reset();
             }
 
             this->stage = Stage::FINISHED;
