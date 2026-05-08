@@ -40,7 +40,6 @@
 #pragma once
 
 #define Phoenix_No_WPI
-#include <ctre/phoenix6/CANBus.hpp>
 #include <ctre/phoenix6/Pigeon2.hpp>
 #include <ctre/phoenix6/TalonFX.hpp>
 #include <ctre/phoenix6/TalonFXS.hpp>
@@ -67,6 +66,7 @@ using phx6::configs::TalonFXSConfiguration;
 using phx6::configs::Slot0Configs;
 using phx6::configs::MotorOutputConfigs;
 using phx6::configs::FeedbackConfigs;
+using phx6::configs::ExternalFeedbackConfigs;
 using phx6::configs::CurrentLimitsConfigs;
 using phx6::configs::VoltageConfigs;
 
@@ -77,28 +77,35 @@ using phx6::signals::FeedbackSensorSourceValue;
 
 // --- Config Helpers ----------------------------------------------------------
 
-inline TalonFXConfiguration buildFXConfig(
+template<typename Config_T>
+inline Config_T buildMotorConfig(
     double kP,
     double kI,
     double kD,
     double kV,
     double neutral_deadband,
-    int neutral_mode,
-    int invert_mode,
+    bool neutral_brake,
+    bool invert_clockwise_positive,
     double stator_current_limit = 0.,
     double supply_current_limit = 0.,
     double voltage_limit = 0.)
 {
-    return TalonFXConfiguration{}
+    return Config_T{}
         .WithSlot0(Slot0Configs{}.WithKP(kP).WithKI(kI).WithKD(kD).WithKV(kV))
         .WithMotorOutput(
             MotorOutputConfigs{}
                 .WithDutyCycleNeutralDeadband(neutral_deadband)
-                .WithNeutralMode(neutral_mode)
-                .WithInverted(invert_mode))
-        .WithFeedback(
-            FeedbackConfigs{}.WithFeedbackSensorSource(
-                FeedbackSensorSourceValue::RotorSensor))
+                .WithNeutralMode(
+                    neutral_brake ? NeutralModeValue::Brake
+                                  : NeutralModeValue::Coast)
+                .WithInverted(
+                    invert_clockwise_positive
+                        ? InvertedValue::Clockwise_Positive
+                        : InvertedValue::CounterClockwise_Positive))
+        // Feeback configs are by default rotor for FX, and commutation for FXS, which is correct
+        // .WithFeedback(
+        //     FeedbackConfigs{}.WithFeedbackSensorSource(
+        //         FeedbackSensorSourceValue::RotorSensor))
         .WithCurrentLimits(
             CurrentLimitsConfigs{}
                 .WithStatorCurrentLimit(
@@ -157,10 +164,9 @@ inline TalonInfoMsg& operator<<(TalonInfoMsg& info, TalonT& m)
         std::is_same<TalonT, TalonFXS>::value);
 
     serializeTalonInfoNoStatus(info, m);
-    info.status =
-        (static_cast<uint8_t>(m.GetDeviceEnable().GetValue().value)) |
-        (static_cast<uint8_t>(m.IsConnected()) << 1) |
-        (static_cast<uint8_t>(m.HasResetOccurred()) << 2);
+    info.status = (static_cast<uint8_t>(m.GetDeviceEnable().GetValue().value)) |
+                  (static_cast<uint8_t>(m.IsConnected()) << 1) |
+                  (static_cast<uint8_t>(m.HasResetOccurred()) << 2);
 
     return info;
 }
@@ -221,28 +227,41 @@ inline phx_::StatusCode operator<<(TalonT& motor, const TalonCtrlMsg& msg)
         std::is_same<TalonT, TalonFX>::value ||
         std::is_same<TalonT, TalonFXS>::value);
 
+    // std::cout << "CTRL Mode: " << static_cast<int>(msg.mode)
+    //     << ", Value: " << msg.value << std::endl;
+
+#define SET_CONTROL(ctrl)                                   \
+    if constexpr (std::is_same<TalonT, TalonFXS>::value)    \
+    {                                                       \
+        return motor.SetControl(ctrl.WithEnableFOC(false)); \
+    }                                                       \
+    else                                                    \
+    {                                                       \
+        return motor.SetControl(ctrl);                      \
+    }
+
     switch (msg.mode)
     {
         case TalonCtrlMsg::PERCENT_OUTPUT:
         {
-            return motor.SetControl(phx6::controls::DutyCycleOut{msg.value});
+            SET_CONTROL(phx6::controls::DutyCycleOut{msg.value})
         }
         case TalonCtrlMsg::POSITION:
         {
-            return motor.SetControl(
+            SET_CONTROL(
                 phx6::controls::PositionVoltage{
-                    units::angle::turn_t{msg.value}});
+                    units::angle::turn_t{msg.value}})
         }
         case TalonCtrlMsg::VELOCITY:
         {
-            return motor.SetControl(
+            SET_CONTROL(
                 phx6::controls::VelocityVoltage{
-                    units::angular_velocity::turns_per_second_t{msg.value}});
+                    units::angular_velocity::turns_per_second_t{msg.value}})
         }
         case TalonCtrlMsg::VOLTAGE:
         {
-            return motor.SetControl(
-                phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}});
+            SET_CONTROL(
+                phx6::controls::VoltageOut{units::voltage::volt_t{msg.value}})
         }
         case TalonCtrlMsg::DISABLED:
         {
@@ -264,4 +283,6 @@ inline phx_::StatusCode operator<<(TalonT& motor, const TalonCtrlMsg& msg)
             return phx_::StatusCode{};
         }
     }
+
+#undef SET_CONTROL
 }

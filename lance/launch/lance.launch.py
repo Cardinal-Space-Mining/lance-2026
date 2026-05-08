@@ -69,6 +69,13 @@ def get_multiscan_driver_action(config):
 #         output = 'screen'
 #     )
 
+def get_hopper_fullness_action(config):
+    return NodeAction(config).format_node(
+        package = 'lance',
+        executable = 'hopper_fullness.py',
+        output = 'screen'
+    )
+
 def get_redux_action(config):
     target = config.pop("target", None)
     if target == "robot":
@@ -141,10 +148,14 @@ def get_robot_actions(config, launch_args = {}):
     a = []
     if 'multiscan_driver' in config:
         a.append(get_multiscan_driver_action(config['multiscan_driver']))
+
     # if 'phoenix5_driver' in config:
     #     a.append(get_phx5_action(config['phoenix5_driver']))
     # if 'phoenix6_driver' in config:
     #     a.append(get_phx6_action(config['phoenix6_driver']))
+    if 'hopper_fullness' in config:
+        a.append(get_hopper_fullness_action(config['hopper_fullness']))
+
     if 'redux' in config:
         a.append(get_redux_action(config['redux']))
     if 'motor_sim' in config:

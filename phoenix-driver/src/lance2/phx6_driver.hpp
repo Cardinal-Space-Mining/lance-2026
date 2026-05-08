@@ -39,95 +39,60 @@
 
 #pragma once
 
-#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
-#include <phoenix_ros_driver/msg/talon_info.hpp>
+#include <memory>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/int32.hpp>
+
+#include "ros_utils.hpp"
+#include "phx6_base.hpp"
+#include "phx6_utils.hpp"
 
 
-namespace lance
+class Phoenix6Driver :
+    public rclcpp::Node,
+    public Phoenix6Base,
+    private util::UsingRosAliases
 {
+public:
+    using Int32Msg = std_msgs::msg::Int32;
 
-using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
-using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
+public:
+    Phoenix6Driver();
+    ~Phoenix6Driver();
 
+private:
+    void feedWatchdogStatus(int32_t status);
 
-/** Contains TalonInfo for each motor */
-struct RobotMotorStatus
-{
-    TalonInfoMsg track_right;
-    TalonInfoMsg track_left;
-    TalonInfoMsg trencher;
-    TalonInfoMsg hopper_belt;
-    TalonInfoMsg hopper_actuator;
+    void parseMechanismConfigs();
+    void setupMechanisms();
 
-    inline double getHopperActNormalizedValue() const
-    {
-        return this->hopper_actuator.position;
-    }
+    void setupMotors();
+
+    void pubMotorInfoCb();
+    void pubMotorFaultCb();
+
+private:
+    std::string bus_name;
+    CANBus bus;
+    int diagnostic_server_port;
+
+    std::vector<std::unique_ptr<RclMotor<TalonFX>>> FX_motors;
+    std::vector<std::unique_ptr<RclMotor<TalonFXS>>> FXS_motors;
+    std::vector<std::unique_ptr<CustomMechanismPair>> custom_mechanisms;
+    std::vector<MechanismConfig> mechanism_configs;
+    std::unordered_set<std::string> mechanism_motor_names;
+    std::unordered_map<std::string, RclMotor<TalonFX>*> FX_motors_by_name;
+    std::unordered_map<std::string, RclMotor<TalonFXS>*> FXS_motors_by_name;
+
+    RclSubPtr<Int32Msg> watchdog_status_sub;
+
+    RclTimer::SharedPtr info_pub_timer;
+    RclTimer::SharedPtr fault_pub_timer;
+
+    bool is_disabled = false;
 };
-
-/** Contains TalonCtrl for each motor */
-struct RobotMotorCommands
-{
-    TalonCtrlMsg track_right;
-    TalonCtrlMsg track_left;
-    TalonCtrlMsg trencher;
-    TalonCtrlMsg hopper_belt;
-    TalonCtrlMsg hopper_actuator;
-
-    inline void setTracksVelocity(double left_rps, double right_rps)
-    {
-        this->track_left.set__mode(TalonCtrlMsg::VELOCITY).set__value(left_rps);
-        this->track_right.set__mode(TalonCtrlMsg::VELOCITY)
-            .set__value(right_rps);
-    }
-    inline void setTrencherVelocity(double rps)
-    {
-        this->trencher.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
-    }
-    inline void setHopperBeltVelocity(double rps)
-    {
-        this->hopper_belt.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
-    }
-
-    inline void setHppperActPosition(double val)
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::POSITION).set__value(val);
-    }
-    inline void setHopperActVelocity(double val)
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::VELOCITY).set__value(val);
-    }
-    inline void setHopperActVoltage(double volts)
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::VOLTAGE)
-            .set__value(volts);
-    }
-
-    inline void disableTracks()
-    {
-        this->track_left.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-        this->track_right.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableTrencher()
-    {
-        this->trencher.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableHopperBelt()
-    {
-        this->hopper_belt.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableHopperAct()
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-
-    inline void disableAll()
-    {
-        this->disableTracks();
-        this->disableTrencher();
-        this->disableHopperBelt();
-        this->disableHopperAct();
-    }
-};
-
-};  // namespace lance

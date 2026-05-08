@@ -176,7 +176,6 @@ Configures the current LANCE 2 Phoenix 6 driver.
                 "name": "track_right",
                 "can_id": 0,
                 "controller": "FX",
-                "follows": "",
                 "kP": 0.4,
                 "kI": 0.05,
                 "kD": 0.0001,
@@ -200,6 +199,8 @@ Top-level fields:
 - `diagnostics_port`: CTRE diagnostics server port. `0` disables the server.
 - `canbus`: CAN interface name.
 - `motors`: list of motor configuration objects.
+- `mechanisms`: list of mechanism configuration objects. Mechanism motors keep
+  their diagnostic topics, but their control topic is owned by the mechanism.
 
 ## LANCE 2 Motor Fields
 
@@ -211,7 +212,9 @@ The launch helper flattens this list into ROS parameters:
     "name": "hopper_act_left",
     "can_id": 4,
     "controller": "FXS",
-    "follows": "",
+    "motor_arrangement": "brushed_dc",
+    "temp_sensor_required": false,
+    "output_inverted": false,
     "sensor": "analog_pot",
     "pot_max_v": 3.3,
     "pot_inverted": true,
@@ -252,6 +255,14 @@ Supported values:
 
 ### PID and Motor Output Fields
 
+#### `output_inverted`
+
+Whether to invert the motor output direction. Defaults to `false`.
+
+With the default `false` value, positive output is counter-clockwise positive.
+When `true`, positive output is clockwise positive. Direction is defined as
+viewed from the front of the motor, looking at the shaft.
+
 #### `kP`
 
 Slot 0 proportional gain.
@@ -289,57 +300,83 @@ Supply current limit in amps. Values greater than `0` enable the limit.
 Peak forward and reverse voltage limit. Values greater than `0` enable voltage
 limiting. The reverse limit is applied as the negative of this value.
 
-### Follower Fields
+### Mechanism Fields
 
-#### `follows`
-
-Name of another configured motor to follow. Use an empty string for no follower.
-
-Example:
+Mechanisms are declared separately from motor device definitions:
 
 ```json
-{
-    "name": "hopper_act_right",
-    "follows": "hopper_act_left"
-}
+"mechanisms": [
+    {
+        "name": "hopper_actuators",
+        "type": "CustomMechanism",
+        "motors": ["hopper_act_left", "hopper_act_right"],
+        "update_period_ms": 20
+    }
+]
 ```
 
-#### `follower_type`
+Supported values for `type`:
 
-Optional follower mode. Defaults to `normal`.
-
-Supported values:
-
-- `normal`
-- `DifferentialFollower`
 - `CustomMechanism`
+- `SimpleDifferentialMechanism`
 
-`CustomMechanism` is only valid when `sensor` is `analog_pot` or
-`AnalogPotentiometer`.
+`CustomMechanism` requires exactly two `FXS` motors with `sensor` set to
+`analog_pot` or `AnalogPotentiometer`. It creates one control subscription at
+`lance/<mechanism_name>/ctrl` and does not create per-motor control
+subscriptions for the motors it owns.
 
-On LANCE 2, `CustomMechanism` is specifically for the mechanically linked
-hopper linear actuators. Configure both actuators with `follower_type` set to
-`CustomMechanism`, and set each actuator's `follows` field to the other
-actuator. The driver detects the reciprocal config, creates one shared pair, and
-routes commands from either motor topic through one software controller. Both
-motors must be `FXS` motors with analog potentiometer feedback.
+For `POSITION` commands on `CustomMechanism`, `msg.value` is the target
+normalized potentiometer position. For `VELOCITY` commands, `msg.value` is
+treated as the shared velocity request with a balancing correction from the
+difference between the two potentiometer positions. Each `CustomMechanism` owns
+its own update timer; no custom-mechanism update timer is created when no
+`CustomMechanism` is configured.
 
-For `POSITION` commands, `msg.value` is the target normalized potentiometer
-position. The driver reads both potentiometers and sends separate voltage
-outputs so each actuator moves toward the same target.
+#### `update_period_ms`
 
-For `VELOCITY` commands, `msg.value` is treated as the shared velocity request.
-The driver applies a shared feedforward voltage and adds a balancing correction
-from the difference between the two potentiometer positions.
+Optional update interval, in milliseconds, for `CustomMechanism` position and
+velocity control. Defaults to `20`.
+
+`SimpleDifferentialMechanism` requires exactly two `FX` motors. In this pass it
+is config-only: the driver configures the Phoenix differential follower
+relationship and suppresses per-motor control subscriptions for the owned
+motors, but no two-axis ROS control message is exposed yet.
 
 #### `alignment`
 
-Optional motor alignment for follower control. Defaults to `Aligned`.
+Optional mechanism alignment for differential follower control. Defaults to
+`Aligned`.
 
 Supported values:
 
 - `Aligned`
 - `Opposed`
+
+### FXS Motor Setup Fields
+
+Use these fields on `FXS` motors. TalonFXS motor output depends on the selected
+motor arrangement, and brushless arrangements may require a matching external
+temperature sensor.
+
+#### `motor_arrangement`
+
+Optional TalonFXS motor arrangement. Defaults to `Disabled`.
+
+Supported values in the LANCE 2 driver:
+
+- `Disabled`
+- `Minion_JST`
+- `Brushed_DC`
+- `brushed_dc`
+- `NEO_JST`
+- `NEO550_JST`
+- `VORTEX_JST`
+- `CustomBrushless`
+
+#### `temp_sensor_required`
+
+Optional TalonFXS external motor temperature sensor requirement. Defaults to
+`false`.
 
 ### Sensor Fields
 
@@ -423,31 +460,30 @@ When `true`, the driver publishes:
 position = 1.0 - (analog_voltage / pot_max_v)
 ```
 
-## Current LANCE 2 Motors
-
-The current `phoenix.json` defines these LANCE 2 motors:
-
-| Name | CAN ID | Controller | Sensor | Follows | Follower Type |
-| --- | ---: | --- | --- | --- | --- |
-| `track_right` | 0 | `FX` | none | none | `normal` |
-| `track_left` | 1 | `FX` | none | none | `normal` |
-| `trencher` | 2 | `FX` | none | none | `normal` |
-| `hopper_belt` | 3 | `FX` | none | none | `normal` |
-| `hopper_act_left` | 4 | `FXS` | `analog_pot` | `hopper_act_right` | `CustomMechanism` |
-| `hopper_act_right` | 5 | `FXS` | `analog_pot` | `hopper_act_left` | `CustomMechanism` |
-
-Both hopper actuator potentiometers currently use:
-
-- `pot_max_v`: `3.3`
-- `pot_inverted`: `true`
 
 ## Runtime Topics
 
-For each LANCE 2 motor named `<name>`, the driver creates:
+For each standalone LANCE 2 motor named `<name>`, the driver creates:
 
 - `lance/<name>/ctrl`: subscribes to `phoenix_ros_driver/msg/TalonCtrl`.
 - `lance/<name>/info`: publishes `phoenix_ros_driver/msg/TalonInfo`.
 - `lance/<name>/faults`: publishes `phoenix_ros_driver/msg/TalonFaults`.
+
+For each motor owned by a mechanism, the driver still creates:
+
+- `lance/<name>/info`: publishes `phoenix_ros_driver/msg/TalonInfo`.
+- `lance/<name>/faults`: publishes `phoenix_ros_driver/msg/TalonFaults`.
+
+For each `CustomMechanism` named `<mechanism_name>`, the driver creates:
+
+- `lance/<mechanism_name>/ctrl`: subscribes to
+  `phoenix_ros_driver/msg/TalonCtrl`.
+- `lance/<mechanism_name>/info`: publishes
+  `phoenix_ros_driver/msg/TalonInfo` with motor values averaged across the
+  mechanism.
+- `lance/<mechanism_name>/faults`: publishes
+  `phoenix_ros_driver/msg/TalonFaults` with motor fault fields ORed across the
+  mechanism.
 
 The driver also subscribes to:
 
@@ -469,7 +505,8 @@ The driver also subscribes to:
 ## Configuration Tips
 
 - Keep motor names unique.
-- Set `follows` to another motor's `name`, not its CAN ID.
+- Use `mechanisms` to define grouped motors instead of per-motor follower
+  fields.
 - Use `FXS` for motors that need the TalonFXS external feedback configuration.
 - Use `analog_pot` only with a valid positive `pot_max_v`.
 - Use current limits and voltage limits greater than `0` when you want the

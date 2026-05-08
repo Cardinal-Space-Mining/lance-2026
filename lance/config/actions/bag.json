@@ -123,6 +123,7 @@
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
 
+                "/lance/hopper_fullness",
                 "/lance/telemetry",
 
                 "/cardinal_perception/trace_notifications",
@@ -165,6 +166,7 @@
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
 
+                "/lance/hopper_fullness",
                 "/lance/telemetry",
                 "/lance/net_latency",
                 "/lance/traversal_path",

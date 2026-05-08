@@ -49,6 +49,7 @@
 
 #include <std_msgs/msg/int8.hpp>
 #include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/float32.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 
 #include <net_adapter/msg/bytes.hpp>
@@ -84,6 +85,7 @@ public:
 private:
     using StdInt8Adapter = GenericAdapter<std_msgs::msg::Int8>;
     using StdInt32Adapter = GenericAdapter<std_msgs::msg::Int32>;
+    using StdFloat32Adapter = GenericAdapter<std_msgs::msg::Float32>;
     using ClockAdapter = GenericAdapter<rosgraph_msgs::msg::Clock>;
     template<int Compression = 0>
     using BytesAdapter = GenericAdapter<net_adapter::msg::Bytes, Compression>;
@@ -216,6 +218,7 @@ private:
     TalonDataChannelsGroup<ROBOT_TO_CLIENT> talon_data;
 
     Channel<BytesAdapter<15>, ROBOT_TO_CLIENT> telemetry;
+    Channel<StdFloat32Adapter, ROBOT_TO_CLIENT> hopper_fullness;
     Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
 
     SimClockChannel<ROBOT_TO_CLIENT> sim_clock;
@@ -264,6 +267,7 @@ EndPointNode<E>::EndPointNode() :
          "lance/hopper_act"})},
 
     telemetry{PARAMS_FROM_TOPIC("lance/telemetry")},
+    hopper_fullness{PARAMS_FROM_TOPIC("lance/hopper_fullness")},
     relay_status{PARAMS_FROM_TOPIC("lance/relay_status")},
 
     sim_clock{PARAMS_FROM_TOPIC_SIM("/clock")}

@@ -61,20 +61,19 @@
 #include <ctre/phoenix6/TalonFX.hpp>
 #include <ctre/phoenix6/unmanaged/Unmanaged.hpp>
 
+#include "common.hpp"
 #include "ros_utils.hpp"
-#include "lance1_phx6_utils.hpp"
+#include "phx6_utils.hpp"
 
 
 using namespace util;
-using namespace util::ros_aliases;
 using namespace std::chrono_literals;
 
 
 // --- Program configs ---------------------------------------------------------
 
-#define DIAG_SERVER_PORT       1250
 #define DEFAULT_ARDUINO_DEVICE "/dev/ttyACM0"
-#define CAN_INTERFACE          "can_phx6"
+#define DEFAULT_CAN_INTERFACE  "can_phx6"
 #define RIGHT_TRACK_CANID      0
 #define LEFT_TRACK_CANID       1
 #define TRENCHER_CANID         2
@@ -94,26 +93,20 @@ using namespace std::chrono_literals;
 #define TFX_DEFAULT_SUPPLY_CURRENT_LIMIT 20.
 #define TFX_DEFAULT_PEAK_VOLTAGE         12.
 
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-#define TALON_CTRL_SUB_QOS                                               \
-    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
-
-#define MOTOR_INFO_PUB_FREQ               20.
-#define MOTOR_FAULT_PUB_FREQ              4.
 #define MOTOR_POWER_CYCLE_DELAY           0.5s
 #define MOTOR_DEFAULT_FAULT_TIME_THRESH_S 1.5
 
 static constexpr auto NOMINAL_INFO_PUB_DT =
     std::chrono::duration_cast<std::chrono::system_clock::duration>(
-        1s / MOTOR_INFO_PUB_FREQ);
+        std::chrono::milliseconds(DEFAULT_MOTOR_INFO_PUB_DT_MS));
 static constexpr auto NOMINAL_FAULT_PUB_DT =
     std::chrono::duration_cast<std::chrono::system_clock::duration>(
-        1s / MOTOR_FAULT_PUB_FREQ);
+        std::chrono::milliseconds(DEFAULT_MOTOR_FAULTS_PUB_DT_MS));
 
 
 // --- Driver node -------------------------------------------------------------
 
-class Phoenix6Driver : public rclcpp::Node
+class Phoenix6Driver : public rclcpp::Node, private util::UsingRosAliases
 {
     using Int8Msg = std_msgs::msg::Int8;
     using Int32Msg = std_msgs::msg::Int32;
@@ -164,9 +157,9 @@ class Phoenix6Driver : public rclcpp::Node
         TalonFX motor;
         TalonFXConfiguration config{};
 
-        SharedPub<TalonInfoMsg> info_pub;
-        SharedPub<TalonFaultsMsg> faults_pub;
-        SharedSub<TalonCtrlMsg> ctrl_sub;
+        RclPubPtr<TalonInfoMsg> info_pub;
+        RclPubPtr<TalonFaultsMsg> faults_pub;
+        RclSubPtr<TalonCtrlMsg> ctrl_sub;
 
         TalonInfoMsg last_info;
         TalonFaultsMsg last_faults;
@@ -261,8 +254,8 @@ private:
     SerialRelay relay;
     std::vector<RclTalonFX> motors;
 
-    SharedPub<Int8Msg> relay_state_pub;
-    SharedSub<Int32Msg> watchdog_status_sub;
+    RclPubPtr<Int8Msg> relay_state_pub;
+    RclSubPtr<Int32Msg> watchdog_status_sub;
 
     std::thread motor_state_thread;
     std::atomic<bool> thread_enabled = true;
@@ -279,7 +272,7 @@ private:
 TalonFXConfiguration
     Phoenix6Driver::ParamConfig::RclMotorConfig::buildFXConfig() const
 {
-    return ::buildFXConfig(
+    return ::buildMotorConfig<TalonFXConfiguration>(
         this->kP,
         this->kI,
         this->kD,
@@ -642,8 +635,9 @@ void Phoenix6Driver::SerialRelay::enable()
         if (write(this->port, "1", 1) == -1)
         {
             // Error, this should not happen
-            std::cerr << "Phoenix6Driver::SerialRelay::enable phx5_driverwrite failure!"
-                      << std::flush;
+            std::cerr
+                << "Phoenix6Driver::SerialRelay::enable phx5_driverwrite failure!"
+                << std::flush;
         };
         this->state = true;
     }
@@ -703,8 +697,12 @@ void Phoenix6Driver::getParams(ParamConfig& params)
         *this,
         "diagnostics_port",
         params.diagnostics_server_port,
-        DIAG_SERVER_PORT);
-    declare_param<std::string>(*this, "canbus", params.canbus, CAN_INTERFACE);
+        DEFAULT_DIAG_SERVER_PORT);
+    declare_param<std::string>(
+        *this,
+        "canbus",
+        params.canbus,
+        DEFAULT_CAN_INTERFACE);
     declare_param<std::string>(
         *this,
         "arduino_device",
@@ -942,11 +940,11 @@ int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<Phoenix6Driver>();
-    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix6) has started");
+    RCLCPP_INFO(node->get_logger(), "LANCE-1 phoenix6 driver initialized.");
 
     rclcpp::spin(node);
 
-    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix6) shutting down...");
+    RCLCPP_INFO(node->get_logger(), "Phoenix6 driver shutting down...");
     rclcpp::shutdown();
 
     return EXIT_SUCCESS;

@@ -5,6 +5,7 @@
         "actions/bag.json",
         "actions/client.json",
         "actions/foxglove.json",
+        "actions/hopper_fullness.json",
         "actions/multiscan_driver.json",
         "actions/perception.json",
         "actions/phoenix_driver.json",

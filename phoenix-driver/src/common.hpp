@@ -39,95 +39,10 @@
 
 #pragma once
 
-#include <phoenix_ros_driver/msg/talon_ctrl.hpp>
-#include <phoenix_ros_driver/msg/talon_info.hpp>
+#define DEFAULT_DIAG_SERVER_PORT       1250
+#define DEFAULT_MOTOR_INFO_PUB_DT_MS   100
+#define DEFAULT_MOTOR_FAULTS_PUB_DT_MS 250
 
-
-namespace lance
-{
-
-using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
-using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
-
-
-/** Contains TalonInfo for each motor */
-struct RobotMotorStatus
-{
-    TalonInfoMsg track_right;
-    TalonInfoMsg track_left;
-    TalonInfoMsg trencher;
-    TalonInfoMsg hopper_belt;
-    TalonInfoMsg hopper_actuator;
-
-    inline double getHopperActNormalizedValue() const
-    {
-        return this->hopper_actuator.position;
-    }
-};
-
-/** Contains TalonCtrl for each motor */
-struct RobotMotorCommands
-{
-    TalonCtrlMsg track_right;
-    TalonCtrlMsg track_left;
-    TalonCtrlMsg trencher;
-    TalonCtrlMsg hopper_belt;
-    TalonCtrlMsg hopper_actuator;
-
-    inline void setTracksVelocity(double left_rps, double right_rps)
-    {
-        this->track_left.set__mode(TalonCtrlMsg::VELOCITY).set__value(left_rps);
-        this->track_right.set__mode(TalonCtrlMsg::VELOCITY)
-            .set__value(right_rps);
-    }
-    inline void setTrencherVelocity(double rps)
-    {
-        this->trencher.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
-    }
-    inline void setHopperBeltVelocity(double rps)
-    {
-        this->hopper_belt.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
-    }
-
-    inline void setHppperActPosition(double val)
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::POSITION).set__value(val);
-    }
-    inline void setHopperActVelocity(double val)
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::VELOCITY).set__value(val);
-    }
-    inline void setHopperActVoltage(double volts)
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::VOLTAGE)
-            .set__value(volts);
-    }
-
-    inline void disableTracks()
-    {
-        this->track_left.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-        this->track_right.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableTrencher()
-    {
-        this->trencher.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableHopperBelt()
-    {
-        this->hopper_belt.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-    inline void disableHopperAct()
-    {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::DISABLED).set__value(0.);
-    }
-
-    inline void disableAll()
-    {
-        this->disableTracks();
-        this->disableTrencher();
-        this->disableHopperBelt();
-        this->disableHopperAct();
-    }
-};
-
-};  // namespace lance
+#define ROBOT_TOPIC(subtopic) "lance/" subtopic
+#define TALON_CTRL_SUB_QOS                                               \
+    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()

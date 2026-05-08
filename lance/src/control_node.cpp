@@ -166,6 +166,7 @@ RobotControlNode::RobotControlNode() :
             }
 
             RobotMotorCommands commands;
+            commands.disableAll();
             this->robot_controller.iterate(
                 this->control_status,
                 this->joy_state,

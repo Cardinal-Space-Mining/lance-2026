@@ -362,7 +362,7 @@ void BasicActuator::setControl(const TalonCtrlMsg& msg)
 
 void BasicActuator::fillInfo(TalonInfoMsg& info, double bus_voltage)
 {
-    info.position = this->position * 1000.;
+    info.position = this->position;
     info.velocity = this->velocity;
     info.acceleration = 0.0;
     info.device_temp = 0.f;

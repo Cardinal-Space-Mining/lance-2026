@@ -288,12 +288,12 @@ void MiningController::iterate(
                 if (hopper_act_val >
                     this->params.hopper_actuator_traversal_target_val)
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActVelocity(
                         -this->params.hopper_actuator_max_speed);
                 }
                 else
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActVelocity(
                         -this->params.hopper_actuator_plunge_speed);
                 }
                 break;
@@ -408,12 +408,12 @@ void MiningController::iterate(
                 }
                 else if (hopper_val < hopper_act_target)
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActVelocity(
                         this->params.hopper_actuator_plunge_speed);
                 }
                 else if (hopper_val > hopper_act_target)
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActVelocity(
                         -this->params.hopper_actuator_plunge_speed);
                 }
             }
@@ -427,7 +427,7 @@ void MiningController::iterate(
             {
                 commands.setTrencherVelocity(
                     this->params.trencher_mining_velocity_rps);
-                commands.setHopperActPercent(
+                commands.setHopperActVelocity(
                     this->params.hopper_actuator_extract_speed);
                 break;
             }

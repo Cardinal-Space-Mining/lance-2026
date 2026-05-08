@@ -425,11 +425,8 @@ void TelemetrySerializer::addMiningPlannerDebug(
         {
             const auto& path = paths[i];
             const DirectedMiningPath::MiningSwath swath =
-                path.getPathCoordinatesInWorldFrame(
-                    controller.params,
-                    &controller.mining_planner.getGridGeometry());
-            const float swath_len_m =
-                path.getDistance() * TRACK_SEPARATION_M_<float>;
+                path.getPathStartInWorldFrame();
+            const float swath_len_m = path.getDistance();
             const Vec2f end = swath.first + (swath.second * swath_len_m);
 
             writeAndIncrement(ptr, swath.first.x());
@@ -442,38 +439,57 @@ void TelemetrySerializer::addMiningPlannerDebug(
 
     bytes[state_byte_idx] |= AUTO_MINING_STATE_GRID_BIT;
 
-    const float r = geom::FOOTPRINT_R_MAX_<float>;
-    const Vec2f min_corner_with_offset =
-        controller.params.bounds.mining_zone.min() + Vec2f::Constant(r);
-    const Vec2f max_corner_with_offset =
-        controller.params.bounds.mining_zone.max() - Vec2f::Constant(r);
+    const auto geometries = controller.mining_planner.getGridGeometriesByDirection();
 
-    const float actual_mining_x_length =
-        max_corner_with_offset.x() - min_corner_with_offset.x();
-    const float actual_mining_y_length =
-        max_corner_with_offset.y() - min_corner_with_offset.y();
+    const float fallback_r = geom::FOOTPRINT_R_MAX_<float>;
+    const Vec2f fallback_min_corner_with_offset =
+        controller.params.bounds.mining_zone.min() + Vec2f::Constant(fallback_r);
+    const Vec2f fallback_max_corner_with_offset =
+        controller.params.bounds.mining_zone.max() - Vec2f::Constant(fallback_r);
 
-    const uint32_t x_divisions = std::clamp<uint32_t>(
-        std::floor(actual_mining_x_length / TRACK_SEPARATION_M_<float>),
-        0,
-        AUTO_MINING_MAX_GRID_DIVS);
-    const uint32_t y_divisions = std::clamp<uint32_t>(
-        std::floor(actual_mining_y_length / TRACK_SEPARATION_M_<float>),
-        0,
-        AUTO_MINING_MAX_GRID_DIVS);
-
+    constexpr size_t DIRECTION_COUNT = 4;
+    constexpr size_t FLOATS_PER_DIRECTION = 6;  // min/max corners + cell lengths
     const size_t grid_reserve_size =
-        (sizeof(float) * 5) + (sizeof(uint32_t) * 2);
+        sizeof(float) * (DIRECTION_COUNT * FLOATS_PER_DIRECTION);
     bytes.resize(bytes.size() + grid_reserve_size);
     Byte* grid_ptr = (bytes.end() - grid_reserve_size).base();
 
-    writeAndIncrement(grid_ptr, min_corner_with_offset.x());
-    writeAndIncrement(grid_ptr, min_corner_with_offset.y());
-    writeAndIncrement(grid_ptr, max_corner_with_offset.x());
-    writeAndIncrement(grid_ptr, max_corner_with_offset.y());
-    writeAndIncrement(grid_ptr, TRACK_SEPARATION_M_<float>);
-    writeAndIncrement(grid_ptr, x_divisions);
-    writeAndIncrement(grid_ptr, y_divisions);
+    for (const auto direction : ALL_MINING_DIRECTIONS)
+    {
+        const auto itr = geometries.find(direction);
+        const Vec2f& min_corner_with_offset =
+            (itr != geometries.end())
+                ? itr->second.min_corner_with_offset
+                : fallback_min_corner_with_offset;
+        const Vec2f& max_corner_with_offset =
+            (itr != geometries.end())
+                ? itr->second.max_corner_with_offset
+                : fallback_max_corner_with_offset;
+        float cell_length_x =
+            (itr != geometries.end())
+                ? itr->second.cell_length_x
+                : TRACK_SEPARATION_M_<float>;
+        float cell_length_y =
+            (itr != geometries.end())
+                ? itr->second.cell_length_y
+                : TRACK_SEPARATION_M_<float>;
+
+        if (!std::isfinite(cell_length_x) || (cell_length_x <= 0.f))
+        {
+            cell_length_x = 0.f;
+        }
+        if (!std::isfinite(cell_length_y) || (cell_length_y <= 0.f))
+        {
+            cell_length_y = 0.f;
+        }
+
+        writeAndIncrement(grid_ptr, min_corner_with_offset.x());
+        writeAndIncrement(grid_ptr, min_corner_with_offset.y());
+        writeAndIncrement(grid_ptr, max_corner_with_offset.x());
+        writeAndIncrement(grid_ptr, max_corner_with_offset.y());
+        writeAndIncrement(grid_ptr, cell_length_x);
+        writeAndIncrement(grid_ptr, cell_length_y);
+    }
 }
 
 };  // namespace lance
