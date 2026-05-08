@@ -163,7 +163,7 @@ void OffloadController::iterate(
             if (motor_status.getHopperActNormalizedValue() <
                 this->params.hopper_actuator_offload_target_val)
             {
-                commands.setHopperActPercent(
+                commands.setHopperActVelocity(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
@@ -193,7 +193,7 @@ void OffloadController::iterate(
             if (motor_status.getHopperActNormalizedValue() >
                 this->params.hopper_actuator_traversal_target_val)
             {
-                commands.setHopperActPercent(
+                commands.setHopperActVelocity(
                     -this->params.hopper_actuator_max_speed);
                 break;
             }

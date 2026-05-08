@@ -61,7 +61,7 @@ struct RobotMotorStatus
 
     inline double getHopperActNormalizedValue() const
     {
-        return this->hopper_actuator.position / 1000.;
+        return this->hopper_actuator.position;
     }
 };
 
@@ -88,10 +88,10 @@ struct RobotMotorCommands
     {
         this->hopper_belt.set__mode(TalonCtrlMsg::VELOCITY).set__value(rps);
     }
-    inline void setHopperActPercent(double percent)
+
+    inline void setHppperActPosition(double val)
     {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::PERCENT_OUTPUT)
-            .set__value(percent);
+        this->hopper_actuator.set__mode(TalonCtrlMsg::POSITION).set__value(val);
     }
     inline void setHopperActVelocity(double val)
     {
