@@ -138,7 +138,7 @@
             },
             "mapping":
             {
-                "crop_horizontal_range": 5.0,
+                "crop_horizontal_range": 9.0,
                 "crop_vertical_range": 1.0,
                 "frustum_search_radius": 0.015,
                 "radial_distance_thresh": 0.008,
