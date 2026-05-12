@@ -59,7 +59,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 0.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 0.0
+                    "voltage_limit": 25.0
                 },
                 {
                     "name": "track_left",
@@ -74,7 +74,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 0.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 0.0
+                    "voltage_limit": 25.0
                 },
                 {
                     "name": "trencher",
@@ -88,7 +88,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 0.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 0.0
+                    "voltage_limit": 25.0
                 },
                 {
                     "name": "hopper_belt",
@@ -103,7 +103,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 0.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 0.0
+                    "voltage_limit": 25.0
                 },
                 {
                     "name": "hopper_act_left",
@@ -122,7 +122,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 0.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 0.0
+                    "voltage_limit": 25.0
                 },
                 {
                     "name": "hopper_act_right",
@@ -141,7 +141,7 @@
                     "neutral_brake": false,
                     "stator_current_limit": 0.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 0.0
+                    "voltage_limit": 25.0
                 }
             ],
             "mechanisms":

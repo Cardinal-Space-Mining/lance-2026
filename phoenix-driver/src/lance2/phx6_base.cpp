@@ -444,7 +444,7 @@ void Phoenix6Base::CustomMechanismPair::setVoltage(
 {
     const double limit = voltageLimit();
     const double clamped_voltage =
-        limit > 0.0 ? voltage : std::clamp(voltage, -limit, limit);
+        limit > 0.0 ? std::clamp(voltage, -limit, limit) : voltage;
     auto control_status = motor.motor.SetControl(
         phx6::controls::VoltageOut{units::voltage::volt_t{clamped_voltage}}
             .WithEnableFOC(false));
