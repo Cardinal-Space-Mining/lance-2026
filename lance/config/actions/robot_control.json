@@ -21,9 +21,9 @@
 
             "hopper_belt":
             {
-                "max_velocity_rps": 45.0,
-                "mining_velocity_rps": 10.0,
-                "mining_duty_cycle_base_seconds": 1.0
+                "max_velocity_rps": 135.0,
+                "mining_velocity_rps": 20.0,
+                "mining_duty_cycle_base_seconds": 0.5
             },
 
             "tracks":
