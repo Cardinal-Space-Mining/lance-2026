@@ -423,8 +423,19 @@ double Phoenix6Base::CustomMechanismPair::voltageLimit() const
 {
     const double leader_limit = leader->config.voltage_limit;
     const double follower_limit = follower->config.voltage_limit;
-    const double configured_limit = std::min(leader_limit, follower_limit);
-    return configured_limit > 0.0 ? configured_limit : 12.0;
+    if (leader_limit > 0.0 && follower_limit > 0.0)
+    {
+        return std::min(leader_limit, follower_limit);
+    }
+    else if (leader_limit > 0.0)
+    {
+        return leader_limit;
+    }
+    else if (follower_limit > 0.0)
+    {
+        return follower_limit;
+    }
+    return 0.0;
 }
 
 void Phoenix6Base::CustomMechanismPair::setVoltage(
@@ -432,7 +443,8 @@ void Phoenix6Base::CustomMechanismPair::setVoltage(
     double voltage) const
 {
     const double limit = voltageLimit();
-    const double clamped_voltage = std::clamp(voltage, -limit, limit);
+    const double clamped_voltage =
+        limit > 0.0 ? voltage : std::clamp(voltage, -limit, limit);
     auto control_status = motor.motor.SetControl(
         phx6::controls::VoltageOut{units::voltage::volt_t{clamped_voltage}}
             .WithEnableFOC(false));
