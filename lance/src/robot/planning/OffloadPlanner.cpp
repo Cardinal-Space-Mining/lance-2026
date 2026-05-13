@@ -124,7 +124,7 @@ Eigen::Vector2d OffloadPlanner::next()
 OffloadPlanner::OffloadAction OffloadPlanner::from_vec2(
     const Eigen::Vector2d& vec)
 {
-    return OffloadAction{.drive_point = (A * f_robot) + vec, .back_point = vec};
+    return OffloadAction{.drive_point = (A * f_robot *2) + vec, .back_point = vec + (A * f_robot)};
 }
 
 void OffloadPlanner::consume()
