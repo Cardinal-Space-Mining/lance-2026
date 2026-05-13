@@ -49,6 +49,8 @@
 namespace lance
 {
 
+struct StallAnalyzerConfig;
+
 struct RobotParams
 {
     using Box2f = Eigen::AlignedBox2f;
@@ -99,6 +101,22 @@ public:
 
     const float iteration_period_seconds;
 
+    const float stall_analyzer_recovery_debounce_seconds;
+    const float stall_analyzer_tracks_acceleration_jump_rps_per_second;
+    const float stall_analyzer_tracks_debounce_time_seconds;
+    const float stall_analyzer_tracks_min_output_current_amps;
+    const float stall_analyzer_tracks_velocity_error_rps;
+    const float stall_analyzer_tracks_min_command_value;
+    const float stall_analyzer_tracks_min_output_percent;
+    const float stall_analyzer_tracks_min_output_voltage;
+    const float stall_analyzer_trencher_acceleration_jump_rps_per_second;
+    const float stall_analyzer_trencher_debounce_time_seconds;
+    const float stall_analyzer_trencher_min_output_current_amps;
+    const float stall_analyzer_trencher_velocity_error_rps;
+    const float stall_analyzer_trencher_min_command_value;
+    const float stall_analyzer_trencher_min_output_percent;
+    const float stall_analyzer_trencher_min_output_voltage;
+
     const std::string robot_frame_id;
     const std::string odom_frame_id;
     const std::string arena_frame_id;
@@ -126,6 +144,8 @@ public:
 
 public:
     RobotParams(rclcpp::Node&);
+
+    StallAnalyzerConfig makeStallAnalyzerConfig() const;
 };
 
 };  // namespace lance

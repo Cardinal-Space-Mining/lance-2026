@@ -39,6 +39,7 @@
 
 #include "robot_params.hpp"
 
+#include "stall_analyzer.hpp"
 #include "util/ros_utils.hpp"
 
 
@@ -55,6 +56,12 @@ namespace lance
     name1##_##name2                                               \
     {                                                             \
         declare_and_get_param<type>(node, #name1 "." #name2, val) \
+    }
+
+#define INIT_PARAM3(name1, name2, name3, val, type)                             \
+    name1##_##name2##_##name3                                                   \
+    {                                                                           \
+        declare_and_get_param<type>(node, #name1 "." #name2 "." #name3, val)    \
     }
 
 RobotParams::RobotParams(rclcpp::Node& node) :
@@ -93,6 +100,31 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
 
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
+    INIT_PARAM2(stall_analyzer, recovery_debounce_seconds, 0.10f, float),
+    INIT_PARAM3(
+        stall_analyzer,
+        tracks,
+        acceleration_jump_rps_per_second,
+        100.f,
+        float),
+    INIT_PARAM3(stall_analyzer, tracks, debounce_time_seconds, 0.25f, float),
+    INIT_PARAM3(stall_analyzer, tracks, min_output_current_amps, 50.f, float),
+    INIT_PARAM3(stall_analyzer, tracks, velocity_error_rps, 20.f, float),
+    INIT_PARAM3(stall_analyzer, tracks, min_command_value, 0.01f, float),
+    INIT_PARAM3(stall_analyzer, tracks, min_output_percent, 0.05f, float),
+    INIT_PARAM3(stall_analyzer, tracks, min_output_voltage, 1.f, float),
+    INIT_PARAM3(
+        stall_analyzer,
+        trencher,
+        acceleration_jump_rps_per_second,
+        100.f,
+        float),
+    INIT_PARAM3(stall_analyzer, trencher, debounce_time_seconds, 0.25f, float),
+    INIT_PARAM3(stall_analyzer, trencher, min_output_current_amps, 15.f, float),
+    INIT_PARAM3(stall_analyzer, trencher, velocity_error_rps, 20.f, float),
+    INIT_PARAM3(stall_analyzer, trencher, min_command_value, 1.f, float),
+    INIT_PARAM3(stall_analyzer, trencher, min_output_percent, 0.05f, float),
+    INIT_PARAM3(stall_analyzer, trencher, min_output_voltage, 1.f, float),
     INIT_PARAM(robot_frame_id, "base_link", std::string),
     INIT_PARAM(odom_frame_id, "odom", std::string),
     INIT_PARAM(arena_frame_id, "map", std::string),
@@ -131,6 +163,45 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_BOX2F(mining_zone)
     INIT_BOX2F(offload_zone)
     INIT_BOX2F(construction_zone)
+}
+
+StallAnalyzerConfig RobotParams::makeStallAnalyzerConfig() const
+{
+    StallAnalyzerConfig config;
+    config.recovery_debounce_seconds =
+        this->stall_analyzer_recovery_debounce_seconds;
+
+    config.tracks.acceleration_jump_rps_per_second =
+        this->stall_analyzer_tracks_acceleration_jump_rps_per_second;
+    config.tracks.debounce_time_seconds =
+        this->stall_analyzer_tracks_debounce_time_seconds;
+    config.tracks.min_output_current_amps =
+        this->stall_analyzer_tracks_min_output_current_amps;
+    config.tracks.velocity_error_rps =
+        this->stall_analyzer_tracks_velocity_error_rps;
+    config.tracks.min_command_value =
+        this->stall_analyzer_tracks_min_command_value;
+    config.tracks.min_output_percent =
+        this->stall_analyzer_tracks_min_output_percent;
+    config.tracks.min_output_voltage =
+        this->stall_analyzer_tracks_min_output_voltage;
+
+    config.trencher.acceleration_jump_rps_per_second =
+        this->stall_analyzer_trencher_acceleration_jump_rps_per_second;
+    config.trencher.debounce_time_seconds =
+        this->stall_analyzer_trencher_debounce_time_seconds;
+    config.trencher.min_output_current_amps =
+        this->stall_analyzer_trencher_min_output_current_amps;
+    config.trencher.velocity_error_rps =
+        this->stall_analyzer_trencher_velocity_error_rps;
+    config.trencher.min_command_value =
+        this->stall_analyzer_trencher_min_command_value;
+    config.trencher.min_output_percent =
+        this->stall_analyzer_trencher_min_output_percent;
+    config.trencher.min_output_voltage =
+        this->stall_analyzer_trencher_min_output_voltage;
+
+    return config;
 }
 
 };  // namespace lance
