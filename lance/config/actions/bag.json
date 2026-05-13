@@ -41,7 +41,8 @@
                 "/lance/hopper_belt/info",
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
-                "/lance/telemetry"
+                "/lance/telemetry",
+                "/lance/net_latency",
             ]
         },
 
