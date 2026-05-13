@@ -56,7 +56,8 @@ public:
         double capacity_volume_l,
         double initial_footprint_m,
         double capacity_len_m,
-        double offload_len_m);
+        double offload_len_m,
+        double transfer_efficiency);
 
     void update(double delta_volume_l, double belt_rotations);
 
@@ -116,6 +117,7 @@ protected:
     double initial_footprint_m = 0.2;
     double cap_len_m = 0.6;
     double offload_len_m = 0.7;
+    double transfer_efficiency = 0.5;
 
     double total_vol_l = 0.;
     double belt_pos_m = 0.;
@@ -134,7 +136,8 @@ public:
         double capacity_volume_l,
         double initial_footprint_m,
         double capacity_len_m,
-        double offload_len_m);
+        double offload_len_m,
+        double transfer_efficiency);
 
     void update(const RobotMotorStatus& motors_status);
 

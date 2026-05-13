@@ -91,6 +91,7 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, initial_belt_footprint_meters, 0.2f, float),
     INIT_PARAM2(collection_model, belt_capacity_meters, 0.6f, float),
     INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
+    INIT_PARAM2(collection_model, transfer_efficiency, 0.5f, float),
 
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
     INIT_PARAM(robot_frame_id, "base_link", std::string),

@@ -69,7 +69,8 @@ RobotController::RobotController(RclNode& node) :
         this->params.collection_model_capacity_volume_liters,
         this->params.collection_model_initial_belt_footprint_meters,
         this->params.collection_model_belt_capacity_meters,
-        this->params.collection_model_belt_offload_length_meters);
+        this->params.collection_model_belt_offload_length_meters,
+        this->params.collection_model_transfer_efficiency);
 }
 
 const HopperState& RobotController::hopperState() const
@@ -152,7 +153,8 @@ void RobotController::iterate(
             break;
         }
         default:
-        {}
+        {
+        }
     }
 }
 
@@ -162,7 +164,8 @@ const RobotMotorStatus& RobotController::handleTestModeStateInjection(
 {
     if (ControlStatus::hasOpt<ControlOpts::TEST_MODE>(ctrl_status))
     {
-        if(ref.getHopperActNormalizedValue() < this->params.hopper_actuator_traversal_target_val)
+        if (ref.getHopperActNormalizedValue() <
+            this->params.hopper_actuator_traversal_target_val)
         {
             this->filtered_status = ref;
             this->filtered_status.hopper_actuator.position = -1.;

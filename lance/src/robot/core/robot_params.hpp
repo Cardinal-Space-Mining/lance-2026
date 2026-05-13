@@ -96,6 +96,7 @@ public:
     const float collection_model_initial_belt_footprint_meters;
     const float collection_model_belt_capacity_meters;
     const float collection_model_belt_offload_length_meters;
+    const float collection_model_transfer_efficiency;
 
     const float iteration_period_seconds;
 
@@ -122,7 +123,8 @@ public:
     const float auto_traversal_angular_kp;
     const float auto_traversal_min_theta_window_deg;
     const float auto_traversal_align_angular_thresh_deg;
-    const float minimum_mining_path_length = 1.1; // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet
+    const float minimum_mining_path_length =
+        1.1;  // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet
 
 public:
     RobotParams(rclcpp::Node&);

@@ -43,13 +43,13 @@
                 },
                 "keyframe":
                 {
-                    "thresh_D": 1.0,
-                    "thresh_R": 30.0,
+                    "thresh_D": 0.4,
+                    "thresh_R": 12.0,
                     "submap":
                     {
-                        "knn": 5,
-                        "kcv": 5,
-                        "kcc": 5
+                        "knn": 8,
+                        "kcv": 6,
+                        "kcc": 6
                     }
                 },
                 "initial_pose":
@@ -63,12 +63,12 @@
                     "scan":
                     {
                         "use": true,
-                        "res": 0.15
+                        "res": 0.06
                     },
                     "submap":
                     {
-                        "use": false,
-                        "res": 0.15
+                        "use": true,
+                        "res": 0.08
                     },
                     "adaptive_leaf_size":
                     {
@@ -98,28 +98,28 @@
                     "min_num_points": 500,
                     "s2s":
                     {
-                        "k_correspondences": 10,
-                        "max_correspondence_distance": 0.5,
-                        "max_iterations": 32,
-                        "transformation_epsilon": 0.001,
-                        "euclidean_fitness_epsilon": 0.001,
+                        "k_correspondences": 15,
+                        "max_correspondence_distance": 0.35,
+                        "max_iterations": 48,
+                        "transformation_epsilon": 0.0005,
+                        "euclidean_fitness_epsilon": 0.0005,
                         "ransac":
                         {
                             "iterations": 5,
-                            "outlier_rejection_thresh": 0.1
+                            "outlier_rejection_thresh": 0.08
                         }
                     },
                     "s2m":
                     {
-                        "k_correspondences": 15,
-                        "max_correspondence_distance": 0.5,
-                        "max_iterations": 32,
+                        "k_correspondences": 24,
+                        "max_correspondence_distance": 0.25,
+                        "max_iterations": 48,
                         "transformation_epsilon": 0.0005,
-                        "euclidean_fitness_epsilon": 0.001,
+                        "euclidean_fitness_epsilon": 0.0005,
                         "ransac":
                         {
                             "iterations": 6,
-                            "outlier_rejection_thresh": 0.05
+                            "outlier_rejection_thresh": 0.04
                         }
                     }
                 }
