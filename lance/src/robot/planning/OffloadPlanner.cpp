@@ -3,87 +3,136 @@
 #include <cassert>
 
 #include <cmath>
+#include <iostream>
 #include <limits>
 namespace
 {
-    bool is_close(double a, double b, double epsilon = 1e-9)
-    {
-        return std::abs(a - b) < epsilon;
-    }
-
-    bool almost_parallel(const Eigen::Vector2d &a, const Eigen::Vector2d &b, double epsilon = 1e-9)
-    {
-        // Cross product of two parallel vectors is zero
-        return ((a.x() * b.y()) - (a.y() * b.x())) < epsilon;
-    }
-
+/// @brief Returns true if two numbers are close
+/// @param a num 1
+/// @param b num 2
+/// @param epsilon
+/// @return true if two numbers are close
+bool is_close(double a, double b, double epsilon = 1e-9)
+{
+    return std::abs(a - b) < epsilon;
 }
 
-OffloadPlanner::OffloadPlanner(Eigen::AlignedBox2d B_, Eigen::Vector2d A_, Eigen::Vector2d F_robot_, double f_robot_, double r_robot_, Eigen::Vector2d Q_arena_) : B(B_),
-                                                                                                                                                                   A(A_),
-                                                                                                                                                                   F_robot(F_robot_),
-                                                                                                                                                                   f_robot(f_robot_),
-                                                                                                                                                                   r_robot(r_robot_),
-                                                                                                                                                                   Q_arena(Q_arena_)
+bool almost_parallel(
+    const Eigen::Vector2d& a,
+    const Eigen::Vector2d& b,
+    double epsilon = 1e-6)
 {
+    return is_close(a.normalized().dot(b.normalized()), 1, epsilon);
+}
+
+}  // namespace
+
+OffloadPlanner::OffloadPlanner(
+    Eigen::AlignedBox2d B_,
+    Eigen::Vector2d A_,
+    Eigen::Vector2d F_robot_,
+    double f_robot_) :
+    B(B_),
+    A(A_),
+    f_robot(f_robot_)
+{
+    Eigen::Vector2d b_right = B.corner(B.BottomRight) - B.corner(B.BottomLeft);
+    Eigen::Vector2d b_up = B.corner(B.TopLeft) - B.corner(B.BottomLeft);
     // Assertions
     {
-        assert(!B_.isEmpty()); // Assert box is not empty
-        auto b_up = B.corner(B.TopLeft) - B.corner(B.BottomLeft);
-        auto b_right = B.corner(B.BottomRight) - B.corner(B.BottomLeft);
-        assert(almost_parallel(A, b_right) || almost_parallel(A, b_up)); // Assert A_ is along one box axis
-        assert(B_.volume() > F_robot.norm());                            // Assert the offload zone can fit in the offload area
-        assert(A.norm() == 1);                                           // Assert A is axis aligned and normalized
+        assert(!B_.isEmpty());  // Assert box is not empty
+        assert(
+            almost_parallel(A, b_right) || almost_parallel(A, b_up) ||
+            almost_parallel(A, -b_right) ||
+            almost_parallel(A, -b_up));  // Assert A_ is along one box axis
+        assert(
+            B_.volume() >
+            F_robot_
+                .norm());  // Assert the offload zone can fit in the offload area
+        assert(A.norm() == 1);  // Assert A is axis aligned and normalized
     }
 
     {
-        auto b_right = B.corner(B.BottomRight) - B.corner(B.BottomLeft);
-        auto b_width = b_right.norm();
-        auto b_up = B.corner(B.TopLeft) - B.corner(B.BottomLeft);
-        auto b_height = b_up.norm();
-
-        // NO IF STATEMENTS. ROTATE IN THE DIRECTION OF A
-
-        if (A.x() > 0)
+        if (almost_parallel(A, b_up))  // 1
+        {
+            this->start_point = B.corner(B.BottomLeft);
+            this->n_y = std::floor(b_up.norm() / F_robot_.y());
+            this->n_x = std::floor(b_right.norm() / F_robot_.x());
+            this->d_y = b_up / n_y;
+            this->d_x = b_right / n_x;
+        }
+        else if (almost_parallel(A, b_right))  // 2
+        {
+            this->start_point = B.corner(B.TopLeft);
+            this->n_y = std::floor(b_right.norm() / F_robot_.y());
+            this->n_x = std::floor(b_up.norm() / F_robot_.x());
+            this->d_y = b_right / n_y;
+            this->d_x = -b_up / n_x;
+        }
+        else if (almost_parallel(A, -b_up))  // 3
         {
             this->start_point = B.corner(B.TopRight);
-            // this->d_row =
+            this->n_y = std::floor(b_up.norm() / F_robot_.y());
+            this->n_x = std::floor(b_right.norm() / F_robot_.x());
+            this->d_y = -b_up / n_y;
+            this->d_x = -b_right / n_x;
         }
-        else if (A.x() < 0)
+        else if (almost_parallel(A, -b_right))  // 4
         {
-            /* code */
-        }
-        else if (A.y() > 0)
-        {
-        }
-        else if (A.y() < 0)
-        {
+            this->start_point = B.corner(B.BottomRight);
+            this->n_y = std::floor(b_right.norm() / F_robot_.y());
+            this->n_x = std::floor(b_up.norm() / F_robot_.x());
+            this->d_y = -b_right / n_y;
+            this->d_x = b_up / n_x;
         }
         else
         {
+            std::cerr
+                << "We should never reach this line. However, we have. Oops."
+                << __FILE__ << ':' << __LINE__ << std::endl;
             assert(false);
         }
+
+        assert(n_x > 0);
+        assert(n_y > 0);
     }
+}
+
+size_t OffloadPlanner::num_actions() const { return n_x * n_y; }
+
+std::vector<OffloadPlanner::OffloadAction> OffloadPlanner::to_actions() const
+{
+    OffloadPlanner planner = *this;
+    planner.i_x = 0;
+    planner.i_y = 0;
+
+    std::vector<OffloadPlanner::OffloadAction> actions(planner.num_actions());
+    for (size_t i = 0; i < planner.num_actions(); i++)
+    {
+        actions[i] = planner.from_vec2(planner.next());
+        planner.consume();
+    }
+
+    return actions;
 }
 
 Eigen::Vector2d OffloadPlanner::next()
 {
-    return (start_point + (d_row * row_idx) + (d_col * col_idx)) + edge_to_center;
+    return start_point + (d_y / 2) + (d_x / 2) + (i_x * d_x) + (i_y * d_y);
 }
 
-OffloadPlanner::OffloadAction OffloadPlanner::from_vec2(const Eigen::Vector2d &vec)
+OffloadPlanner::OffloadAction OffloadPlanner::from_vec2(
+    const Eigen::Vector2d& vec)
 {
-    return OffloadAction{
-        .drive_point = (-A.normalized()) * r_robot,
-        .back_point = vec};
+    return OffloadAction{.drive_point = (A * f_robot) + vec, .back_point = vec};
 }
 
 void OffloadPlanner::consume()
 {
-    row_idx++;
-    if (row_idx >= n_row)
+    i_x++;
+    if (i_x >= n_x)
     {
-        row_idx = 0;
-        col_idx++;
+        i_x = 0;
+        i_y++;
     }
 }
