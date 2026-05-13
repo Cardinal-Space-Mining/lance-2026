@@ -302,10 +302,12 @@ constexpr inline T volumeRateToHopperFullTime(const T& vol_rate_lps)
 template<typename T>
 constexpr inline T targetVolumeToSweepDistance(
     const T& target_vol_l,
-    const T& depth_m)
+    const T& depth_m,
+    const T& transfer_efficiency)
 {
     return static_cast<T>(
-        (static_cast<double>(target_vol_l) / static_cast<double>(depth_m)) /
+        (static_cast<double>(target_vol_l) / static_cast<double>(depth_m) /
+         static_cast<double>(transfer_efficiency)) /
         (TRENCHER_WIDTH_M * LITERS_PER_M_CUBED));
 }
 

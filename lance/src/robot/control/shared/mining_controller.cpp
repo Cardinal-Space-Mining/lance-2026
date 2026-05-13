@@ -117,8 +117,9 @@ void MiningConstraints::updateState(
                 static_cast<float>(lance::targetVolumeToSweepDistance(
                     hopper_state.remainingVolume(),
                     lance::linearActuatorToMiningDepthClamped(
-                        motor_status.getHopperActNormalizedValue()))) /
-                this->params.collection_model_transfer_efficiency;
+                        motor_status.getHopperActNormalizedValue()),
+                    static_cast<double>(
+                        this->params.collection_model_transfer_efficiency)));
             if (d < this->remaining_dist ||
                 this->current_constraint == CONSTRAINT_HOPPER_FULL)
             {
