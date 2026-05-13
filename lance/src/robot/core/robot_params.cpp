@@ -114,7 +114,11 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(auto_traversal, stanley_k_coeff, 1.f, float),
     INIT_PARAM2(auto_traversal, angular_kp, 1.f, float),
     INIT_PARAM2(auto_traversal, min_theta_window_deg, 2.f, float),
-    INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float)
+    INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float),
+
+    INIT_PARAM2(auto_mining, min_path_length, 1.1f, float),
+    INIT_PARAM2(auto_mining, min_replan_vol_liters, 8.f, float),
+    INIT_PARAM2(auto_mining, max_iterations, 3, int)
 {
     std::vector<double> buff;
 

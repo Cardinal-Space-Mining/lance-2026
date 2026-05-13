@@ -85,6 +85,13 @@
                 "align_angular_thresh_deg": 0.5
             },
 
+            "auto_mining":
+            {
+                "min_path_length" : 1.1,
+                "min_replan_vol_liters" : 8.0,
+                "max_iterations" : 3
+            },
+
             "mining_zone_bounds": "${ zone.ksc.mining }",
             "offload_zone_bounds": "${ zone.ksc.offload }",
             "construction_zone_bounds": "${ zone.ksc.construction }"

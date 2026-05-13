@@ -123,8 +123,10 @@ public:
     const float auto_traversal_angular_kp;
     const float auto_traversal_min_theta_window_deg;
     const float auto_traversal_align_angular_thresh_deg;
-    const float minimum_mining_path_length =
-        1.1;  // 2 The minimum length that should be considered for a mining path. Longer than path length since the length of the robot isn't factored into this yet
+
+    const float auto_mining_min_path_length; // The minimum length a mining path must be to be considered valid and added to the list of paths to choose from
+    const float auto_mining_min_replan_vol_liters;  // The minimum volume that should be remaining before the mining planner replans a mining path
+    const int auto_mining_max_iterations; // The maximum number of times the mining planner will replan a mining path during a single auto mining execution (to prevent infinite replanning loops in edge cases)
 
 public:
     RobotParams(rclcpp::Node&);

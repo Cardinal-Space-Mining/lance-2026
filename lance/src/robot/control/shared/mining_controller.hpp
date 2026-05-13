@@ -104,6 +104,7 @@ protected:
 
 class MiningController
 {
+    friend class AutoMiningController;
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 

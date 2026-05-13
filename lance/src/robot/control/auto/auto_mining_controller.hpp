@@ -74,6 +74,7 @@ public:
         RobotMotorCommands& commands);
 
 protected:
+        
     enum class Stage
     {
         INITIALIZATION,
