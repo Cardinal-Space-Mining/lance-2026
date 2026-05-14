@@ -536,7 +536,7 @@ bool Phoenix6Base::CustomMechanismPair::executeCtrl(const TalonCtrlMsg& msg)
     {
         case TalonCtrlMsg::POSITION:
         case TalonCtrlMsg::VELOCITY:
-            logPotState("before control");
+            // logPotState("before control");
             active_ctrl = msg;
             update();
             return true;
@@ -548,7 +548,7 @@ bool Phoenix6Base::CustomMechanismPair::executeCtrl(const TalonCtrlMsg& msg)
         case TalonCtrlMsg::PERCENT_OUTPUT:
         case TalonCtrlMsg::VOLTAGE:
         case TalonCtrlMsg::MUSIC_TONE:
-            logPotState("before mirrored control");
+            // logPotState("before mirrored control");
             active_ctrl.reset();
             sendMirroredCtrl(msg);
             return true;

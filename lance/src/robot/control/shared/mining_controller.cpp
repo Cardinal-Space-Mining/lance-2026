@@ -264,10 +264,9 @@ void MiningController::iterate(
         this->tf_cache,
         this->mining_eval_interface);
 
-    if ((this->stage < Stage::RAISING) &&
-        (!this->constraints.hasRemaining() ||
-         (this->stage != Stage::INITIALIZATION && joy &&
-          AssistedMiningToggleButton::wasPressed(*joy))))
+    if ((this->stage < Stage::RAISING && !this->constraints.hasRemaining()) ||
+        (this->stage != Stage::INITIALIZATION && joy &&
+         AssistedMiningToggleButton::wasPressed(*joy)))
     {
         this->stage = Stage::RAISING;
     }
