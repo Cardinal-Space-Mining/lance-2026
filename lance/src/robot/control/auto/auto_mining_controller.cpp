@@ -157,18 +157,25 @@ void AutoMiningController::iterate(
                 this->stage = Stage::FINISHED;
                 break;
             }
+            DirectedMiningPath::MiningSwath swath;
 
-            const DirectedMiningPath::MiningSwath swath =
-                paths.front().getPathStartInWorldFrame();
+            if (is_first_run){
+                swath = paths.back().getPathStartInWorldFrame(); // Lowest quality shortest path for first run (full cycle)
+                this->current_mining_path = paths.back();
+            }
+            else{
+                swath = paths.front().getPathStartInWorldFrame();
+                this->current_mining_path = paths.front();
+            }
             
-            this->current_mining_path = paths.front();
+            
             
             std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
                       << swath.first.y() << ")  Direction (In Coords): ("
                       << swath.second.x() << ", " << swath.second.y()
                       << ") | Direction: "
-                      << miningDirectionToString(paths.front().getDirection())
-                      << " | Distance: " << paths.front().getDistance() << "\n";
+                      << miningDirectionToString(this->current_mining_path->getDirection())
+                      << " | Distance: " << this->current_mining_path->getDistance() << "\n";
 
             this->traversal_controller.initializePoint(
                 swath.first,
@@ -192,14 +199,6 @@ void AutoMiningController::iterate(
         }
         case Stage::MINING:
         {
-            if (this->mining_controller.hopper_state.remainingVolume() > this->params.auto_mining_min_replan_vol_liters && iteration_count < this->params.auto_mining_max_iterations)
-            {
-                // Replan if we have enough remaining volume to make it worth it
-                this->stage = Stage::PLANNING;
-                iteration_count += 1;
-                break;
-            }
-
             this->mining_controller.iterate(motor_status, commands);
             if (!this->mining_controller.isFinished())
             {
@@ -212,6 +211,17 @@ void AutoMiningController::iterate(
                 this->current_mining_path.reset();
             }
 
+            if (this->mining_controller.hopper_state.remainingVolume() > this->params.auto_mining_min_replan_vol_liters && 
+                iteration_count < this->params.auto_mining_max_iterations &&
+                !is_first_run    //On first run you want to mine as little as possible so skip this check
+            )
+            {
+                // Replan if we have enough remaining volume to make it worth it
+                this->stage = Stage::PLANNING;
+                iteration_count += 1;
+                break;
+            }
+            is_first_run = false;// First run is always false beyond this point
             this->stage = Stage::FINISHED;
             [[fallthrough]];
         }

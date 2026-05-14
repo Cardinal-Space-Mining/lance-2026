@@ -96,6 +96,8 @@ protected:
 
     Stage stage{Stage::FINISHED};
 
+    bool is_first_run = true;
+
 };
 
 };  // namespace lance
