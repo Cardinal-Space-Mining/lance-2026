@@ -6,49 +6,6 @@
 
 namespace lance
 {
-namespace
-{
-
-bool isClosedLoopOrOutputCommand(int mode)
-{
-    return mode == TalonCtrlMsg::PERCENT_OUTPUT ||
-           mode == TalonCtrlMsg::POSITION || mode == TalonCtrlMsg::VELOCITY ||
-           mode == TalonCtrlMsg::CURRENT || mode == TalonCtrlMsg::VOLTAGE ||
-           mode == TalonCtrlMsg::MOTION_PROFILE ||
-           mode == TalonCtrlMsg::MOTION_MAGIC ||
-           mode == TalonCtrlMsg::MOTION_PROFILE_ARC;
-}
-
-bool isCommanded(
-    const TalonCtrlMsg& command,
-    const TalonInfoMsg& status,
-    const StallAnalyzerConfig::MotorConfig& motor_config)
-{
-    if (!isClosedLoopOrOutputCommand(command.mode))
-    {
-        return false;
-    }
-
-    return std::abs(command.value) >= motor_config.min_command_value ||
-           std::abs(status.output_percent) >= motor_config.min_output_percent ||
-           std::abs(status.output_voltage) >= motor_config.min_output_voltage;
-}
-
-int sign(double value)
-{
-    if (value > 0.0)
-    {
-        return 1;
-    }
-    if (value < 0.0)
-    {
-        return -1;
-    }
-    return 0;
-}
-
-}  // namespace
-
 StallAnalyzer::StallAnalyzer(StallAnalyzerConfig config) : config{config} {}
 
 const StallAnalyzerConfig& StallAnalyzer::getConfig() const
@@ -71,7 +28,7 @@ void StallAnalyzer::reset()
 MotorStallInfo StallAnalyzer::analyzeTrack(
     TrackSide side,
     const TalonInfoMsg& status,
-    const TalonFaultsMsg&,
+    const TalonFaultsMsg& faults,
     const TalonCtrlMsg& command,
     double dt_seconds)
 {
@@ -81,6 +38,7 @@ MotorStallInfo StallAnalyzer::analyzeTrack(
     return this->analyzeMotor(
         state,
         status,
+        faults,
         command,
         this->config.tracks,
         dt_seconds);
@@ -88,13 +46,14 @@ MotorStallInfo StallAnalyzer::analyzeTrack(
 
 MotorStallInfo StallAnalyzer::analyzeTrencher(
     const TalonInfoMsg& status,
-    const TalonFaultsMsg&,
+    const TalonFaultsMsg& faults,
     const TalonCtrlMsg& command,
     double dt_seconds)
 {
     return this->analyzeMotor(
         this->trencher_state,
         status,
+        faults,
         command,
         this->config.trencher,
         dt_seconds);
@@ -103,47 +62,28 @@ MotorStallInfo StallAnalyzer::analyzeTrencher(
 MotorStallInfo StallAnalyzer::analyzeMotor(
     MotorState& state,
     const TalonInfoMsg& status,
+    const TalonFaultsMsg& faults,
     const TalonCtrlMsg& command,
     const StallAnalyzerConfig::MotorConfig& motor_config,
     double dt_seconds) const
 {
     const double safe_dt_seconds = std::max(0.0, dt_seconds);
-    const bool commanded = isCommanded(command, status, motor_config);
-    const bool controller_enabled =
-        (status.status & TalonInfoMsg::STATUS_PHX_ENABLED) != 0;
-    const bool controller_connected =
-        (status.status & TalonInfoMsg::STATUS_CONNECTED) != 0;
-    const bool ready =
-        commanded && controller_enabled && controller_connected;
-
-    const int output_direction = sign(status.output_voltage);
-    const int acceleration_direction = sign(status.acceleration);
-    const bool acceleration_opposes_output =
-        output_direction != 0 &&
-        acceleration_direction == -output_direction;
-    const bool acceleration_jump =
-        acceleration_opposes_output &&
-        std::abs(status.acceleration) >=
-            motor_config.acceleration_jump_rps_per_second;
-
-    const bool high_current =
-        std::abs(status.output_current) >= motor_config.min_output_current_amps;
-    const bool large_velocity_error =
-        std::abs(command.value - status.velocity) >=
-        motor_config.velocity_error_rps;
-    const bool confirmation = high_current && large_velocity_error;
+    const bool command_outside_deadzone =
+        std::abs(command.value) > motor_config.command_deadzone_rps;
+    const double velocity_proportion =
+        command_outside_deadzone ? status.velocity / command.value : 0.0;
+    const bool stall_condition =
+        command.mode == TalonCtrlMsg::VELOCITY &&
+        command_outside_deadzone &&
+        faults.stator_current_limit_fault &&
+        velocity_proportion < motor_config.minimum_velocity_proportion;
 
     if (!state.initialized)
     {
         state.initialized = true;
     }
 
-    if (ready && state.stall_candidate_seconds <= 0.0 && acceleration_jump)
-    {
-        state.stall_candidate_seconds = safe_dt_seconds;
-        state.recovery_candidate_seconds = 0.0;
-    }
-    else if (ready && state.stall_candidate_seconds > 0.0 && confirmation)
+    if (stall_condition)
     {
         state.stall_candidate_seconds += safe_dt_seconds;
         state.recovery_candidate_seconds = 0.0;
@@ -163,7 +103,7 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
     else if (
         state.is_stalled &&
         state.recovery_candidate_seconds >=
-            this->config.recovery_debounce_seconds)
+            motor_config.debounce_time_seconds)
     {
         state.is_stalled = false;
         state.time_stalled_seconds = 0.0;
@@ -178,6 +118,46 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
     info.time_stalled_seconds = state.time_stalled_seconds;
 
     return info;
+}
+
+StallState::StallState(StallAnalyzerConfig config) : analyzer{config} {}
+
+void StallState::setConfig(const StallAnalyzerConfig& config)
+{
+    this->analyzer.setConfig(config);
+}
+
+void StallState::reset()
+{
+    this->analyzer.reset();
+    this->track_left = {};
+    this->track_right = {};
+    this->trencher_info = {};
+}
+
+void StallState::update(
+    const RobotMotorStatus& status,
+    const RobotMotorFaults& faults,
+    const RobotMotorCommands& commands,
+    double dt_seconds)
+{
+    this->track_left = this->analyzer.analyzeTrack(
+        TrackSide::LEFT,
+        status.track_left,
+        faults.track_left,
+        commands.track_left,
+        dt_seconds);
+    this->track_right = this->analyzer.analyzeTrack(
+        TrackSide::RIGHT,
+        status.track_right,
+        faults.track_right,
+        commands.track_right,
+        dt_seconds);
+    this->trencher_info = this->analyzer.analyzeTrencher(
+        status.trencher,
+        faults.trencher,
+        commands.trencher,
+        dt_seconds);
 }
 
 };  // namespace lance

@@ -100,31 +100,22 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
 
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
-    INIT_PARAM2(stall_analyzer, recovery_debounce_seconds, 0.10f, float),
+    INIT_PARAM3(stall_analyzer, tracks, debounce_time_seconds, 0.25f, float),
     INIT_PARAM3(
         stall_analyzer,
         tracks,
-        acceleration_jump_rps_per_second,
-        100.f,
+        minimum_velocity_proportion,
+        0.20f,
         float),
-    INIT_PARAM3(stall_analyzer, tracks, debounce_time_seconds, 0.25f, float),
-    INIT_PARAM3(stall_analyzer, tracks, min_output_current_amps, 50.f, float),
-    INIT_PARAM3(stall_analyzer, tracks, velocity_error_rps, 20.f, float),
-    INIT_PARAM3(stall_analyzer, tracks, min_command_value, 0.01f, float),
-    INIT_PARAM3(stall_analyzer, tracks, min_output_percent, 0.05f, float),
-    INIT_PARAM3(stall_analyzer, tracks, min_output_voltage, 1.f, float),
+    INIT_PARAM3(stall_analyzer, tracks, command_deadzone_rps, 0.01f, float),
+    INIT_PARAM3(stall_analyzer, trencher, debounce_time_seconds, 0.25f, float),
     INIT_PARAM3(
         stall_analyzer,
         trencher,
-        acceleration_jump_rps_per_second,
-        100.f,
+        minimum_velocity_proportion,
+        0.20f,
         float),
-    INIT_PARAM3(stall_analyzer, trencher, debounce_time_seconds, 0.25f, float),
-    INIT_PARAM3(stall_analyzer, trencher, min_output_current_amps, 15.f, float),
-    INIT_PARAM3(stall_analyzer, trencher, velocity_error_rps, 20.f, float),
-    INIT_PARAM3(stall_analyzer, trencher, min_command_value, 1.f, float),
-    INIT_PARAM3(stall_analyzer, trencher, min_output_percent, 0.05f, float),
-    INIT_PARAM3(stall_analyzer, trencher, min_output_voltage, 1.f, float),
+    INIT_PARAM3(stall_analyzer, trencher, command_deadzone_rps, 1.f, float),
     INIT_PARAM(robot_frame_id, "base_link", std::string),
     INIT_PARAM(odom_frame_id, "odom", std::string),
     INIT_PARAM(arena_frame_id, "map", std::string),
@@ -168,38 +159,19 @@ RobotParams::RobotParams(rclcpp::Node& node) :
 StallAnalyzerConfig RobotParams::makeStallAnalyzerConfig() const
 {
     StallAnalyzerConfig config;
-    config.recovery_debounce_seconds =
-        this->stall_analyzer_recovery_debounce_seconds;
-
-    config.tracks.acceleration_jump_rps_per_second =
-        this->stall_analyzer_tracks_acceleration_jump_rps_per_second;
     config.tracks.debounce_time_seconds =
         this->stall_analyzer_tracks_debounce_time_seconds;
-    config.tracks.min_output_current_amps =
-        this->stall_analyzer_tracks_min_output_current_amps;
-    config.tracks.velocity_error_rps =
-        this->stall_analyzer_tracks_velocity_error_rps;
-    config.tracks.min_command_value =
-        this->stall_analyzer_tracks_min_command_value;
-    config.tracks.min_output_percent =
-        this->stall_analyzer_tracks_min_output_percent;
-    config.tracks.min_output_voltage =
-        this->stall_analyzer_tracks_min_output_voltage;
+    config.tracks.minimum_velocity_proportion =
+        this->stall_analyzer_tracks_minimum_velocity_proportion;
+    config.tracks.command_deadzone_rps =
+        this->stall_analyzer_tracks_command_deadzone_rps;
 
-    config.trencher.acceleration_jump_rps_per_second =
-        this->stall_analyzer_trencher_acceleration_jump_rps_per_second;
     config.trencher.debounce_time_seconds =
         this->stall_analyzer_trencher_debounce_time_seconds;
-    config.trencher.min_output_current_amps =
-        this->stall_analyzer_trencher_min_output_current_amps;
-    config.trencher.velocity_error_rps =
-        this->stall_analyzer_trencher_velocity_error_rps;
-    config.trencher.min_command_value =
-        this->stall_analyzer_trencher_min_command_value;
-    config.trencher.min_output_percent =
-        this->stall_analyzer_trencher_min_output_percent;
-    config.trencher.min_output_voltage =
-        this->stall_analyzer_trencher_min_output_voltage;
+    config.trencher.minimum_velocity_proportion =
+        this->stall_analyzer_trencher_minimum_velocity_proportion;
+    config.trencher.command_deadzone_rps =
+        this->stall_analyzer_trencher_command_deadzone_rps;
 
     return config;
 }

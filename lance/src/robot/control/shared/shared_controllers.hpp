@@ -60,8 +60,9 @@ public:
     inline SharedControllerCollection(
         const RobotParams& params,
         const HopperState& hopper_state,
+        const StallState& stall_state,
         SensingInterfaces& sensing_interfaces) :
-        mining_controller{params, hopper_state, sensing_interfaces},
+        mining_controller{params, hopper_state, stall_state, sensing_interfaces},
         offload_controller{params, hopper_state},
         traversal_controller{params, sensing_interfaces},
         localization_controller{params, sensing_interfaces}

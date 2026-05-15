@@ -48,7 +48,11 @@
 namespace lance
 {
 
-MiningConstraints::MiningConstraints(const RobotParams& params) : params{params}
+MiningConstraints::MiningConstraints(
+    const RobotParams& params,
+    const StallState& stall_state) :
+    params{params},
+    stall_state{stall_state}
 {
 }
 
@@ -91,7 +95,12 @@ void MiningConstraints::updateState(
         this->remaining_dist = std::numeric_limits<float>::infinity();
     }
 
-    // TODO: motor stall
+    if ((this->enabled_constraints & CONSTRAINT_MOTOR_STALL) &&
+        this->stall_state.anyStalled())
+    {
+        this->remaining_dist = 0.f;
+        this->current_constraint = CONSTRAINT_MOTOR_STALL;
+    }
 
     if ((this->enabled_constraints & CONSTRAINT_OBSTACLE) &&
         mining_eval.hasResult() && !mining_eval.getDists()->empty())
@@ -182,12 +191,13 @@ void MiningConstraints::updateOdom(const RobotMotorStatus& motor_status)
 MiningController::MiningController(
     const RobotParams& params,
     const HopperState& hopper_state,
+    const StallState& stall_state,
     SensingInterfaces& sensing_interfaces) :
     params{params},
     hopper_state{hopper_state},
     tf_cache{sensing_interfaces.tf_cache},
     mining_eval_interface{sensing_interfaces.mining_eval_interface},
-    constraints{params}
+    constraints{params, stall_state}
 {
 }
 

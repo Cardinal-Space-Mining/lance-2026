@@ -48,6 +48,7 @@ namespace lance
 #define TALON_INFO_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/info")
 #define COLLECTION_STATE_TOPIC(subtopic)      \
     ROBOT_TOPIC("collection_state/" subtopic)
+#define STALL_STATE_TOPIC(subtopic) ROBOT_TOPIC("stall_state/" subtopic)
 
 #define CONSTEXPR_STR constexpr inline char const*
 

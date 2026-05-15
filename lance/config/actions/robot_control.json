@@ -86,26 +86,17 @@
 
             "stall_analyzer":
             {
-                "recovery_debounce_seconds": 0.1,
                 "tracks":
                 {
-                    "acceleration_jump_rps_per_second": 100.0,
                     "debounce_time_seconds": 0.5,
-                    "min_output_current_amps": 50.0,
-                    "velocity_error_rps": 20.0,
-                    "min_command_value": 0.01,
-                    "min_output_percent": 0.05,
-                    "min_output_voltage": 1.0
+                    "minimum_velocity_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
                 },
                 "trencher":
                 {
-                    "acceleration_jump_rps_per_second": 100.0,
                     "debounce_time_seconds": 0.5,
-                    "min_output_current_amps": 15.0,
-                    "velocity_error_rps": 20.0,
-                    "min_command_value": 1.0,
-                    "min_output_percent": 0.05,
-                    "min_output_voltage": 1.0
+                    "minimum_velocity_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
                 }
             },
 

@@ -10,33 +10,19 @@ struct StallAnalyzerConfig
 {
     struct MotorConfig
     {
-        double acceleration_jump_rps_per_second{100.0};
         double debounce_time_seconds{0.25};
-        double min_output_current_amps{10.0};
-        double velocity_error_rps{20.0};
-        double min_command_value{0.01};
-        double min_output_percent{0.05};
-        double min_output_voltage{1.0};
+        double minimum_velocity_proportion{0.20};
+        double command_deadzone_rps{0.01};
     };
 
     MotorConfig tracks{
-        .acceleration_jump_rps_per_second = 100.0,
         .debounce_time_seconds = 0.25,
-        .min_output_current_amps = 50.0,
-        .velocity_error_rps = 20.0,
-        .min_command_value = 0.01,
-        .min_output_percent = 0.05,
-        .min_output_voltage = 1.0};
+        .minimum_velocity_proportion = 0.20,
+        .command_deadzone_rps = 0.01};
     MotorConfig trencher{
-        .acceleration_jump_rps_per_second = 100.0,
         .debounce_time_seconds = 0.25,
-        .min_output_current_amps = 15.0,
-        .velocity_error_rps = 20.0,
-        .min_command_value = 1.0,
-        .min_output_percent = 0.05,
-        .min_output_voltage = 1.0};
-
-    double recovery_debounce_seconds{0.10};
+        .minimum_velocity_proportion = 0.20,
+        .command_deadzone_rps = 1.0};
 };
 
 struct MotorStallInfo
@@ -86,6 +72,7 @@ private:
     MotorStallInfo analyzeMotor(
         MotorState& state,
         const TalonInfoMsg& status,
+        const TalonFaultsMsg& faults,
         const TalonCtrlMsg& command,
         const StallAnalyzerConfig::MotorConfig& motor_config,
         double dt_seconds) const;
@@ -94,6 +81,41 @@ private:
     MotorState track_right_state;
     MotorState track_left_state;
     MotorState trencher_state;
+};
+
+class StallState
+{
+public:
+    explicit StallState(StallAnalyzerConfig config = {});
+
+    void setConfig(const StallAnalyzerConfig&);
+    void reset();
+    void update(
+        const RobotMotorStatus&,
+        const RobotMotorFaults&,
+        const RobotMotorCommands&,
+        double dt_seconds);
+
+    inline const MotorStallInfo& trackLeft() const
+    {
+        return this->track_left;
+    }
+    inline const MotorStallInfo& trackRight() const
+    {
+        return this->track_right;
+    }
+    inline const MotorStallInfo& trencher() const { return this->trencher_info; }
+    inline bool anyStalled() const
+    {
+        return this->track_left.is_stalled || this->track_right.is_stalled ||
+               this->trencher_info.is_stalled;
+    }
+
+private:
+    StallAnalyzer analyzer;
+    MotorStallInfo track_left;
+    MotorStallInfo track_right;
+    MotorStallInfo trencher_info;
 };
 
 };  // namespace lance

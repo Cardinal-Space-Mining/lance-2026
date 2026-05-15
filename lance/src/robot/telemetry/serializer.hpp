@@ -66,6 +66,7 @@ protected:
 
     void addArenaTf(Bytes&, const TfCache&);
     void addRobotState(Bytes&, const RobotController&);
+    void addStallState(Byte*&, const RobotController&);
     void addControlState(Bytes&, const RobotController&);
 
     void addTeleopController(Bytes&, const TeleopController&);
