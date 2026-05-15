@@ -89,7 +89,12 @@ void TeleopController::iterate(
 
     // iterate controllers... if inputs result in finish state, continue
     // to iterate manual mode below (motor commands meaningless anyway)
-    this->iterateCurrentCommand(joy, motor_status, commands);
+    if(this->iterateCurrentCommand(joy, motor_status, commands))
+    {
+        // If an assisted mode was soft-cancelled and finished immediately,
+        // exit otherwise handleManualControl() will restart it!
+        return;
+    }
 
     // controllers either iterated and didn't finish (op_mode isn't MANUAL),
     // or a transition to MANUAL occurred, in which case we can override
@@ -219,7 +224,7 @@ void TeleopController::handleRemoteCommand()
     }
 }
 
-void TeleopController::iterateCurrentCommand(
+bool TeleopController::iterateCurrentCommand(
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
@@ -228,33 +233,32 @@ void TeleopController::iterateCurrentCommand(
     {
         case Operation::ASSISTED_MINING:
         {
-            this->iterateAssistedMining(joy, motor_status, commands);
-            break;
+            return this->iterateAssistedMining(joy, motor_status, commands);
         }
         case Operation::ASSISTED_OFFLOAD:
         {
-            this->iterateAssistedOffload(joy, motor_status, commands);
-            break;
+            return this->iterateAssistedOffload(joy, motor_status, commands);
         }
         case Operation::PLANNED_TRAVERSAL:
         {
             this->iteratePlannedTraversal(motor_status, commands);
-            break;
+            return false;
         }
         case Operation::PLANNED_MINING_T:
         case Operation::PLANNED_MINING_E:
         {
             this->iteratePlannedMining(motor_status, commands);
-            break;
+            return false;
         }
         case Operation::PLANNED_OFFLOAD_T:
         case Operation::PLANNED_OFFLOAD_E:
         {
             this->iteratePlannedOffload(motor_status, commands);
-            break;
+            return false;
         }
         default:
         {
+            return false;
         }
     }
 }
@@ -332,7 +336,7 @@ void TeleopController::handleManualControl(
 }
 
 
-void TeleopController::iterateAssistedMining(
+bool TeleopController::iterateAssistedMining(
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
@@ -341,9 +345,11 @@ void TeleopController::iterateAssistedMining(
     if (this->mining_controller.isFinished())
     {
         this->op_mode = Operation::MANUAL;
+        return true;
     }
+    return false;
 }
-void TeleopController::iterateAssistedOffload(
+bool TeleopController::iterateAssistedOffload(
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
@@ -352,7 +358,9 @@ void TeleopController::iterateAssistedOffload(
     if (this->offload_controller.isFinished())
     {
         this->op_mode = Operation::MANUAL;
+        return true;
     }
+    return false;
 }
 void TeleopController::iteratePlannedTraversal(
     const RobotMotorStatus& motor_status,

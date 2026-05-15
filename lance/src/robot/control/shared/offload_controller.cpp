@@ -113,7 +113,7 @@ void OffloadController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    if (this->stage != Stage::INITIALIZATION && joy &&
+    if ((this->stage != Stage::INITIALIZATION) && joy &&
         AssistedOffloadToggleButton::wasPressed(*joy))
     {
         this->stage = Stage::LOWERING;

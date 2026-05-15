@@ -98,6 +98,7 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, initial_belt_footprint_meters, 0.2f, float),
     INIT_PARAM2(collection_model, belt_capacity_meters, 0.6f, float),
     INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
+    INIT_PARAM2(collection_model, transfer_efficiency, 0.5f, float),
 
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
     INIT_PARAM3(stall_analyzer, tracks, debounce_time_seconds, 0.25f, float),
@@ -136,7 +137,11 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(auto_traversal, stanley_k_coeff, 1.f, float),
     INIT_PARAM2(auto_traversal, angular_kp, 1.f, float),
     INIT_PARAM2(auto_traversal, min_theta_window_deg, 2.f, float),
-    INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float)
+    INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float),
+
+    INIT_PARAM2(auto_mining, min_path_length, 2.1f, float),
+    INIT_PARAM2(auto_mining, min_replan_vol_liters, 8.f, float),
+    INIT_PARAM2(auto_mining, max_iterations, 3, int)
 {
     std::vector<double> buff;
 

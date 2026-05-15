@@ -21,7 +21,7 @@
 
             "hopper_belt":
             {
-                "max_velocity_rps": 45.0,
+                "max_velocity_rps": 135.0,
                 "mining_velocity_rps": 10.0,
                 "mining_duty_cycle_base_seconds": 1.0
             },
@@ -49,11 +49,12 @@
 
             "collection_model":
             {
-                "initial_volume_liters": 20.0,
+                "initial_volume_liters": 40.0,
                 "capacity_volume_liters": 40.0,
-                "initial_belt_footprint_meters": 0.4,
+                "initial_belt_footprint_meters": 0.5,
                 "belt_capacity_meters": 0.75,
-                "belt_offload_length_meters": 0.9
+                "belt_offload_length_meters": 1.2,
+                "transfer_efficiency": 0.5
             },
 
             "iteration_period_seconds": 0.05,
@@ -84,6 +85,7 @@
                 "align_angular_thresh_deg": 0.5
             },
 
+
             "stall_analyzer":
             {
                 "tracks":
@@ -98,6 +100,14 @@
                     "minimum_velocity_proportion": 0.2,
                     "command_deadzone_rps": 1.0
                 }
+            },
+
+            "auto_mining":
+            {
+                "min_path_length" : 1.1,
+                "min_replan_vol_liters" : 8.0,
+                "max_iterations" : 3
+
             },
 
             "mining_zone_bounds": "${ zone.ksc.mining }",

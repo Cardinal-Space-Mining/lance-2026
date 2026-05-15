@@ -126,7 +126,9 @@ void MiningConstraints::updateState(
                 static_cast<float>(lance::targetVolumeToSweepDistance(
                     hopper_state.remainingVolume(),
                     lance::linearActuatorToMiningDepthClamped(
-                        motor_status.getHopperActNormalizedValue())));
+                        motor_status.getHopperActNormalizedValue()),
+                    static_cast<double>(
+                        this->params.collection_model_transfer_efficiency)));
             if (d < this->remaining_dist ||
                 this->current_constraint == CONSTRAINT_HOPPER_FULL)
             {
@@ -272,10 +274,9 @@ void MiningController::iterate(
         this->tf_cache,
         this->mining_eval_interface);
 
-    if ((this->stage < Stage::RAISING) &&
-        (!this->constraints.hasRemaining() ||
-         (this->stage != Stage::INITIALIZATION && joy &&
-          AssistedMiningToggleButton::wasPressed(*joy))))
+    if ((this->stage < Stage::RAISING && !this->constraints.hasRemaining()) ||
+        (this->stage != Stage::INITIALIZATION && joy &&
+         AssistedMiningToggleButton::wasPressed(*joy)))
     {
         this->stage = Stage::RAISING;
     }

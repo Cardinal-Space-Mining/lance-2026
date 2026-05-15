@@ -40,12 +40,12 @@
             {
                 "robot_tf": "lance2",
                 "phx6_driver": "enabled",
-                "hopper_fullness": "enabled",
+                "hopper_fullness": null,
                 "robot_control": "lance2_ksc",
                 "redux": "robot",
                 "multiscan_driver": "net2",
                 "perception": "lance2_headless",
-                "bag_record": "all"
+                "bag_record": "raw"
             }
         },
         "lance2_ucf_right":

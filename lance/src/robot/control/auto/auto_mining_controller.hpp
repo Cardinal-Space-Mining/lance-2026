@@ -74,6 +74,7 @@ public:
         RobotMotorCommands& commands);
 
 protected:
+        
     enum class Stage
     {
         INITIALIZATION,
@@ -94,6 +95,8 @@ protected:
     MiningPlanner mining_planner;
 
     Stage stage{Stage::FINISHED};
+
+    bool is_first_run = true;
 
 };
 

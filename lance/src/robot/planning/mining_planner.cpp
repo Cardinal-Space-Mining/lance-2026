@@ -784,7 +784,7 @@ void MiningPlanner::appendPlannedMiningPaths()
 
                     const float dist = dir_mining_path.getDistance();
 
-                    if (dist >= robot_params.minimum_mining_path_length)
+                    if (dist >= robot_params.auto_mining_min_path_length)
                     {
                         this->all_mining_paths.emplace_back(
                             std::move(dir_mining_path));
@@ -867,7 +867,7 @@ void MiningPlanner::appendPlannedMiningPaths()
 
                     const float dist = dir_mining_path.getDistance();
 
-                    if (dist >= robot_params.minimum_mining_path_length)
+                    if (dist >= robot_params.auto_mining_min_path_length)
                     {
                         this->all_mining_paths.emplace_back(dir_mining_path);
                         pushed_paths++;
