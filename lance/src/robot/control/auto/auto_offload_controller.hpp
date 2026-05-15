@@ -42,12 +42,10 @@
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/control/shared/shared_controllers.hpp"
-#include "robot/planning/OffloadPlanner.hpp"
 
 
 namespace lance
 {
-    using Vec2f = Eigen::Vector2f;
 
 class AutoOffloadController
 {
@@ -69,9 +67,6 @@ public:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
-private:
-    Vec2f determineDir();
-
 protected:
     enum class Stage
     {
@@ -81,22 +76,12 @@ protected:
         OFFLOADING,
         FINISHED
     };
-    enum class Direction
-    {
-        UP,
-        DOWN,
-        LEFT,
-        RIGHT
-    };
 
 protected:
     const RobotParams& params;
 
     TraversalController& traversal_controller;
     OffloadController& offload_controller;
-
-    bool planned{false};
-    std::vector<OffloadPlanner::OffloadAction> plan; // Vector containing all planned offload actions to be executed in order
 
     Stage stage{Stage::FINISHED};
 };

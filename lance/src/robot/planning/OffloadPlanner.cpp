@@ -18,8 +18,8 @@ bool is_close(double a, double b, double epsilon = 1e-9)
 }
 
 bool almost_parallel(
-    const Eigen::Vector2f& a,
-    const Eigen::Vector2f& b,
+    const Eigen::Vector2d& a,
+    const Eigen::Vector2d& b,
     double epsilon = 1e-6)
 {
     return is_close(a.normalized().dot(b.normalized()), 1, epsilon);
@@ -28,16 +28,16 @@ bool almost_parallel(
 }  // namespace
 
 OffloadPlanner::OffloadPlanner(
-    Eigen::AlignedBox2f B_,
-    Eigen::Vector2f A_,
-    Eigen::Vector2f F_robot_,
+    Eigen::AlignedBox2d B_,
+    Eigen::Vector2d A_,
+    Eigen::Vector2d F_robot_,
     double f_robot_) :
     B(B_),
     A(A_),
     f_robot(f_robot_)
 {
-    Eigen::Vector2f b_right = B.corner(B.BottomRight) - B.corner(B.BottomLeft);
-    Eigen::Vector2f b_up = B.corner(B.TopLeft) - B.corner(B.BottomLeft);
+    Eigen::Vector2d b_right = B.corner(B.BottomRight) - B.corner(B.BottomLeft);
+    Eigen::Vector2d b_up = B.corner(B.TopLeft) - B.corner(B.BottomLeft);
     // Assertions
     {
         assert(!B_.isEmpty());  // Assert box is not empty
@@ -98,7 +98,7 @@ OffloadPlanner::OffloadPlanner(
     }
 }
 
-size_t OffloadPlanner::num_actions() const { return n_x * n_y; } // Total number of boxes that can fit in the offload zone
+size_t OffloadPlanner::num_actions() const { return n_x * n_y; }
 
 std::vector<OffloadPlanner::OffloadAction> OffloadPlanner::to_actions() const
 {
@@ -116,14 +116,13 @@ std::vector<OffloadPlanner::OffloadAction> OffloadPlanner::to_actions() const
     return actions;
 }
 
-Eigen::Vector2f OffloadPlanner::next()
+Eigen::Vector2d OffloadPlanner::next()
 {
-    // where the next box should go (the / 2 factors centralize it, start point gets it to box 1, then how many boxes in both directions we are)
     return start_point + (d_y / 2) + (d_x / 2) + (i_x * d_x) + (i_y * d_y);
 }
 
 OffloadPlanner::OffloadAction OffloadPlanner::from_vec2(
-    const Eigen::Vector2f& vec)
+    const Eigen::Vector2d& vec)
 {
     return OffloadAction{.drive_point = (A * f_robot *2) + vec, .back_point = vec + (A * f_robot)};
 }

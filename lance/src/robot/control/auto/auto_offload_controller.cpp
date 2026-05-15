@@ -44,8 +44,6 @@
 
 namespace lance
 {
-    using Box2f = Eigen::AlignedBox2f;
-    using Vec2f = Eigen::Vector2f;
 
 AutoOffloadController::AutoOffloadController(
     const RobotParams& params,
@@ -100,28 +98,23 @@ void AutoOffloadController::iterate(
         }
         case Stage::PLANNING:
         {
-            
-            if (!planned) {
-                OffloadPlanner planner(
-                    params.bounds.offload_zone,
-                    determineDir(),
-                    Vec2f{0.3, 0.3},
-                    0.15
-                );
+            if (false)  // *if not finished planning*
+            {
+                // planning algo here
 
-                this->plan = planner.to_actions();
-                this->planned = true;
+                break;  // break if more work is required
             }
 
-            if(plan.size() == 0){
-                this->stage = Stage::FINISHED;
-                break;
-            }
-
-            const auto& action = plan.front();
+            // placeholder for testing
+            Eigen::Vector2f target_dir{0.f, 1.f};
+            Eigen::Vector2f target_pos =
+                ((this->params.bounds.offload_zone.max() +
+                  this->params.bounds.offload_zone.min()) *
+                 0.5f) +
+                (target_dir * 0.35f);
 
             // init with planned destination
-            this->traversal_controller.initializePoint(action.drive_point, determineDir());
+            this->traversal_controller.initializePoint(target_pos, target_dir);
             this->stage = Stage::TRAVERSING;
             [[fallthrough]];
         }
@@ -146,17 +139,6 @@ void AutoOffloadController::iterate(
                 break;
             }
 
-            const auto& action = plan.front();
-
-            this->traversal_controller.initializePoint(action.drive_point, determineDir());
-
-            if(plan.size() != 0){
-                this->plan.erase(plan.begin());
-            } else {
-                this->stage = Stage::FINISHED;
-                break;
-            }
-
             this->stage = Stage::FINISHED;
             [[fallthrough]];
         }
@@ -166,16 +148,4 @@ void AutoOffloadController::iterate(
     }
 }
 
-Vec2f AutoOffloadController::determineDir() {
-    Vec2f dir = lance::geom::innerZoneNormalDir(params.bounds.offload_zone, params.bounds.arena_zone);
-
-    if (dir.norm() > 0) {
-        return dir;
-    }
-    else {
-        std::cout << "I don't think we should get here" << std::endl;
-        return Vec2f{0.0, 1.0};
-    }
-}
-
-}  // namespace lance
+};  // namespace lance
