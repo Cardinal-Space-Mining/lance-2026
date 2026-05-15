@@ -44,7 +44,8 @@
                 "keyframe":
                 {
                     "thresh_D": 0.4,
-                    "thresh_R": 12.0,
+                    "thresh_R": 40.0,
+                    "max_nearby": 8,
                     "submap":
                     {
                         "knn": 8,
