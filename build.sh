@@ -36,6 +36,8 @@ colcon build \
     --event-handlers console_direct+ \
     --packages-ignore lance \
     --cmake-args \
+        -DCMAKE_CXX_FLAGS="-march=native" \
+        -DCMAKE_C_FLAGS="-march=native" \
         -Wno-dev \
         -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
         ${ROBOT_TARGET}
@@ -45,6 +47,8 @@ colcon build \
     --event-handlers console_direct+ \
     --packages-select lance \
     --cmake-args \
+        -DCMAKE_CXX_FLAGS="-march=native" \
+        -DCMAKE_C_FLAGS="-march=native" \
         -Wno-dev \
         -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
         ${ROBOT_TARGET}
