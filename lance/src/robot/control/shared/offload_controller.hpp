@@ -43,6 +43,7 @@
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
+#include "robot/control/shared/linear_drive_controller.hpp"
 
 
 namespace lance
@@ -56,9 +57,7 @@ class OffloadController
     using JoyState = util::JoyState;
 
 public:
-    OffloadController(
-        const RobotParams&,
-        const HopperState&);
+    OffloadController(const RobotParams&, const HopperState&);
     ~OffloadController() = default;
 
 public:
@@ -87,18 +86,7 @@ protected:
         FINISHED
     };
 
-    struct TraversalState
-    {
-        void init(float remaining_dist = 0.f);
-        void updateOdom(float odom);
-        bool hasRemaining() const;
-        float remaining() const;
-
-    private:
-        float remaining_dist{0.f};
-        float prev_odom{0.f};
-    };
-
+   
 protected:
     void iterate(
         const JoyState* joy,
@@ -109,7 +97,7 @@ protected:
     const RobotParams& params;
     const HopperState& hopper_state;
 
-    TraversalState traversal_state{};
+    LinearDriveController ldc;
     Stage stage{Stage::FINISHED};
 
     double calculated_target_belt_pos{0.};

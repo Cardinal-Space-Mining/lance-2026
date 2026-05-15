@@ -353,7 +353,7 @@ void TelemetrySerializer::addOffloadController(
     bytes.resize(bytes.size() + sizeof(float));
     write(
         (bytes.end() - sizeof(float)).base(),
-        controller.traversal_state.remaining());
+        controller.ldc.remaining());
 }
 
 void TelemetrySerializer::addLocController(

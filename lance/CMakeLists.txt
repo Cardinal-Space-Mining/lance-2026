@@ -63,6 +63,7 @@ set(lance_core_srcs
     "src/robot/core/robot_params.cpp"
     "src/robot/core/collection_state.cpp"
     # "src/robot/core/stall_analyzer.cpp"
+    "src/robot/control/shared/linear_drive_controller.cpp"
     "src/robot/control/robot_controller.cpp"
     "src/robot/control/auto/auto_controller.cpp"
     "src/robot/control/auto/auto_mining_controller.cpp"

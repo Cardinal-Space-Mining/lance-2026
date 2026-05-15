@@ -57,7 +57,10 @@ OffloadController::OffloadController(
 void OffloadController::initialize(float traversal_dist_m)
 {
     this->stage = Stage::INITIALIZATION;
-    this->traversal_state.init(traversal_dist_m);
+    this->ldc = LinearDriveController(
+        -traversal_dist_m,
+        this->params.tracks_offload_velocity_rps,
+        0.1);
 }
 
 bool OffloadController::isFinished() { return this->stage == Stage::FINISHED; }
@@ -84,30 +87,6 @@ void OffloadController::iterate(
     this->iterate(&joy, motor_status, commands);
 }
 
-
-void OffloadController::TraversalState::init(float remaining_dist)
-{
-    this->remaining_dist = remaining_dist;
-    this->prev_odom = std::numeric_limits<float>::infinity();
-}
-void OffloadController::TraversalState::updateOdom(float odom)
-{
-    if (this->remaining_dist > 0.f && !std::isinf(this->prev_odom))
-    {
-        this->remaining_dist -= (this->prev_odom - odom);
-    }
-    this->prev_odom = odom;
-}
-bool OffloadController::TraversalState::hasRemaining() const
-{
-    return this->remaining_dist > 0.f;
-}
-float OffloadController::TraversalState::remaining() const
-{
-    return this->remaining_dist;
-}
-
-
 void OffloadController::iterate(
     const JoyState* joy,
     const RobotMotorStatus& motor_status,
@@ -119,10 +98,7 @@ void OffloadController::iterate(
         this->stage = Stage::LOWERING;
     }
 
-    this->traversal_state.updateOdom(
-        static_cast<float>(lance::trackMotorRpsToGroundMps(
-            0.5 * (motor_status.track_left.position +
-                   motor_status.track_right.position))));
+    ldc.updateOdom(motor_status.track_left, motor_status.track_right);
 
     commands.disableAll();
 
@@ -147,11 +123,10 @@ void OffloadController::iterate(
         }
         case Stage::BACKUP:
         {
-            if (!joy && this->traversal_state.hasRemaining())
+            if (!joy && ldc.hasRemaining())
             {
-                commands.setTracksVelocity(
-                    -this->params.tracks_offload_velocity_rps,
-                    -this->params.tracks_offload_velocity_rps);
+                auto [lv, rv] = ldc.get_track_velocities();
+                commands.setTracksVelocity(lv, rv);
                 break;
             }
 
