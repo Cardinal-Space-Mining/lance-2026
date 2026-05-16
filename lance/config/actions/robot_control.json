@@ -37,7 +37,7 @@
             "hopper_actuator":
             {
                 "max_speed": 1.0,
-                "plunge_speed": 0.4,
+                "plunge_speed": 0.5,
                 "extract_speed": 0.8,
                 "offload_target_val": 0.95,
                 "traversal_target_val": 0.6,
@@ -54,7 +54,7 @@
                 "initial_belt_footprint_meters": 0.5,
                 "belt_capacity_meters": 0.75,
                 "belt_offload_length_meters": 1.2,
-                "transfer_efficiency": 0.5
+                "transfer_efficiency": 0.75
             },
 
             "iteration_period_seconds": 0.05,
