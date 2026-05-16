@@ -49,6 +49,8 @@
 namespace lance
 {
 
+struct StallAnalyzerConfig;
+
 struct RobotParams
 {
     using Box2f = Eigen::AlignedBox2f;
@@ -100,6 +102,13 @@ public:
 
     const float iteration_period_seconds;
 
+    const float stall_analyzer_tracks_debounce_time_seconds;
+    const float stall_analyzer_tracks_minimum_velocity_proportion;
+    const float stall_analyzer_tracks_command_deadzone_rps;
+    const float stall_analyzer_trencher_debounce_time_seconds;
+    const float stall_analyzer_trencher_minimum_velocity_proportion;
+    const float stall_analyzer_trencher_command_deadzone_rps;
+
     const std::string robot_frame_id;
     const std::string odom_frame_id;
     const std::string arena_frame_id;
@@ -130,6 +139,8 @@ public:
 
 public:
     RobotParams(rclcpp::Node&);
+
+    StallAnalyzerConfig makeStallAnalyzerConfig() const;
 };
 
 };  // namespace lance

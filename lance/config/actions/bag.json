@@ -23,6 +23,26 @@
                 "/tf_static"
             ]
         },
+        "rerun_base":
+        {
+            "topics": [
+                "/multiscan/lidar_scan",
+                "/multiscan/imu",
+                "/joy",
+                "/lance/watchdog_status",
+                "/lance/relay_status",
+                "/lance/track_left/faults",
+                "/lance/track_left/info",
+                "/lance/track_right/faults",
+                "/lance/track_right/info",
+                "/lance/trencher/faults",
+                "/lance/trencher/info",
+                "/lance/hopper_belt/faults",
+                "/lance/hopper_belt/info",
+                "/lance/hopper_act/faults",
+                "/lance/hopper_act/info"
+            ]
+        },
         "rerun":
         {
             "topics": [

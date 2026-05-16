@@ -412,6 +412,40 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
         COLLECTION_STATE_TOPIC("belt_usage"),
         val);
 
+    return this->pubStallState(ptr, end);
+}
+
+bool TelemetryDeserializer::pubStallState(BytePtrRef ptr, BytePtr end)
+{
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + (sizeof(float) * 3));
+
+    uint8_t state{0};
+    readAndIncrement(ptr, state);
+
+    this->pub_map.publish<BoolMsg>(
+        STALL_STATE_TOPIC("track_left/is_stalled"),
+        static_cast<bool>(state & (1 << 0)));
+    this->pub_map.publish<BoolMsg>(
+        STALL_STATE_TOPIC("track_right/is_stalled"),
+        static_cast<bool>(state & (1 << 1)));
+    this->pub_map.publish<BoolMsg>(
+        STALL_STATE_TOPIC("trencher/is_stalled"),
+        static_cast<bool>(state & (1 << 2)));
+
+    float val;
+    readAndIncrement(ptr, val);
+    this->pub_map.publish<Float32Msg>(
+        STALL_STATE_TOPIC("track_left/time_stalled_seconds"),
+        val);
+    readAndIncrement(ptr, val);
+    this->pub_map.publish<Float32Msg>(
+        STALL_STATE_TOPIC("track_right/time_stalled_seconds"),
+        val);
+    readAndIncrement(ptr, val);
+    this->pub_map.publish<Float32Msg>(
+        STALL_STATE_TOPIC("trencher/time_stalled_seconds"),
+        val);
+
     return true;
 }
 

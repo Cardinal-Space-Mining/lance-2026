@@ -50,6 +50,7 @@
 #include "robot/core/robot_status.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
+#include "robot/core/stall_analyzer.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
 
 #include "auto/auto_controller.hpp"
@@ -72,6 +73,7 @@ public:
 
 public:
     const HopperState& hopperState() const;
+    const StallState& stallState() const;
     const RobotParams& getParams() const;
     const TfCache::Tf2Buffer& getTfBuffer() const;
 
@@ -79,6 +81,7 @@ public:
         int32_t ctrl_status,
         const JoyState& joy,
         const RobotMotorStatus& motor_status,
+        const RobotMotorFaults& motor_faults,
         RobotMotorCommands& commands);
 
 protected:
@@ -89,6 +92,7 @@ protected:
 protected:
     RobotParams params;
     CollectionState collection_state;
+    StallState stall_state;
     SensingInterfaces sensing_interfaces;
     SharedControllerCollection shared_controllers;
 

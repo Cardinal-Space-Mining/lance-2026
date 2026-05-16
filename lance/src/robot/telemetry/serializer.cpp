@@ -127,7 +127,8 @@ void TelemetrySerializer::addRobotState(
     const RobotController& robot_controller)
 {
     constexpr size_t RESERVE_SIZE =
-        (sizeof(uint8_t) + sizeof(uint16_t) + (sizeof(float) * 2));
+        (sizeof(uint8_t) + sizeof(uint16_t) + (sizeof(float) * 2) +
+         sizeof(uint8_t) + (sizeof(float) * 3));
 
     bytes.resize(bytes.size() + RESERVE_SIZE);
     Byte* ptr = (bytes.end() - RESERVE_SIZE).base();
@@ -148,6 +149,30 @@ void TelemetrySerializer::addRobotState(
 
     writeAsAndIncrement<float>(ptr, hopper_state.volume());
     writeAsAndIncrement<float>(ptr, hopper_state.beltUsagePercent());
+
+    this->addStallState(ptr, robot_controller);
+}
+
+void TelemetrySerializer::addStallState(
+    Byte*& ptr,
+    const RobotController& robot_controller)
+{
+    const StallState& stall_state = robot_controller.stall_state;
+    const uint8_t state =
+        (static_cast<uint8_t>(stall_state.trackLeft().is_stalled) |
+         (static_cast<uint8_t>(stall_state.trackRight().is_stalled) << 1) |
+         (static_cast<uint8_t>(stall_state.trencher().is_stalled) << 2));
+    writeAndIncrement(ptr, state);
+
+    writeAsAndIncrement<float>(
+        ptr,
+        static_cast<float>(stall_state.trackLeft().time_stalled_seconds));
+    writeAsAndIncrement<float>(
+        ptr,
+        static_cast<float>(stall_state.trackRight().time_stalled_seconds));
+    writeAsAndIncrement<float>(
+        ptr,
+        static_cast<float>(stall_state.trencher().time_stalled_seconds));
 }
 
 void TelemetrySerializer::addControlState(

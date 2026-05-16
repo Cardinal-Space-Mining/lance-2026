@@ -39,6 +39,7 @@
 
 #include "robot_params.hpp"
 
+#include "stall_analyzer.hpp"
 #include "util/ros_utils.hpp"
 
 
@@ -55,6 +56,12 @@ namespace lance
     name1##_##name2                                               \
     {                                                             \
         declare_and_get_param<type>(node, #name1 "." #name2, val) \
+    }
+
+#define INIT_PARAM3(name1, name2, name3, val, type)                             \
+    name1##_##name2##_##name3                                                   \
+    {                                                                           \
+        declare_and_get_param<type>(node, #name1 "." #name2 "." #name3, val)    \
     }
 
 RobotParams::RobotParams(rclcpp::Node& node) :
@@ -94,6 +101,22 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, transfer_efficiency, 0.5f, float),
 
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
+    INIT_PARAM3(stall_analyzer, tracks, debounce_time_seconds, 0.25f, float),
+    INIT_PARAM3(
+        stall_analyzer,
+        tracks,
+        minimum_velocity_proportion,
+        0.20f,
+        float),
+    INIT_PARAM3(stall_analyzer, tracks, command_deadzone_rps, 0.01f, float),
+    INIT_PARAM3(stall_analyzer, trencher, debounce_time_seconds, 0.25f, float),
+    INIT_PARAM3(
+        stall_analyzer,
+        trencher,
+        minimum_velocity_proportion,
+        0.20f,
+        float),
+    INIT_PARAM3(stall_analyzer, trencher, command_deadzone_rps, 1.f, float),
     INIT_PARAM(robot_frame_id, "base_link", std::string),
     INIT_PARAM(odom_frame_id, "odom", std::string),
     INIT_PARAM(arena_frame_id, "map", std::string),
@@ -136,6 +159,26 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_BOX2F(mining_zone)
     INIT_BOX2F(offload_zone)
     INIT_BOX2F(construction_zone)
+}
+
+StallAnalyzerConfig RobotParams::makeStallAnalyzerConfig() const
+{
+    StallAnalyzerConfig config;
+    config.tracks.debounce_time_seconds =
+        this->stall_analyzer_tracks_debounce_time_seconds;
+    config.tracks.minimum_velocity_proportion =
+        this->stall_analyzer_tracks_minimum_velocity_proportion;
+    config.tracks.command_deadzone_rps =
+        this->stall_analyzer_tracks_command_deadzone_rps;
+
+    config.trencher.debounce_time_seconds =
+        this->stall_analyzer_trencher_debounce_time_seconds;
+    config.trencher.minimum_velocity_proportion =
+        this->stall_analyzer_trencher_minimum_velocity_proportion;
+    config.trencher.command_deadzone_rps =
+        this->stall_analyzer_trencher_command_deadzone_rps;
+
+    return config;
 }
 
 };  // namespace lance

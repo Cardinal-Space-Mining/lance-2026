@@ -60,10 +60,12 @@ RobotController::RobotController(RclNode& node) :
     shared_controllers{
         params,
         this->collection_state.getHopperState(),
+        this->stall_state,
         this->sensing_interfaces},
     auto_controller{params, sensing_interfaces, shared_controllers},
     teleop_controller{node, params, sensing_interfaces, shared_controllers}
 {
+    this->stall_state.setConfig(this->params.makeStallAnalyzerConfig());
     this->collection_state.setParams(
         this->params.collection_model_initial_volume_liters,
         this->params.collection_model_capacity_volume_liters,
@@ -78,6 +80,11 @@ const HopperState& RobotController::hopperState() const
     return this->collection_state.getHopperState();
 }
 
+const StallState& RobotController::stallState() const
+{
+    return this->stall_state;
+}
+
 const RobotParams& RobotController::getParams() const { return this->params; }
 
 const TfCache::Tf2Buffer& RobotController::getTfBuffer() const
@@ -89,6 +96,7 @@ void RobotController::iterate(
     int32_t ctrl_status,
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
+    const RobotMotorFaults& motor_faults,
     RobotMotorCommands& commands)
 {
     const RobotMotorStatus& filtered_status =
@@ -156,6 +164,12 @@ void RobotController::iterate(
         {
         }
     }
+
+    this->stall_state.update(
+        filtered_status,
+        motor_faults,
+        commands,
+        this->params.iteration_period_seconds);
 }
 
 const RobotMotorStatus& RobotController::handleTestModeStateInjection(

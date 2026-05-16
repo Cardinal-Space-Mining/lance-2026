@@ -85,11 +85,29 @@
                 "align_angular_thresh_deg": 0.5
             },
 
+
+            "stall_analyzer":
+            {
+                "tracks":
+                {
+                    "debounce_time_seconds": 0.5,
+                    "minimum_velocity_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
+                },
+                "trencher":
+                {
+                    "debounce_time_seconds": 0.5,
+                    "minimum_velocity_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
+                }
+            },
+
             "auto_mining":
             {
                 "min_path_length" : 1.1,
                 "min_replan_vol_liters" : 8.0,
                 "max_iterations" : 3
+
             },
 
             "mining_zone_bounds": "${ zone.ksc.mining }",

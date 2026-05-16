@@ -6,7 +6,6 @@
 
 namespace lance
 {
-
 StallAnalyzer::StallAnalyzer(StallAnalyzerConfig config) : config{config} {}
 
 const StallAnalyzerConfig& StallAnalyzer::getConfig() const
@@ -24,83 +23,67 @@ void StallAnalyzer::reset()
     this->track_right_state = {};
     this->track_left_state = {};
     this->trencher_state = {};
-    this->hopper_belt_state = {};
-    this->hopper_actuator_state = {};
 }
 
-RobotStallStatus StallAnalyzer::analyze(
-    const RobotMotorStatus& motor_status,
-    const RobotMotorFaults& motor_faults,
+MotorStallInfo StallAnalyzer::analyzeTrack(
+    TrackSide side,
+    const TalonInfoMsg& status,
+    const TalonFaultsMsg& faults,
+    const TalonCtrlMsg& command,
     double dt_seconds)
 {
-    RobotStallStatus stall_status;
-    stall_status.track_right = this->analyzeMotor(
-        this->track_right_state,
-        motor_status.track_right,
-        motor_faults.track_right,
+    MotorState& state =
+        side == TrackSide::LEFT ? this->track_left_state
+                                : this->track_right_state;
+    return this->analyzeMotor(
+        state,
+        status,
+        faults,
+        command,
+        this->config.tracks,
         dt_seconds);
-    stall_status.track_left = this->analyzeMotor(
-        this->track_left_state,
-        motor_status.track_left,
-        motor_faults.track_left,
-        dt_seconds);
-    stall_status.trencher = this->analyzeMotor(
-        this->trencher_state,
-        motor_status.trencher,
-        motor_faults.trencher,
-        dt_seconds);
-    stall_status.hopper_belt = this->analyzeMotor(
-        this->hopper_belt_state,
-        motor_status.hopper_belt,
-        motor_faults.hopper_belt,
-        dt_seconds);
-    stall_status.hopper_actuator = this->analyzeMotor(
-        this->hopper_actuator_state,
-        motor_status.hopper_actuator,
-        motor_faults.hopper_actuator,
-        dt_seconds);
+}
 
-    return stall_status;
+MotorStallInfo StallAnalyzer::analyzeTrencher(
+    const TalonInfoMsg& status,
+    const TalonFaultsMsg& faults,
+    const TalonCtrlMsg& command,
+    double dt_seconds)
+{
+    return this->analyzeMotor(
+        this->trencher_state,
+        status,
+        faults,
+        command,
+        this->config.trencher,
+        dt_seconds);
 }
 
 MotorStallInfo StallAnalyzer::analyzeMotor(
     MotorState& state,
     const TalonInfoMsg& status,
     const TalonFaultsMsg& faults,
+    const TalonCtrlMsg& command,
+    const StallAnalyzerConfig::MotorConfig& motor_config,
     double dt_seconds) const
 {
     const double safe_dt_seconds = std::max(0.0, dt_seconds);
-    const double alpha =
-        std::clamp(this->config.current_filter_alpha, 0.0, 1.0);
-    const double output_current_amps = std::abs(status.output_current);
-    const double supply_current_amps = std::abs(status.supply_current);
+    const bool command_outside_deadzone =
+        std::abs(command.value) > motor_config.command_deadzone_rps;
+    const double velocity_proportion =
+        command_outside_deadzone ? status.velocity / command.value : 0.0;
+    const bool stall_condition =
+        command.mode == TalonCtrlMsg::VELOCITY &&
+        command_outside_deadzone &&
+        faults.stator_current_limit_fault &&
+        velocity_proportion < motor_config.minimum_velocity_proportion;
 
     if (!state.initialized)
     {
-        state.filtered_output_current_amps = output_current_amps;
-        state.filtered_supply_current_amps = supply_current_amps;
         state.initialized = true;
     }
-    else
-    {
-        state.filtered_output_current_amps =
-            (alpha * output_current_amps) +
-            ((1.0 - alpha) * state.filtered_output_current_amps);
-        state.filtered_supply_current_amps =
-            (alpha * supply_current_amps) +
-            ((1.0 - alpha) * state.filtered_supply_current_amps);
-    }
 
-    const bool low_velocity =
-        std::abs(status.velocity) <= this->config.max_stall_velocity_rps;
-    const bool high_current =
-        std::max(
-            state.filtered_output_current_amps,
-            state.filtered_supply_current_amps) >=
-        this->config.min_stall_current_amps;
-    const bool stall_candidate = low_velocity && high_current;
-
-    if (stall_candidate)
+    if (stall_condition)
     {
         state.stall_candidate_seconds += safe_dt_seconds;
         state.recovery_candidate_seconds = 0.0;
@@ -112,33 +95,69 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
     }
 
     if (!state.is_stalled &&
-        state.stall_candidate_seconds >= this->config.stall_debounce_seconds)
+        state.stall_candidate_seconds >= motor_config.debounce_time_seconds)
     {
         state.is_stalled = true;
+        state.time_stalled_seconds = state.stall_candidate_seconds;
     }
     else if (
         state.is_stalled &&
         state.recovery_candidate_seconds >=
-            this->config.recovery_debounce_seconds)
+            motor_config.debounce_time_seconds)
     {
         state.is_stalled = false;
+        state.time_stalled_seconds = 0.0;
+    }
+    else if (state.is_stalled)
+    {
+        state.time_stalled_seconds += safe_dt_seconds;
     }
 
     MotorStallInfo info;
     info.is_stalled = state.is_stalled;
-    info.stator_current_limit_warning = faults.stator_current_limit_fault;
-    info.supply_current_limit_warning = faults.supply_current_limit_fault;
-    info.current_limit_warning =
-        info.stator_current_limit_warning || info.supply_current_limit_warning;
-    info.velocity_rps = status.velocity;
-    info.output_current_amps = status.output_current;
-    info.supply_current_amps = status.supply_current;
-    info.filtered_output_current_amps = state.filtered_output_current_amps;
-    info.filtered_supply_current_amps = state.filtered_supply_current_amps;
-    info.stall_candidate_seconds = state.stall_candidate_seconds;
-    info.recovery_candidate_seconds = state.recovery_candidate_seconds;
+    info.time_stalled_seconds = state.time_stalled_seconds;
 
     return info;
+}
+
+StallState::StallState(StallAnalyzerConfig config) : analyzer{config} {}
+
+void StallState::setConfig(const StallAnalyzerConfig& config)
+{
+    this->analyzer.setConfig(config);
+}
+
+void StallState::reset()
+{
+    this->analyzer.reset();
+    this->track_left = {};
+    this->track_right = {};
+    this->trencher_info = {};
+}
+
+void StallState::update(
+    const RobotMotorStatus& status,
+    const RobotMotorFaults& faults,
+    const RobotMotorCommands& commands,
+    double dt_seconds)
+{
+    this->track_left = this->analyzer.analyzeTrack(
+        TrackSide::LEFT,
+        status.track_left,
+        faults.track_left,
+        commands.track_left,
+        dt_seconds);
+    this->track_right = this->analyzer.analyzeTrack(
+        TrackSide::RIGHT,
+        status.track_right,
+        faults.track_right,
+        commands.track_right,
+        dt_seconds);
+    this->trencher_info = this->analyzer.analyzeTrencher(
+        status.trencher,
+        faults.trencher,
+        commands.trencher,
+        dt_seconds);
 }
 
 };  // namespace lance
