@@ -1,11 +1,34 @@
 #include "stall_analyzer.hpp"
 
-#include <algorithm>
 #include <cmath>
+#include <algorithm>
 
 
 namespace lance
 {
+
+StallAnalyzerConfig StallAnalyzerConfig::fromParams(const RobotParams& params)
+{
+    StallAnalyzerConfig config;
+
+    config.tracks.debounce_time_seconds =
+        params.stall_analyzer_tracks_debounce_time_s;
+    config.tracks.minimum_velocity_proportion =
+        params.stall_analyzer_tracks_min_vel_proportion;
+    config.tracks.command_deadzone_rps =
+        params.stall_analyzer_tracks_command_deadzone_rps;
+
+    config.trencher.debounce_time_seconds =
+        params.stall_analyzer_trencher_debounce_time_s;
+    config.trencher.minimum_velocity_proportion =
+        params.stall_analyzer_trencher_min_vel_proportion;
+    config.trencher.command_deadzone_rps =
+        params.stall_analyzer_trencher_command_deadzone_rps;
+
+    return config;
+}
+
+
 StallAnalyzer::StallAnalyzer(StallAnalyzerConfig config) : config{config} {}
 
 const StallAnalyzerConfig& StallAnalyzer::getConfig() const
@@ -32,9 +55,8 @@ MotorStallInfo StallAnalyzer::analyzeTrack(
     const TalonCtrlMsg& command,
     double dt_seconds)
 {
-    MotorState& state =
-        side == TrackSide::LEFT ? this->track_left_state
-                                : this->track_right_state;
+    MotorState& state = side == TrackSide::LEFT ? this->track_left_state
+                                                : this->track_right_state;
     return this->analyzeMotor(
         state,
         status,
@@ -73,8 +95,7 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
     const double velocity_proportion =
         command_outside_deadzone ? status.velocity / command.value : 0.0;
     const bool stall_condition =
-        command.mode == TalonCtrlMsg::VELOCITY &&
-        command_outside_deadzone &&
+        command.mode == TalonCtrlMsg::VELOCITY && command_outside_deadzone &&
         faults.stator_current_limit_fault &&
         velocity_proportion < motor_config.minimum_velocity_proportion;
 
@@ -102,8 +123,7 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
     }
     else if (
         state.is_stalled &&
-        state.recovery_candidate_seconds >=
-            motor_config.debounce_time_seconds)
+        state.recovery_candidate_seconds >= motor_config.debounce_time_seconds)
     {
         state.is_stalled = false;
         state.time_stalled_seconds = 0.0;

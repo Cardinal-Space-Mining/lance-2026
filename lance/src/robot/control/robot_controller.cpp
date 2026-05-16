@@ -65,7 +65,7 @@ RobotController::RobotController(RclNode& node) :
     auto_controller{params, sensing_interfaces, shared_controllers},
     teleop_controller{node, params, sensing_interfaces, shared_controllers}
 {
-    this->stall_state.setConfig(this->params.makeStallAnalyzerConfig());
+    this->stall_state.setConfig(StallAnalyzerConfig::fromParams(this->params));
     this->collection_state.setParams(
         this->params.collection_model_initial_volume_liters,
         this->params.collection_model_capacity_volume_liters,
@@ -106,6 +106,12 @@ void RobotController::iterate(
 
     const ControlMode prev_mode = this->control_mode;
     this->control_mode = ControlStatus::getMode(ctrl_status);
+
+    this->stall_state.update(
+        filtered_status,
+        motor_faults,
+        commands,
+        this->params.iteration_period_seconds);
 
     // process transition actions
     switch (encodeTransition(prev_mode, this->control_mode))
@@ -164,12 +170,6 @@ void RobotController::iterate(
         {
         }
     }
-
-    this->stall_state.update(
-        filtered_status,
-        motor_faults,
-        commands,
-        this->params.iteration_period_seconds);
 }
 
 const RobotMotorStatus& RobotController::handleTestModeStateInjection(

@@ -417,7 +417,7 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
 
 bool TelemetryDeserializer::pubStallState(BytePtrRef ptr, BytePtr end)
 {
-    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) + (sizeof(float) * 3));
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(uint8_t) /*+ (sizeof(float) * 3)*/);
 
     uint8_t state{0};
     readAndIncrement(ptr, state);
@@ -432,19 +432,19 @@ bool TelemetryDeserializer::pubStallState(BytePtrRef ptr, BytePtr end)
         STALL_STATE_TOPIC("trencher/is_stalled"),
         static_cast<bool>(state & (1 << 2)));
 
-    float val;
-    readAndIncrement(ptr, val);
-    this->pub_map.publish<Float32Msg>(
-        STALL_STATE_TOPIC("track_left/time_stalled_seconds"),
-        val);
-    readAndIncrement(ptr, val);
-    this->pub_map.publish<Float32Msg>(
-        STALL_STATE_TOPIC("track_right/time_stalled_seconds"),
-        val);
-    readAndIncrement(ptr, val);
-    this->pub_map.publish<Float32Msg>(
-        STALL_STATE_TOPIC("trencher/time_stalled_seconds"),
-        val);
+    // float val;
+    // readAndIncrement(ptr, val);
+    // this->pub_map.publish<Float32Msg>(
+    //     STALL_STATE_TOPIC("track_left/time_stalled_seconds"),
+    //     val);
+    // readAndIncrement(ptr, val);
+    // this->pub_map.publish<Float32Msg>(
+    //     STALL_STATE_TOPIC("track_right/time_stalled_seconds"),
+    //     val);
+    // readAndIncrement(ptr, val);
+    // this->pub_map.publish<Float32Msg>(
+    //     STALL_STATE_TOPIC("trencher/time_stalled_seconds"),
+    //     val);
 
     return true;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "robot/core/motor_interface.hpp"
+#include "robot_params.hpp"
+#include "motor_interface.hpp"
 
 
 namespace lance
@@ -23,6 +24,8 @@ struct StallAnalyzerConfig
         .debounce_time_seconds = 0.25,
         .minimum_velocity_proportion = 0.20,
         .command_deadzone_rps = 1.0};
+
+    static StallAnalyzerConfig fromParams(const RobotParams&);
 };
 
 struct MotorStallInfo

@@ -57,6 +57,22 @@
                 "transfer_efficiency": 0.75
             },
 
+            "stall_analyzer":
+            {
+                "tracks":
+                {
+                    "debounce_time_s": 0.5,
+                    "min_vel_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
+                },
+                "trencher":
+                {
+                    "debounce_time_s": 0.5,
+                    "min_vel_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
+                }
+            },
+
             "iteration_period_seconds": 0.05,
             "odom_frame_id": "${ id.odom_frame }",
             "arena_frame_id": "${ id.arena_frame }",
@@ -83,23 +99,6 @@
                 "angular_kp": 1.5,
                 "min_theta_window_deg": 2.0,
                 "align_angular_thresh_deg": 0.5
-            },
-
-
-            "stall_analyzer":
-            {
-                "tracks":
-                {
-                    "debounce_time_seconds": 0.5,
-                    "minimum_velocity_proportion": 0.2,
-                    "command_deadzone_rps": 1.0
-                },
-                "trencher":
-                {
-                    "debounce_time_seconds": 0.5,
-                    "minimum_velocity_proportion": 0.2,
-                    "command_deadzone_rps": 1.0
-                }
             },
 
             "auto_mining":
