@@ -40,9 +40,21 @@
 #include "mining_controller.hpp"
 
 #include <limits>
+#include <iostream>
 
 #include "robot/core/hid_bindings.hpp"
 #include "robot/model/dynamics.hpp"
+
+
+#ifndef MINING_CONTROLLER_DEBUG
+    #define MINING_CONTROLLER_DEBUG 1
+#endif
+#if MINING_CONTROLLER_DEBUG
+    #define MINING_DEBUG(...)                                       \
+        std::cout << "MINING DEBUG >> " << __VA_ARGS__ << std::endl
+#else
+    #define MINING_DEBUG(...)
+#endif
 
 
 namespace lance
@@ -274,10 +286,19 @@ void MiningController::iterate(
         this->tf_cache,
         this->mining_eval_interface);
 
+    MINING_DEBUG(
+        "Stage : " << static_cast<int>(this->stage)
+                   << ", Constrained? : " << this->constraints.hasRemaining()
+                   << ", Joy? : " << static_cast<bool>(joy)
+                   << ", Toggle pressed? : " << (joy
+            ? AssistedMiningToggleButton::wasPressed(*joy)
+            : false));
+
     if ((this->stage < Stage::RAISING && !this->constraints.hasRemaining()) ||
         (this->stage != Stage::INITIALIZATION && joy &&
          AssistedMiningToggleButton::wasPressed(*joy)))
     {
+        MINING_DEBUG("CANCELLED!");
         this->stage = Stage::RAISING;
     }
 
@@ -285,11 +306,13 @@ void MiningController::iterate(
     {
         case Stage::INITIALIZATION:
         {
+            MINING_DEBUG("init stage");
             this->stage = Stage::LOWERING;
             [[fallthrough]];
         }
         case Stage::LOWERING:
         {
+            MINING_DEBUG("lowering stage");
             const double hopper_act_val =
                 motor_status.getHopperActNormalizedValue();
             if (hopper_act_val > this->params.hopper_actuator_mining_target_val)
@@ -315,6 +338,7 @@ void MiningController::iterate(
         }
         case Stage::TRAVERSING:
         {
+            MINING_DEBUG("traversing stage");
             // default setpoints
             float trencher_target = this->params.trencher_mining_velocity_rps;
             float hopper_act_target =
@@ -433,6 +457,7 @@ void MiningController::iterate(
         }
         case Stage::RAISING:
         {
+            MINING_DEBUG("raising stage");
             if (motor_status.getHopperActNormalizedValue() <
                 this->params.hopper_actuator_transport_target_val)
             {
@@ -448,6 +473,7 @@ void MiningController::iterate(
         }
         case Stage::FINISHED:
         {
+            MINING_DEBUG("finished stage");
             this->mining_eval_interface.cancelQuery();
         }
     }
