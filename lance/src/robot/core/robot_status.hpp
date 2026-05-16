@@ -47,6 +47,16 @@
 namespace lance
 {
 
+/* --- ROBOT STATUS ---
+ * The robot status is sent as an INT32, where the connection timeout time,
+ * control mode, and augmentation options are encoded. This works as follows:
+ * The SIGNED value divided by 1000 is read as the watchdog timeout in
+ * milliseconds, where a positive sign corresponds to TELEOP mode, a negative
+ * sign corresponds to AUTO mode, and a value of 0 corresponds to DISABLED
+ * mode. The remaining value % 1000 component's absolute value contains any
+ * augmentation options - roughly 9 states can be encoded in the bitfield
+ * (the 9 lowest bits). */
+
 enum class ControlMode : uint8_t
 {
     DISABLED = 0,
@@ -56,7 +66,12 @@ enum class ControlMode : uint8_t
 enum class ControlOpts : uint8_t
 {
     NONE = 0,
-    TEST_MODE = 1
+    // limit hopper minimum height for testing and simulation
+    TEST_MODE = (1 << 0),
+    // minimize time in auto for quick points
+    QUICK_AUTO = (1 << 1),
+    // override assisted modes to run as autonomous routines
+    ASSIST_AS_AUTO = (1 << 2)
 };
 
 
