@@ -2,11 +2,11 @@
     "bag_play":
     {
         "pragma:default": "all",
-
         "all": {},
         "lidar":
         {
-            "topics": [
+            "topics":
+            [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu"
             ],
@@ -16,7 +16,8 @@
         },
         "lidar_with_tf":
         {
-            "topics": [
+            "topics":
+            [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
                 "/tf",
@@ -25,12 +26,15 @@
         },
         "rerun_base":
         {
-            "topics": [
+            "topics":
+            [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
+
                 "/joy",
                 "/lance/watchdog_status",
                 "/lance/relay_status",
+
                 "/lance/track_left/faults",
                 "/lance/track_left/info",
                 "/lance/track_right/faults",
@@ -45,12 +49,15 @@
         },
         "rerun":
         {
-            "topics": [
+            "topics":
+            [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
+
                 "/joy",
                 "/lance/watchdog_status",
                 "/lance/relay_status",
+
                 "/lance/track_left/faults",
                 "/lance/track_left/info",
                 "/lance/track_right/faults",
@@ -61,16 +68,18 @@
                 "/lance/hopper_belt/info",
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
+
                 "/lance/telemetry",
                 "/lance/net_latency"
             ]
         },
-
         "cosmic_bag":
         {
-            "topics": [
+            "topics":
+            [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
+
                 "/lance/watchdog_status",
                 "/lance/control_level",
                 "/lance/mining_status",
@@ -87,7 +96,8 @@
         },
         "ksc_bag":
         {
-            "topics": [
+            "topics":
+            [
                 "/multiscan/lidar_scan"
             ],
             "start_paused": true,
@@ -95,11 +105,6 @@
             "loop": false
         }
     },
-
-
-
-
-
     "bag_record":
     {
         "pragma:default": null,
@@ -127,32 +132,20 @@
                 "/lance/track_left/ctrl",
                 "/lance/track_left/faults",
                 "/lance/track_left/info",
-
                 "/lance/track_right/ctrl",
                 "/lance/track_right/faults",
                 "/lance/track_right/info",
-
                 "/lance/trencher/ctrl",
                 "/lance/trencher/faults",
                 "/lance/trencher/info",
-
                 "/lance/hopper_belt/ctrl",
                 "/lance/hopper_belt/faults",
                 "/lance/hopper_belt/info",
-
                 "/lance/hopper_act/ctrl",
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
-                "/lance/hopper_act_left/ctrl",
-                "/lance/hopper_act_left/faults",
-                "/lance/hopper_act_left/info",
-                "/lance/hopper_act_right/ctrl",
-                "/lance/hopper_act_right/faults",
-                "/lance/hopper_act_right/info",
 
-                "/lance/hopper_fullness",
                 "/lance/telemetry",
-
                 "/cardinal_perception/trace_notifications",
                 "/rosout"
             ]
@@ -176,30 +169,19 @@
                 "/lance/track_left/ctrl",
                 "/lance/track_left/faults",
                 "/lance/track_left/info",
-
                 "/lance/track_right/ctrl",
                 "/lance/track_right/faults",
                 "/lance/track_right/info",
-
                 "/lance/trencher/ctrl",
                 "/lance/trencher/faults",
                 "/lance/trencher/info",
-
                 "/lance/hopper_belt/ctrl",
                 "/lance/hopper_belt/faults",
                 "/lance/hopper_belt/info",
-
                 "/lance/hopper_act/ctrl",
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
-                "/lance/hopper_act_left/ctrl",
-                "/lance/hopper_act_left/faults",
-                "/lance/hopper_act_left/info",
-                "/lance/hopper_act_right/ctrl",
-                "/lance/hopper_act_right/faults",
-                "/lance/hopper_act_right/info",
 
-                "/lance/hopper_fullness",
                 "/lance/telemetry",
                 "/lance/net_latency",
                 "/lance/traversal_path",
@@ -210,7 +192,6 @@
                 "/cardinal_perception/mining_eval_results",
                 "/cardinal_perception/reflector_hint",
                 "/cardinal_perception/planned_path",
-
                 "/cardinal_perception/trace_notifications",
                 "/rosout"
             ],

@@ -264,9 +264,7 @@ EndPointNode<E>::EndPointNode() :
          "lance/track_right",
          "lance/trencher",
          "lance/hopper_belt",
-         "lance/hopper_act",
-         "lance/hopper_act_left",
-         "lance/hopper_act_right"})},
+         "lance/hopper_act"})},
 
     telemetry{PARAMS_FROM_TOPIC("lance/telemetry")},
     hopper_fullness{PARAMS_FROM_TOPIC("lance/hopper_fullness")},

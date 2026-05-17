@@ -331,7 +331,7 @@ void TeleopController::handleManualControl(
         {
             hopper_act_scalar = 0.f;
         }
-        commands.setHopperActVelocity(hopper_act_scalar);
+        commands.setHopperActSpeed(hopper_act_scalar);
     }
 }
 
