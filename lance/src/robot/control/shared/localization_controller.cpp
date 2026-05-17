@@ -105,7 +105,7 @@ void LocalizationController::iterate(
                     motor_status.getHopperActNormalizedValue() >
                 this->params.hopper_actuator_targetting_thresh)
             {
-                commands.setHopperActVelocity(
+                commands.setHopperActSpeed(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
@@ -114,7 +114,7 @@ void LocalizationController::iterate(
                     this->params.hopper_actuator_traversal_target_val >
                 this->params.hopper_actuator_targetting_thresh)
             {
-                commands.setHopperActVelocity(
+                commands.setHopperActSpeed(
                     -this->params.hopper_actuator_max_speed);
                 break;
             }
