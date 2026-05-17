@@ -224,22 +224,24 @@ constexpr inline T miningDepthToTrencherImpactVolume(const T& depth_m)
     {
         return static_cast<T>(0);
     }
-    else if (d < R)
+
+    double cross_section_area = 0;
+    if (d < R)
     {
-        double x = (R - d);
-        double cross_section_area =
-            (R2 * acos(x / R) - x * std::sqrt(R2 - x * x));
-        // cross-section * width * 1000 liters/m^3
-        return static_cast<T>(
-            cross_section_area * TRENCHER_WIDTH_M * LITERS_PER_M_CUBED);
+        // Formula from: https://www.omnicalculator.com/math/segment-area
+        // Section: Formula given radius and height
+        cross_section_area = (R2 * std::acos((R - d) / R)) -
+                             ((R - d) * std::sqrt(2 * R * d - d * d));
     }
     else
     {
-        // (full semi-circle cross-section + additional depth rect) * width * 1000 liters/m^3
-        return static_cast<T>(
-            ((std::numbers::pi * R2) + ((depth_m - R) * TRENCHER_WIDTH_M * R)) *
-            LITERS_PER_M_CUBED);
+        // (half-circle cross-section + additional depth rect)
+        cross_section_area =
+            (0.5 * std::numbers::pi * R2) + ((depth_m - R) * R);
     }
+    // cross-section * width * 1000 liters/m^3
+    return static_cast<T>(
+        cross_section_area * TRENCHER_WIDTH_M * LITERS_PER_M_CUBED);
 }
 
 template<typename T>
