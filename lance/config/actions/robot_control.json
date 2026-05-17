@@ -49,12 +49,12 @@
 
             "collection_model":
             {
-                "initial_volume_liters": 40.0,
+                "initial_volume_liters": 30.0,
                 "capacity_volume_liters": 40.0,
                 "initial_belt_footprint_meters": 0.5,
                 "belt_capacity_meters": 0.75,
                 "belt_offload_length_meters": 1.2,
-                "transfer_efficiency": 0.75
+                "transfer_efficiency": 0.9
             },
 
             "stall_analyzer":
