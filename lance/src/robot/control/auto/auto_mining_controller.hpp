@@ -39,13 +39,14 @@
 
 #pragma once
 
+#include <optional>
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
 #include "robot/control/shared/shared_controllers.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
-// #include "robot/planning/mining_planner.hpp"
+#include "robot/planning/mining_planner.hpp"
 
 
 namespace lance
@@ -73,6 +74,7 @@ public:
         RobotMotorCommands& commands);
 
 protected:
+        
     enum class Stage
     {
         INITIALIZATION,
@@ -89,9 +91,12 @@ protected:
     TraversalController& traversal_controller;
     MiningController& mining_controller;
 
-    // MiningPlanner mining_planner;
+    std::optional<DirectedMiningPath> current_mining_path;
+    MiningPlanner mining_planner;
 
     Stage stage{Stage::FINISHED};
+
+    bool is_first_run = true;
 
 };
 

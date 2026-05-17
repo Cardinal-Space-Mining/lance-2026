@@ -66,6 +66,7 @@ protected:
 
     void addArenaTf(Bytes&, const TfCache&);
     void addRobotState(Bytes&, const RobotController&);
+    void addStallState(Bytes&, const RobotController&);
     void addControlState(Bytes&, const RobotController&);
 
     void addTeleopController(Bytes&, const TeleopController&);
@@ -77,10 +78,12 @@ protected:
     void addLocController(Bytes&, const LocalizationController&);
     void addTravController(Bytes&, const TraversalController&);
 
+    void addMiningPlannerDebug(Bytes&, const AutoMiningController&, size_t);
+
 protected:
     BytesSharedPub pub;
 
-    time_point last_tf_pub, last_path_pub;
+    time_point last_tf_pub, last_path_pub, last_auto_mining_vis_pub;
 
     const float throttled_pub_freq;
 };

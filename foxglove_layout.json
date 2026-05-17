@@ -83,14 +83,15 @@
       "data": {
         "label": "String Data",
         "topic": "/lance/op_status",
-        "visible": true
+        "visible": false
       },
       "appearance": {
         "fontSize": 14,
         "backgroundColor": "#27272b",
         "fontColor": "#e1e1e4",
         "fontFamily": "'Source Code Pro', 'Consolas', 'Courier New', monospace"
-      }
+      },
+      "foxglovePanelTitle": "Control Operation"
     },
     "Bar Display.Bar Display!24ijj1u": {
       "topicField": "/lance/collection_state/volume.data",
@@ -99,7 +100,8 @@
       "barColor": "#0037ff",
       "orientation": "horizontal",
       "fillBehavior": "clamp",
-      "negateValue": false
+      "negateValue": false,
+      "foxglovePanelTitle": "Hopper Volume"
     },
     "Bar Display.Bar Display!1aq54gx": {
       "topicField": "/lance/collection_state/belt_usage.data",
@@ -108,7 +110,18 @@
       "barColor": "#00ff05",
       "orientation": "horizontal",
       "fillBehavior": "clamp",
-      "negateValue": false
+      "negateValue": false,
+      "foxglovePanelTitle": "Belt %"
+    },
+    "Bar Display.Bar Display!ntalef": {
+      "topicField": "/lance/collection_state/offloaded_volume.data",
+      "minValue": 0,
+      "maxValue": 300,
+      "barColor": "#ff0084",
+      "orientation": "horizontal",
+      "fillBehavior": "clamp",
+      "negateValue": false,
+      "foxglovePanelTitle": "Offloaded Volume"
     },
     "Bar Display.Bar Display!308m91j": {
       "topicField": "/lance/hopper_act/info.bus_voltage",
@@ -133,13 +146,13 @@
     "3D!wl899f": {
       "cameraState": {
         "perspective": false,
-        "distance": 7.944286369134119,
-        "phi": 40.51381731626777,
-        "thetaOffset": 55.15944726331444,
+        "distance": 6.811232525732397,
+        "phi": 179.99994268895352,
+        "thetaOffset": 168.5675051035977,
         "targetOffset": [
-          -2.244055629377903,
-          -0.8839905590464912,
-          2.805535342104833e-16
+          -2.1112158077151784,
+          -1.552224739658882,
+          1.5767803246227775e-16
         ],
         "target": [
           0,
@@ -363,7 +376,8 @@
       ],
       "isSynced": true,
       "showPoints": false,
-      "timeWindowMode": "automatic"
+      "timeWindowMode": "automatic",
+      "foxglovePanelTitle": "Control Operations"
     },
     "Plot!1n7cgqb": {
       "paths": [
@@ -441,7 +455,8 @@
       "showPlotValuesInLegend": true,
       "isSynced": true,
       "xAxisVal": "timestamp",
-      "sidebarDimension": 354
+      "sidebarDimension": 354,
+      "foxglovePanelTitle": "Motors"
     },
     "Plot!wy5z8y": {
       "paths": [
@@ -453,33 +468,10 @@
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/lance/collection_state/mining_target.data",
-          "enabled": true,
-          "color": "#f5774d"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/lance/collection_state/offload_target.data",
-          "enabled": true,
-          "color": "#f7df71"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/lance/hopper_belt/info.position",
+          "value": "/lance/collection_state/offloaded_volume.data",
           "enabled": false,
-          "color": "#5cd6a9"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/lance/collection_state/belt_pos_m.data",
-          "enabled": true,
-          "color": "#61cbff"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/lance/collection_state/belt_usage_m.data",
-          "enabled": false,
-          "color": "#a395e2"
+          "color": "#f5774d",
+          "id": "a57093ab-478e-49d1-89e2-e309eeaa7b1a"
         }
       ],
       "showXAxisLabels": true,
@@ -490,6 +482,23 @@
       "isSynced": true,
       "xAxisVal": "timestamp",
       "sidebarDimension": 354
+    },
+    "Plot!3b2rqhx": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/net_latency.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "5118f7e4-5db1-4c21-bfcb-2e9c0b4ebd4a",
+          "showLine": true
+        }
+      ],
+      "showLegend": false,
+      "showYAxisLabels": true,
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp"
     },
     "Indicator!8ik4mm": {
       "path": "/lance/mining_constraints/obstacle.data",
@@ -603,7 +612,8 @@
         }
       ],
       "isSynced": true,
-      "showPoints": false
+      "showPoints": false,
+      "foxglovePanelTitle": "Motor States"
     },
     "CallService!3803max": {
       "requestPayload": "{\n  \"data\": true\n}",
@@ -5892,9 +5902,14 @@
                     "second": {
                       "first": {
                         "first": "Bar Display.Bar Display!24ijj1u",
-                        "second": "Bar Display.Bar Display!1aq54gx",
+                        "second": {
+                          "first": "Bar Display.Bar Display!1aq54gx",
+                          "second": "Bar Display.Bar Display!ntalef",
+                          "direction": "column",
+                          "splitPercentage": 48.88888888888883
+                        },
                         "direction": "column",
-                        "splitPercentage": 52.667235051444564
+                        "splitPercentage": 33.84615384615385
                       },
                       "second": {
                         "first": "Bar Display.Bar Display!308m91j",
@@ -5903,10 +5918,10 @@
                         "splitPercentage": 48.963607812293915
                       },
                       "direction": "column",
-                      "splitPercentage": 32.00869014212003
+                      "splitPercentage": 37.22595078299777
                     },
                     "direction": "column",
-                    "splitPercentage": 35.09333990511984
+                    "splitPercentage": 31.150268005668163
                   },
                   "direction": "column",
                   "splitPercentage": 8.314974863017566
@@ -5931,7 +5946,7 @@
                     "first": "Plot!wy5z8y",
                     "second": "Plot!3b2rqhx",
                     "direction": "column",
-                    "splitPercentage": 58.309276664349596
+                    "splitPercentage": 51.2373673913003
                   },
                   "second": {
                     "first": {
@@ -5952,11 +5967,12 @@
                   "direction": "row",
                   "splitPercentage": 69.15039126717956
                 },
-                "direction": "column"
+                "direction": "column",
+                "splitPercentage": 50.32508585637723
               },
               "second": "StateTransitions!3qedham",
               "direction": "column",
-              "splitPercentage": 63.61639824304539
+              "splitPercentage": 63.863269240789954
             },
             "direction": "row",
             "splitPercentage": 79.73568281938326
@@ -6352,23 +6368,6 @@
           }
         }
       ]
-    },
-    "Plot!3b2rqhx": {
-      "paths": [
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/lance/net_latency.data",
-          "enabled": true,
-          "color": "#4e98e2",
-          "id": "5118f7e4-5db1-4c21-bfcb-2e9c0b4ebd4a",
-          "showLine": true
-        }
-      ],
-      "showLegend": false,
-      "showYAxisLabels": true,
-      "showPlotValuesInLegend": true,
-      "isSynced": true,
-      "xAxisVal": "timestamp"
     }
   },
   "globalVariables": {

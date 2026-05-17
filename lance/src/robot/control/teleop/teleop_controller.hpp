@@ -98,7 +98,7 @@ protected:
     void cancelCurrentCommand();
     void clearRemoteCommand();
     void handleRemoteCommand();
-    void iterateCurrentCommand(
+    bool iterateCurrentCommand(
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);
@@ -108,11 +108,11 @@ protected:
         RobotMotorCommands&);
 
 protected:
-    void iterateAssistedMining(
+    bool iterateAssistedMining(
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);
-    void iterateAssistedOffload(
+    bool iterateAssistedOffload(
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);

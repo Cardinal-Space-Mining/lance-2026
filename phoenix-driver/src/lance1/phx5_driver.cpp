@@ -50,33 +50,25 @@
 #include <ctre/phoenix/cci/Diagnostics_CCI.h>
 #include <ctre/phoenix/unmanaged/Unmanaged.h>
 
+#include "common.hpp"
 #include "ros_utils.hpp"
 #include "phx5_utils.hpp"
 
 
-using namespace util;
-using namespace util::ros_aliases;
-using namespace std::chrono_literals;
-
-#define ROBOT_TOPIC(subtopic) "lance/" subtopic
-#define TALON_CTRL_SUB_QOS                                               \
-    rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile()
-
-#define DEFAULT_CAN_INTERFACE    "can_phx5"
-#define DEFAULT_MOTOR_CAN_ID     4
-#define DEFAULT_DIAG_SERVER_PORT 1250
+#define DEFAULT_CAN_INTERFACE "can_phx5"
+#define DEFAULT_MOTOR_CAN_ID  4
 
 
-class Phoenix5Driver : public rclcpp::Node
+class Phoenix5Driver : public rclcpp::Node, private util::UsingRosAliases
 {
     using Int32Msg = std_msgs::msg::Int32;
 
     struct RclTalonSRX
     {
         TalonSRX motor;
-        SharedPub<TalonInfoMsg> info_pub;
-        SharedPub<TalonFaultsMsg> faults_pub;
-        SharedSub<TalonCtrlMsg> ctrl_sub;
+        RclPubPtr<TalonInfoMsg> info_pub;
+        RclPubPtr<TalonFaultsMsg> faults_pub;
+        RclSubPtr<TalonCtrlMsg> ctrl_sub;
     };
 
 public:
@@ -97,10 +89,10 @@ private:
 private:
     RclTalonSRX hopper_act;
 
-    SharedSub<Int32Msg> watchdog_status_sub;
+    RclSubPtr<Int32Msg> watchdog_status_sub;
 
-    RclTimer info_pub_timer;
-    RclTimer fault_pub_timer;
+    RclTimer::SharedPtr info_pub_timer;
+    RclTimer::SharedPtr fault_pub_timer;
 
     bool is_disabled = false;
 };
@@ -108,7 +100,7 @@ private:
 
 Phoenix5Driver::Phoenix5Driver() :
     Node{
-        "phoenix5_driver"
+        "lance1_phoenix5_driver"
 },
     hopper_act{
         .motor{
@@ -133,10 +125,10 @@ Phoenix5Driver::Phoenix5Driver() :
         rclcpp::SensorDataQoS{},
         [this](const Int32Msg& msg) { this->feed_watchdog_status(msg.data); })},
     info_pub_timer{this->create_wall_timer(
-        100ms,
+        std::chrono::milliseconds(DEFAULT_MOTOR_INFO_PUB_DT_MS),
         [this]() { this->pub_motor_info_cb(); })},
     fault_pub_timer{this->create_wall_timer(
-        250ms,
+        std::chrono::milliseconds(DEFAULT_MOTOR_FAULTS_PUB_DT_MS),
         [this]() { this->pub_motor_fault_cb(); })}
 {
     this->initPhx();
@@ -157,7 +149,7 @@ void Phoenix5Driver::initMotor()
         TalonSRXFeedbackDevice::Analog);
     this->hopper_act.motor.SetInverted(true);
     this->hopper_act.motor.SetNeutralMode(NeutralMode::Brake);
-    this->hopper_act.motor.ConfigNeutralDeadband(5.);  // <-- percent
+    this->hopper_act.motor.ConfigNeutralDeadband(5. /* percent */);
     this->hopper_act.motor.ClearStickyFaults();
 }
 
@@ -205,6 +197,7 @@ void Phoenix5Driver::pub_motor_info_cb()
     info_msg.header.stamp = this->get_clock()->now();
 
     info_msg << this->hopper_act.motor;
+    info_msg.position /= 1000.;
     info_msg.status |= static_cast<uint8_t>(!this->is_disabled);
 
     this->hopper_act.info_pub->publish(info_msg);
@@ -230,6 +223,7 @@ void Phoenix5Driver::execute_ctrl(TalonSRX& motor, const TalonCtrlMsg& msg)
         switch (msg.mode)
         {
             case TalonCtrlMsg::PERCENT_OUTPUT:
+            case TalonCtrlMsg::VELOCITY:
             {
                 motor.Set(ControlMode::PercentOutput, msg.value);
                 break;
@@ -237,11 +231,6 @@ void Phoenix5Driver::execute_ctrl(TalonSRX& motor, const TalonCtrlMsg& msg)
             case TalonCtrlMsg::POSITION:
             {
                 motor.Set(ControlMode::Position, msg.value);
-                break;
-            }
-            case TalonCtrlMsg::VELOCITY:
-            {
-                motor.Set(ControlMode::Velocity, msg.value);
                 break;
             }
             case TalonCtrlMsg::CURRENT:
@@ -287,15 +276,14 @@ void Phoenix5Driver::execute_ctrl(TalonSRX& motor, const TalonCtrlMsg& msg)
 int main(int argc, char** argv)
 {
     ctre::phoenix::unmanaged::Unmanaged::LoadPhoenix();
-    std::cout << "Loaded Phoenix 5 Unmanaged" << std::endl;
 
     rclcpp::init(argc, argv);
     auto node = std::make_shared<Phoenix5Driver>();
-    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix5) has started");
+    RCLCPP_INFO(node->get_logger(), "LANCE-1 phoenix5 driver initialized.");
 
     rclcpp::spin(node);
 
-    RCLCPP_INFO(node->get_logger(), "Driver node (Phoenix5) shutting down...");
+    RCLCPP_INFO(node->get_logger(), "Phoenix5 driver shutting down...");
     rclcpp::shutdown();
 
     return EXIT_SUCCESS;

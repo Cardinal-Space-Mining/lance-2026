@@ -1,5 +1,7 @@
 {
-    "phoenix5_driver":
+    "pragma:enable_preproc": true,
+
+    "lance1_phx5_driver":
     {
         "pragma:default": null,
         "enabled":
@@ -8,7 +10,7 @@
             "canbus": "canable_B"
         }
     },
-    "phoenix6_driver":
+    "lance1_phx6_driver":
     {
         "pragma:default": null,
         "enabled":
@@ -29,6 +31,98 @@
                 "supply_current_limit": 10.0,
                 "voltage_limit": 0.0
             }
+        }
+    },
+    "phx6_driver":
+    {
+        "pragma:default": null,
+        "enabled":
+        {
+            "info_pub_rate_ms": 50,
+            "fault_pub_rate_ms": 250,
+            "diagnostics_port": 0,
+            "canbus": "canable_C",
+            "motors":
+            [
+                {
+                    "name": "track_right",
+                    "can_id": 0,
+                    "controller": "FX",
+                    "output_inverted": true,
+                    "kP": 0.4,
+                    "kI": 0.05,
+                    "kD": 0.0001,
+                    "kV": 0.1,
+                    "neutral_deadband": 0.05,
+                    "neutral_brake": false,
+                    "stator_current_limit": 70.0,
+                    "supply_current_limit": 0.0,
+                    "voltage_limit": 25.0
+                },
+                {
+                    "name": "track_left",
+                    "can_id": 1,
+                    "controller": "FX",
+                    "output_inverted": false,
+                    "kP": 0.4,
+                    "kI": 0.05,
+                    "kD": 0.0001,
+                    "kV": 0.1,
+                    "neutral_deadband": 0.05,
+                    "neutral_brake": false,
+                    "stator_current_limit": 70.0,
+                    "supply_current_limit": 0.0,
+                    "voltage_limit": 25.0
+                },
+                {
+                    "name": "trencher",
+                    "can_id": 2,
+                    "controller": "FX",
+                    "kP": 0.4,
+                    "kI": 0.05,
+                    "kD": 0.0001,
+                    "kV": 0.12,
+                    "neutral_deadband": 0.05,
+                    "neutral_brake": false,
+                    "stator_current_limit": 100.0,
+                    "supply_current_limit": 0.0,
+                    "voltage_limit": 25.0
+                },
+                {
+                    "name": "hopper_belt",
+                    "can_id": 3,
+                    "controller": "FX",
+                    "output_inverted": true,
+                    "kP": 0.4,
+                    "kI": 0.05,
+                    "kD": 0.0001,
+                    "kV": 0.1,
+                    "neutral_deadband": 0.05,
+                    "neutral_brake": false,
+                    "stator_current_limit": 50.0,
+                    "supply_current_limit": 0.0,
+                    "voltage_limit": 25.0
+                },
+                {
+                    "name": "hopper_act",
+                    "can_id": 4,
+                    "controller": "FXS",
+                    "motor_arrangement": "brushed_dc",
+                    "temp_sensor_required": false,
+                    "sensor": "analog_pot",
+                    "pot_max_v": 2.75,
+                    "pot_inverted": false,
+                    "kP": 20.0,
+                    "kI": 0.05,
+                    "kD": 0.0001,
+                    "kV": 25.0,
+                    "neutral_deadband": 0.05,
+                    "neutral_brake": false,
+                    "stator_current_limit": 50.0,
+                    "supply_current_limit": 0.0,
+                    "voltage_limit": 25.0
+                }
+            ]
         }
     }
 }

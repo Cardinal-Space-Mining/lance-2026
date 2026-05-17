@@ -71,7 +71,7 @@ public:
                 msg.header = info.header;
                 msg.name.push_back(lance::HOPPER_JOINT_NAME);
                 msg.position.push_back(
-                    lance::linearActuatorToJointAngle(info.position / 1000.));
+                    lance::linearActuatorToJointAngle(info.position));
                 this->joint_pub->publish(msg);
             })}
     {

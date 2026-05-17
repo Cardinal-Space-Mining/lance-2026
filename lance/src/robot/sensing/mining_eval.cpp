@@ -66,6 +66,8 @@ MiningEvalInterface::MiningEvalInterface(
 
 void MiningEvalInterface::queryArenaFrame(const std::vector<Pose2f>& poses)
 {
+    std::cout << "Querying mining eval arena frame with " << poses.size()
+              << " poses...\n";
     UpdateMiningEvalSrv::Request::SharedPtr req =
         std::make_shared<UpdateMiningEvalSrv::Request>();
 
@@ -96,7 +98,7 @@ void MiningEvalInterface::queryArenaFrame(const std::vector<Pose2f>& poses)
         out.orientation.z = std::sin(pose.z() / 2.f);
 
         req->query_widths.push_back(PRIMARY_COLLISION_ZONE_WIDTH_<float>);
-        req->query_heights.push_back(PRIMARY_COLLISION_ZONE_HEIGHT_<float>);
+        req->query_heights.push_back(PRIMARY_COLLISION_ZONE_HEIGHT_<float> / 1.5f);
     }
 
     this->eval_id = -1;
@@ -123,7 +125,7 @@ void MiningEvalInterface::queryRobotFrame()
     pose.position.z = PRIMARY_COLLISION_ZONE_Z;
 
     req->query_widths.push_back(PRIMARY_COLLISION_ZONE_WIDTH_<float>);
-    req->query_heights.push_back(PRIMARY_COLLISION_ZONE_HEIGHT_<float>);
+    req->query_heights.push_back(PRIMARY_COLLISION_ZONE_HEIGHT_<float> / 1.35f);
 
     this->eval_id = -1;
     this->offset_dist =

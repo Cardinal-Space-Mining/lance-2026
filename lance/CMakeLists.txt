@@ -20,6 +20,10 @@ find_package(cardinal_perception REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 
+# if(BUILD_TESTING)
+#     find_package(ament_cmake_gtest REQUIRED)
+# endif()
+
 # --- Presets ------------------------------------------------------------------
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
@@ -61,6 +65,7 @@ include_directories("src")
 # --- Common Lib ---------------------------------------------------------------
 set(lance_core_srcs
     "src/robot/core/robot_params.cpp"
+    "src/robot/core/stall_analyzer.cpp"
     "src/robot/core/collection_state.cpp"
     "src/robot/control/robot_controller.cpp"
     "src/robot/control/auto/auto_controller.cpp"
@@ -76,7 +81,7 @@ set(lance_core_srcs
     "src/robot/sensing/path_plan.cpp"
     "src/robot/sensing/mining_eval.cpp"
     "src/robot/sensing/reflector_hint.cpp"
-    # "src/robot/planning/mining_planner.cpp"
+    "src/robot/planning/mining_planner.cpp"
     "src/robot/telemetry/markers.cpp"
     "src/robot/telemetry/serializer.cpp"
     "src/robot/telemetry/deserializer.cpp")
@@ -118,6 +123,18 @@ if(BUILD_LANCE2)
     ament_target_dependencies(lance2_core
         ${lance_core_ament_deps})
 endif()
+
+# if(BUILD_TESTING)
+#     ament_add_gtest(stall_analyzer_test
+#         "test/stall_analyzer_test.cpp")
+#     if(BUILD_LANCE2)
+#         target_link_libraries(stall_analyzer_test lance2_core)
+#     else()
+#         target_link_libraries(stall_analyzer_test lance1_core)
+#     endif()
+#     ament_target_dependencies(stall_analyzer_test
+#         phoenix_ros_driver)
+# endif()
 
 # --- Robot Controller ---------------------------------------------------------
 set(robot_controller_srcs
@@ -228,6 +245,10 @@ if(BUILD_LANCE2)
         lance2_mission_control
         DESTINATION lib/${PROJECT_NAME} )
 endif()
+
+install(PROGRAMS
+    scripts/hopper_fullness.py
+    DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
     config

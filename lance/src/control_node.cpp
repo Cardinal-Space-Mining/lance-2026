@@ -76,6 +76,7 @@ protected:
     {
         RclPubPtr<TalonCtrlMsg> ctrl_pub;
         RclSubPtr<TalonInfoMsg> info_sub;
+        RclSubPtr<TalonFaultsMsg> faults_sub;
     };
 
 private:
@@ -93,6 +94,7 @@ private:
     RclTimer::SharedPtr control_iteration_timer;
 
     RobotMotorStatus robot_motor_status;
+    RobotMotorFaults robot_motor_faults;
     JoyMsg::ConstSharedPtr last_joy_msg{nullptr};
     RclTime last_joy_time;
     JoyState joy_state;
@@ -104,17 +106,22 @@ private:
 // ---
 
 // clang-format off
-#define INIT_TALON_PUB_SUB(device_topic, device_var)        \
-    device_var##_pub_sub                                    \
-    {                                                       \
-        this->create_publisher<TalonCtrlMsg>(               \
-            TALON_CTRL_TOPIC(#device_topic),                \
-            TALON_CTRL_PUBSUB_QOS),                         \
-        this->create_subscription<TalonInfoMsg>(            \
-            TALON_INFO_TOPIC(#device_topic),                \
-            rclcpp::SensorDataQoS{},                        \
-            [this](const TalonInfoMsg& msg)                 \
-            { this->robot_motor_status.device_var = msg; }) \
+#define INIT_TALON_PUB_SUB(device_topic, device_var)          \
+    device_var##_pub_sub                                      \
+    {                                                         \
+        this->create_publisher<TalonCtrlMsg>(                 \
+            TALON_CTRL_TOPIC(#device_topic),                  \
+            TALON_CTRL_PUBSUB_QOS),                           \
+        this->create_subscription<TalonInfoMsg>(              \
+            TALON_INFO_TOPIC(#device_topic),                  \
+            rclcpp::SensorDataQoS{},                          \
+            [this](const TalonInfoMsg& msg)                   \
+            { this->robot_motor_status.device_var = msg; }),  \
+        this->create_subscription<TalonFaultsMsg>(            \
+            ROBOT_TOPIC(#device_topic "/faults"),            \
+            rclcpp::SensorDataQoS{},                          \
+            [this](const TalonFaultsMsg& msg)                 \
+            { this->robot_motor_faults.device_var = msg; })   \
     }
 // clang-format on
 
@@ -166,10 +173,12 @@ RobotControlNode::RobotControlNode() :
             }
 
             RobotMotorCommands commands;
+            commands.disableAll();
             this->robot_controller.iterate(
                 this->control_status,
                 this->joy_state,
                 this->robot_motor_status,
+                this->robot_motor_faults,
                 commands);
 
             this->track_right_pub_sub.ctrl_pub->publish(commands.track_right);

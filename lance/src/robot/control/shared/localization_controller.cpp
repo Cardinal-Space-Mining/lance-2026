@@ -100,11 +100,22 @@ void LocalizationController::iterate(
     {
         case Stage::INITIALIZATION:
         {
-            if (motor_status.getHopperActNormalizedValue() <
-                this->params.hopper_actuator_traversal_target_val)
+            // go up if below
+            if (this->params.hopper_actuator_traversal_target_val -
+                    motor_status.getHopperActNormalizedValue() >
+                this->params.hopper_actuator_targetting_thresh)
             {
-                commands.setHopperActPercent(
+                commands.setHopperActSpeed(
                     this->params.hopper_actuator_max_speed);
+                break;
+            }
+            // go down if above
+            if (motor_status.getHopperActNormalizedValue() -
+                    this->params.hopper_actuator_traversal_target_val >
+                this->params.hopper_actuator_targetting_thresh)
+            {
+                commands.setHopperActSpeed(
+                    -this->params.hopper_actuator_max_speed);
                 break;
             }
 

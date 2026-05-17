@@ -72,9 +72,6 @@ public:
         MarkerGroup& setType(int32_t type);
         MarkerGroup& setDuration(RclDur dur);
         MarkerGroup& setColor(float r, float g, float b, float a);
-
-        // MarkerGroup& updateMiningSweep(const geom::Pose2f& p, float dist);
-        // MarkerGroup& updateMiningSweep(const geom::Pose3f& p, float dist);
     };
 
 public:
@@ -87,6 +84,7 @@ public:
     void clearAll();
     void clearOutput();
     void addGroupToOutput(size_t i);
+    void addSubGroupToOutput(size_t i, size_t n);
 
     const MarkerArrayMsg& getAllMarkers() const;
     const MarkerArrayMsg& getOutputMarkers() const;

@@ -48,7 +48,11 @@
 namespace lance
 {
 
-MiningConstraints::MiningConstraints(const RobotParams& params) : params{params}
+MiningConstraints::MiningConstraints(
+    const RobotParams& params,
+    const StallState& stall_state) :
+    params{params},
+    stall_state{stall_state}
 {
 }
 
@@ -91,7 +95,12 @@ void MiningConstraints::updateState(
         this->remaining_dist = std::numeric_limits<float>::infinity();
     }
 
-    // TODO: motor stall
+    if ((this->enabled_constraints & CONSTRAINT_MOTOR_STALL) &&
+        this->stall_state.anyStalled())
+    {
+        this->remaining_dist = 0.f;
+        this->current_constraint = CONSTRAINT_MOTOR_STALL;
+    }
 
     if ((this->enabled_constraints & CONSTRAINT_OBSTACLE) &&
         mining_eval.hasResult() && !mining_eval.getDists()->empty())
@@ -117,7 +126,9 @@ void MiningConstraints::updateState(
                 static_cast<float>(lance::targetVolumeToSweepDistance(
                     hopper_state.remainingVolume(),
                     lance::linearActuatorToMiningDepthClamped(
-                        motor_status.getHopperActNormalizedValue())));
+                        motor_status.getHopperActNormalizedValue()),
+                    static_cast<double>(
+                        this->params.collection_model_transfer_efficiency)));
             if (d < this->remaining_dist ||
                 this->current_constraint == CONSTRAINT_HOPPER_FULL)
             {
@@ -182,12 +193,13 @@ void MiningConstraints::updateOdom(const RobotMotorStatus& motor_status)
 MiningController::MiningController(
     const RobotParams& params,
     const HopperState& hopper_state,
+    const StallState& stall_state,
     SensingInterfaces& sensing_interfaces) :
     params{params},
     hopper_state{hopper_state},
     tf_cache{sensing_interfaces.tf_cache},
     mining_eval_interface{sensing_interfaces.mining_eval_interface},
-    constraints{params}
+    constraints{params, stall_state}
 {
 }
 
@@ -262,10 +274,9 @@ void MiningController::iterate(
         this->tf_cache,
         this->mining_eval_interface);
 
-    if ((this->stage < Stage::RAISING) &&
-        (!this->constraints.hasRemaining() ||
-         (this->stage != Stage::INITIALIZATION && joy &&
-          AssistedMiningToggleButton::wasPressed(*joy))))
+    if ((this->stage < Stage::RAISING && !this->constraints.hasRemaining()) ||
+        (this->stage != Stage::INITIALIZATION && joy &&
+         AssistedMiningToggleButton::wasPressed(*joy)))
     {
         this->stage = Stage::RAISING;
     }
@@ -288,12 +299,12 @@ void MiningController::iterate(
                 if (hopper_act_val >
                     this->params.hopper_actuator_traversal_target_val)
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActSpeed(
                         -this->params.hopper_actuator_max_speed);
                 }
                 else
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActSpeed(
                         -this->params.hopper_actuator_plunge_speed);
                 }
                 break;
@@ -408,12 +419,12 @@ void MiningController::iterate(
                 }
                 else if (hopper_val < hopper_act_target)
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActSpeed(
                         this->params.hopper_actuator_plunge_speed);
                 }
                 else if (hopper_val > hopper_act_target)
                 {
-                    commands.setHopperActPercent(
+                    commands.setHopperActSpeed(
                         -this->params.hopper_actuator_plunge_speed);
                 }
             }
@@ -427,7 +438,7 @@ void MiningController::iterate(
             {
                 commands.setTrencherVelocity(
                     this->params.trencher_mining_velocity_rps);
-                commands.setHopperActPercent(
+                commands.setHopperActSpeed(
                     this->params.hopper_actuator_extract_speed);
                 break;
             }

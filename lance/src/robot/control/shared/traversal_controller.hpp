@@ -104,6 +104,8 @@ protected:
     };
 
 protected:
+    bool updateNeedsTraversal(const Vec2f& dest, KeyFrame frame);
+
     bool iterateTraversal(
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
@@ -134,6 +136,7 @@ protected:
     Box2f arena_dest_zone{};
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
+    bool need_traverse{true};
 
     float prev_left_velocity{0.f};
     float prev_right_velocity{0.f};

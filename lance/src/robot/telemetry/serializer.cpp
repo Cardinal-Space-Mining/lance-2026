@@ -39,11 +39,17 @@
 
 #include "serializer.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 #include "util/mem_helpers.hpp"
 #include "robot/core/ros_interface.hpp"
+#include "robot/model/dynamics.hpp"
+#include "robot/model/geometry.hpp"
 
 
 using namespace util;
+using namespace lance::geom;
 
 #define AS_U8(x) static_cast<uint8_t>(x)
 
@@ -142,6 +148,30 @@ void TelemetrySerializer::addRobotState(
 
     writeAsAndIncrement<float>(ptr, hopper_state.volume());
     writeAsAndIncrement<float>(ptr, hopper_state.beltUsagePercent());
+
+    this->addStallState(bytes, robot_controller);
+}
+
+void TelemetrySerializer::addStallState(
+    Bytes& bytes,
+    const RobotController& robot_controller)
+{
+    const StallState& stall_state = robot_controller.stall_state;
+    const uint8_t state =
+        (static_cast<uint8_t>(stall_state.trackLeft().is_stalled) |
+         (static_cast<uint8_t>(stall_state.trackRight().is_stalled) << 1) |
+         (static_cast<uint8_t>(stall_state.trencher().is_stalled) << 2));
+    bytes.push_back(state);
+
+    // writeAsAndIncrement<float>(
+    //     ptr,
+    //     static_cast<float>(stall_state.trackLeft().time_stalled_seconds));
+    // writeAsAndIncrement<float>(
+    //     ptr,
+    //     static_cast<float>(stall_state.trackRight().time_stalled_seconds));
+    // writeAsAndIncrement<float>(
+    //     ptr,
+    //     static_cast<float>(stall_state.trencher().time_stalled_seconds));
 }
 
 void TelemetrySerializer::addControlState(
@@ -263,11 +293,15 @@ void TelemetrySerializer::addAutoMiningController(
 {
     using Stage = AutoMiningController::Stage;
 
-    // TODO: pack these
     bytes.push_back(AS_U8(ControllerType::AUTO_MINING));
     bytes.push_back(AS_U8(controller.stage));
 
-    // TODO: push planned swath
+#if ENABLE_MINING_PLANNER_DEBUG
+    if (this->filterFreq(this->last_auto_mining_vis_pub))
+    {
+        this->addMiningPlannerDebug(bytes, controller, bytes.size() - 1);
+    }
+#endif
 
     switch (controller.stage)
     {
@@ -386,6 +420,99 @@ void TelemetrySerializer::addTravController(
             writeAsAndIncrement<float>(ptr, p.pose.position.y);
             writeAsAndIncrement<float>(ptr, p.pose.position.z);
         }
+    }
+}
+
+
+void TelemetrySerializer::addMiningPlannerDebug(
+    Bytes& bytes,
+    const AutoMiningController& controller,
+    size_t state_byte_idx)
+{
+    const auto& paths = controller.mining_planner.getCachedPaths();
+    const size_t n_paths = std::min(paths.size(), AUTO_MINING_MAX_PATHS);
+
+    if (n_paths > 0)
+    {
+        bytes[state_byte_idx] |= AUTO_MINING_STATE_PATHS_BIT;
+
+        const size_t reserve_size =
+            sizeof(uint32_t) +
+            (n_paths * ((sizeof(float) * 4) + sizeof(uint8_t)));
+
+        bytes.resize(bytes.size() + reserve_size);
+        Byte* ptr = (bytes.end() - reserve_size).base();
+
+        writeAsAndIncrement<uint32_t>(ptr, n_paths);
+
+        for (size_t i = 0; i < n_paths; i++)
+        {
+            const auto& path = paths[i];
+            const DirectedMiningPath::MiningSwath swath =
+                path.getPathStartInWorldFrame();
+            const float swath_len_m = path.getDistance();
+            const Vec2f end = swath.first + (swath.second * swath_len_m);
+
+            writeAndIncrement(ptr, swath.first.x());
+            writeAndIncrement(ptr, swath.first.y());
+            writeAndIncrement(ptr, end.x());
+            writeAndIncrement(ptr, end.y());
+            writeAndIncrement(ptr, static_cast<uint8_t>(path.getDirection()));
+        }
+    }
+
+    bytes[state_byte_idx] |= AUTO_MINING_STATE_GRID_BIT;
+
+    const auto geometries =
+        controller.mining_planner.getGridGeometriesByDirection();
+
+    const float fallback_r = geom::FOOTPRINT_R_MAX_<float>;
+    const Vec2f fallback_min_corner_with_offset =
+        controller.params.bounds.mining_zone.min() +
+        Vec2f::Constant(fallback_r);
+    const Vec2f fallback_max_corner_with_offset =
+        controller.params.bounds.mining_zone.max() -
+        Vec2f::Constant(fallback_r);
+
+    constexpr size_t DIRECTION_COUNT = 4;
+    constexpr size_t FLOATS_PER_DIRECTION =
+        6;  // min/max corners + cell lengths
+    const size_t grid_reserve_size =
+        sizeof(float) * (DIRECTION_COUNT * FLOATS_PER_DIRECTION);
+    bytes.resize(bytes.size() + grid_reserve_size);
+    Byte* grid_ptr = (bytes.end() - grid_reserve_size).base();
+
+    for (const auto direction : ALL_MINING_DIRECTIONS)
+    {
+        const auto itr = geometries.find(direction);
+        const Vec2f& min_corner_with_offset =
+            (itr != geometries.end()) ? itr->second.min_corner_with_offset
+                                      : fallback_min_corner_with_offset;
+        const Vec2f& max_corner_with_offset =
+            (itr != geometries.end()) ? itr->second.max_corner_with_offset
+                                      : fallback_max_corner_with_offset;
+        float cell_length_x = (itr != geometries.end())
+                                  ? itr->second.cell_length_x
+                                  : TRACK_SEPARATION_M_<float>;
+        float cell_length_y = (itr != geometries.end())
+                                  ? itr->second.cell_length_y
+                                  : TRACK_SEPARATION_M_<float>;
+
+        if (!std::isfinite(cell_length_x) || (cell_length_x <= 0.f))
+        {
+            cell_length_x = 0.f;
+        }
+        if (!std::isfinite(cell_length_y) || (cell_length_y <= 0.f))
+        {
+            cell_length_y = 0.f;
+        }
+
+        writeAndIncrement(grid_ptr, min_corner_with_offset.x());
+        writeAndIncrement(grid_ptr, min_corner_with_offset.y());
+        writeAndIncrement(grid_ptr, max_corner_with_offset.x());
+        writeAndIncrement(grid_ptr, max_corner_with_offset.y());
+        writeAndIncrement(grid_ptr, cell_length_x);
+        writeAndIncrement(grid_ptr, cell_length_y);
     }
 }
 

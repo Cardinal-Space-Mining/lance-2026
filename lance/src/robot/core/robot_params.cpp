@@ -57,6 +57,12 @@ namespace lance
         declare_and_get_param<type>(node, #name1 "." #name2, val) \
     }
 
+#define INIT_PARAM3(name1, name2, name3, val, type)                          \
+    name1##_##name2##_##name3                                                \
+    {                                                                        \
+        declare_and_get_param<type>(node, #name1 "." #name2 "." #name3, val) \
+    }
+
 RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM(default_stick_deadzone, 0.05f, float),
     INIT_PARAM(driving_magnitude_deadzone, 0.1f, float),
@@ -91,6 +97,14 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(collection_model, initial_belt_footprint_meters, 0.2f, float),
     INIT_PARAM2(collection_model, belt_capacity_meters, 0.6f, float),
     INIT_PARAM2(collection_model, belt_offload_length_meters, 0.7f, float),
+    INIT_PARAM2(collection_model, transfer_efficiency, 0.5f, float),
+
+    INIT_PARAM3(stall_analyzer, tracks, debounce_time_s, 0.25f, float),
+    INIT_PARAM3(stall_analyzer, tracks, min_vel_proportion, 0.20f, float),
+    INIT_PARAM3(stall_analyzer, tracks, command_deadzone_rps, 0.01f, float),
+    INIT_PARAM3(stall_analyzer, trencher, debounce_time_s, 0.25f, float),
+    INIT_PARAM3(stall_analyzer, trencher, min_vel_proportion, 0.20f, float),
+    INIT_PARAM3(stall_analyzer, trencher, command_deadzone_rps, 1.f, float),
 
     INIT_PARAM(iteration_period_seconds, 0.05f, float),
     INIT_PARAM(robot_frame_id, "base_link", std::string),
@@ -113,7 +127,11 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(auto_traversal, stanley_k_coeff, 1.f, float),
     INIT_PARAM2(auto_traversal, angular_kp, 1.f, float),
     INIT_PARAM2(auto_traversal, min_theta_window_deg, 2.f, float),
-    INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float)
+    INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float),
+
+    INIT_PARAM2(auto_mining, min_path_length, 2.1f, float),
+    INIT_PARAM2(auto_mining, min_replan_vol_liters, 8.f, float),
+    INIT_PARAM2(auto_mining, max_iterations, 3, int)
 {
     std::vector<double> buff;
 

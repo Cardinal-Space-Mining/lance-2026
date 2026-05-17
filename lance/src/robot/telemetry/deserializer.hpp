@@ -71,11 +71,13 @@ public:
     GenericPubMap& getPubMap();
 
 protected:
+    void initMarkers();
     void accept(const BytesMsg&);
 
 protected:
     bool pubArenaTf(BytePtrRef, BytePtr);
     bool pubRobotState(BytePtrRef, BytePtr);
+    bool pubStallState(BytePtrRef, BytePtr);
     bool pubControlState(BytePtrRef, BytePtr);
 
     bool pubDerivedController(BytePtrRef, BytePtr);
@@ -90,6 +92,11 @@ protected:
     bool pubTravController(BytePtrRef, BytePtr);
 
 protected:
+#if ENABLE_MINING_PLANNER_DEBUG
+    bool pubMiningPlannerPaths(BytePtrRef, BytePtr);
+    bool pubMiningPlannerGrid(BytePtrRef, BytePtr);
+#endif
+
     void addMiningMarker(uint8_t, float);
     void addOffloadMarker(float);
 
@@ -102,10 +109,17 @@ protected:
 
     BytesSharedSub sub;
 
-    std::vector<std::string> ctrl_chain;
-
     const size_t mining_marker_id;
     const size_t offload_marker_id;
+#if ENABLE_MINING_PLANNER_DEBUG
+    const size_t auto_mining_paths_marker_id;
+    const size_t auto_mining_grid_marker_id;
+    uint8_t active_mining_directions_mask{0};
+#endif
+
+    std::vector<std::string> ctrl_chain;
+    float last_hopper_volume{0.f};
+    float offloaded_volume{0.f};
 };
 
 };  // namespace lance
