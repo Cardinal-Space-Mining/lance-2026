@@ -42,8 +42,8 @@
                 "offload_target_val": 0.95,
                 "traversal_target_val": 0.6,
                 "transport_target_val": 0.55,
-                "mining_target_val": 0.21,
-                "mining_min_val": 0.03,
+                "mining_target_val": 0.17,
+                "mining_min_val": 0.1,
                 "targetting_thresh": 0.01
             },
 
