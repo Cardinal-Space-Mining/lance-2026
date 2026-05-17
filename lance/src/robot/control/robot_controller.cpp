@@ -182,7 +182,11 @@ const RobotMotorStatus& RobotController::handleTestModeStateInjection(
             this->params.hopper_actuator_traversal_target_val)
         {
             this->filtered_status = ref;
-            this->filtered_status.hopper_actuator.position = -1.;
+            // this->filtered_status.hopper_actuator.position = -1.;
+            this->filtered_status.hopper_actuator.position =
+                (ref.hopper_actuator.position -
+                 this->params.hopper_actuator_traversal_target_val) /
+                (1 - this->params.hopper_actuator_traversal_target_val);
             return this->filtered_status;
         }
     }
