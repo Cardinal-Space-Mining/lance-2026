@@ -1,11 +1,8 @@
 {
-    "bag_play":
-    {
+    "bag_play": {
         "pragma:default": "all",
-
         "all": {},
-        "lidar":
-        {
+        "lidar": {
             "topics": [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu"
@@ -14,8 +11,7 @@
             "loop": false,
             "remappings": {}
         },
-        "lidar_with_tf":
-        {
+        "lidar_with_tf": {
             "topics": [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
@@ -23,8 +19,7 @@
                 "/tf_static"
             ]
         },
-        "rerun_base":
-        {
+        "rerun_base": {
             "topics": [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
@@ -43,8 +38,7 @@
                 "/lance/hopper_act/info"
             ]
         },
-        "rerun":
-        {
+        "rerun": {
             "topics": [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
@@ -65,9 +59,7 @@
                 "/lance/net_latency"
             ]
         },
-
-        "cosmic_bag":
-        {
+        "cosmic_bag": {
             "topics": [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
@@ -85,8 +77,7 @@
             "start_time": 359.0,
             "loop": false
         },
-        "ksc_bag":
-        {
+        "ksc_bag": {
             "topics": [
                 "/multiscan/lidar_scan"
             ],
@@ -95,110 +86,72 @@
             "loop": false
         }
     },
-
-
-
-
-
-    "bag_record":
-    {
+    "bag_record": {
         "pragma:default": null,
-        "sensor_data":
-        {
+        "sensor_data": {
             "output_prefix": "bag_recordings/lance_sensor_data",
-            "topics":
-            [
+            "topics": [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
                 "/tf",
                 "/tf_static"
             ]
         },
-        "telemetry":
-        {
+        "telemetry": {
             "output_prefix": "bag_recordings/lance_telemetry",
-            "topics":
-            [
+            "topics": [
                 "/joy",
                 "/lance/watchdog_status",
                 "/lance/op_status",
                 "/lance/relay_status",
-
                 "/lance/track_left/ctrl",
                 "/lance/track_left/faults",
                 "/lance/track_left/info",
-
                 "/lance/track_right/ctrl",
                 "/lance/track_right/faults",
                 "/lance/track_right/info",
-
                 "/lance/trencher/ctrl",
                 "/lance/trencher/faults",
                 "/lance/trencher/info",
-
                 "/lance/hopper_belt/ctrl",
                 "/lance/hopper_belt/faults",
                 "/lance/hopper_belt/info",
-
                 "/lance/hopper_act/ctrl",
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
-                "/lance/hopper_act_left/ctrl",
-                "/lance/hopper_act_left/faults",
-                "/lance/hopper_act_left/info",
-                "/lance/hopper_act_right/ctrl",
-                "/lance/hopper_act_right/faults",
-                "/lance/hopper_act_right/info",
-
                 "/lance/hopper_fullness",
                 "/lance/telemetry",
-
                 "/cardinal_perception/trace_notifications",
                 "/rosout"
             ]
         },
-        "all":
-        {
+        "all": {
             "output_prefix": "bag_recordings/lance_all_data",
-            "topics":
-            [
+            "topics": [
                 "/multiscan/lidar_scan",
                 "/multiscan/imu",
                 "/tf",
                 "/tf_static",
-
                 "/joy",
                 "/lance/watchdog_status",
                 "/lance/op_status",
                 "/lance/relay_status",
                 "/lance/mc_state",
-
                 "/lance/track_left/ctrl",
                 "/lance/track_left/faults",
                 "/lance/track_left/info",
-
                 "/lance/track_right/ctrl",
                 "/lance/track_right/faults",
                 "/lance/track_right/info",
-
                 "/lance/trencher/ctrl",
                 "/lance/trencher/faults",
                 "/lance/trencher/info",
-
                 "/lance/hopper_belt/ctrl",
                 "/lance/hopper_belt/faults",
                 "/lance/hopper_belt/info",
-
                 "/lance/hopper_act/ctrl",
                 "/lance/hopper_act/faults",
                 "/lance/hopper_act/info",
-                "/lance/hopper_act_left/ctrl",
-                "/lance/hopper_act_left/faults",
-                "/lance/hopper_act_left/info",
-                "/lance/hopper_act_right/ctrl",
-                "/lance/hopper_act_right/faults",
-                "/lance/hopper_act_right/info",
-
                 "/lance/hopper_fullness",
                 "/lance/telemetry",
                 "/lance/net_latency",
@@ -206,18 +159,15 @@
                 "/lance/markers",
                 "/lance/mc_cursor",
                 "/arena_zones",
-
                 "/cardinal_perception/mining_eval_results",
                 "/cardinal_perception/reflector_hint",
                 "/cardinal_perception/planned_path",
-
                 "/cardinal_perception/trace_notifications",
                 "/rosout"
             ],
             "services": true
         },
-        "raw":
-        {
+        "raw": {
             "output_prefix": "bag_recordings/lance_raw_data",
             "services": true
         }
