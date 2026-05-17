@@ -111,6 +111,9 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM(odom_frame_id, "odom", std::string),
     INIT_PARAM(arena_frame_id, "map", std::string),
 
+    INIT_PARAM2(preset, mining_vol_l, 3.f, float),
+    INIT_PARAM2(preset, offload_backup_m, 0.5f, float),
+
     INIT_PARAM2(auto_localization, min_num_search_samples, 100, int),
     INIT_PARAM2(auto_localization, search_angular_velocity_rps, 0.5f, float),
     INIT_PARAM2(auto_localization, align_angular_velocity_rps, 0.25f, float),

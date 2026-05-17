@@ -113,6 +113,9 @@ public:
 
     ZoneBounds bounds;
 
+    const float preset_mining_vol_l;
+    const float preset_offload_backup_m;
+
     const int auto_localization_min_num_search_samples;
     const float auto_localization_search_angular_velocity_rps;
     const float auto_localization_align_angular_velocity_rps;

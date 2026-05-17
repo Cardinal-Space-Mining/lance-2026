@@ -77,6 +77,16 @@
             "odom_frame_id": "${ id.odom_frame }",
             "arena_frame_id": "${ id.arena_frame }",
 
+            "mining_zone_bounds": "${ zone.ksc.mining }",
+            "offload_zone_bounds": "${ zone.ksc.offload }",
+            "construction_zone_bounds": "${ zone.ksc.construction }",
+
+            "preset":
+            {
+                "mining_vol_l" : 3.0,
+                "offload_backup_m" : 0.5
+            },
+
             "auto_localization":
             {
                 "min_num_search_samples": 100,
@@ -106,12 +116,7 @@
                 "min_path_length" : 1.1,
                 "min_replan_vol_liters" : 8.0,
                 "max_iterations" : 3
-
-            },
-
-            "mining_zone_bounds": "${ zone.ksc.mining }",
-            "offload_zone_bounds": "${ zone.ksc.offload }",
-            "construction_zone_bounds": "${ zone.ksc.construction }"
+            }
         },
         "lance1":
         {

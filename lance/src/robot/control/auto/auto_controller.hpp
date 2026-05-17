@@ -71,6 +71,7 @@ public:
     void setCancelled();
 
     void iterate(
+        uint8_t opts,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 

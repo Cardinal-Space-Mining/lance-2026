@@ -69,11 +69,16 @@ inline constexpr std::string_view toString(MiningDirection dir)
 {
     switch (dir)
     {
-        case MiningDirection::YPLUS:  return "YPLUS";
-        case MiningDirection::YMINUS: return "YMINUS";
-        case MiningDirection::XMINUS: return "XMINUS";
-        case MiningDirection::XPLUS:  return "XPLUS";
-        default:                      return "UNKNOWN";
+        case MiningDirection::YPLUS:
+            return "YPLUS";
+        case MiningDirection::YMINUS:
+            return "YMINUS";
+        case MiningDirection::XMINUS:
+            return "XMINUS";
+        case MiningDirection::XPLUS:
+            return "XPLUS";
+        default:
+            return "UNKNOWN";
     }
 }
 
@@ -85,7 +90,9 @@ inline constexpr std::array<MiningDirection, 4> ALL_MINING_DIRECTIONS = {
     MiningDirection::XPLUS,
 };
 
-using MiningZoneLimiterVector = std::array<float, 4>; // {Yplus, Yminus, Xminus, Xplus} limits to how far into the mining zone the robot can mine in each direction based on its footprint and the geometry of the zone
+using MiningZoneLimiterVector = std::array<
+    float,
+    4>;  // {Yplus, Yminus, Xminus, Xplus} limits to how far into the mining zone the robot can mine in each direction based on its footprint and the geometry of the zone
 
 // test version with all geom_FOOTPRINT_R_MAX_ as limits
 // inline constexpr MiningZoneLimiterVector MINING_ZONE_OFFSETS[4] = {
@@ -102,13 +109,23 @@ using MiningZoneLimiterVector = std::array<float, 4>; // {Yplus, Yminus, Xminus,
 inline constexpr std::array<std::array<float, 4>, 4> MINING_ZONE_OFFSETS = {
     // 4 mining limiters in order of Yplus, Yminus, Xminus, Xplus
     MiningZoneLimiterVector{
-        geom::FOOTPRINT_R_MAX_<float>, 0.0f, geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,},
+                            geom::FOOTPRINT_R_MAX_<float>,
+                            0.0f,geom::FOOTPRINT_R_MAX_<float> / 2.0f,
+                            0.0f, },
     MiningZoneLimiterVector{
-        0.0f,geom::FOOTPRINT_R_MAX_<float>,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,},
+                            0.0f, geom::FOOTPRINT_R_MAX_<float>,
+                            geom::FOOTPRINT_R_MAX_<float> / 2.0f,
+                            0.0f, },
     MiningZoneLimiterVector{
-        geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,0.0f,0.0f,},
+                            geom::FOOTPRINT_R_MAX_<float> / 2.0f,
+                            geom::FOOTPRINT_R_MAX_<float> / 2.0f,
+                            0.0f, 0.0f,
+                            },
     MiningZoneLimiterVector{
-        geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>/2.0f,geom::FOOTPRINT_R_MAX_<float>,0.0f,}
+                            geom::FOOTPRINT_R_MAX_<float> / 2.0f,
+                            geom::FOOTPRINT_R_MAX_<float> / 2.0f,
+                            geom::FOOTPRINT_R_MAX_<float>,
+                            0.0f, }
 };
 // inline constexpr std::array<std::array<float, 4>, 4> MINING_ZONE_OFFSETS = {
 //     // 4 mining limiters in order of Yplus, Yminus, Xminus, Xplus
@@ -134,16 +151,22 @@ struct MiningGridGeometry
     Eigen::Vector2f min_corner_with_offset = Eigen::Vector2f::Zero();
     Eigen::Vector2f max_corner_with_offset = Eigen::Vector2f::Zero();
 
-    friend std::ostream& operator<<(std::ostream& os, const MiningGridGeometry& geom)
+    friend std::ostream& operator<<(
+        std::ostream& os,
+        const MiningGridGeometry& geom)
     {
         os << "  mining_zone_x_length: " << geom.mining_zone_x_length << "\n"
            << "  mining_zone_y_length: " << geom.mining_zone_y_length << "\n"
-           << "  actual_mining_x_length: " << geom.actual_mining_x_length << "\n"
-           << "  actual_mining_y_length: " << geom.actual_mining_y_length << "\n"
+           << "  actual_mining_x_length: " << geom.actual_mining_x_length
+           << "\n"
+           << "  actual_mining_y_length: " << geom.actual_mining_y_length
+           << "\n"
            << "  cell_length_x: " << geom.cell_length_x << "\n"
            << "  cell_length_y: " << geom.cell_length_y << "\n"
-           << "  min_corner_with_offset: (" << geom.min_corner_with_offset.x() << ", " << geom.min_corner_with_offset.y() << ")\n"
-           << "  max_corner_with_offset: (" << geom.max_corner_with_offset.x() << ", " << geom.max_corner_with_offset.y() << ")";
+           << "  min_corner_with_offset: (" << geom.min_corner_with_offset.x()
+           << ", " << geom.min_corner_with_offset.y() << ")\n"
+           << "  max_corner_with_offset: (" << geom.max_corner_with_offset.x()
+           << ", " << geom.max_corner_with_offset.y() << ")";
         return os;
     }
 };
@@ -168,8 +191,18 @@ public:
 
 public:
     Vec2f getPointInWorldFrame(const Vec2i& point) const;
-    static Vec2f computePointInWorldFrame(const Vec2i& point, MiningDirection dir, int matrix_rows, int matrix_cols, const MiningGridGeometry& geom);
-    static Eigen::AlignedBox2f computeCellBoxInWorldFrame(const Vec2i& point, MiningDirection dir, int matrix_rows, int matrix_cols, const MiningGridGeometry& geom);
+    static Vec2f computePointInWorldFrame(
+        const Vec2i& point,
+        MiningDirection dir,
+        int matrix_rows,
+        int matrix_cols,
+        const MiningGridGeometry& geom);
+    static Eigen::AlignedBox2f computeCellBoxInWorldFrame(
+        const Vec2i& point,
+        MiningDirection dir,
+        int matrix_rows,
+        int matrix_cols,
+        const MiningGridGeometry& geom);
     MiningSwath getPathStartInWorldFrame() const;
     std::vector<Vec2f> getFullPathInWorldFrame() const;
 
@@ -186,7 +219,7 @@ public:
 
 
 public:
-// public but only used by MiningPlanner
+    // public but only used by MiningPlanner
     float getDistance() const;
 
     bool checkValidity();
@@ -201,7 +234,6 @@ public:
 
 
 private:
-
     MiningGridGeometry grid_geometry;
     MiningPath path;
     MiningDirection direction;
@@ -220,28 +252,37 @@ public:
     using Pose2f = Eigen::Vector3f;
 
 public:
-    MiningPlanner(MiningEvalInterface& mining_eval, const RobotParams& robot_params);
+    MiningPlanner(
+        MiningEvalInterface& mining_eval,
+        const RobotParams& robot_params);
 
 public:
     bool updateMappedMatrices();
     const DirectedMiningPaths& finalOutput();
-    const DirectedMiningPaths& getCachedPaths() const { return all_mining_paths; }
+    const DirectedMiningPaths& getCachedPaths() const
+    {
+        return all_mining_paths;
+    }
 
 
 
-    std::unordered_map<MiningDirection, MiningGridGeometry> getGridGeometriesByDirection() const;
-    
-    
+    std::unordered_map<MiningDirection, MiningGridGeometry>
+        getGridGeometriesByDirection() const;
+
+
     // const MiningGridGeometry& getGridGeometry() const { return grid_geometry; }
 
     void markMiningOnMatrix(const DirectedMiningPath& path);
     bool hasSentRequest() const { return sent_eval_request; }
 
     // REMOVE LATER JUST FOR TESTING
-    std::unordered_map<MiningDirection, Eigen::MatrixXi> getPreviouslyMinedCellsByDirection() const;
+    std::unordered_map<MiningDirection, Eigen::MatrixXi>
+        getPreviouslyMinedCellsByDirection() const;
 
 private:
-    MiningGridGeometry computeMiningGridGeometry(const RobotParams& robot_params, const MiningZoneLimiterVector& direction_offset) const;
+    MiningGridGeometry computeMiningGridGeometry(
+        const RobotParams& robot_params,
+        const MiningZoneLimiterVector& direction_offset) const;
 
     std::vector<Pose2f> getStartingLocations();
 
@@ -255,10 +296,11 @@ private:
     MiningEvalInterface& mining_eval;
 
 
-    bool sent_eval_request{ false };
+    bool sent_eval_request{false};
     std::unordered_map<MiningDirection, MiningGridGeometry> grid_geometry;
     // Each previously mined cell matrix is offset by the same amounts as it's corresponding strip map so their indices align.
-    std::unordered_map<MiningDirection, Eigen::MatrixXi> previously_mined_cells_by_direction;
+    std::unordered_map<MiningDirection, Eigen::MatrixXi>
+        previously_mined_cells_by_direction;
 
     // The direction is the way the the robot would be moving in reference to the
     // base frame which is MiningDirection::YMINUS
@@ -268,14 +310,12 @@ private:
     Eigen::MatrixXf strip_map_xplus;
     Eigen::MatrixXf strip_map_xminus_transposed;
     Eigen::MatrixXf strip_map_xplus_transposed;
-    
+
 
     DirectedMiningPaths all_mining_paths;
     // JCOMMENT: Why are these hard coded? I would expect as the mining zone size changes, these would change too
-    static constexpr int x_divisions = 8; 
+    static constexpr int x_divisions = 8;
     static constexpr int y_divisions = 12;
-
-    
 };
 
 };  // namespace lance
