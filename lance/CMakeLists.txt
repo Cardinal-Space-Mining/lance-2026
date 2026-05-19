@@ -66,6 +66,7 @@ include_directories("src")
 set(lance_core_srcs
     "src/robot/core/robot_params.cpp"
     "src/robot/core/stall_analyzer.cpp"
+    "src/robot/core/track_slip_detector.cpp"
     "src/robot/core/collection_state.cpp"
     "src/robot/control/robot_controller.cpp"
     "src/robot/control/auto/auto_controller.cpp"
