@@ -50,6 +50,7 @@
 #include "robot/core/robot_status.hpp"
 #include "robot/core/stall_analyzer.hpp"
 #include "robot/core/motor_interface.hpp"
+#include "robot/core/track_slip_detector.hpp"
 #include "robot/core/collection_state.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
 
@@ -93,6 +94,7 @@ protected:
     RobotParams params;
     CollectionState collection_state;
     StallState stall_state;
+    TrackSkidDetector track_skid_det;
     SensingInterfaces sensing_interfaces;
     SharedControllerCollection shared_controllers;
 

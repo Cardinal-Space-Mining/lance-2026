@@ -114,6 +114,25 @@ void RobotController::iterate(
         commands,
         this->params.iteration_period_seconds);
 
+    auto pose = this->sensing_interfaces.tf_cache
+                    .getTf(lance::KeyTf::ROBOT_TO_ARENA_TF)
+                    ->pose.vec;
+
+    // yaw = atan2(R(1,0), R(0,0))
+    auto rot = this->sensing_interfaces.tf_cache
+                   .getTf(lance::KeyTf::ROBOT_TO_ARENA_TF)
+                   ->pose.quat;
+    Eigen::Matrix3f R = rot.toRotationMatrix();
+
+    float yaw = std::atan2(R(1, 0), R(0, 0));
+
+    this->track_skid_det.update(
+        this->filtered_status.track_left.position,
+        this->filtered_status.track_right.position,
+        pose.x(),
+        pose.y(),
+        yaw);
+
     // process transition actions
     switch (encodeTransition(prev_mode, this->control_mode))
     {
