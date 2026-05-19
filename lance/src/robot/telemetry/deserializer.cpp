@@ -77,6 +77,13 @@ constexpr size_t AUTO_MINING_GRID_LINES_BEG_IDX =
 constexpr size_t AUTO_MINING_GRID_MARKER_COUNT =
     AUTO_MINING_GRID_ZONE_MARKER_COUNT + AUTO_MINING_GRID_LINE_MARKER_COUNT;
 
+constexpr float AUTO_MINING_PATH_SHAFT_DIAMETER_M = 0.02f;
+constexpr float AUTO_MINING_PATH_HEAD_DIAMETER_M = 0.06f;
+constexpr float AUTO_MINING_PATH_HEAD_LENGTH_M = 0.08f;
+constexpr float AUTO_MINING_ACTIVE_PATH_SHAFT_DIAMETER_M = 0.08f;
+constexpr float AUTO_MINING_ACTIVE_PATH_HEAD_DIAMETER_M = 0.22f;
+constexpr float AUTO_MINING_ACTIVE_PATH_HEAD_LENGTH_M = 0.26f;
+
 inline const char* miningDirectionNamespace(uint8_t dir_id)
 {
     switch (dir_id)
@@ -163,6 +170,18 @@ inline void setMiningDirectionColor(
         }
     }
 }
+
+inline void setMiningPathScale(
+    visualization_msgs::msg::Marker& marker,
+    bool is_active)
+{
+    marker.scale.x = is_active ? AUTO_MINING_ACTIVE_PATH_SHAFT_DIAMETER_M
+                               : AUTO_MINING_PATH_SHAFT_DIAMETER_M;
+    marker.scale.y = is_active ? AUTO_MINING_ACTIVE_PATH_HEAD_DIAMETER_M
+                               : AUTO_MINING_PATH_HEAD_DIAMETER_M;
+    marker.scale.z = is_active ? AUTO_MINING_ACTIVE_PATH_HEAD_LENGTH_M
+                               : AUTO_MINING_PATH_HEAD_LENGTH_M;
+}
 }  // namespace
 
 TelemetryDeserializer::TelemetryDeserializer(
@@ -219,9 +238,7 @@ void TelemetryDeserializer::initMarkers()
 
         for (auto itr = g.beg; itr < g.end; itr++)
         {
-            itr->scale.x = 0.02f;
-            itr->scale.y = 0.06f;
-            itr->scale.z = 0.08f;
+            setMiningPathScale(*itr, false);
             itr->points.resize(2);
             itr->points[0].z = 0.05;
             itr->points[1].z = 0.05;
@@ -840,7 +857,8 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
     size_t n_paths;
     readAsAndIncrement<uint32_t>(ptr, n_paths);
 
-    constexpr size_t PATH_SIZE = ((sizeof(float) * 4) + sizeof(uint8_t));
+    constexpr size_t PATH_SIZE =
+        ((sizeof(float) * 4) + (sizeof(uint8_t) * 2));
     EXIT_IF_INSUFFICIENT_SIZE(PATH_SIZE * n_paths)
 
     BytePtr ptr_after_paths = ptr + (PATH_SIZE * n_paths);
@@ -854,6 +872,8 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
         readAndIncrement(ptr, ey);
         uint8_t dir_id;
         readAndIncrement(ptr, dir_id);
+        uint8_t is_active_path;
+        readAndIncrement(ptr, is_active_path);
 
         const float dx = ex - sx;
         const float dy = ey - sy;
@@ -886,7 +906,9 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
         MarkerMsg& marker = m[i];
         marker.ns = miningDirectionNamespace(dir_id);
         setMiningDirectionColor(marker, dir_id);
-        this->active_mining_directions_mask |= (static_cast<uint8_t>(1u) << dir_id);
+        setMiningPathScale(marker, static_cast<bool>(is_active_path));
+        this->active_mining_directions_mask |=
+            (static_cast<uint8_t>(1u) << dir_id);
 
         constexpr float PATH_VIS_OFFSET_M = 0.07f;
         constexpr float LATERAL_X_OFFS[] = {
