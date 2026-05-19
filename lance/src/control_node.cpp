@@ -178,6 +178,7 @@ RobotControlNode::RobotControlNode() :
                 this->control_status,
                 this->joy_state,
                 this->robot_motor_status,
+                this->robot_motor_faults,
                 commands);
 
             this->track_right_pub_sub.ctrl_pub->publish(commands.track_right);

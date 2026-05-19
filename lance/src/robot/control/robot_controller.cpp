@@ -60,21 +60,29 @@ RobotController::RobotController(RclNode& node) :
     shared_controllers{
         params,
         this->collection_state.getHopperState(),
+        this->stall_state,
         this->sensing_interfaces},
     auto_controller{params, sensing_interfaces, shared_controllers},
     teleop_controller{node, params, sensing_interfaces, shared_controllers}
 {
+    this->stall_state.setConfig(StallAnalyzerConfig::fromParams(this->params));
     this->collection_state.setParams(
         this->params.collection_model_initial_volume_liters,
         this->params.collection_model_capacity_volume_liters,
         this->params.collection_model_initial_belt_footprint_meters,
         this->params.collection_model_belt_capacity_meters,
-        this->params.collection_model_belt_offload_length_meters);
+        this->params.collection_model_belt_offload_length_meters,
+        this->params.collection_model_transfer_efficiency);
 }
 
 const HopperState& RobotController::hopperState() const
 {
     return this->collection_state.getHopperState();
+}
+
+const StallState& RobotController::stallState() const
+{
+    return this->stall_state;
 }
 
 const RobotParams& RobotController::getParams() const { return this->params; }
@@ -88,6 +96,7 @@ void RobotController::iterate(
     int32_t ctrl_status,
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
+    const RobotMotorFaults& motor_faults,
     RobotMotorCommands& commands)
 {
     const RobotMotorStatus& filtered_status =
@@ -97,6 +106,12 @@ void RobotController::iterate(
 
     const ControlMode prev_mode = this->control_mode;
     this->control_mode = ControlStatus::getMode(ctrl_status);
+
+    this->stall_state.update(
+        filtered_status,
+        motor_faults,
+        commands,
+        this->params.iteration_period_seconds);
 
     // process transition actions
     switch (encodeTransition(prev_mode, this->control_mode))
@@ -152,7 +167,8 @@ void RobotController::iterate(
             break;
         }
         default:
-        {}
+        {
+        }
     }
 }
 
@@ -162,7 +178,8 @@ const RobotMotorStatus& RobotController::handleTestModeStateInjection(
 {
     if (ControlStatus::hasOpt<ControlOpts::TEST_MODE>(ctrl_status))
     {
-        if(ref.getHopperActNormalizedValue() < this->params.hopper_actuator_traversal_target_val)
+        if (ref.getHopperActNormalizedValue() <
+            this->params.hopper_actuator_traversal_target_val)
         {
             this->filtered_status = ref;
             this->filtered_status.hopper_actuator.position = -1.;

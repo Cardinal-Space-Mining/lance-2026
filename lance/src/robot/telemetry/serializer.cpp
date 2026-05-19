@@ -148,6 +148,30 @@ void TelemetrySerializer::addRobotState(
 
     writeAsAndIncrement<float>(ptr, hopper_state.volume());
     writeAsAndIncrement<float>(ptr, hopper_state.beltUsagePercent());
+
+    this->addStallState(bytes, robot_controller);
+}
+
+void TelemetrySerializer::addStallState(
+    Bytes& bytes,
+    const RobotController& robot_controller)
+{
+    const StallState& stall_state = robot_controller.stall_state;
+    const uint8_t state =
+        (static_cast<uint8_t>(stall_state.trackLeft().is_stalled) |
+         (static_cast<uint8_t>(stall_state.trackRight().is_stalled) << 1) |
+         (static_cast<uint8_t>(stall_state.trencher().is_stalled) << 2));
+    bytes.push_back(state);
+
+    // writeAsAndIncrement<float>(
+    //     ptr,
+    //     static_cast<float>(stall_state.trackLeft().time_stalled_seconds));
+    // writeAsAndIncrement<float>(
+    //     ptr,
+    //     static_cast<float>(stall_state.trackRight().time_stalled_seconds));
+    // writeAsAndIncrement<float>(
+    //     ptr,
+    //     static_cast<float>(stall_state.trencher().time_stalled_seconds));
 }
 
 void TelemetrySerializer::addControlState(
@@ -439,16 +463,20 @@ void TelemetrySerializer::addMiningPlannerDebug(
 
     bytes[state_byte_idx] |= AUTO_MINING_STATE_GRID_BIT;
 
-    const auto geometries = controller.mining_planner.getGridGeometriesByDirection();
+    const auto geometries =
+        controller.mining_planner.getGridGeometriesByDirection();
 
     const float fallback_r = geom::FOOTPRINT_R_MAX_<float>;
     const Vec2f fallback_min_corner_with_offset =
-        controller.params.bounds.mining_zone.min() + Vec2f::Constant(fallback_r);
+        controller.params.bounds.mining_zone.min() +
+        Vec2f::Constant(fallback_r);
     const Vec2f fallback_max_corner_with_offset =
-        controller.params.bounds.mining_zone.max() - Vec2f::Constant(fallback_r);
+        controller.params.bounds.mining_zone.max() -
+        Vec2f::Constant(fallback_r);
 
     constexpr size_t DIRECTION_COUNT = 4;
-    constexpr size_t FLOATS_PER_DIRECTION = 6;  // min/max corners + cell lengths
+    constexpr size_t FLOATS_PER_DIRECTION =
+        6;  // min/max corners + cell lengths
     const size_t grid_reserve_size =
         sizeof(float) * (DIRECTION_COUNT * FLOATS_PER_DIRECTION);
     bytes.resize(bytes.size() + grid_reserve_size);
@@ -458,21 +486,17 @@ void TelemetrySerializer::addMiningPlannerDebug(
     {
         const auto itr = geometries.find(direction);
         const Vec2f& min_corner_with_offset =
-            (itr != geometries.end())
-                ? itr->second.min_corner_with_offset
-                : fallback_min_corner_with_offset;
+            (itr != geometries.end()) ? itr->second.min_corner_with_offset
+                                      : fallback_min_corner_with_offset;
         const Vec2f& max_corner_with_offset =
-            (itr != geometries.end())
-                ? itr->second.max_corner_with_offset
-                : fallback_max_corner_with_offset;
-        float cell_length_x =
-            (itr != geometries.end())
-                ? itr->second.cell_length_x
-                : TRACK_SEPARATION_M_<float>;
-        float cell_length_y =
-            (itr != geometries.end())
-                ? itr->second.cell_length_y
-                : TRACK_SEPARATION_M_<float>;
+            (itr != geometries.end()) ? itr->second.max_corner_with_offset
+                                      : fallback_max_corner_with_offset;
+        float cell_length_x = (itr != geometries.end())
+                                  ? itr->second.cell_length_x
+                                  : TRACK_SEPARATION_M_<float>;
+        float cell_length_y = (itr != geometries.end())
+                                  ? itr->second.cell_length_y
+                                  : TRACK_SEPARATION_M_<float>;
 
         if (!std::isfinite(cell_length_x) || (cell_length_x <= 0.f))
         {

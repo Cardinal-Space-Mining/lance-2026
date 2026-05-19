@@ -1,6 +1,7 @@
 #pragma once
 
-#include "robot/core/motor_interface.hpp"
+#include "robot_params.hpp"
+#include "motor_interface.hpp"
 
 
 namespace lance
@@ -8,37 +9,35 @@ namespace lance
 
 struct StallAnalyzerConfig
 {
-    double max_stall_velocity_rps{1.0};
-    double min_stall_current_amps{10.0};
-    double stall_debounce_seconds{0.25};
-    double recovery_debounce_seconds{0.10};
-    double current_filter_alpha{0.25};
+    struct MotorConfig
+    {
+        double debounce_time_seconds{0.25};
+        double minimum_velocity_proportion{0.20};
+        double command_deadzone_rps{0.01};
+    };
+
+    MotorConfig tracks{
+        .debounce_time_seconds = 0.25,
+        .minimum_velocity_proportion = 0.20,
+        .command_deadzone_rps = 0.01};
+    MotorConfig trencher{
+        .debounce_time_seconds = 0.25,
+        .minimum_velocity_proportion = 0.20,
+        .command_deadzone_rps = 1.0};
+
+    static StallAnalyzerConfig fromParams(const RobotParams&);
 };
 
 struct MotorStallInfo
 {
     bool is_stalled{false};
-    bool current_limit_warning{false};
-    bool stator_current_limit_warning{false};
-    bool supply_current_limit_warning{false};
-
-    double velocity_rps{0.0};
-    double output_current_amps{0.0};
-    double supply_current_amps{0.0};
-    double filtered_output_current_amps{0.0};
-    double filtered_supply_current_amps{0.0};
-
-    double stall_candidate_seconds{0.0};
-    double recovery_candidate_seconds{0.0};
+    double time_stalled_seconds{0.0};
 };
 
-struct RobotStallStatus
+enum class TrackSide
 {
-    MotorStallInfo track_right;
-    MotorStallInfo track_left;
-    MotorStallInfo trencher;
-    MotorStallInfo hopper_belt;
-    MotorStallInfo hopper_actuator;
+    LEFT,
+    RIGHT
 };
 
 class StallAnalyzer
@@ -50,9 +49,17 @@ public:
     void setConfig(const StallAnalyzerConfig& config);
     void reset();
 
-    RobotStallStatus analyze(
-        const RobotMotorStatus& motor_status,
-        const RobotMotorFaults& motor_faults,
+    MotorStallInfo analyzeTrack(
+        TrackSide side,
+        const TalonInfoMsg& status,
+        const TalonFaultsMsg& faults,
+        const TalonCtrlMsg& command,
+        double dt_seconds);
+
+    MotorStallInfo analyzeTrencher(
+        const TalonInfoMsg& status,
+        const TalonFaultsMsg& faults,
+        const TalonCtrlMsg& command,
         double dt_seconds);
 
 private:
@@ -60,24 +67,58 @@ private:
     {
         bool initialized{false};
         bool is_stalled{false};
-        double filtered_output_current_amps{0.0};
-        double filtered_supply_current_amps{0.0};
         double stall_candidate_seconds{0.0};
         double recovery_candidate_seconds{0.0};
+        double time_stalled_seconds{0.0};
     };
 
     MotorStallInfo analyzeMotor(
         MotorState& state,
         const TalonInfoMsg& status,
         const TalonFaultsMsg& faults,
+        const TalonCtrlMsg& command,
+        const StallAnalyzerConfig::MotorConfig& motor_config,
         double dt_seconds) const;
 
     StallAnalyzerConfig config;
     MotorState track_right_state;
     MotorState track_left_state;
     MotorState trencher_state;
-    MotorState hopper_belt_state;
-    MotorState hopper_actuator_state;
+};
+
+class StallState
+{
+public:
+    explicit StallState(StallAnalyzerConfig config = {});
+
+    void setConfig(const StallAnalyzerConfig&);
+    void reset();
+    void update(
+        const RobotMotorStatus&,
+        const RobotMotorFaults&,
+        const RobotMotorCommands&,
+        double dt_seconds);
+
+    inline const MotorStallInfo& trackLeft() const
+    {
+        return this->track_left;
+    }
+    inline const MotorStallInfo& trackRight() const
+    {
+        return this->track_right;
+    }
+    inline const MotorStallInfo& trencher() const { return this->trencher_info; }
+    inline bool anyStalled() const
+    {
+        return this->track_left.is_stalled || this->track_right.is_stalled ||
+               this->trencher_info.is_stalled;
+    }
+
+private:
+    StallAnalyzer analyzer;
+    MotorStallInfo track_left;
+    MotorStallInfo track_right;
+    MotorStallInfo trencher_info;
 };
 
 };  // namespace lance

@@ -91,31 +91,35 @@ CONSTEXPR_VAL_TEMPLATE(MINING_MAX_DEPTH_M, 0.1016)
 #elif LANCE >= 2
 CONSTEXPR_VAL_TEMPLATE(TRACK_GEARING, 64)
 CONSTEXPR_VAL_TEMPLATE(TRACK_EFFECTIVE_OUTPUT_RADIUS_M, 0.045)
-// CONSTEXPR_VAL_TEMPLATE(TRACK_SEPARATION_M, 0.648)
 CONSTEXPR_VAL_TEMPLATE(TRACK_SEPARATION_M, 0.632)
 
 CONSTEXPR_VAL_TEMPLATE(TRENCHER_WIDTH_M, 0.260)
 CONSTEXPR_VAL_TEMPLATE(TRENCHER_GEARING, 64)
-// bucket separation (CAD): 0.03228 m, actuation radius (CAD): 0.04826 m,
-// strict bucket volume (CAD): 0.04309 L
+// VOLUME / OUTPUT ROTATION = VOLUME / DISTANCE * DISTANCE / OUTPUT ROTATON =
+// (VOLUME / 1 bucket * NUM buckets) / BELT LENGTH * OUTPUT RADIUS / 2pi -->
+// belt length : ~62 in --> 1.5748 m
+// num buckets : ~45
+// vol per bucket (CAD) : 0.04309 L
+// actuation radius (CAD): 0.04890 m,
 CONSTEXPR_VAL_TEMPLATE(
     TRENCHER_LITERS_PER_OUTPUT_ROTATION,
-    (0.04309 * ((0.04826 * TWO_PI) / 0.03228)))
-CONSTEXPR_VAL_TEMPLATE(TRENCHER_IMPACT_EFFECTIVE_RADIUS_M, 0.092)
+    ((0.04309 * 45) / 1.5748) * (0.04826 * TWO_PI))
+// effector center of rotation to max bucket reach distance
+CONSTEXPR_VAL_TEMPLATE(TRENCHER_IMPACT_EFFECTIVE_RADIUS_M, 0.0978)
 
 CONSTEXPR_VAL_TEMPLATE(ACTUATOR_LOWEST_ANGLE_DEG, 10)
 CONSTEXPR_VAL_TEMPLATE(ACTUATOR_HIGHEST_ANGLE_DEG, -10)
 
 CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_GEARING, 64)
 CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_EFFECTIVE_OUTPUT_RADIUS_M, 0.028)
-CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_CONTAINER_LENGTH_M, 0.7)
+CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_CONTAINER_LENGTH_M, 0.75)
 CONSTEXPR_VAL_TEMPLATE(HOPPER_BELT_SAFE_OFFLOAD_DIST_M, 0.8)
 CONSTEXPR_VAL_TEMPLATE(CONSERVATIVE_HOPPER_CAPACITY_L, 45)
 
-// (mining depth) ~ -0.3376 * (normalized actuator pos) + 0.1539
-CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_OFFSET, 0.1539)
-CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_SLOPE, -0.3376)
-CONSTEXPR_VAL_TEMPLATE(MINING_MAX_DEPTH_M, 0.1524)
+// (mining depth) ~ -0.3394 * (normalized actuator pos) + 0.1317
+CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_OFFSET, 0.1317)
+CONSTEXPR_VAL_TEMPLATE(MINING_DEPTH_FX_SLOPE, -0.3394)
+CONSTEXPR_VAL_TEMPLATE(MINING_MAX_DEPTH_M, 0.1317)
 #endif
 
 
@@ -220,22 +224,24 @@ constexpr inline T miningDepthToTrencherImpactVolume(const T& depth_m)
     {
         return static_cast<T>(0);
     }
-    else if (d < R)
+
+    double cross_section_area = 0;
+    if (d < R)
     {
-        double x = (R - d);
-        double cross_section_area =
-            (R2 * acos(x / R) - x * std::sqrt(R2 - x * x));
-        // cross-section * width * 1000 liters/m^3
-        return static_cast<T>(
-            cross_section_area * TRENCHER_WIDTH_M * LITERS_PER_M_CUBED);
+        // Formula from: https://www.omnicalculator.com/math/segment-area
+        // Section: Formula given radius and height
+        cross_section_area = (R2 * std::acos((R - d) / R)) -
+                             ((R - d) * std::sqrt(2 * R * d - d * d));
     }
     else
     {
-        // (full semi-circle cross-section + additional depth rect) * width * 1000 liters/m^3
-        return static_cast<T>(
-            ((std::numbers::pi * R2) + ((depth_m - R) * TRENCHER_WIDTH_M * R)) *
-            LITERS_PER_M_CUBED);
+        // (half-circle cross-section + additional depth rect)
+        cross_section_area =
+            (0.5 * std::numbers::pi * R2) + ((depth_m - R) * R);
     }
+    // cross-section * width * 1000 liters/m^3
+    return static_cast<T>(
+        cross_section_area * TRENCHER_WIDTH_M * LITERS_PER_M_CUBED);
 }
 
 template<typename T>
@@ -302,10 +308,12 @@ constexpr inline T volumeRateToHopperFullTime(const T& vol_rate_lps)
 template<typename T>
 constexpr inline T targetVolumeToSweepDistance(
     const T& target_vol_l,
-    const T& depth_m)
+    const T& depth_m,
+    const T& transfer_efficiency)
 {
     return static_cast<T>(
-        (static_cast<double>(target_vol_l) / static_cast<double>(depth_m)) /
+        (static_cast<double>(target_vol_l) / static_cast<double>(depth_m) /
+         static_cast<double>(transfer_efficiency)) /
         (TRENCHER_WIDTH_M * LITERS_PER_M_CUBED));
 }
 

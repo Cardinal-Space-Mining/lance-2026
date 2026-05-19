@@ -105,9 +105,9 @@ struct RobotMotorCommands
     {
         this->hopper_actuator.set__mode(TalonCtrlMsg::POSITION).set__value(val);
     }
-    inline void setHopperActVelocity(double val)
+    inline void setHopperActSpeed(double val)
     {
-        this->hopper_actuator.set__mode(TalonCtrlMsg::VELOCITY).set__value(val);
+        this->hopper_actuator.set__mode(TalonCtrlMsg::PERCENT_OUTPUT).set__value(val);
     }
     inline void setHopperActVoltage(double volts)
     {

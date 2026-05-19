@@ -77,6 +77,7 @@ protected:
 protected:
     bool pubArenaTf(BytePtrRef, BytePtr);
     bool pubRobotState(BytePtrRef, BytePtr);
+    bool pubStallState(BytePtrRef, BytePtr);
     bool pubControlState(BytePtrRef, BytePtr);
 
     bool pubDerivedController(BytePtrRef, BytePtr);
