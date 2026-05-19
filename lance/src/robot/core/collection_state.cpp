@@ -61,6 +61,39 @@ void HopperState::setParams(
     this->transfer_efficiency = transfer_efficiency;
 }
 
+double HopperState::occupied_delta_m() const
+{
+    return this->high_pos_m - this->low_pos_m;
+}
+double HopperState::cutoff_pos_m() const
+{
+    return this->belt_pos_m - this->offload_len_m;
+}
+
+double HopperState::volume() const { return this->total_vol_l; }
+double HopperState::remainingVolume() const
+{
+    return this->cap_vol_l - this->total_vol_l;
+}
+double HopperState::beltPosMeters() const { return this->belt_pos_m; }
+double HopperState::startPosMeters() const { return this->high_pos_m; }
+double HopperState::endPosMeters() const { return this->low_pos_m; }
+double HopperState::beltUsageMeters() const { return this->occupied_delta_m(); }
+double HopperState::beltUsagePercent() const
+{
+    return this->occupied_delta_m() / this->cap_len_m;
+}
+
+bool HopperState::isVolCapacity() const
+{
+    return this->total_vol_l >= this->cap_vol_l;
+}
+bool HopperState::isBeltCapacity() const
+{
+    return this->occupied_delta_m() >= this->cap_len_m;
+}
+
+
 void HopperState::update(double delta_volume_l, double belt_rotations)
 {
     this->belt_pos_m = lance::hopperBeltMotorRpsToBeltMps(belt_rotations);
@@ -237,5 +270,11 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     this->prev_mining_depth = curr_mining_depth_m;
     this->prev_impact_volume = curr_impact_volume;
 }
+
+const HopperState& CollectionState::getHopperState() const
+{
+    return this->hopper_state;
+}
+
 
 };  // namespace lance

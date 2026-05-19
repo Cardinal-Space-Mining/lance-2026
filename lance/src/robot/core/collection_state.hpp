@@ -64,36 +64,24 @@ public:
 
 public:
     // estimated volume in liters
-    inline double volume() const { return this->total_vol_l; }
+    double volume() const;
     // volume left until full in liters
-    inline double remainingVolume() const
-    {
-        return this->cap_vol_l - this->total_vol_l;
-    }
+    double remainingVolume() const;
     // tracked belt position in meters
-    inline double beltPosMeters() const { return this->belt_pos_m; }
+    double beltPosMeters() const;
     // belt position of "head" of regolith pile (closest to trencher)
-    inline double startPosMeters() const { return this->high_pos_m; }
+    double startPosMeters() const;
     // belt position of "end" of regloith pile (closest to opening)
-    inline double endPosMeters() const { return this->low_pos_m; }
+    double endPosMeters() const;
     // region of belt occupiled by regolith pile, in meters
-    inline double beltUsageMeters() const { return this->occupied_delta_m(); }
+    double beltUsageMeters() const;
     // the relative proportion of the belt which is used
-    inline double beltUsagePercent() const
-    {
-        return this->occupied_delta_m() / this->cap_len_m;
-    }
+    double beltUsagePercent() const;
 
     // have we reached the max configured volume
-    inline bool isVolCapacity() const
-    {
-        return this->total_vol_l >= this->cap_vol_l;
-    }
+    bool isVolCapacity() const;
     // has the belt reached the end
-    inline bool isBeltCapacity() const
-    {
-        return this->occupied_delta_m() >= this->cap_len_m;
-    }
+    bool isBeltCapacity() const;
 
     // output is in motor rotations
     double miningTargetMotorPosition() const;
@@ -103,14 +91,8 @@ public:
     double calcOffloadTargetMotorPosition(double beg_motor_pos) const;
 
 private:
-    inline double occupied_delta_m() const
-    {
-        return this->high_pos_m - this->low_pos_m;
-    }
-    inline double cutoff_pos_m() const
-    {
-        return this->belt_pos_m - this->offload_len_m;
-    }
+    double occupied_delta_m() const;
+    double cutoff_pos_m() const;
 
 private:
     double initial_vol_l = 12.;
@@ -140,10 +122,7 @@ public:
     void update(const RobotMotorStatus& motors_status);
 
 public:
-    inline const HopperState& getHopperState() const
-    {
-        return this->hopper_state;
-    }
+    const HopperState& getHopperState() const;
 
 
 private:
