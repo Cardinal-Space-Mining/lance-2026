@@ -432,13 +432,59 @@ void TelemetrySerializer::addMiningPlannerDebug(
     const auto& paths = controller.mining_planner.getCachedPaths();
     const size_t n_paths = std::min(paths.size(), AUTO_MINING_MAX_PATHS);
 
+    const bool has_current_path = controller.current_mining_path.has_value();
+    DirectedMiningPath::Vec2f current_start;
+    DirectedMiningPath::Vec2f current_end;
+    uint8_t current_direction = 0;
+    if (has_current_path)
+    {
+        const auto& current_path = controller.current_mining_path.value();
+        const DirectedMiningPath::MiningSwath current_swath =
+            current_path.getPathStartInWorldFrame();
+        current_start = current_swath.first;
+        current_end = current_swath.first +
+                      (current_swath.second * current_path.getDistance());
+        current_direction = static_cast<uint8_t>(current_path.getDirection());
+    }
+
+    const auto is_current_path = [&](const DirectedMiningPath& path)
+    {
+        if (!has_current_path)
+        {
+            return false;
+        }
+
+        constexpr float PATH_MATCH_TOLERANCE_SQ = 1e-6f;
+        const DirectedMiningPath::MiningSwath swath =
+            path.getPathStartInWorldFrame();
+        const DirectedMiningPath::Vec2f end =
+            swath.first + (swath.second * path.getDistance());
+
+        return (static_cast<uint8_t>(path.getDirection()) ==
+                current_direction) &&
+               ((swath.first - current_start).squaredNorm() <
+                PATH_MATCH_TOLERANCE_SQ) &&
+               ((end - current_end).squaredNorm() <
+                PATH_MATCH_TOLERANCE_SQ);
+    };
+
+    size_t current_path_idx = paths.size();
+    for (size_t i = 0; i < paths.size(); i++)
+    {
+        if (is_current_path(paths[i]))
+        {
+            current_path_idx = i;
+            break;
+        }
+    }
+
     if (n_paths > 0)
     {
         bytes[state_byte_idx] |= AUTO_MINING_STATE_PATHS_BIT;
 
         const size_t reserve_size =
             sizeof(uint32_t) +
-            (n_paths * ((sizeof(float) * 4) + sizeof(uint8_t)));
+            (n_paths * ((sizeof(float) * 4) + (sizeof(uint8_t) * 2)));
 
         bytes.resize(bytes.size() + reserve_size);
         Byte* ptr = (bytes.end() - reserve_size).base();
@@ -447,17 +493,26 @@ void TelemetrySerializer::addMiningPlannerDebug(
 
         for (size_t i = 0; i < n_paths; i++)
         {
-            const auto& path = paths[i];
+            size_t path_idx = i;
+            if ((current_path_idx < paths.size()) &&
+                (current_path_idx >= n_paths) && (i == (n_paths - 1)))
+            {
+                path_idx = current_path_idx;
+            }
+
+            const auto& path = paths[path_idx];
             const DirectedMiningPath::MiningSwath swath =
                 path.getPathStartInWorldFrame();
             const float swath_len_m = path.getDistance();
             const Vec2f end = swath.first + (swath.second * swath_len_m);
+            const bool is_active = (path_idx == current_path_idx);
 
             writeAndIncrement(ptr, swath.first.x());
             writeAndIncrement(ptr, swath.first.y());
             writeAndIncrement(ptr, end.x());
             writeAndIncrement(ptr, end.y());
             writeAndIncrement(ptr, static_cast<uint8_t>(path.getDirection()));
+            writeAndIncrement(ptr, static_cast<uint8_t>(is_active));
         }
     }
 

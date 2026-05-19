@@ -214,6 +214,12 @@ public:
         int matrix_rows,
         int matrix_cols,
         const MiningGridGeometry& geom);
+    static Vec2f computeRobotOriginInWorldFrame(
+        const Vec2i& point,
+        MiningDirection dir,
+        int matrix_rows,
+        int matrix_cols,
+        const MiningGridGeometry& geom);
     static Eigen::AlignedBox2f computeCellBoxInWorldFrame(
         const Vec2i& point,
         MiningDirection dir,
