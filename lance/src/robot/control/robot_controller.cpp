@@ -56,6 +56,13 @@ namespace lance
 
 RobotController::RobotController(RclNode& node) :
     params{node},
+    collection_state(
+        this->params.collection_model_initial_volume_liters,
+        this->params.collection_model_capacity_volume_liters,
+        this->params.collection_model_initial_belt_footprint_meters,
+        this->params.collection_model_belt_capacity_meters,
+        this->params.collection_model_belt_offload_length_meters,
+        this->params.collection_model_transfer_efficiency),
     sensing_interfaces{node, params},
     shared_controllers{
         params,
@@ -66,13 +73,6 @@ RobotController::RobotController(RclNode& node) :
     teleop_controller{node, params, sensing_interfaces, shared_controllers}
 {
     this->stall_state.setConfig(StallAnalyzerConfig::fromParams(this->params));
-    this->collection_state.setParams(
-        this->params.collection_model_initial_volume_liters,
-        this->params.collection_model_capacity_volume_liters,
-        this->params.collection_model_initial_belt_footprint_meters,
-        this->params.collection_model_belt_capacity_meters,
-        this->params.collection_model_belt_offload_length_meters,
-        this->params.collection_model_transfer_efficiency);
 }
 
 const HopperState& RobotController::hopperState() const

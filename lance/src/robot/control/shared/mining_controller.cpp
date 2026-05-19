@@ -48,7 +48,7 @@
 
 
 #ifndef MINING_CONTROLLER_DEBUG
-    #define MINING_CONTROLLER_DEBUG 1
+    #define MINING_CONTROLLER_DEBUG 0
 #endif
 #if MINING_CONTROLLER_DEBUG
     #define MINING_DEBUG(...)                                       \
