@@ -58,8 +58,10 @@ struct MPCParams
     // drives directly to the final waypoint.
     double end_zone_radius =
         0.3;  // remaining arc threshold to enter fallback [m]
-    double end_zone_k_omega = 2.0;  // heading P-gain [rad/s / rad]
-    double end_zone_k_v = 0.5;      // velocity P-gain [m/s / m]
+    double end_zone_k_omega = 2.0;    // heading P-gain [rad/s / rad]
+    double end_zone_k_v = 0.5;        // velocity P-gain [m/s / m]
+    double end_zone_alpha_max = 1.0;  // omega rate limit [rad/s²] for end-zone
+    double end_zone_a_max = 0.5;      // v rate limit [m/s²] for end-zone
 
     // Solver fallback multiplier on failure
     double fallback_decay = 0.8;

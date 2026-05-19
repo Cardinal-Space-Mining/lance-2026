@@ -135,14 +135,18 @@ Control MPCController::update(const State& x_measured, const Path& path)
             heading_err += (heading_err > 0.0) ? -M_PI : M_PI;
         }
 
+        const double dom = params_.end_zone_alpha_max * params_.dt;
+        const double dv  = params_.end_zone_a_max    * params_.dt;
+
+        const double omega_raw = params_.end_zone_k_omega * heading_err;
         const double omega = std::clamp(
-            params_.end_zone_k_omega * heading_err,
+            std::clamp(omega_raw, u_prev_.omega - dom, u_prev_.omega + dom),
             -params_.omega_max,
             params_.omega_max);
-        const double v = v_sign * std::clamp(
-            params_.end_zone_k_v * dist,
-            0.0,
-            params_.v_max);
+
+        const double v_raw = v_sign * std::clamp(
+            params_.end_zone_k_v * dist, 0.0, params_.v_max);
+        const double v = std::clamp(v_raw, u_prev_.v - dv, u_prev_.v + dv);
 
         u_prev_ = {v, omega};
         return u_prev_;
