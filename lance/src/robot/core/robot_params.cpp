@@ -134,7 +134,7 @@ RobotParams::RobotParams(rclcpp::Node& node) :
 
     INIT_PARAM2(auto_mining, min_path_length, 2.1f, float),
     INIT_PARAM2(auto_mining, min_replan_vol_liters, 8.f, float),
-    INIT_PARAM2(auto_mining, max_iterations, 3, int)
+    INIT_PARAM2(auto_mining, max_iterations, 5, int)
 {
     std::vector<double> buff;
 

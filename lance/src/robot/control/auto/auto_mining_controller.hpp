@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <optional>
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
@@ -93,6 +94,7 @@ protected:
 
     std::optional<DirectedMiningPath> current_mining_path;
     MiningPlanner mining_planner;
+    std::chrono::steady_clock::time_point next_path_validity_recheck_time{};
 
     Stage stage{Stage::FINISHED};
 

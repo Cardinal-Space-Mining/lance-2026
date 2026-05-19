@@ -150,7 +150,7 @@
             },
             "traversibility":
             {
-                "chunk_horizontal_range": 2.5,
+                "chunk_horizontal_range": 4.0,
                 "chunk_vertical_range": 1.0,
                 "normal_estimation_radius": 0.2,
                 "output_res": 0.1,
