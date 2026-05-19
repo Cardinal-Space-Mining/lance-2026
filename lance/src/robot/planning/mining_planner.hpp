@@ -64,6 +64,23 @@ enum class MiningDirection
     XMINUS,
     XPLUS
 };
+// MiningDirection to radians
+inline float miningDirectionToRadians(MiningDirection dir)
+{
+    switch (dir)
+    {
+        case MiningDirection::YPLUS:
+            return M_PI / 2.0f;  // 90 degrees in radians
+        case MiningDirection::YMINUS:
+            return 3.0f * M_PI / 2.0f;  // 270 degrees in radians
+        case MiningDirection::XMINUS:
+            return M_PI;  // 180 degrees in radians
+        case MiningDirection::XPLUS:
+            return 0.0f;  // 0 degrees in radians
+        default:
+            throw std::invalid_argument("Invalid MiningDirection");
+    }
+}
 
 inline constexpr std::string_view toString(MiningDirection dir)
 {
@@ -278,6 +295,8 @@ public:
     // REMOVE LATER JUST FOR TESTING
     std::unordered_map<MiningDirection, Eigen::MatrixXi>
         getPreviouslyMinedCellsByDirection() const;
+    
+    bool recheckPathValidity(const DirectedMiningPath& path);
 
 private:
     MiningGridGeometry computeMiningGridGeometry(
@@ -297,6 +316,8 @@ private:
 
 
     bool sent_eval_request{false};
+    bool sent_validity_request{false};
+
     std::unordered_map<MiningDirection, MiningGridGeometry> grid_geometry;
     // Each previously mined cell matrix is offset by the same amounts as it's corresponding strip map so their indices align.
     std::unordered_map<MiningDirection, Eigen::MatrixXi>

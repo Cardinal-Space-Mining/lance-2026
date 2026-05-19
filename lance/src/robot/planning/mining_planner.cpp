@@ -488,6 +488,32 @@ std::unordered_map<MiningDirection, MiningGridGeometry>
     return geometries;
 }
 
+//Used periodically to check if the path is still valid as you traverse to the path with updated lidar points
+bool MiningPlanner::recheckPathValidity(const DirectedMiningPath& path)
+{
+    if (!sent_validity_request){
+        MiningPlanner::Pose2f start_position = Pose2f(path.getPathStartInWorldFrame().first.x(),
+                                     path.getPathStartInWorldFrame().first.y(),
+                                     miningDirectionToRadians(path.getDirection()));
+        std::cout << "Loading the query with  " << path.getPathStartInWorldFrame().first.x() << " , " <<
+            path.getPathStartInWorldFrame().first.y() << " , " <<
+            miningDirectionToRadians(path.getDirection()) << "\n";
+        mining_eval.queryArenaFrame(std::vector<MiningPlanner::Pose2f>{start_position});
+        sent_validity_request = true;
+    }
+    if (!mining_eval.hasResult()){
+        return true; // temporarily return true while waiting for the result
+    }
+    sent_validity_request = false;
+
+    float distance = mining_eval.getDists()->front();
+
+
+    std::cout << "Rechecking path validity. Distance to obstacle: " << distance
+              << " meters. Path distance: " << path.getDistance() << " meters.\n";
+    return path.getDistance() <= distance-.5f; // adding a small buffer to ensure safety
+}
+
 bool MiningPlanner::updateMappedMatrices()
 {
     const size_t grid_cell_count = static_cast<size_t>(
@@ -697,17 +723,17 @@ std::vector<MiningPlanner::Pose2f> MiningPlanner::getStartingLocations()
     {
         for (int y = 0; y < y_divisions; y++)
         {
-            std::cout
-                << "Adding starting vector for XMINUS at x="
-                << grid_geometry[MiningDirection::XMINUS]
-                           .max_corner_with_offset.x() -
-                       x * grid_geometry[MiningDirection::XMINUS].cell_length_x
-                << " y="
-                << grid_geometry[MiningDirection::XMINUS]
-                           .max_corner_with_offset.y() -
-                       (y + 0.5f) *
-                           grid_geometry[MiningDirection::XMINUS].cell_length_y
-                << "\n";
+            // std::cout
+            //     << "Adding starting vector for XMINUS at x="
+            //     << grid_geometry[MiningDirection::XMINUS]
+            //                .max_corner_with_offset.x() -
+            //            x * grid_geometry[MiningDirection::XMINUS].cell_length_x
+            //     << " y="
+            //     << grid_geometry[MiningDirection::XMINUS]
+            //                .max_corner_with_offset.y() -
+            //            (y + 0.5f) *
+            //                grid_geometry[MiningDirection::XMINUS].cell_length_y
+            //     << "\n";
             // Left
             starting_vectors.emplace_back(
                 grid_geometry[MiningDirection::XMINUS]
@@ -725,17 +751,17 @@ std::vector<MiningPlanner::Pose2f> MiningPlanner::getStartingLocations()
         for (int y = 0; y < y_divisions; y++)
         {
             // Right
-            std::cout
-                << "Adding starting vector for XPLUS at x="
-                << grid_geometry[MiningDirection::XPLUS]
-                           .min_corner_with_offset.x() +
-                       x * grid_geometry[MiningDirection::XPLUS].cell_length_x
-                << " y="
-                << grid_geometry[MiningDirection::XPLUS]
-                           .max_corner_with_offset.y() -
-                       (y + 0.5f) *
-                           grid_geometry[MiningDirection::XPLUS].cell_length_y
-                << "\n";
+            // std::cout
+            //     << "Adding starting vector for XPLUS at x="
+            //     << grid_geometry[MiningDirection::XPLUS]
+            //                .min_corner_with_offset.x() +
+            //            x * grid_geometry[MiningDirection::XPLUS].cell_length_x
+            //     << " y="
+            //     << grid_geometry[MiningDirection::XPLUS]
+            //                .max_corner_with_offset.y() -
+            //            (y + 0.5f) *
+            //                grid_geometry[MiningDirection::XPLUS].cell_length_y
+            //     << "\n";
             starting_vectors.emplace_back(
                 grid_geometry[MiningDirection::XPLUS]
                         .min_corner_with_offset.x() +
