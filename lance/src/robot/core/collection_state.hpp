@@ -40,6 +40,7 @@
 #pragma once
 
 #include <limits>
+#include <optional>
 
 #include "motor_interface.hpp"
 
@@ -101,7 +102,7 @@ public:
 
     double calcOffloadTargetMotorPosition(double beg_motor_pos) const;
 
-protected:
+private:
     inline double occupied_delta_m() const
     {
         return this->high_pos_m - this->low_pos_m;
@@ -111,7 +112,7 @@ protected:
         return this->belt_pos_m - this->offload_len_m;
     }
 
-protected:
+private:
     double initial_vol_l = 12.;
     double cap_vol_l = 30.;
     double initial_footprint_m = 0.2;
@@ -127,9 +128,6 @@ protected:
 
 class CollectionState
 {
-    static constexpr double DOUBLE_UNINITTED_VALUE =
-        std::numeric_limits<double>::infinity();
-
 public:
     void setParams(
         double initial_volume_l,
@@ -147,21 +145,15 @@ public:
         return this->hopper_state;
     }
 
-protected:
-    void handleInit(
-        const RobotMotorStatus& motors_status,
-        double mining_depth,
-        double impact_volume);
 
-protected:
+private:
     HopperState hopper_state;
 
-    double prev_trencher_rotations = DOUBLE_UNINITTED_VALUE;
-    double prev_ltrack_rotations = DOUBLE_UNINITTED_VALUE;
-    double prev_rtrack_rotations = DOUBLE_UNINITTED_VALUE;
-
-    double prev_mining_depth = DOUBLE_UNINITTED_VALUE;
-    double prev_impact_volume = DOUBLE_UNINITTED_VALUE;
+    std::optional<double> prev_trencher_rotations;
+    std::optional<double> prev_ltrack_rotations;
+    std::optional<double> prev_rtrack_rotations;
+    std::optional<double> prev_mining_depth;
+    std::optional<double> prev_impact_volume;
 };
 
 };  // namespace lance

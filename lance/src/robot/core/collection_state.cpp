@@ -185,21 +185,33 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     double curr_impact_volume =
         lance::miningDepthToTrencherImpactVolume(curr_mining_depth_m);
 
-    this->handleInit(motors_status, curr_mining_depth_m, curr_impact_volume);
+    if (!prev_trencher_rotations.has_value() ||
+        !prev_ltrack_rotations.has_value() ||
+        !prev_rtrack_rotations.has_value() || !prev_mining_depth.has_value() ||
+        !prev_impact_volume.has_value())
+    {
+        prev_trencher_rotations = trencher_rotations;
+        prev_ltrack_rotations = ltrack_rotations;
+        prev_rtrack_rotations = rtrack_rotations;
+        prev_mining_depth = curr_mining_depth_m;
+        prev_impact_volume = curr_impact_volume;
+        this->hopper_state.update(0, belt_rotations);
+        return;
+    }
 
     // calculate maximum possible volume material transferred given number of trencher rotations
     double delta_trencher_rotations =
-        trencher_rotations - this->prev_trencher_rotations;
+        trencher_rotations - this->prev_trencher_rotations.value();
     double trencher_max_delta_volume =
         lance::trencherMotorRpsToMaxVolumeRate(delta_trencher_rotations);
     // ^ f(r/s) -> L/s <=> f(r) -> L
 
     // calculate maximum possible volume material 'swept' given change in track rotations (linear distance)
     double avg_mining_depth_m =
-        (curr_mining_depth_m + this->prev_mining_depth) * 0.5;
+        (curr_mining_depth_m + this->prev_mining_depth.value()) * 0.5;
     double avg_track_delta_rotations =
-        ((ltrack_rotations - this->prev_ltrack_rotations) +
-         (rtrack_rotations - this->prev_rtrack_rotations)) *
+        ((ltrack_rotations - this->prev_ltrack_rotations.value()) +
+         (rtrack_rotations - this->prev_rtrack_rotations.value())) *
         0.5;
     double delta_sweep_volume = lance::trackMotorRpsToVolumeRate(
         avg_track_delta_rotations,
@@ -208,7 +220,7 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
 
     // calculate the volume which we have dug into the ground just by lowering the trencher
     double delta_impact_volume =
-        std::max(curr_impact_volume - this->prev_impact_volume, 0.);
+        std::max(curr_impact_volume - this->prev_impact_volume.value(), 0.);
     // ^ TODO: this will break if trencher is continually actuated up and down in the same spot!
 
     // calculate transmitted material volume
@@ -224,33 +236,6 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
 
     this->prev_mining_depth = curr_mining_depth_m;
     this->prev_impact_volume = curr_impact_volume;
-}
-
-void CollectionState::handleInit(
-    const RobotMotorStatus& motors_status,
-    double mining_depth,
-    double impact_volume)
-{
-    // clang-format off
-    #define SET_IF_UNINITTED(var, val)                \
-        if ((var) == DOUBLE_UNINITTED_VALUE) (var) = (val);
-    // clang-format on
-
-    SET_IF_UNINITTED(
-        this->prev_trencher_rotations,
-        motors_status.trencher.position)
-    SET_IF_UNINITTED(
-        this->prev_ltrack_rotations,
-        motors_status.track_left.position)
-    SET_IF_UNINITTED(
-        this->prev_rtrack_rotations,
-        motors_status.track_right.position)
-    SET_IF_UNINITTED(this->prev_mining_depth, mining_depth)
-    SET_IF_UNINITTED(this->prev_impact_volume, impact_volume)
-
-    // clang-format off
-    #undef SET_IF_UNINITTED
-    // clang-format on
 }
 
 };  // namespace lance
