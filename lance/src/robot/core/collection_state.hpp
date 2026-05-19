@@ -40,6 +40,7 @@
 #pragma once
 
 #include <limits>
+#include <optional>
 
 #include "motor_interface.hpp"
 
@@ -50,8 +51,14 @@ namespace lance
 class HopperState
 {
 public:
-    // set initial params
-    void setParams(
+    /// @brief Sets the hopper parameters
+    /// @param initial_volume_l How much regolith to collect before the hopper is first rotated
+    /// @param capacity_volume_l Total capacity of the hopper in liters
+    /// @param initial_footprint_m How far back the initial pile in the belt is
+    /// @param capacity_len_m How long the hopper belt is
+    /// @param offload_len_m How far to move the belt to offload
+    /// @param transfer_efficiency Efficiency of regolith transfer between trencher and hopper
+    HopperState(
         double initial_volume_l,
         double capacity_volume_l,
         double initial_footprint_m,
@@ -59,79 +66,72 @@ public:
         double offload_len_m,
         double transfer_efficiency);
 
+    /// @brief Updates internal hopper model
+    /// @param delta_volume_l How much additional regolith has been added
+    /// @param belt_rotations Current position of belt in Motor Angle Units
     void update(double delta_volume_l, double belt_rotations);
 
 public:
     // estimated volume in liters
-    inline double volume() const { return this->total_vol_l; }
+    double volume() const;
     // volume left until full in liters
-    inline double remainingVolume() const
-    {
-        return this->cap_vol_l - this->total_vol_l;
-    }
+    double remainingVolume() const;
     // tracked belt position in meters
-    inline double beltPosMeters() const { return this->belt_pos_m; }
+    double beltPosMeters() const;
     // belt position of "head" of regolith pile (closest to trencher)
-    inline double startPosMeters() const { return this->high_pos_m; }
+    double startPosMeters() const;
     // belt position of "end" of regloith pile (closest to opening)
-    inline double endPosMeters() const { return this->low_pos_m; }
+    double endPosMeters() const;
     // region of belt occupiled by regolith pile, in meters
-    inline double beltUsageMeters() const { return this->occupied_delta_m(); }
+    double beltUsageMeters() const;
     // the relative proportion of the belt which is used
-    inline double beltUsagePercent() const
-    {
-        return this->occupied_delta_m() / this->cap_len_m;
-    }
+    double beltUsagePercent() const;  //TODO: This is returning values > one
 
+public:
     // have we reached the max configured volume
-    inline bool isVolCapacity() const
-    {
-        return this->total_vol_l >= this->cap_vol_l;
-    }
+    bool isVolCapacity() const;
     // has the belt reached the end
-    inline bool isBeltCapacity() const
-    {
-        return this->occupied_delta_m() >= this->cap_len_m;
-    }
+    bool isBeltCapacity() const;
 
+public:
     // output is in motor rotations
     double miningTargetMotorPosition() const;
     // outut is in motor rotations
     double offloadTargetMotorPosition() const;
 
+public:
     double calcOffloadTargetMotorPosition(double beg_motor_pos) const;
 
-protected:
-    inline double occupied_delta_m() const
-    {
-        return this->high_pos_m - this->low_pos_m;
-    }
-    inline double cutoff_pos_m() const
-    {
-        return this->belt_pos_m - this->offload_len_m;
-    }
+private:
+    double occupied_delta_m() const;
+    double cutoff_pos_m() const;
 
-protected:
-    double initial_vol_l = 12.;
-    double cap_vol_l = 30.;
-    double initial_footprint_m = 0.2;
-    double cap_len_m = 0.6;
-    double offload_len_m = 0.7;
-    double transfer_efficiency = 0.5;
+private:  // parameters
+    const double initial_vol_l;
+    const double cap_vol_l;
+    const double initial_footprint_m;
+    const double cap_len_m;
+    const double offload_len_m;
+    const double transfer_efficiency;
 
-    double total_vol_l = 0.;
-    double belt_pos_m = 0.;
-    double high_pos_m = 0.;
-    double low_pos_m = 0.;
+private:  // State
+    /// @brief Current volume of regolith stored
+    double total_vol_l;
+
+    /// @brief Current belt position
+    double belt_pos_m;
+
+    /// @brief Absolute start of pile
+    double high_pos_m;
+
+    /// @brief Absolute end of pile
+    double low_pos_m;
 };
 
 class CollectionState
 {
-    static constexpr double DOUBLE_UNINITTED_VALUE =
-        std::numeric_limits<double>::infinity();
-
 public:
-    void setParams(
+    CollectionState(
         double initial_volume_l,
         double capacity_volume_l,
         double initial_footprint_m,
@@ -139,29 +139,21 @@ public:
         double offload_len_m,
         double transfer_efficiency);
 
+
     void update(const RobotMotorStatus& motors_status);
 
 public:
-    inline const HopperState& getHopperState() const
-    {
-        return this->hopper_state;
-    }
+    const HopperState& getHopperState() const;
 
-protected:
-    void handleInit(
-        const RobotMotorStatus& motors_status,
-        double mining_depth,
-        double impact_volume);
 
-protected:
+private:
     HopperState hopper_state;
 
-    double prev_trencher_rotations = DOUBLE_UNINITTED_VALUE;
-    double prev_ltrack_rotations = DOUBLE_UNINITTED_VALUE;
-    double prev_rtrack_rotations = DOUBLE_UNINITTED_VALUE;
-
-    double prev_mining_depth = DOUBLE_UNINITTED_VALUE;
-    double prev_impact_volume = DOUBLE_UNINITTED_VALUE;
+    std::optional<double> prev_trencher_rotations;
+    std::optional<double> prev_ltrack_rotations;
+    std::optional<double> prev_rtrack_rotations;
+    std::optional<double> prev_mining_depth;
+    std::optional<double> prev_impact_volume;
 };
 
 };  // namespace lance
