@@ -256,13 +256,17 @@ void TraversalController::iterate(
             this->mpc_controller.reset();
 
             this->state =
-                this->need_traverse ? State::FOLLOW_PATH : State::REORIENT;
+                this->need_traverse ? State::FOLLOW_PATH_MPC : State::REORIENT;
             [[fallthrough]];
         }
-        case State::FOLLOW_PATH:
+        case State::FOLLOW_PATH_MPC:
+        case State::FOLLOW_PATH_PCONTROL:
         {
             if (!this->iterateTraversal(motor_status, commands))
             {
+                this->state = this->mpc_controller.debugInfo().in_end_zone
+                    ? State::FOLLOW_PATH_PCONTROL
+                    : State::FOLLOW_PATH_MPC;
                 break;
             }
             this->state = State::REORIENT;

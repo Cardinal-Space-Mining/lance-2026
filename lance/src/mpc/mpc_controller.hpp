@@ -27,6 +27,7 @@ struct DebugInfo
     double cte_raw = 0.0;  // signed cross-track error [m], + left
     bool solver_ok = false;
     bool near_goal = false;
+    bool in_end_zone = false;
     double solve_ms = 0.0;          // OSQP wall-clock time [ms]
     size_t proj_segment_index = 0;  // index of closest path segment
 };

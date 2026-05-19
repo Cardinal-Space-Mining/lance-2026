@@ -94,7 +94,8 @@ protected:
     enum class State
     {
         INITIALIZATION,
-        FOLLOW_PATH,
+        FOLLOW_PATH_MPC,
+        FOLLOW_PATH_PCONTROL,
         REORIENT,
         FINISHED
     };

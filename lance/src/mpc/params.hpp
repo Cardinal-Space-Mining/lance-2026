@@ -35,7 +35,7 @@ struct MPCParams
     double R_v = 0.0;
     double R_omega = 0.0;
     double R_rate_v = 3.0;
-    double R_rate_omega = 3.0;
+    double R_rate_omega = 1.0;
 
     // Funnel decay: how quickly an initial widened corridor returns to d_hard
     double funnel_decay_tau = 5.0;
@@ -52,6 +52,14 @@ struct MPCParams
     double goal_threshold = 0.03;
     double goal_cte_scale = 2.0;
     double goal_stop_vel = 0.01;
+
+    // End-zone fallback: when remaining arc is small but CTE is too large
+    // for the MPC near-goal condition, switch to a simple P-controller that
+    // drives directly to the final waypoint.
+    double end_zone_radius =
+        0.3;  // remaining arc threshold to enter fallback [m]
+    double end_zone_k_omega = 2.0;  // heading P-gain [rad/s / rad]
+    double end_zone_k_v = 0.5;      // velocity P-gain [m/s / m]
 
     // Solver fallback multiplier on failure
     double fallback_decay = 0.8;

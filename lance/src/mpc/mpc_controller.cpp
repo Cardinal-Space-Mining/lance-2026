@@ -106,6 +106,48 @@ Control MPCController::update(const State& x_measured, const Path& path)
     // Cross-track error measured against the smooth path.
     const double cte_raw = new_ref.cte;
 
+    // End-zone fallback: when the arc projection has nearly reached the path
+    // end but CTE is too large for the MPC near-goal condition to trigger,
+    // bypass the QP and drive directly to the final waypoint with a simple
+    // P-controller.
+    if (new_ref.remaining_arc < params_.end_zone_radius)
+    {
+        debug_info_.in_end_zone = true;
+        const Eigen::Vector2d end_pos = path.pts.back().pos;
+        const Eigen::Vector2d err = end_pos - Eigen::Vector2d{x_pred.x, x_pred.y};
+        const double dist = err.norm();
+
+        if (dist < params_.goal_threshold)
+        {
+            u_prev_ = {0.0, 0.0};
+            return u_prev_;
+        }
+
+        double heading_err = std::atan2(err.y(), err.x()) - x_pred.theta;
+        while (heading_err >  M_PI) heading_err -= 2.0 * M_PI;
+        while (heading_err < -M_PI) heading_err += 2.0 * M_PI;
+
+        // If the goal is more than 90° behind us, reversing is cheaper than
+        // spinning to face it. Flip the effective heading error and drive backward.
+        const double v_sign = (std::abs(heading_err) > M_PI / 2.0) ? -1.0 : 1.0;
+        if (v_sign < 0.0)
+        {
+            heading_err += (heading_err > 0.0) ? -M_PI : M_PI;
+        }
+
+        const double omega = std::clamp(
+            params_.end_zone_k_omega * heading_err,
+            -params_.omega_max,
+            params_.omega_max);
+        const double v = v_sign * std::clamp(
+            params_.end_zone_k_v * dist,
+            0.0,
+            params_.v_max);
+
+        u_prev_ = {v, omega};
+        return u_prev_;
+    }
+
     // Stanley heading correction: bias reference headings toward the path.
     {
         const double k = params_.stanley_k;
@@ -194,6 +236,7 @@ Control MPCController::update(const State& x_measured, const Path& path)
     debug_info_.solver_ok = ok;
     debug_info_.cte_raw = cte_raw;
     debug_info_.near_goal = near;
+    debug_info_.in_end_zone = false;
     debug_info_.proj_pt = proj.proj;
     debug_info_.proj_segment_index = proj.segment_index;
     debug_info_.ref_snap = std::move(ref_qp);
