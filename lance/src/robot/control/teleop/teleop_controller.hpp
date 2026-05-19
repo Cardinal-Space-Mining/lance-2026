@@ -75,6 +75,7 @@ public:
     void setCancelled();
 
     void iterate(
+        uint8_t opts,
         const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
@@ -98,21 +99,22 @@ protected:
     void cancelCurrentCommand();
     void clearRemoteCommand();
     void handleRemoteCommand();
-    void iterateCurrentCommand(
+    bool iterateCurrentCommand(
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);
     void handleManualControl(
+        uint8_t opts,
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);
 
 protected:
-    void iterateAssistedMining(
+    bool iterateAssistedMining(
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);
-    void iterateAssistedOffload(
+    bool iterateAssistedOffload(
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);

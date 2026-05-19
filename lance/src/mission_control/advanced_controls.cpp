@@ -323,6 +323,15 @@ bool AdvancedControls::handleCommonOverrides()
     {
         this->watchdog.toggleOpt(static_cast<uint8_t>(ControlOpts::TEST_MODE));
     }
+    if (ToggleQuickAutoButton::wasPressed(this->joy_state))
+    {
+        this->watchdog.toggleOpt(static_cast<uint8_t>(ControlOpts::QUICK_AUTO));
+    }
+    if (ToggleAssistAsAutoButton::wasPressed(this->joy_state))
+    {
+        this->watchdog.toggleOpt(
+            static_cast<uint8_t>(ControlOpts::ASSIST_AS_AUTO));
+    }
 
     return false;
 }

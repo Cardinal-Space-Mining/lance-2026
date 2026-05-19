@@ -40,6 +40,7 @@
 #pragma once
 
 #include <phoenix_ros_driver/msg/talon_ctrl.hpp>
+#include <phoenix_ros_driver/msg/talon_faults.hpp>
 #include <phoenix_ros_driver/msg/talon_info.hpp>
 
 
@@ -47,6 +48,7 @@ namespace lance
 {
 
 using TalonCtrlMsg = phoenix_ros_driver::msg::TalonCtrl;
+using TalonFaultsMsg = phoenix_ros_driver::msg::TalonFaults;
 using TalonInfoMsg = phoenix_ros_driver::msg::TalonInfo;
 
 
@@ -63,6 +65,16 @@ struct RobotMotorStatus
     {
         return this->hopper_actuator.position;
     }
+};
+
+/** Contains TalonFaults for each motor */
+struct RobotMotorFaults
+{
+    TalonFaultsMsg track_right;
+    TalonFaultsMsg track_left;
+    TalonFaultsMsg trencher;
+    TalonFaultsMsg hopper_belt;
+    TalonFaultsMsg hopper_actuator;
 };
 
 /** Contains TalonCtrl for each motor */
@@ -93,8 +105,9 @@ struct RobotMotorCommands
     {
         this->hopper_actuator.set__mode(TalonCtrlMsg::POSITION).set__value(val);
     }
-    inline void setHopperActVelocity(double val)
+    inline void setHopperActSpeed(double val)
     {
+        // this->hopper_actuator.set__mode(TalonCtrlMsg::PERCENT_OUTPUT).set__value(val * 0.5);
         this->hopper_actuator.set__mode(TalonCtrlMsg::VELOCITY).set__value(val);
     }
     inline void setHopperActVoltage(double volts)

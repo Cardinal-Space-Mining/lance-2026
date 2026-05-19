@@ -43,6 +43,7 @@
 
 #include "util/joy_utils.hpp"
 #include "robot/core/robot_params.hpp"
+#include "robot/core/stall_analyzer.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/core/collection_state.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
@@ -70,14 +71,16 @@ public:
     };
 
 public:
-    MiningConstraints(const RobotParams&);
+    MiningConstraints(
+        const RobotParams&,
+        const HopperState&,
+        const StallState&);
 
 public:
     void updateSettings(const JoyState&);
-    void resetState();
+    void resetState(float target_fullness = 0.f);
     void updateState(
         const RobotMotorStatus&,
-        const HopperState&,
         const TfCache&,
         const MiningEvalInterface&);
 
@@ -93,9 +96,12 @@ protected:
 
 protected:
     const RobotParams& params;
+    const HopperState& hopper_state;
+    const StallState& stall_state;
 
     float remaining_dist{0.f};
     float prev_odom{0.f};
+    float target_fullness{0.f};
 
     uint8_t enabled_constraints{ALL_CONSTRAINTS};
     uint8_t current_constraint{CONSTRAINT_NONE};
@@ -104,6 +110,7 @@ protected:
 
 class MiningController
 {
+    friend class AutoMiningController;
     friend class TelemetrySerializer;
     friend class TelemetryDeserializer;
 
@@ -113,14 +120,16 @@ public:
     MiningController(
         const RobotParams&,
         const HopperState&,
+        const StallState&,
         SensingInterfaces&);
     ~MiningController() = default;
 
 public:
-    /* Restart the routine. If traversal distance is provided,
-     * the command will track the travelled distance and end if
-     * the traversal distance is exceeded. */
-    void initialize();
+    /* Restart the routine. If target fullness is provided, the routine
+     * will be limited using the following behavior: negative values - collect
+     * this much MORE volume, positive values - collect until this absolute
+     * amount, zero - fill to default capacity */
+    void initialize(float target_fullness = 0.f);
     /* Check if the command is finished, either as a result
      * of being cancelled or automatically shutting down
      * due to a stop state. */

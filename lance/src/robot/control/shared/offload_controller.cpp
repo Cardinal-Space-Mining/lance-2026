@@ -113,7 +113,7 @@ void OffloadController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
-    if (this->stage != Stage::INITIALIZATION && joy &&
+    if ((this->stage != Stage::INITIALIZATION) && joy &&
         AssistedOffloadToggleButton::wasPressed(*joy))
     {
         this->stage = Stage::LOWERING;
@@ -147,7 +147,7 @@ void OffloadController::iterate(
         }
         case Stage::BACKUP:
         {
-            if (!joy && this->traversal_state.hasRemaining())
+            if (this->traversal_state.hasRemaining())
             {
                 commands.setTracksVelocity(
                     -this->params.tracks_offload_velocity_rps,
@@ -163,7 +163,7 @@ void OffloadController::iterate(
             if (motor_status.getHopperActNormalizedValue() <
                 this->params.hopper_actuator_offload_target_val)
             {
-                commands.setHopperActVelocity(
+                commands.setHopperActSpeed(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
@@ -193,7 +193,7 @@ void OffloadController::iterate(
             if (motor_status.getHopperActNormalizedValue() >
                 this->params.hopper_actuator_traversal_target_val)
             {
-                commands.setHopperActVelocity(
+                commands.setHopperActSpeed(
                     -this->params.hopper_actuator_max_speed);
                 break;
             }

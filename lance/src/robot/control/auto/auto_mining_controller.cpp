@@ -55,7 +55,11 @@ AutoMiningController::AutoMiningController(
 {
 }
 
-void AutoMiningController::initialize() { this->stage = Stage::INITIALIZATION; }
+void AutoMiningController::initialize(bool quick)
+{
+    this->is_quick_run = quick;
+    this->stage = Stage::INITIALIZATION;
+}
 
 bool AutoMiningController::isFinished()
 {
@@ -87,6 +91,8 @@ void AutoMiningController::iterate(
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+    int iteration_count = 0;
+
     switch (this->stage)
     {
         case Stage::INITIALIZATION:
@@ -96,36 +102,6 @@ void AutoMiningController::iterate(
         }
         case Stage::PLANNING:
         {
-            // if (!mining_planner.hasSentRequest())
-            // {
-            //     this->traversal_controller.initializePoint(
-            //     this->params.mining_zone_bounds.max() -
-            //         Eigen::Vector2f::Constant(0.8f),
-            //     Eigen::Vector2f{0.f, -1.f});
-                
-            //     this->stage = Stage::TRAVERSING;
-            //     break;
-            // }
-            
-            
-            std::cout << "Planning mining path...\n";
-            // -----------------------------------------------------------------
-            // 1. generate target evals
-            // 2. geometry converter to build eval list
-            // 3. >>
-            // this->mining_eval_client->async_send_request(
-            //     req,
-            //     [](rclcpp::Client<UpdateMiningSrv>::SharedFuture f){ /* Use the response here! */ } );
-            // 4. update planner accordingly >>
-
-            // This will update the mining planner's internal matrices based on the current state of the world as perceived by the robot. It should be called periodically to ensure the planner has up-to-date information, but for now we will call it once at the beginning of the routine.
-           
-           
-           
-           
-           
-           
-           
             // this->mining_planner.iterate();
             if (!this->mining_planner.updateMappedMatrices())
             {
@@ -133,46 +109,50 @@ void AutoMiningController::iterate(
             }
 
 
-            std::cout << "Mining evaluation results received. Generating mining paths...\n";
+            // std::cout
+            //     << "Mining evaluation results received. Generating mining paths...\n";
 
             const MiningPlanner::DirectedMiningPaths& paths =
                 mining_planner.finalOutput();
 
-            std::cout << "Passed final output: " << paths.size() << " mining paths.\n";
+            // std::cout << "Passed final output: " << paths.size()
+            //           << " mining paths.\n";
 
-            const auto miningDirectionToString = [](lance::MiningDirection dir)
-            {
-                switch (dir)
-                {
-                    case lance::MiningDirection::YPLUS:
-                        return "YPLUS";
-                    case lance::MiningDirection::YMINUS:
-                        return "YMINUS";
-                    case lance::MiningDirection::XMINUS:
-                        return "XMINUS";
-                    case lance::MiningDirection::XPLUS:
-                        return "XPLUS";
-                    default:
-                        return "UNKNOWN";
-                }
-            };
-            std::cout << "Evaluated " << paths.size() << " mining paths:\n";
-            for (const auto& path : paths)
-            {
-                std::cout << "\n=== Evaluating Path ===\n";
-                lance::DirectedMiningPath::MiningSwath p =
-                    path.getPathStartInWorldFrame();
-                std::cout << "Base Frame - Start: (" << p.first.x() << ", "
-                          << p.first.y() << ")  Direction (In Coords): ("
-                          << p.second.x() << ", " << p.second.y()
-                          << ") | Direction: "
-                          << miningDirectionToString(path.getDirection())
-                          << " | Distance: " << path.getDistance()
-                          << " | Quality: " << path.getQuality(mining_planner.getPreviouslyMinedCellsByDirection()[path.getDirection()]) << "\n";
+            // const auto miningDirectionToString = [](lance::MiningDirection dir)
+            // {
+            //     switch (dir)
+            //     {
+            //         case lance::MiningDirection::YPLUS:
+            //             return "YPLUS";
+            //         case lance::MiningDirection::YMINUS:
+            //             return "YMINUS";
+            //         case lance::MiningDirection::XMINUS:
+            //             return "XMINUS";
+            //         case lance::MiningDirection::XPLUS:
+            //             return "XPLUS";
+            //         default:
+            //             return "UNKNOWN";
+            //     }
+            // };
+            // std::cout << "Evaluated " << paths.size() << " mining paths:\n";
+            // for (const auto& path : paths)
+            // {
+            //     std::cout << "\n=== Evaluating Path ===\n";
+            //     lance::DirectedMiningPath::MiningSwath p =
+            //         path.getPathStartInWorldFrame();
+            //     std::cout
+            //         << "Base Frame - Start: (" << p.first.x() << ", "
+            //         << p.first.y() << ")  Direction (In Coords): ("
+            //         << p.second.x() << ", " << p.second.y() << ") | Direction: "
+            //         << miningDirectionToString(path.getDirection())
+            //         << " | Distance: " << path.getDistance() << " | Quality: "
+            //         << path.getQuality(
+            //                mining_planner.getPreviouslyMinedCellsByDirection()
+            //                    [path.getDirection()])
+            //         << "\n";
 
-                path.print();
-                          
-            }
+            //     path.print();
+            // }
 
 
             if (paths.empty())
@@ -182,18 +162,31 @@ void AutoMiningController::iterate(
                 this->stage = Stage::FINISHED;
                 break;
             }
+            DirectedMiningPath::MiningSwath swath;
 
-            const DirectedMiningPath::MiningSwath swath =
-                paths.front().getPathStartInWorldFrame();
-            
-            this->current_mining_path = paths.front();
-            
-            std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
-                      << swath.first.y() << ")  Direction (In Coords): ("
-                      << swath.second.x() << ", " << swath.second.y()
-                      << ") | Direction: "
-                      << miningDirectionToString(paths.front().getDirection())
-                      << " | Distance: " << paths.front().getDistance() << "\n";
+            if (is_quick_run)
+            {
+                swath =
+                    paths.back()
+                        .getPathStartInWorldFrame();  // Lowest quality shortest path for first run (full cycle)
+                this->current_mining_path = paths.back();
+            }
+            else
+            {
+                swath = paths.front().getPathStartInWorldFrame();
+                this->current_mining_path = paths.front();
+            }
+
+
+
+            // std::cout << "USING PATTH - Start: (" << swath.first.x() << ", "
+            //           << swath.first.y() << ")  Direction (In Coords): ("
+            //           << swath.second.x() << ", " << swath.second.y()
+            //           << ") | Direction: "
+            //           << miningDirectionToString(
+            //                  this->current_mining_path->getDirection())
+            //           << " | Distance: "
+            //           << this->current_mining_path->getDistance() << "\n";
 
             this->traversal_controller.initializePoint(
                 swath.first,
@@ -201,66 +194,17 @@ void AutoMiningController::iterate(
 
             this->stage = Stage::TRAVERSING;
             [[fallthrough]];
-
-
-
-
-
-
-
-            
-            // bool received_request = mining_planner.updateMappedMatrices();
-
-            // I don't know how to do the query service, but the updateMappedMatrices() would call that a bunch of times
-            // I don't think it would have to be called here because it really only needs to be called once (or very periodically)
-            // it saves the results in a matrix that is used later on
-
-            // Wouldn't be a bad idea to check the best path it gives you one more time though
-            // The final ouput is sorted so the top has the highest quality
-
-            
-
-            // if (paths.empty())
-            // {
-            //     std::cout
-            //         << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
-            //     this->stage = Stage::FINISHED;
-            //     break;
-            // }
-            // -----------------------------------------------------------------
-            // if (!received_request)
-            // {
-            //     std::cerr << "Failed to receive mining evaluation results.\n";
-            //     this->stage = Stage::PLANNING;
-            //     break;  // stay in planning on next iterate()
-            // }
-            // Optional but recommended guard to avoid front() on empty vector
-            // if (paths.empty())
-            // {
-            //     std::cout
-            //         << "Uh oh, no mining paths found. Finishing auto mining controller.\n";
-            //     this->stage = Stage::FINISHED;
-            //     break;
-            // }
-
-            // const DirectedMiningPath::MiningSwath swath =
-            //     paths.front().getPathStartInWorldFrame(this->params);
-
-            // this->traversal_controller.initializePoint(
-            //     swath.first,
-            //     swath.second);
-            // this->stage = Stage::TRAVERSING;
-            // [[fallthrough]];
         }
         case Stage::TRAVERSING:
         {
             this->traversal_controller.iterate(motor_status, commands);
             if (!this->traversal_controller.isFinished())
-            {   
+            {
                 break;
             }
 
-            this->mining_controller.initialize();
+            this->mining_controller.initialize(
+                this->is_quick_run ? -this->params.preset_mining_vol_l : 0.f);
             this->stage = Stage::MINING;
             [[fallthrough]];
         }
@@ -274,8 +218,20 @@ void AutoMiningController::iterate(
 
             if (this->current_mining_path.has_value())
             {
-                this->mining_planner.markMiningOnMatrix(this->current_mining_path.value());
+                this->mining_planner.markMiningOnMatrix(
+                    this->current_mining_path.value());
                 this->current_mining_path.reset();
+            }
+
+            if (!is_quick_run &&
+                (iteration_count < this->params.auto_mining_max_iterations) &&
+                (this->mining_controller.hopper_state.remainingVolume() >
+                 this->params.auto_mining_min_replan_vol_liters))
+            {
+                // Replan if we have enough remaining volume to make it worth it
+                this->stage = Stage::PLANNING;
+                iteration_count += 1;
+                break;
             }
 
             this->stage = Stage::FINISHED;

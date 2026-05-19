@@ -41,8 +41,7 @@ def flatten_motors(config):
         del config['motors'] 
         config.update(flattened)
     else:
-        if 'motors' not in config:
-            config['motors'] = {'names': []}
+        config['motors'] = {'names': []}
 
 
 def flatten_mechanisms(config):
@@ -76,8 +75,6 @@ def flatten_mechanisms(config):
 
         del config['mechanisms']
         config.update(flattened)
-    else:
-        config['mechanism_names'] = []
 
 
 def preproc_phoenix6_config(profile_cfg: dict):

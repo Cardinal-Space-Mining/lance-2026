@@ -237,7 +237,7 @@ void TraversalController::iterate(
             if (motor_status.getHopperActNormalizedValue() <
                 this->params.hopper_actuator_traversal_target_val)
             {
-                commands.setHopperActVelocity(
+                commands.setHopperActSpeed(
                     this->params.hopper_actuator_max_speed);
                 break;
             }

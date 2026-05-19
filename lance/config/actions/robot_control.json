@@ -21,7 +21,7 @@
 
             "hopper_belt":
             {
-                "max_velocity_rps": 45.0,
+                "max_velocity_rps": 135.0,
                 "mining_velocity_rps": 10.0,
                 "mining_duty_cycle_base_seconds": 1.0
             },
@@ -37,28 +37,55 @@
             "hopper_actuator":
             {
                 "max_speed": 1.0,
-                "plunge_speed": 0.4,
+                "plunge_speed": 0.5,
                 "extract_speed": 0.8,
-                "offload_target_val": 0.95,
-                "traversal_target_val": 0.6,
-                "transport_target_val": 0.55,
-                "mining_target_val": 0.21,
-                "mining_min_val": 0.03,
+                "offload_target_val": 0.9,
+                "traversal_target_val": 0.47,
+                "transport_target_val": 0.47,
+                "mining_target_val": 0.13,
+                "mining_min_val": 0.1,
                 "targetting_thresh": 0.01
             },
 
             "collection_model":
             {
-                "initial_volume_liters": 20.0,
+                "initial_volume_liters": 30.0,
                 "capacity_volume_liters": 40.0,
-                "initial_belt_footprint_meters": 0.4,
+                "initial_belt_footprint_meters": 0.5,
                 "belt_capacity_meters": 0.75,
-                "belt_offload_length_meters": 0.9
+                "belt_offload_length_meters": 1.2,
+                "transfer_efficiency": 0.9
+            },
+
+            "stall_analyzer":
+            {
+                "tracks":
+                {
+                    "debounce_time_s": 0.5,
+                    "min_vel_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
+                },
+                "trencher":
+                {
+                    "debounce_time_s": 0.5,
+                    "min_vel_proportion": 0.2,
+                    "command_deadzone_rps": 1.0
+                }
             },
 
             "iteration_period_seconds": 0.05,
             "odom_frame_id": "${ id.odom_frame }",
             "arena_frame_id": "${ id.arena_frame }",
+
+            "mining_zone_bounds": "${ zone.ksc.mining }",
+            "offload_zone_bounds": "${ zone.ksc.offload }",
+            "construction_zone_bounds": "${ zone.ksc.construction }",
+
+            "preset":
+            {
+                "mining_vol_l" : 3.0,
+                "offload_backup_m" : 0.5
+            },
 
             "auto_localization":
             {
@@ -84,9 +111,12 @@
                 "align_angular_thresh_deg": 0.5
             },
 
-            "mining_zone_bounds": "${ zone.ksc.mining }",
-            "offload_zone_bounds": "${ zone.ksc.offload }",
-            "construction_zone_bounds": "${ zone.ksc.construction }"
+            "auto_mining":
+            {
+                "min_path_length" : 1.1,
+                "min_replan_vol_liters" : 8.0,
+                "max_iterations" : 3
+            }
         },
         "lance1":
         {

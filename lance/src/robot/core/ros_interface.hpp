@@ -48,6 +48,7 @@ namespace lance
 #define TALON_INFO_TOPIC(motor_id) ROBOT_TOPIC(motor_id "/info")
 #define COLLECTION_STATE_TOPIC(subtopic)      \
     ROBOT_TOPIC("collection_state/" subtopic)
+#define STALL_STATE_TOPIC(subtopic) ROBOT_TOPIC("stall_state/" subtopic)
 
 #define CONSTEXPR_STR constexpr inline char const*
 
@@ -55,6 +56,8 @@ CONSTEXPR_STR WATCHDOG_TOPIC = ROBOT_TOPIC("watchdog_status");
 CONSTEXPR_STR SET_TELEOP_TOPIC = ROBOT_TOPIC("set_teleop_mode");
 CONSTEXPR_STR SET_AUTO_TOPIC = ROBOT_TOPIC("set_auto_mode");
 CONSTEXPR_STR SET_TEST_TOPIC = ROBOT_TOPIC("set_test_mode");
+CONSTEXPR_STR SET_QUICK_AUTO_TOPIC = ROBOT_TOPIC("set_quick_auto");
+CONSTEXPR_STR SET_ASSIST_AUTO_TOPIC = ROBOT_TOPIC("set_assist_auto");
 
 CONSTEXPR_STR JOY_INPUT_TOPIC = "/joy";
 CONSTEXPR_STR JOY_CTRL_TOPIC = ROBOT_TOPIC("joy_ctrl");

@@ -41,6 +41,7 @@
 
 #include <memory>
 
+#include "robot/core/robot_status.hpp"
 #include "robot/model/geometry.hpp"
 
 
@@ -106,6 +107,7 @@ void AutoController::setCancelled()
 }
 
 void AutoController::iterate(
+    uint8_t opts,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
@@ -141,7 +143,8 @@ void AutoController::iterate(
                 break;
             }
 
-            this->mining_controller.initialize();
+            this->mining_controller.initialize(
+                opts & static_cast<uint8_t>(ControlOpts::QUICK_AUTO));
             this->stage = Stage::MINING;
             [[fallthrough]];
         }

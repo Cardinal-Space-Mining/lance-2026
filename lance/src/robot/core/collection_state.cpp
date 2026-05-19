@@ -50,13 +50,15 @@ void HopperState::setParams(
     double capacity_volume_l,
     double initial_footprint_m,
     double capacity_len_m,
-    double offload_len_m)
+    double offload_len_m,
+    double transfer_efficiency)
 {
     this->initial_vol_l = initial_volume_l;
     this->cap_vol_l = capacity_volume_l;
     this->initial_footprint_m = initial_footprint_m;
     this->cap_len_m = capacity_len_m;
     this->offload_len_m = offload_len_m;
+    this->transfer_efficiency = transfer_efficiency;
 }
 
 void HopperState::update(double delta_volume_l, double belt_rotations)
@@ -77,7 +79,7 @@ void HopperState::update(double delta_volume_l, double belt_rotations)
         {
             this->high_pos_m = this->belt_pos_m;
         }
-        this->total_vol_l += delta_volume_l;
+        this->total_vol_l += delta_volume_l * transfer_efficiency;
     }
 
     if (this->total_vol_l > 0.)
@@ -159,14 +161,16 @@ void CollectionState::setParams(
     double capacity_volume_l,
     double initial_footprint_m,
     double capacity_len_m,
-    double offload_len_m)
+    double offload_len_m,
+    double transfer_efficiency)
 {
     this->hopper_state.setParams(
         initial_volume_l,
         capacity_volume_l,
         initial_footprint_m,
         capacity_len_m,
-        offload_len_m);
+        offload_len_m,
+        transfer_efficiency);
 }
 
 void CollectionState::update(const RobotMotorStatus& motors_status)
