@@ -58,7 +58,7 @@ public:
     /// @param capacity_len_m How long the hopper belt is
     /// @param offload_len_m How far to move the belt to offload
     /// @param transfer_efficiency Efficiency of regolith transfer between trencher and hopper
-    void setParams(
+    HopperState(
         double initial_volume_l,
         double capacity_volume_l,
         double initial_footprint_m,
@@ -107,37 +107,38 @@ private:
     double cutoff_pos_m() const;
 
 private:  // parameters
-    double initial_vol_l = 12.;
-    double cap_vol_l = 30.;
-    double initial_footprint_m = 0.2;
-    double cap_len_m = 0.6;
-    double offload_len_m = 0.7;
-    double transfer_efficiency = 0.5;
+    const double initial_vol_l;
+    const double cap_vol_l;
+    const double initial_footprint_m;
+    const double cap_len_m;
+    const double offload_len_m;
+    const double transfer_efficiency;
 
 private:  // State
     /// @brief Current volume of regolith stored
-    double total_vol_l = 0.;
+    double total_vol_l;
 
     /// @brief Current belt position
-    double belt_pos_m = 0.;
+    double belt_pos_m;
 
     /// @brief Absolute start of pile
-    double high_pos_m = 0.;
+    double high_pos_m;
 
     /// @brief Absolute end of pile
-    double low_pos_m = 0.;
+    double low_pos_m;
 };
 
 class CollectionState
 {
 public:
-    void setParams(
+    CollectionState(
         double initial_volume_l,
         double capacity_volume_l,
         double initial_footprint_m,
         double capacity_len_m,
         double offload_len_m,
         double transfer_efficiency);
+
 
     void update(const RobotMotorStatus& motors_status);
 

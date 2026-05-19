@@ -45,20 +45,24 @@
 namespace lance
 {
 
-void HopperState::setParams(
+HopperState::HopperState(
     double initial_volume_l,
     double capacity_volume_l,
     double initial_footprint_m,
     double capacity_len_m,
     double offload_len_m,
-    double transfer_efficiency)
+    double transfer_efficiency) :
+    initial_vol_l(initial_volume_l),
+    cap_vol_l(capacity_volume_l),
+    initial_footprint_m(initial_footprint_m),
+    cap_len_m(capacity_len_m),
+    offload_len_m(offload_len_m),
+    transfer_efficiency(transfer_efficiency),
+    total_vol_l(0),
+    belt_pos_m(0),
+    high_pos_m(0),
+    low_pos_m(0)
 {
-    this->initial_vol_l = initial_volume_l;
-    this->cap_vol_l = capacity_volume_l;
-    this->initial_footprint_m = initial_footprint_m;
-    this->cap_len_m = capacity_len_m;
-    this->offload_len_m = offload_len_m;
-    this->transfer_efficiency = transfer_efficiency;
 }
 
 double HopperState::occupied_delta_m() const
@@ -189,23 +193,22 @@ double HopperState::calcOffloadTargetMotorPosition(double beg_motor_pos) const
 
 
 
-void CollectionState::setParams(
+CollectionState::CollectionState(
     double initial_volume_l,
     double capacity_volume_l,
     double initial_footprint_m,
     double capacity_len_m,
     double offload_len_m,
-    double transfer_efficiency)
-{
-    this->hopper_state.setParams(
+    double transfer_efficiency) :
+    hopper_state(
         initial_volume_l,
         capacity_volume_l,
         initial_footprint_m,
         capacity_len_m,
         offload_len_m,
-        transfer_efficiency);
+        transfer_efficiency)
+{
 }
-
 void CollectionState::update(const RobotMotorStatus& motors_status)
 {
     const double trencher_rotations = motors_status.trencher.position;
