@@ -42,19 +42,19 @@
                 "offload_target_val": 0.9,
                 "traversal_target_val": 0.47,
                 "transport_target_val": 0.47,
-                "mining_target_val": 0.13,
-                "mining_min_val": 0.1,
+                "mining_target_val": 0.1,
+                "mining_min_val": 0.064,
                 "targetting_thresh": 0.01
             },
 
             "collection_model":
             {
-                "initial_volume_liters": 30.0,
-                "capacity_volume_liters": 40.0,
-                "initial_belt_footprint_meters": 0.5,
+                "initial_volume_liters": 50.0,
+                "capacity_volume_liters": 50.0,
+                "initial_belt_footprint_meters": 0.6,
                 "belt_capacity_meters": 0.75,
                 "belt_offload_length_meters": 1.2,
-                "transfer_efficiency": 0.9
+                "transfer_efficiency": 0.5
             },
 
             "stall_analyzer":
@@ -83,8 +83,8 @@
 
             "preset":
             {
-                "mining_vol_l" : 3.0,
-                "offload_backup_m" : 0.5
+                "mining_vol_l" : 5.0,
+                "offload_backup_m" : 0.7
             },
 
             "auto_localization":
