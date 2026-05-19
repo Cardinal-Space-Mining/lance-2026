@@ -83,8 +83,8 @@
 
             "preset":
             {
-                "mining_vol_l" : 5.0,
-                "offload_backup_m" : 0.7
+                "mining_vol_l" : 2.5,
+                "offload_backup_m" : 1.2
             },
 
             "auto_localization":
