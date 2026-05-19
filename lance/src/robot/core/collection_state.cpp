@@ -115,6 +115,11 @@ void HopperState::update(double delta_volume_l, double belt_rotations)
         else if (this->belt_pos_m > this->high_pos_m)
         {
             this->high_pos_m = this->belt_pos_m;
+            // Constrain the berm size markers to be shorter or eq to hopper length
+            if (occupied_delta_m() > this->cap_len_m)
+            {
+                this->low_pos_m = this->high_pos_m - this->cap_len_m;
+            }
         }
         this->total_vol_l += delta_volume_l * transfer_efficiency;
     }
