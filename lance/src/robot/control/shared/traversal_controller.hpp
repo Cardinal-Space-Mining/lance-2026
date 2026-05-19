@@ -42,6 +42,8 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "mpc/sim_utils.hpp"
+#include "mpc/mpc_controller.hpp"
 #include "util/ros_utils.hpp"
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
@@ -92,7 +94,8 @@ protected:
     enum class State
     {
         INITIALIZATION,
-        FOLLOW_PATH,
+        FOLLOW_PATH_MPC,
+        FOLLOW_PATH_PCONTROL,
         REORIENT,
         FINISHED
     };
@@ -113,14 +116,6 @@ protected:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
-    void runStanley(
-        const RobotMotorStatus& motor_status,
-        const std::vector<Vec2f>& keypoints,
-        size_t seg_beg_idx,
-        size_t seg_end_idx,
-        float seg_proj_t,
-        RobotMotorCommands& commands);
-
     void getFilteredPrevVelocities(
         const RobotMotorStatus& motor_status,
         float& Vl_prev,
@@ -130,6 +125,10 @@ protected:
     const RobotParams& params;
     const TfCache& tf_cache;
     PathPlanInterface& pplan_interface;
+
+    mpc::MPCParams mpc_params;
+    mpc::FrameLogger mpc_logger;
+    mpc::MPCController mpc_controller;
 
     State state{State::FINISHED};
 

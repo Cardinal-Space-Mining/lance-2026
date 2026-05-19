@@ -785,7 +785,8 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
 
     constexpr char const* STAGE_TAGS[] = {
         "Initializing",
-        "Tracking Path",
+        "Tracking Path : MPC",
+        "Tracking Path : P-Control",
         "Reorienting",
         "Finished"};
 

@@ -145,14 +145,14 @@
     },
     "3D!wl899f": {
       "cameraState": {
-        "perspective": false,
-        "distance": 6.811232525732397,
-        "phi": 179.99994268895352,
-        "thetaOffset": 168.5675051035977,
+        "perspective": true,
+        "distance": 11.376001845324803,
+        "phi": 0.00005729832627056611,
+        "thetaOffset": 76.83059216677927,
         "targetOffset": [
-          -2.1112158077151784,
-          -1.552224739658882,
-          1.5767803246227775e-16
+          1.2182268438715524,
+          -3.135728745826022,
+          3.959036153451118e-16
         ],
         "target": [
           0,
@@ -260,6 +260,9 @@
           "namespaces": {
             "robot": {
               "visible": true
+            },
+            "debug": {
+              "visible": true
             }
           }
         },
@@ -273,7 +276,7 @@
           "maxValue": 1
         },
         "/cardinal_perception/pplan_map": {
-          "visible": false,
+          "visible": true,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
@@ -414,7 +417,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/info.position",
-          "enabled": true,
+          "enabled": false,
           "color": "#a395e2"
         },
         {
@@ -463,7 +466,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/collection_state/volume.data",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -472,6 +475,13 @@
           "enabled": false,
           "color": "#f5774d",
           "id": "a57093ab-478e-49d1-89e2-e309eeaa7b1a"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/lance/hopper_act/info.position",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "16e08bc1-ef0b-448e-ab58-d608490c45fb"
         }
       ],
       "showXAxisLabels": true,
@@ -1975,19 +1985,7 @@
     "StateTransitions!3gtyevq": {
       "paths": [
         {
-          "value": "/lance/control_level.data",
-          "timestampMethod": "receiveTime"
-        },
-        {
-          "value": "/lance/mining_status.data",
-          "timestampMethod": "receiveTime"
-        },
-        {
-          "value": "/lance/offload_status.data",
-          "timestampMethod": "receiveTime"
-        },
-        {
-          "value": "/collection_state/is_full_occ.data",
+          "value": "/lance/op_status.data",
           "timestampMethod": "receiveTime",
           "customStates": {
             "type": "discrete",
@@ -1995,7 +1993,7 @@
           }
         },
         {
-          "value": "/collection_state/is_full_volume.data",
+          "value": "/lance/mc_state.data",
           "timestampMethod": "receiveTime",
           "customStates": {
             "type": "discrete",
@@ -2047,7 +2045,7 @@
       ],
       "showXAxisLabels": true,
       "showYAxisLabels": true,
-      "showLegend": true,
+      "showLegend": false,
       "legendDisplay": "floating",
       "showPlotValuesInLegend": true,
       "isSynced": true,
@@ -2101,7 +2099,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/info.velocity",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -2119,13 +2117,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/info.bus_voltage",
-          "enabled": false,
+          "enabled": true,
           "color": "#5cd6a9"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/info.supply_current",
-          "enabled": false,
+          "enabled": true,
           "color": "#61cbff"
         },
         {
@@ -2173,7 +2171,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_left/ctrl.value",
-          "enabled": true,
+          "enabled": false,
           "color": "#a395e2"
         },
         {
@@ -2198,7 +2196,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.velocity",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -2216,13 +2214,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.bus_voltage",
-          "enabled": false,
+          "enabled": true,
           "color": "#5cd6a9"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/info.supply_current",
-          "enabled": false,
+          "enabled": true,
           "color": "#61cbff"
         },
         {
@@ -2270,7 +2268,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/trencher/ctrl.value",
-          "enabled": true,
+          "enabled": false,
           "color": "#a395e2"
         },
         {
@@ -2295,7 +2293,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/info.velocity",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
@@ -2313,13 +2311,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/info.bus_voltage",
-          "enabled": false,
+          "enabled": true,
           "color": "#5cd6a9"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/info.supply_current",
-          "enabled": false,
+          "enabled": true,
           "color": "#61cbff"
         },
         {
@@ -2367,7 +2365,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/track_right/ctrl.value",
-          "enabled": true,
+          "enabled": false,
           "color": "#a395e2"
         },
         {
@@ -2404,19 +2402,19 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/info.output_current",
-          "enabled": false,
+          "enabled": true,
           "color": "#f7df71"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/info.bus_voltage",
-          "enabled": false,
+          "enabled": true,
           "color": "#5cd6a9"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_belt/info.supply_current",
-          "enabled": false,
+          "enabled": true,
           "color": "#61cbff"
         },
         {
@@ -2489,13 +2487,13 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/info.velocity",
-          "enabled": true,
+          "enabled": false,
           "color": "#4e98e2"
         },
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/info.output_voltage",
-          "enabled": true,
+          "enabled": false,
           "color": "#f5774d"
         },
         {
@@ -2561,7 +2559,7 @@
         {
           "timestampMethod": "receiveTime",
           "value": "/lance/hopper_act/ctrl.value",
-          "enabled": true,
+          "enabled": false,
           "color": "#a395e2"
         },
         {
@@ -5933,7 +5931,7 @@
                 "first": "3D!wl899f",
                 "second": "StateTransitions!xkp66y",
                 "direction": "column",
-                "splitPercentage": 83.78927622322963
+                "splitPercentage": 81.07502799552073
               },
               "direction": "row",
               "splitPercentage": 16.161137440758296
