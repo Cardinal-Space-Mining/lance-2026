@@ -47,7 +47,7 @@
 
 namespace lance
 {
-    using Vec2f = Eigen::Vector2f;
+using Vec2f = Eigen::Vector2f;
 
 class AutoOffloadController
 {
@@ -55,9 +55,7 @@ class AutoOffloadController
     friend class TelemetryDeserializer;
 
 public:
-    AutoOffloadController(
-        const RobotParams&,
-        SharedControllerCollection&);
+    AutoOffloadController(const RobotParams&, SharedControllerCollection&);
     ~AutoOffloadController() = default;
 
 public:
@@ -95,8 +93,9 @@ protected:
     TraversalController& traversal_controller;
     OffloadController& offload_controller;
 
-    bool planned{false};
-    std::vector<OffloadPlanner::OffloadAction> plan; // Vector containing all planned offload actions to be executed in order
+    size_t idx = 0;
+    // Vector containing all planned offload actions to be executed in order
+    std::vector<OffloadPlanner::OffloadAction> plan;
 
     Stage stage{Stage::FINISHED};
 };

@@ -38,14 +38,15 @@
 *******************************************************************************/
 
 #include "auto_offload_controller.hpp"
+#include "robot/model/geometry.hpp"
 
 #include <Eigen/Core>
 
 
 namespace lance
 {
-    using Box2f = Eigen::AlignedBox2f;
-    using Vec2f = Eigen::Vector2f;
+using Box2f = Eigen::AlignedBox2f;
+using Vec2f = Eigen::Vector2f;
 
 AutoOffloadController::AutoOffloadController(
     const RobotParams& params,
@@ -100,28 +101,27 @@ void AutoOffloadController::iterate(
         }
         case Stage::PLANNING:
         {
-            
-            if (!planned) {
-                OffloadPlanner planner(
-                    params.bounds.offload_zone,
-                    determineDir(),
-                    Vec2f{0.3, 0.3},
-                    0.15
-                );
+            OffloadPlanner planner(
+                params.bounds.offload_zone,
+                determineDir(),
+                Vec2f{
+                    lance::geom::OFFLOAD_FOOTPRINT_LENGTH,
+                    lance::geom::OFFLOAD_FOOTPRINT_WIDTH},
+                lance::geom::OFFLOAD_FOOTPRINT_OFFSET);
 
-                this->plan = planner.to_actions();
-                this->planned = true;
-            }
+            this->plan = planner.to_actions();
 
-            if(plan.size() == 0){
+
+            if (plan.size() == 0)
+            {
                 this->stage = Stage::FINISHED;
                 break;
             }
 
-            const auto& action = plan.front();
-
             // init with planned destination
-            this->traversal_controller.initializePoint(action.drive_point, determineDir());
+            this->traversal_controller.initializePoint(
+                plan[idx].drive_point,
+                determineDir());
             this->stage = Stage::TRAVERSING;
             [[fallthrough]];
         }
@@ -133,8 +133,10 @@ void AutoOffloadController::iterate(
                 break;
             }
 
-            // initialize with backup if necessary
-            this->offload_controller.initialize(0.f);
+            // initialize with backup
+            auto offload_dist =
+                (plan[idx].drive_point - plan[idx].back_point).norm();
+            this->offload_controller.initialize(offload_dist);
             this->stage = Stage::OFFLOADING;
             [[fallthrough]];
         }
@@ -146,15 +148,11 @@ void AutoOffloadController::iterate(
                 break;
             }
 
-            const auto& action = plan.front();
-
-            this->traversal_controller.initializePoint(action.drive_point, determineDir());
-
-            if(plan.size() != 0){
-                this->plan.erase(plan.begin());
-            } else {
-                this->stage = Stage::FINISHED;
-                break;
+            idx++;
+            // Revert to first loaded berm segment if we run out of offload zones
+            if (idx >= plan.size())
+            {
+                idx = 0;
             }
 
             this->stage = Stage::FINISHED;
@@ -166,16 +164,15 @@ void AutoOffloadController::iterate(
     }
 }
 
-Vec2f AutoOffloadController::determineDir() {
-    Vec2f dir = lance::geom::innerZoneNormalDir(params.bounds.offload_zone, params.bounds.arena_zone);
+Vec2f AutoOffloadController::determineDir()
+{
+    Vec2f dir = lance::geom::innerZoneNormalDir(
+        params.bounds.offload_zone,
+        params.bounds.arena_zone);
 
-    if (dir.norm() > 0) {
-        return dir;
-    }
-    else {
-        std::cout << "I don't think we should get here" << std::endl;
-        return Vec2f{0.0, 1.0};
-    }
+    assert(dir.nonZeros());
+
+    return dir.normalized();
 }
 
 }  // namespace lance
