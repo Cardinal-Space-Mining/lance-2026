@@ -51,7 +51,13 @@ namespace lance
 class HopperState
 {
 public:
-    // set initial params
+    /// @brief Sets the hopper parameters
+    /// @param initial_volume_l How much regolith to collect before the hopper is first rotated
+    /// @param capacity_volume_l Total capacity of the hopper in liters
+    /// @param initial_footprint_m How far back the initial pile in the belt is
+    /// @param capacity_len_m How long the hopper belt is
+    /// @param offload_len_m How far to move the belt to offload
+    /// @param transfer_efficiency Efficiency of regolith transfer between trencher and hopper
     void setParams(
         double initial_volume_l,
         double capacity_volume_l,
@@ -60,6 +66,9 @@ public:
         double offload_len_m,
         double transfer_efficiency);
 
+    /// @brief Updates internal hopper model
+    /// @param delta_volume_l How much additional regolith has been added
+    /// @param belt_rotations Current position of belt in Motor Angle Units
     void update(double delta_volume_l, double belt_rotations);
 
 public:
@@ -76,25 +85,28 @@ public:
     // region of belt occupiled by regolith pile, in meters
     double beltUsageMeters() const;
     // the relative proportion of the belt which is used
-    double beltUsagePercent() const;
+    double beltUsagePercent() const;  //TODO: This is returning values > one
 
+public:
     // have we reached the max configured volume
     bool isVolCapacity() const;
     // has the belt reached the end
     bool isBeltCapacity() const;
 
+public:
     // output is in motor rotations
     double miningTargetMotorPosition() const;
     // outut is in motor rotations
     double offloadTargetMotorPosition() const;
 
+public:
     double calcOffloadTargetMotorPosition(double beg_motor_pos) const;
 
 private:
     double occupied_delta_m() const;
     double cutoff_pos_m() const;
 
-private:
+private:  // parameters
     double initial_vol_l = 12.;
     double cap_vol_l = 30.;
     double initial_footprint_m = 0.2;
@@ -102,9 +114,17 @@ private:
     double offload_len_m = 0.7;
     double transfer_efficiency = 0.5;
 
+private:  // State
+    /// @brief Current volume of regolith stored
     double total_vol_l = 0.;
+
+    /// @brief Current belt position
     double belt_pos_m = 0.;
+
+    /// @brief Absolute start of pile
     double high_pos_m = 0.;
+
+    /// @brief Absolute end of pile
     double low_pos_m = 0.;
 };
 
