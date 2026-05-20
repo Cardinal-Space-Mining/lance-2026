@@ -99,11 +99,11 @@ CONSTEXPR_VAL_TEMPLATE(TRENCHER_GEARING, 64)
 // (VOLUME / 1 bucket * NUM buckets) / BELT LENGTH * OUTPUT RADIUS / 2pi -->
 // belt length : ~62 in --> 1.5748 m
 // num buckets : ~44
-// vol per bucket (CAD) : 0.04309 L
+// vol per bucket (CAD) : 0.106 L
 // actuation radius (CAD): 0.04890 m,
 CONSTEXPR_VAL_TEMPLATE(
     TRENCHER_LITERS_PER_OUTPUT_ROTATION,
-    ((0.04309 * 44) / 1.5748) * (0.04826 * TWO_PI))
+    ((0.106 * 44) / 1.5748) * (0.04826 * TWO_PI))
 // effector center of rotation to max bucket reach distance
 CONSTEXPR_VAL_TEMPLATE(TRENCHER_IMPACT_EFFECTIVE_RADIUS_M, 0.0953)
 
