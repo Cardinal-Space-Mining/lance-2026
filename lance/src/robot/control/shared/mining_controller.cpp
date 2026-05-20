@@ -361,10 +361,12 @@ void MiningController::iterate(
             float hopper_act_target =
                 this->params.hopper_actuator_mining_target_val;
             // float tracks_target = this->params.tracks_mining_velocity_rps;
-            float tracks_target = lance::trencherMotorRpsToMaxTrackMotorRps(
-                motor_status.trencher.velocity,
-                linearActuatorToMiningDepthClamped(
-                    motor_status.getHopperActNormalizedValue()));
+            float tracks_target = std::min(
+                static_cast<float>(lance::trencherMotorRpsToMaxTrackMotorRps(
+                    motor_status.trencher.velocity,
+                    linearActuatorToMiningDepthClamped(
+                        motor_status.getHopperActNormalizedValue()))),
+                this->params.tracks_mining_max_velocity_rps);
             float hopper_belt_target = 0.f;
 
             // 1. Set belt via hopper model target
@@ -427,10 +429,11 @@ void MiningController::iterate(
                     {
                         if (raw > 0.f)
                         {
-                            tracks_target +=
-                                raw *
-                                (this->params.tracks_mining_max_velocity_rps -
-                                 tracks_target);
+                            tracks_target += std::max(
+                                0.f,
+                                raw * (this->params
+                                           .tracks_mining_max_velocity_rps -
+                                       tracks_target));
                         }
                         else if (raw < 0.f)
                         {

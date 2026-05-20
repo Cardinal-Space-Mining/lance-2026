@@ -29,7 +29,7 @@
             "tracks":
             {
                 "max_velocity_rps": 125.0,
-                "mining_max_velocity_rps": 20.0,
+                "mining_max_velocity_rps": 25.0,
                 "offload_velocity_rps": 30.0
             },
 
@@ -98,7 +98,7 @@
 
             "auto_traversal":
             {
-                "max_track_velocity_mps": 0.75,
+                "max_track_velocity_mps": 0.5,
                 "max_track_acceleration_mpss": 1.0,
                 "max_angular_velocity_rps": 0.8,
                 "max_angular_accel_rpss": 1.0,
