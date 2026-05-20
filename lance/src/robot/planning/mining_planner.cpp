@@ -42,6 +42,21 @@
 #include "robot/model/dynamics.hpp"
 #include "robot/model/geometry.hpp"
 
+
+#ifndef ENABLE_MINING_PLANNER_DEBUG
+    #define ENABLE_MINING_PLANNER_DEBUG 0
+#endif
+#if MINING_PLANNER_DEBUG
+    #define MINING_PLANNER_DEBUG(...)                               \
+        std::cout << "MINING DEBUG >> " << __VA_ARGS__ << std::endl
+    #define MINING_PLANNER_ERROR(...)                               \
+        std::cerr << "MINING ERROR >> " << __VA_ARGS__ << std::endl
+#else
+    #define MINING_PLANNER_DEBUG(...)
+    #define MINING_PLANNER_ERROR(...)
+#endif
+
+
 namespace lance
 {
 // Used for testing
@@ -96,6 +111,15 @@ void DirectedMiningPath::markMiningOnMatrix(
             mined_count_matrix(i, j) += 1;
         }
     }
+}
+
+void DirectedMiningPath::print() const
+{
+    MINING_PLANNER_DEBUG(
+        "Path from (" << path.first.x() << ", " << path.first.y() << ") to ("
+                      << path.second.x() << ", " << path.second.y()
+                      << ") in direction " << static_cast<int>(direction)
+                      << " with distance " << distance);
 }
 
 bool DirectedMiningPath::checkValidity()
@@ -535,9 +559,10 @@ bool MiningPlanner::recheckPathValidity(const DirectedMiningPath& path)
             swath.first.x(),
             swath.first.y(),
             miningDirectionToRadians(path.getDirection()));
-        std::cout << "Loading the query with  " << swath.first.x() << " , "
-                  << swath.first.y() << " , "
-                  << miningDirectionToRadians(path.getDirection()) << "\n";
+        MINING_PLANNER_DEBUG(
+            "Loading the query with  "
+            << swath.first.x() << " , " << swath.first.y() << " , "
+            << miningDirectionToRadians(path.getDirection()));
         mining_eval.queryArenaFrame(
             std::vector<MiningPlanner::Pose2f>{start_position});
         sent_validity_request = true;
@@ -551,15 +576,17 @@ bool MiningPlanner::recheckPathValidity(const DirectedMiningPath& path)
     const std::vector<float>* distances = mining_eval.getDists();
     if (distances == nullptr || distances->empty())
     {
-        std::cerr << "Mining path validity result is missing.\n";
+        MINING_PLANNER_ERROR("Mining path validity result is missing.");
         return false;
     }
 
     const float distance = distances->front();
     constexpr float validity_tolerance_m = 0.05f;
 
-    std::cout << "Rechecking path validity. Distance to obstacle: " << distance
-              << " meters. Path distance: " << path.getDistance() << " meters.\n";
+    MINING_PLANNER_DEBUG(
+        "Rechecking path validity. Distance to obstacle: "
+        << distance << " meters. Path distance: " << path.getDistance()
+        << " meters.");
     return path.getDistance() <= distance + validity_tolerance_m;
 }
 
@@ -584,23 +611,24 @@ bool MiningPlanner::updateMappedMatrices()
 
     if (!mining_eval.hasResult())
     {
-        std::cerr << "Mining evaluation data not ready yet.\n";
+        MINING_PLANNER_ERROR("Mining evaluation data not ready yet.");
         return false;
     }
     sent_eval_request = false;
     const std::vector<float>* mining_eval_distances = mining_eval.getDists();
     if (mining_eval_distances == nullptr)
     {
-        std::cerr << "Mining evaluation distances are missing.\n";
+        MINING_PLANNER_ERROR("Mining evaluation distances are missing.");
         return false;
     }
 
     const size_t expected_eval_count = 4 * grid_cell_count;
     if (mining_eval_distances->size() < expected_eval_count)
     {
-        std::cerr << "Mining evaluation size mismatch: expected at least "
-                  << expected_eval_count << ", got "
-                  << mining_eval_distances->size() << ".\n";
+        MINING_PLANNER_ERROR(
+            "Mining evaluation size mismatch: expected at least "
+            << expected_eval_count << ", got " << mining_eval_distances->size()
+            << ".");
         return false;
     }
 
@@ -658,20 +686,20 @@ bool MiningPlanner::updateMappedMatrices()
 }
 const MiningPlanner::DirectedMiningPaths& MiningPlanner::finalOutput()
 {
-    std::cout << "Clearing all paths\n";
+    MINING_PLANNER_DEBUG("Clearing all paths");
     this->all_mining_paths.clear();
-    std::cout << "Appending planned paths\n";
+    MINING_PLANNER_DEBUG("Appending planned paths");
     this->appendPlannedMiningPaths();
-    std::cout << "Removing sections for robot clearance\n";
+    MINING_PLANNER_DEBUG("Removing sections for robot clearance");
     // print current length
-    std::cout << "Current path count: " << this->all_mining_paths.size()
-              << "\n";
+    MINING_PLANNER_DEBUG(
+        "Current path count: " << this->all_mining_paths.size());
     this->removeSectionsForRobotClearance();
-    std::cout << "After clearance path count: " << this->all_mining_paths.size()
-              << "\n";
-    std::cout << "Sorting paths by quality\n";
+    MINING_PLANNER_DEBUG(
+        "After clearance path count: " << this->all_mining_paths.size());
+    MINING_PLANNER_DEBUG("Sorting paths by quality");
     this->sortPathsByQuality();
-    std::cout << "Final path count: " << this->all_mining_paths.size() << "\n";
+    MINING_PLANNER_DEBUG("Final path count: " << this->all_mining_paths.size());
 
     return all_mining_paths;
 }
@@ -804,45 +832,51 @@ void MiningPlanner::appendPlannedMiningPaths()
         &strip_map_xminus_transposed};
 
     // Print lots of relevant info for debugging
-    std::cout << "\n================ MINING PLANNER DEBUG =================\n"
-              << "Mining Zone Bounds:\n"
-              << "  Min: (" << robot_params.bounds.mining_zone.min().x() << ", "
-              << robot_params.bounds.mining_zone.min().y() << ")\n"
-              << "  Max: (" << robot_params.bounds.mining_zone.max().x() << ", "
-              << robot_params.bounds.mining_zone.max().y() << ")\n\n"
-              << "Calculated Grid Size:\n"
-              << "  Columns = " << strip_map_yplus.cols() << "\n"
-              << "  Rows    = " << strip_map_yplus.rows() << "\n\n"
-              << "--- Grid Geometry By Direction ---\n";
+    MINING_PLANNER_DEBUG(
+        "\n================ MINING PLANNER DEBUG =================\n"
+        << "Mining Zone Bounds:\n"
+        << "  Min: (" << robot_params.bounds.mining_zone.min().x() << ", "
+        << robot_params.bounds.mining_zone.min().y() << ")\n"
+        << "  Max: (" << robot_params.bounds.mining_zone.max().x() << ", "
+        << robot_params.bounds.mining_zone.max().y() << ")\n\n"
+        << "Calculated Grid Size:\n"
+        << "  Columns = " << strip_map_yplus.cols() << "\n"
+        << "  Rows    = " << strip_map_yplus.rows() << "\n\n"
+        << "--- Grid Geometry By Direction ---");
 
+#if ENABLE_MINING_PLANNER_DEBUG
     // print grid geometry for each direction
     for (const auto& [dir, geom] : grid_geometry)
     {
         std::cout << "[" << toString(dir) << "]\n" << geom << "\n\n";
     }
+#endif
 
     // print all the strip maps
-    std::cout << "--- Strip Maps ---\n"
-              << "[YMINUS]\n"
-              << strip_map_yminus << "\n\n"
-              << "[YPLUS]\n"
-              << strip_map_yplus << "\n\n"
-              << "[XMINUS]\n"
-              << strip_map_xminus << "\n\n"
-              << "[XPLUS]\n"
-              << strip_map_xplus << "\n\n"
-              << "[XMINUS_TRANSPOSED]\n"
-              << strip_map_xminus_transposed << "\n\n"
-              << "[XPLUS_TRANSPOSED]\n"
-              << strip_map_xplus_transposed << "\n\n";
+    MINING_PLANNER_DEBUG(
+        "--- Strip Maps ---\n"
+        << "[YMINUS]\n"
+        << strip_map_yminus << "\n\n"
+        << "[YPLUS]\n"
+        << strip_map_yplus << "\n\n"
+        << "[XMINUS]\n"
+        << strip_map_xminus << "\n\n"
+        << "[XPLUS]\n"
+        << strip_map_xplus << "\n\n"
+        << "[XMINUS_TRANSPOSED]\n"
+        << strip_map_xminus_transposed << "\n\n"
+        << "[XPLUS_TRANSPOSED]\n"
+        << strip_map_xplus_transposed << "\n");
 
-    // Print out the previously mined cells for each direction
+// Print out the previously mined cells for each direction
+#if ENABLE_MINING_PLANNER_DEBUG
     std::cout << "--- Previously Mined Cells ---\n";
     for (const auto& [dir, matrix] : previously_mined_cells_by_direction)
     {
         std::cout << "[" << toString(dir) << "]\n" << matrix << "\n\n";
     }
     std::cout << "=======================================================\n";
+#endif
 
 
 

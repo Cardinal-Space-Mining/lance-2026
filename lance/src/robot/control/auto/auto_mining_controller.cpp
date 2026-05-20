@@ -152,10 +152,10 @@ void AutoMiningController::iterate(
             this->traversal_controller.iterate(motor_status, commands);
 
             // adding in a check to see if the path is still valid
-            std::cout << "Checking path validity during traversal...\n";
+            // std::cout << "Checking path validity during traversal...\n";
             if (!this->mining_planner.recheckPathValidity(this->current_mining_path.value()))
             {
-                std::cout << "Current path is no longer valid. Replanning...\n";
+                // std::cout << "Current path is no longer valid. Replanning...\n";Load
                 this->stage = Stage::PLANNING;
                 break;
             }

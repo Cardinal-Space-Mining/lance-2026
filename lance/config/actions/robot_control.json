@@ -82,7 +82,7 @@
 
             "preset":
             {
-                "mining_vol_l" : 2.5,
+                "mining_vol_l" : 5.0,
                 "offload_backup_m" : 1.2
             },
 
