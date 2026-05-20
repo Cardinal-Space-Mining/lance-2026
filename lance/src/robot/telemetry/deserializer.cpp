@@ -816,6 +816,13 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
         this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
     }
 
+    EXIT_IF_INSUFFICIENT_SIZE(sizeof(float) * 2)
+    float remaining_arc, dist_to_goal;
+    readAndIncrement(ptr, remaining_arc);
+    readAndIncrement(ptr, dist_to_goal);
+    this->pub_map.publish<Float32Msg>("/lance/mpc_debug/remaining_arc", remaining_arc);
+    this->pub_map.publish<Float32Msg>("/lance/mpc_debug/dist_to_goal", dist_to_goal);
+
     // highest bit gets set when path data is written next
     if (val & 0x80)
     {

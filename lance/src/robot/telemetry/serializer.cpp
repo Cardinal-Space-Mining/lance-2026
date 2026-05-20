@@ -396,13 +396,21 @@ void TelemetrySerializer::addTravController(
     // TODO: pack these
     bytes.push_back(AS_U8(ControllerType::TRAVERSAL));
     bytes.push_back(AS_U8(controller.state));
+    const size_t state_byte_idx = bytes.size() - 1;
+
+    // Always emit MPC proximity debug values for plotting.
+    const auto& dbg = controller.mpc_controller.debugInfo();
+    bytes.resize(bytes.size() + sizeof(float) * 2);
+    Byte* fptr = (bytes.end() - sizeof(float) * 2).base();
+    writeAsAndIncrement<float>(fptr, static_cast<float>(dbg.remaining_arc));
+    writeAsAndIncrement<float>(fptr, static_cast<float>(dbg.dist_to_goal));
 
     if (controller.pplan_interface.hasPath() &&
         this->filterFreq(this->last_path_pub))
     {
         // controller.state only holds 5ish values so use the highest bit of
         // that byte to signal if path is present or not
-        bytes.back() |= 0x80;
+        bytes[state_byte_idx] |= 0x80;
 
         const auto& poses = controller.pplan_interface.getPath()->poses;
 

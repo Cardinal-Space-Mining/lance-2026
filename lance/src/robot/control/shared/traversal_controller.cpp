@@ -379,6 +379,13 @@ bool TraversalController::iterateTraversal(
     x.y = tf->pose.vec.y();
     x.theta = lance::geom::quatToYaw(tf->pose.quat);
 
+    // Path degenerated to fewer than 2 points — nothing left to follow.
+    if (!keypoints.valid())
+    {
+        commands.disableTracks();
+        return true;
+    }
+
     // 3. Exit if final keypoint has been reached ------------------------------
     switch (this->destination_type)
     {

@@ -109,13 +109,20 @@ Control MPCController::update(const State& x_measured, const Path& path)
     // End-zone fallback: when the arc projection has nearly reached the path
     // end but CTE is too large for the MPC near-goal condition to trigger,
     // bypass the QP and drive directly to the final waypoint with a simple
-    // P-controller.
-    if (new_ref.remaining_arc < params_.end_zone_radius)
+    // P-controller. Use OR of arc and Euclidean so a large CTE that corrupts
+    // the arc estimate doesn't prevent entry when the robot is physically close.
+    const Eigen::Vector2d end_pos = path.pts.back().pos;
+    const Eigen::Vector2d err = end_pos - Eigen::Vector2d{x_pred.x, x_pred.y};
+    const double dist = err.norm();
+
+    // Always populate so they're visible in telemetry even on early return.
+    debug_info_.remaining_arc = new_ref.remaining_arc;
+    debug_info_.dist_to_goal  = dist;
+
+    if (new_ref.remaining_arc < params_.end_zone_radius ||
+        dist < params_.end_zone_radius)
     {
         debug_info_.in_end_zone = true;
-        const Eigen::Vector2d end_pos = path.pts.back().pos;
-        const Eigen::Vector2d err = end_pos - Eigen::Vector2d{x_pred.x, x_pred.y};
-        const double dist = err.norm();
 
         if (dist < params_.goal_threshold)
         {
@@ -124,8 +131,14 @@ Control MPCController::update(const State& x_measured, const Path& path)
         }
 
         double heading_err = std::atan2(err.y(), err.x()) - x_pred.theta;
-        while (heading_err >  M_PI) heading_err -= 2.0 * M_PI;
-        while (heading_err < -M_PI) heading_err += 2.0 * M_PI;
+        while (heading_err > M_PI)
+        {
+            heading_err -= 2.0 * M_PI;
+        }
+        while (heading_err < -M_PI)
+        {
+            heading_err += 2.0 * M_PI;
+        }
 
         // If the goal is more than 90° behind us, reversing is cheaper than
         // spinning to face it. Flip the effective heading error and drive backward.
@@ -136,7 +149,7 @@ Control MPCController::update(const State& x_measured, const Path& path)
         }
 
         const double dom = params_.end_zone_alpha_max * params_.dt;
-        const double dv  = params_.end_zone_a_max    * params_.dt;
+        const double dv = params_.end_zone_a_max * params_.dt;
 
         const double omega_raw = params_.end_zone_k_omega * heading_err;
         const double omega = std::clamp(
@@ -144,8 +157,9 @@ Control MPCController::update(const State& x_measured, const Path& path)
             -params_.omega_max,
             params_.omega_max);
 
-        const double v_raw = v_sign * std::clamp(
-            params_.end_zone_k_v * dist, 0.0, params_.v_max);
+        const double v_raw =
+            v_sign *
+            std::clamp(params_.end_zone_k_v * dist, 0.0, params_.v_max);
         const double v = std::clamp(v_raw, u_prev_.v - dv, u_prev_.v + dv);
 
         u_prev_ = {v, omega};

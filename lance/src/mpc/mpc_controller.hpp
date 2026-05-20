@@ -24,7 +24,9 @@ struct DebugInfo
     std::vector<State> pred_traj;  // predicted state trajectory x_0 ... x_N
     Reference ref_snap;            // reference snapshot passed to QP
     Eigen::Vector2d proj_pt = Eigen::Vector2d::Zero();
-    double cte_raw = 0.0;  // signed cross-track error [m], + left
+    double cte_raw = 0.0;       // signed cross-track error [m], + left
+    double remaining_arc = 0.0; // arc length to path end [m]
+    double dist_to_goal = 0.0;  // Euclidean distance to final waypoint [m]
     bool solver_ok = false;
     bool near_goal = false;
     bool in_end_zone = false;
