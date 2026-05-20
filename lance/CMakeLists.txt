@@ -82,10 +82,10 @@ set(lance_core_srcs
     "src/robot/sensing/mining_eval.cpp"
     "src/robot/sensing/reflector_hint.cpp"
     "src/robot/planning/mining_planner.cpp"
+    "src/robot/planning/offload_planner.cpp"
     "src/robot/telemetry/markers.cpp"
     "src/robot/telemetry/serializer.cpp"
-    "src/robot/telemetry/deserializer.cpp"
-    "src/robot/planning/OffloadPlanner.cpp")
+    "src/robot/telemetry/deserializer.cpp")
 set(lance_core_libs
     Eigen3::Eigen)
 set(lance_core_ament_deps

@@ -42,7 +42,7 @@
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/control/shared/shared_controllers.hpp"
-#include "robot/planning/OffloadPlanner.hpp"
+#include "robot/planning/offload_planner.hpp"
 
 
 namespace lance
