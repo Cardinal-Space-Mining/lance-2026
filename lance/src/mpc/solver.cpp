@@ -40,7 +40,9 @@ static OSQPCscMatrix* eigenToCSC(const Eigen::SparseMatrix<double>& mat)
         colptr[i] = (OSQPInt)A.outerIndexPtr()[i];
     }
 
-    return OSQPCscMatrix_new(m, n, nnz, values, rowind, colptr);
+    auto mtx = OSQPCscMatrix_new(m, n, nnz, values, rowind, colptr);
+    mtx->owned = true; // Give mtx ownership of values, rowind and colptr
+    return mtx;
 }
 
 // Constructor / destructor
