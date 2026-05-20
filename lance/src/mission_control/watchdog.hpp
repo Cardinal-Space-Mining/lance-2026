@@ -55,6 +55,16 @@
 namespace lance
 {
 
+#define UPDATE_BITFIELD(val, var, bit) \
+    if (val)                      \
+    {                             \
+        var |= (bit);             \
+    }                             \
+    else                          \
+    {                             \
+        var &= ~(bit);            \
+    }
+
 class WatchDog : public util::UsingRosAliases
 {
     using Int32Msg = std_msgs::msg::Int32;
@@ -95,8 +105,30 @@ public:
             lance::SET_TEST_TOPIC,
             [this](SetBoolReqPtr req, SetBoolRespPtr resp)
             {
-                this->ctrl_opts = static_cast<uint8_t>(
-                    req->data ? ControlOpts::TEST_MODE : ControlOpts::NONE);
+                UPDATE_BITFIELD(
+                    req->data,
+                    this->ctrl_opts,
+                    static_cast<uint8_t>(ControlOpts::TEST_MODE))
+                resp->success = true;
+            })},
+        quick_auto_srv{node.create_service<SetBoolSrv>(
+            lance::SET_QUICK_AUTO_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+            {
+                UPDATE_BITFIELD(
+                    req->data,
+                    this->ctrl_opts,
+                    static_cast<uint8_t>(ControlOpts::QUICK_AUTO))
+                resp->success = true;
+            })},
+        assist_auto_srv{node.create_service<SetBoolSrv>(
+            lance::SET_ASSIST_AUTO_TOPIC,
+            [this](SetBoolReqPtr req, SetBoolRespPtr resp)
+            {
+                UPDATE_BITFIELD(
+                    req->data,
+                    this->ctrl_opts,
+                    static_cast<uint8_t>(ControlOpts::ASSIST_AS_AUTO))
                 resp->success = true;
             })},
 
@@ -137,6 +169,8 @@ private:
     RclSrvPtr<SetBoolSrv> set_teleop_srv;
     RclSrvPtr<SetBoolSrv> set_auto_srv;
     RclSrvPtr<SetBoolSrv> test_mode_srv;
+    RclSrvPtr<SetBoolSrv> quick_auto_srv;
+    RclSrvPtr<SetBoolSrv> assist_auto_srv;
     RclTimer::SharedPtr watchdog_timer;
 
     ControlMode ctrl_mode{ControlMode::DISABLED};

@@ -39,10 +39,23 @@
 
 #include "mining_controller.hpp"
 
+#include <cmath>
 #include <limits>
+#include <iostream>
 
 #include "robot/core/hid_bindings.hpp"
 #include "robot/model/dynamics.hpp"
+
+
+#ifndef MINING_CONTROLLER_DEBUG
+    #define MINING_CONTROLLER_DEBUG 0
+#endif
+#if MINING_CONTROLLER_DEBUG
+    #define MINING_DEBUG(...)                                       \
+        std::cout << "MINING DEBUG >> " << __VA_ARGS__ << std::endl
+#else
+    #define MINING_DEBUG(...)
+#endif
 
 
 namespace lance
@@ -50,8 +63,10 @@ namespace lance
 
 MiningConstraints::MiningConstraints(
     const RobotParams& params,
+    const HopperState& hopper_state,
     const StallState& stall_state) :
     params{params},
+    hopper_state{hopper_state},
     stall_state{stall_state}
 {
 }
@@ -75,15 +90,30 @@ void MiningConstraints::updateSettings(const JoyState& joy)
         this->enabled_constraints ^= CONSTRAINT_ZONE_BOUNDARY;
     }
 }
-void MiningConstraints::resetState()
+void MiningConstraints::resetState(float target_fullness)
 {
     this->remaining_dist = std::numeric_limits<float>::infinity();
     this->prev_odom = std::numeric_limits<float>::infinity();
     this->current_constraint = CONSTRAINT_NONE;
+
+    if (target_fullness > 0.f)
+    {
+        this->target_fullness = target_fullness;
+    }
+    else if (target_fullness < 0.f)
+    {
+        this->target_fullness = std::min(
+            static_cast<float>(this->hopper_state.volume()) - target_fullness,
+            this->params.collection_model_capacity_volume_liters);
+    }
+    else
+    {
+        this->target_fullness =
+            this->params.collection_model_capacity_volume_liters;
+    }
 }
 void MiningConstraints::updateState(
     const RobotMotorStatus& motor_status,
-    const HopperState& hopper_state,
     const TfCache& tf_cache,
     const MiningEvalInterface& mining_eval)
 {
@@ -115,7 +145,7 @@ void MiningConstraints::updateState(
     }
     if (this->enabled_constraints & CONSTRAINT_HOPPER_FULL)
     {
-        if (hopper_state.isBeltCapacity())
+        if (this->hopper_state.isBeltCapacity())
         {
             this->remaining_dist = 0.f;
             this->current_constraint = CONSTRAINT_HOPPER_FULL;
@@ -124,7 +154,7 @@ void MiningConstraints::updateState(
         {
             const float d =
                 static_cast<float>(lance::targetVolumeToSweepDistance(
-                    hopper_state.remainingVolume(),
+                    (this->target_fullness - this->hopper_state.volume()),
                     lance::linearActuatorToMiningDepthClamped(
                         motor_status.getHopperActNormalizedValue()),
                     static_cast<double>(
@@ -199,16 +229,16 @@ MiningController::MiningController(
     hopper_state{hopper_state},
     tf_cache{sensing_interfaces.tf_cache},
     mining_eval_interface{sensing_interfaces.mining_eval_interface},
-    constraints{params, stall_state}
+    constraints{params, hopper_state, stall_state}
 {
 }
 
-void MiningController::initialize()
+void MiningController::initialize(float target_fullness)
 {
     this->stage = Stage::INITIALIZATION;
 
     this->mining_eval_interface.queryRobotFrame();
-    this->constraints.resetState();
+    this->constraints.resetState(target_fullness);
 }
 
 bool MiningController::isFinished() { return this->stage == Stage::FINISHED; }
@@ -270,14 +300,22 @@ void MiningController::iterate(
 
     this->constraints.updateState(
         motor_status,
-        this->hopper_state,
         this->tf_cache,
         this->mining_eval_interface);
+
+    MINING_DEBUG(
+        "Stage : " << static_cast<int>(this->stage)
+                   << ", Constrained? : " << this->constraints.hasRemaining()
+                   << ", Joy? : " << static_cast<bool>(joy)
+                   << ", Toggle pressed? : "
+                   << (joy ? AssistedMiningToggleButton::wasPressed(*joy)
+                           : false));
 
     if ((this->stage < Stage::RAISING && !this->constraints.hasRemaining()) ||
         (this->stage != Stage::INITIALIZATION && joy &&
          AssistedMiningToggleButton::wasPressed(*joy)))
     {
+        MINING_DEBUG("CANCELLED!");
         this->stage = Stage::RAISING;
     }
 
@@ -285,11 +323,13 @@ void MiningController::iterate(
     {
         case Stage::INITIALIZATION:
         {
+            MINING_DEBUG("init stage");
             this->stage = Stage::LOWERING;
             [[fallthrough]];
         }
         case Stage::LOWERING:
         {
+            MINING_DEBUG("lowering stage");
             const double hopper_act_val =
                 motor_status.getHopperActNormalizedValue();
             if (hopper_act_val > this->params.hopper_actuator_mining_target_val)
@@ -315,11 +355,16 @@ void MiningController::iterate(
         }
         case Stage::TRAVERSING:
         {
+            MINING_DEBUG("traversing stage");
             // default setpoints
             float trencher_target = this->params.trencher_mining_velocity_rps;
             float hopper_act_target =
                 this->params.hopper_actuator_mining_target_val;
-            float tracks_target = this->params.tracks_mining_velocity_rps;
+            // float tracks_target = this->params.tracks_mining_velocity_rps;
+            float tracks_target = lance::trencherMotorRpsToMaxTrackMotorRps(
+                motor_status.trencher.velocity,
+                linearActuatorToMiningDepthClamped(
+                    motor_status.getHopperActNormalizedValue()));
             float hopper_belt_target = 0.f;
 
             // 1. Set belt via hopper model target
@@ -384,13 +429,14 @@ void MiningController::iterate(
                         {
                             tracks_target +=
                                 raw *
-                                this->params.tracks_mining_adjustment_range_rps;
+                                (this->params.tracks_mining_max_velocity_rps -
+                                 tracks_target);
                         }
                         else if (raw < 0.f)
                         {
-                            tracks_target +=
-                                raw * this->params.tracks_mining_velocity_rps;
+                            tracks_target *= (1.f + raw);
                         }
+                        // tracks_target *= (1.f + raw);
                     }
                 }
                 // manual hopper belt - don't override automatic setpts
@@ -433,6 +479,7 @@ void MiningController::iterate(
         }
         case Stage::RAISING:
         {
+            MINING_DEBUG("raising stage");
             if (motor_status.getHopperActNormalizedValue() <
                 this->params.hopper_actuator_transport_target_val)
             {
@@ -448,6 +495,7 @@ void MiningController::iterate(
         }
         case Stage::FINISHED:
         {
+            MINING_DEBUG("finished stage");
             this->mining_eval_interface.cancelQuery();
         }
     }

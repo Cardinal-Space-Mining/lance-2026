@@ -65,7 +65,7 @@ public:
     ~AutoMiningController() = default;
 
 public:
-    void initialize();
+    void initialize(bool quick = false);
     bool isFinished();
     void setCancelled();
 
@@ -96,7 +96,7 @@ protected:
 
     Stage stage{Stage::FINISHED};
 
-    bool is_first_run = true;
+    bool is_quick_run = false;
 
 };
 

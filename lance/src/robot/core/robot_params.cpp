@@ -75,8 +75,7 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(hopper_belt, max_velocity_rps, 45.f, float),
     INIT_PARAM2(hopper_belt, mining_velocity_rps, 10.f, float),
     INIT_PARAM2(tracks, max_velocity_rps, 125.f, float),
-    INIT_PARAM2(tracks, mining_velocity_rps, 8.f, float),
-    INIT_PARAM2(tracks, mining_adjustment_range_rps, 6.f, float),
+    INIT_PARAM2(tracks, mining_max_velocity_rps, 20.f, float),
     INIT_PARAM2(tracks, offload_velocity_rps, 30.f, float),
 
     INIT_PARAM2(hopper_actuator, max_speed, 1.f, float),
@@ -110,6 +109,9 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM(robot_frame_id, "base_link", std::string),
     INIT_PARAM(odom_frame_id, "odom", std::string),
     INIT_PARAM(arena_frame_id, "map", std::string),
+
+    INIT_PARAM2(preset, mining_vol_l, 3.f, float),
+    INIT_PARAM2(preset, offload_backup_m, 0.5f, float),
 
     INIT_PARAM2(auto_localization, min_num_search_samples, 100, int),
     INIT_PARAM2(auto_localization, search_angular_velocity_rps, 0.5f, float),

@@ -149,6 +149,8 @@ using SetDisabledModeButton = Xbox::ButtonA;
 using SetTeleopModeButton = Xbox::ButtonB;
 using SetAutoModeButton = Xbox::ButtonX;
 using ToggleTestModeButton = Xbox::ButtonY;
+using ToggleQuickAutoButton = Xbox::DPadDown;
+using ToggleAssistAsAutoButton = Xbox::DPadUp;
 
 using SetTravCursorButton = Xbox::ButtonRightBumper;
 using ConfirmCursorTargetButton = Xbox::ButtonLeftBumper;

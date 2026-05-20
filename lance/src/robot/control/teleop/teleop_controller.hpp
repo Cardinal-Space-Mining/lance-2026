@@ -75,6 +75,7 @@ public:
     void setCancelled();
 
     void iterate(
+        uint8_t opts,
         const JoyState& joy,
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
@@ -103,6 +104,7 @@ protected:
         const RobotMotorStatus&,
         RobotMotorCommands&);
     void handleManualControl(
+        uint8_t opts,
         const JoyState&,
         const RobotMotorStatus&,
         RobotMotorCommands&);

@@ -40,6 +40,7 @@
 #include "teleop_controller.hpp"
 
 #include "robot/core/hid_bindings.hpp"
+#include "robot/core/robot_status.hpp"
 #include "robot/core/ros_interface.hpp"
 #include "robot/model/geometry.hpp"
 
@@ -74,6 +75,7 @@ void TeleopController::initialize() { this->op_mode = Operation::MANUAL; }
 void TeleopController::setCancelled() { this->cancelCurrentCommand(); }
 
 void TeleopController::iterate(
+    uint8_t opts,
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
@@ -89,7 +91,7 @@ void TeleopController::iterate(
 
     // iterate controllers... if inputs result in finish state, continue
     // to iterate manual mode below (motor commands meaningless anyway)
-    if(this->iterateCurrentCommand(joy, motor_status, commands))
+    if (this->iterateCurrentCommand(joy, motor_status, commands))
     {
         // If an assisted mode was soft-cancelled and finished immediately,
         // exit otherwise handleManualControl() will restart it!
@@ -101,7 +103,7 @@ void TeleopController::iterate(
     // any motor commands since the original operation is completed
     if (this->op_mode == Operation::MANUAL)
     {
-        this->handleManualControl(joy, motor_status, commands);
+        this->handleManualControl(opts, joy, motor_status, commands);
     }
 }
 
@@ -264,20 +266,26 @@ bool TeleopController::iterateCurrentCommand(
 }
 
 void TeleopController::handleManualControl(
+    uint8_t opts,
     const JoyState& joy,
     const RobotMotorStatus& motor_status,
     RobotMotorCommands& commands)
 {
+    const bool assist_as_auto =
+        (opts & static_cast<uint8_t>(ControlOpts::ASSIST_AS_AUTO));
+
     if (AssistedMiningToggleButton::wasPressed(joy))
     {
-        this->mining_controller.initialize();
+        this->mining_controller.initialize(
+            assist_as_auto ? -this->params.preset_mining_vol_l : 0.f);
         this->mining_controller.iterate(joy, motor_status, commands);
         this->op_mode = Operation::ASSISTED_MINING;
         return;
     }
     if (AssistedOffloadToggleButton::wasPressed(joy))
     {
-        this->offload_controller.initialize();
+        this->offload_controller.initialize(
+            assist_as_auto ? this->params.preset_offload_backup_m : 0.f);
         this->offload_controller.iterate(joy, motor_status, commands);
         this->op_mode = Operation::ASSISTED_OFFLOAD;
         return;
