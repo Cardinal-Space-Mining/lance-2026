@@ -74,8 +74,7 @@ public:
     const float hopper_belt_max_velocity_rps;
     const float hopper_belt_mining_velocity_rps;
     const float tracks_max_velocity_rps;
-    const float tracks_mining_velocity_rps;
-    const float tracks_mining_adjustment_range_rps;
+    const float tracks_mining_max_velocity_rps;
     const float tracks_offload_velocity_rps;
 
     const float hopper_actuator_max_speed;

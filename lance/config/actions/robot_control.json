@@ -15,8 +15,8 @@
 
             "trencher":
             {
-                "max_velocity_rps": 160.0,
-                "mining_velocity_rps": 160.0
+                "max_velocity_rps": 175.0,
+                "mining_velocity_rps": 175.0
             },
 
             "hopper_belt":
@@ -29,8 +29,7 @@
             "tracks":
             {
                 "max_velocity_rps": 125.0,
-                "mining_velocity_rps": 8.0,
-                "mining_adjustment_range_rps": 6.0,
+                "mining_max_velocity_rps": 20.0,
                 "offload_velocity_rps": 30.0
             },
 
@@ -83,8 +82,8 @@
 
             "preset":
             {
-                "mining_vol_l" : 5.0,
-                "offload_backup_m" : 0.7
+                "mining_vol_l" : 2.5,
+                "offload_backup_m" : 1.2
             },
 
             "auto_localization":
