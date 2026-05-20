@@ -26,7 +26,7 @@ public:
 
     LinModel linearize(
         const std::vector<State>& traj,
-        const std::vector<Control>& u);
+        const std::vector<Control>& u) const;
 };
 
 }  // namespace mpc

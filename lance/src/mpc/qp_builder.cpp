@@ -25,10 +25,10 @@ QP QPBuilder::build(
     const int N = params_.N;
     const double dt = params_.dt;
 
-    assert((int)model.A.size() == N && "LinModel horizon mismatch");
-    assert((int)ref.x_ref.size() == N + 1 && "x_ref size mismatch");
-    assert((int)ref.seg_normals.size() == N + 1 && "seg_normals size mismatch");
-    assert((int)ref.proj_pts.size() == N + 1 && "proj_pts size mismatch");
+    assert(model.A.size() == N && "LinModel horizon mismatch");
+    assert(ref.x_ref.size() == N + 1 && "x_ref size mismatch");
+    assert(ref.seg_normals.size() == N + 1 && "seg_normals size mismatch");
+    assert(ref.proj_pts.size() == N + 1 && "proj_pts size mismatch");
 
     // Variable counts
     // Bug #4 fix: slack variables cover k = 0..N (N+1 total) so that the

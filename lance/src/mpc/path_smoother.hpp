@@ -112,11 +112,11 @@ private:
         std::vector<double>& half_tans) const;
 
     // Single-segment overlap resolution step (called by buildJunctions).
-    void optimizeJunction(
+    static void optimizeJunction(
         size_t seg_i,
         std::vector<Junction>& juncs,
         const std::vector<double>& seg_lengths,
-        const std::vector<double>& half_tans) const;
+        const std::vector<double>& half_tans);
 };
 
 }  // namespace mpc

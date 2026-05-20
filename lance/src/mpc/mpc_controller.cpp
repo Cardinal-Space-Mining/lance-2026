@@ -6,6 +6,8 @@
 #include <iostream>
 #include <algorithm>
 
+#include <boost/container_hash/hash.hpp>
+
 
 namespace mpc
 {
@@ -43,16 +45,14 @@ void MPCController::reset()
     debug_info_ = DebugInfo{};
 }
 
-size_t MPCController::pruneTraversedSegments(Path& path)
+size_t MPCController::pruneTraversedSegments(Path& path) const
 {
     const size_t n_remove = debug_info_.proj_segment_index;
     if (n_remove == 0 || path.size() <= n_remove + 1)
     {
         return 0;
     }
-    path.pts.erase(
-        path.pts.begin(),
-        path.pts.begin() + static_cast<std::ptrdiff_t>(n_remove));
+    path.pts.erase(path.pts.begin(), path.pts.begin() + n_remove);
     return n_remove;
 }
 
@@ -60,15 +60,14 @@ size_t MPCController::hashPath(const Path& path)
 {
     // FNV-1a-inspired mix over all waypoint coordinates.
     // Fast and collision-resistant enough for detecting path identity changes.
-    size_t h = std::hash<size_t>{}(path.size());
+    size_t seed = std::hash<size_t>{}(path.size());
+    boost::hash_combine(seed, path.size());
     for (const auto& pt : path.pts)
     {
-        h ^=
-            std::hash<double>{}(pt.pos.x()) + 0x9e3779b9u + (h << 6) + (h >> 2);
-        h ^=
-            std::hash<double>{}(pt.pos.y()) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        boost::hash_combine(seed, pt.pos.x());
+        boost::hash_combine(seed, pt.pos.y());
     }
-    return h;
+    return seed;
 }
 
 // Main control cycle: compute control for one update.
@@ -117,7 +116,7 @@ Control MPCController::update(const State& x_measured, const Path& path)
 
     // Always populate so they're visible in telemetry even on early return.
     debug_info_.remaining_arc = new_ref.remaining_arc;
-    debug_info_.dist_to_goal  = dist;
+    debug_info_.dist_to_goal = dist;
 
     if (new_ref.remaining_arc < params_.end_zone_radius ||
         dist < params_.end_zone_radius)
@@ -294,7 +293,7 @@ State MPCController::latencyCompensate(const State& x) const
 Reference MPCController::blend(
     const Reference& r_new,
     const Reference& r_old,
-    double alpha) const
+    double alpha)
 {
     assert(r_new.x_ref.size() == r_old.x_ref.size());
     const int n = (int)r_new.x_ref.size();

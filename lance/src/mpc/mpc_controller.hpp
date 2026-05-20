@@ -49,7 +49,7 @@ public:
     void reset();
 
     // Remove fully-traversed leading segments from path.
-    size_t pruneTraversedSegments(Path& path);
+    size_t pruneTraversedSegments(Path& path) const;
 
     // Read-only access to debug snapshot from last update().
     const DebugInfo& debugInfo() const { return debug_info_; }
@@ -74,10 +74,10 @@ private:
 
     // Helpers
     State latencyCompensate(const State& x) const;
-    Reference blend(
+    static Reference blend(
         const Reference& r_new,
         const Reference& r_old,
-        double alpha) const;
+        double alpha);
     static size_t hashPath(const Path& path);
 };
 
