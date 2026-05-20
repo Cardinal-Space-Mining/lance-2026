@@ -75,8 +75,7 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(hopper_belt, max_velocity_rps, 45.f, float),
     INIT_PARAM2(hopper_belt, mining_velocity_rps, 10.f, float),
     INIT_PARAM2(tracks, max_velocity_rps, 125.f, float),
-    INIT_PARAM2(tracks, mining_velocity_rps, 8.f, float),
-    INIT_PARAM2(tracks, mining_adjustment_range_rps, 6.f, float),
+    INIT_PARAM2(tracks, mining_max_velocity_rps, 20.f, float),
     INIT_PARAM2(tracks, offload_velocity_rps, 30.f, float),
 
     INIT_PARAM2(hopper_actuator, max_speed, 1.f, float),

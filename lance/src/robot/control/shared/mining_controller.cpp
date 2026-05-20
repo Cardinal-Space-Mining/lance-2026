@@ -360,7 +360,11 @@ void MiningController::iterate(
             float trencher_target = this->params.trencher_mining_velocity_rps;
             float hopper_act_target =
                 this->params.hopper_actuator_mining_target_val;
-            float tracks_target = this->params.tracks_mining_velocity_rps;
+            // float tracks_target = this->params.tracks_mining_velocity_rps;
+            float tracks_target = lance::trencherMotorRpsToMaxTrackMotorRps(
+                motor_status.trencher.velocity,
+                linearActuatorToMiningDepthClamped(
+                    motor_status.getHopperActNormalizedValue()));
             float hopper_belt_target = 0.f;
 
             // 1. Set belt via hopper model target
@@ -425,13 +429,14 @@ void MiningController::iterate(
                         {
                             tracks_target +=
                                 raw *
-                                this->params.tracks_mining_adjustment_range_rps;
+                                (this->params.tracks_mining_max_velocity_rps -
+                                 tracks_target);
                         }
                         else if (raw < 0.f)
                         {
-                            tracks_target +=
-                                raw * this->params.tracks_mining_velocity_rps;
+                            tracks_target *= (1.f + raw);
                         }
+                        // tracks_target *= (1.f + raw);
                     }
                 }
                 // manual hopper belt - don't override automatic setpts

@@ -232,13 +232,7 @@ public:
 
     void markMiningOnMatrix(Eigen::MatrixXi& mined_count_matrix) const;
 
-    inline void print() const
-    {
-        std::cout << "Path from (" << path.first.x() << ", " << path.first.y()
-                  << ") to (" << path.second.x() << ", " << path.second.y()
-                  << ") in direction " << static_cast<int>(direction)
-                  << " with distance " << distance << "\n";
-    }
+    void print() const;
 
 
 public:
