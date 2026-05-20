@@ -29,7 +29,7 @@
             "tracks":
             {
                 "max_velocity_rps": 125.0,
-                "mining_max_velocity_rps": 20.0,
+                "mining_max_velocity_rps": 25.0,
                 "offload_velocity_rps": 30.0
             },
 
