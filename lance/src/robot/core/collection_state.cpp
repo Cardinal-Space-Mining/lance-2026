@@ -41,6 +41,8 @@
 
 #include "robot/model/dynamics.hpp"
 
+#include <iostream>
+
 
 namespace lance
 {
@@ -100,6 +102,8 @@ bool HopperState::isBeltCapacity() const
 
 void HopperState::update(double delta_volume_l, double belt_rotations)
 {
+    // std::cout << "pre : " << total_vol_l << std::endl;
+
     this->belt_pos_m = lance::hopperBeltMotorRpsToBeltMps(belt_rotations);
 
     // add new material
@@ -156,6 +160,8 @@ void HopperState::update(double delta_volume_l, double belt_rotations)
     {
         this->high_pos_m = this->low_pos_m = this->belt_pos_m;
     }
+
+    // std::cout << "post : " << total_vol_l << std::endl;
 }
 
 double HopperState::miningTargetMotorPosition() const
@@ -258,6 +264,10 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
         avg_track_delta_rotations,
         avg_mining_depth_m);
     // ^ f(m/s) -> L/s <=> f(m) -> L
+
+    // std::cout << "avg tdr " << avg_track_delta_rotations << std::endl;
+    // std::cout << "avg md " << avg_mining_depth_m << std::endl;
+    // std::cout << "md " << curr_mining_depth_m << std::endl;
 
     // calculate the volume which we have dug into the ground just by lowering the trencher
     double delta_impact_volume =
