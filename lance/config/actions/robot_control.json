@@ -36,14 +36,14 @@
             "hopper_actuator":
             {
                 "max_speed": 1.0,
-                "plunge_speed": 0.5,
+                "plunge_speed": 0.7,
                 "extract_speed": 0.8,
                 "offload_target_val": 0.9,
                 "traversal_target_val": 0.47,
                 "transport_target_val": 0.47,
                 "mining_target_val": 0.1,
                 "mining_min_val": 0.064,
-                "targetting_thresh": 0.01
+                "targetting_thresh": 0.025
             },
 
             "collection_model":
