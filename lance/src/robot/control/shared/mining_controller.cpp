@@ -470,16 +470,18 @@ void MiningController::iterate(
                     this->params.trencher_mining_velocity_rps);
                 commands.setHopperActSpeed(
                     this->params.hopper_actuator_extract_speed);
-                break;
-            }
 
-            if (joy)
-            {
-                float tracks_vel = TeleopDriveForwardAxis::deadzoneValue(
-                                       *joy,
-                                       this->params.default_stick_deadzone) *
-                                   this->params.tracks_mining_max_velocity_rps;
-                commands.setTracksVelocity(tracks_vel, tracks_vel);
+                if (joy)
+                {
+                    float tracks_vel =
+                        TeleopDriveForwardAxis::deadzoneValue(
+                            *joy,
+                            this->params.default_stick_deadzone) *
+                        this->params.tracks_mining_max_velocity_rps;
+                    commands.setTracksVelocity(tracks_vel, tracks_vel);
+                }
+
+                break;
             }
 
             this->stage = Stage::FINISHED;
