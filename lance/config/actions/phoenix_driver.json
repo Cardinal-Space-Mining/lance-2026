@@ -55,7 +55,7 @@
                     "kV": 0.1,
                     "neutral_deadband": 0.05,
                     "neutral_brake": false,
-                    "stator_current_limit": 70.0,
+                    "stator_current_limit": 120.0,
                     "supply_current_limit": 0.0,
                     "voltage_limit": 25.0
                 },
@@ -70,7 +70,7 @@
                     "kV": 0.1,
                     "neutral_deadband": 0.05,
                     "neutral_brake": false,
-                    "stator_current_limit": 70.0,
+                    "stator_current_limit": 120.0,
                     "supply_current_limit": 0.0,
                     "voltage_limit": 25.0
                 },
@@ -84,7 +84,7 @@
                     "kV": 0.12,
                     "neutral_deadband": 0.05,
                     "neutral_brake": false,
-                    "stator_current_limit": 100.0,
+                    "stator_current_limit": 120.0,
                     "supply_current_limit": 0.0,
                     "voltage_limit": 25.0
                 },
@@ -99,7 +99,7 @@
                     "kV": 0.1,
                     "neutral_deadband": 0.05,
                     "neutral_brake": false,
-                    "stator_current_limit": 50.0,
+                    "stator_current_limit": 120.0,
                     "supply_current_limit": 0.0,
                     "voltage_limit": 25.0
                 },
@@ -115,12 +115,12 @@
                     "kP": 0.0,
                     "kI": 0.0,
                     "kD": 0.0,
-                    "kV": 12.0,
+                    "kV": 16.0,
                     "neutral_deadband": 0.05,
                     "neutral_brake": false,
-                    "stator_current_limit": 5.0,
+                    "stator_current_limit": 20.0,
                     "supply_current_limit": 0.0,
-                    "voltage_limit": 12.0
+                    "voltage_limit": 16.0
                 }
             ]
         }

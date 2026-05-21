@@ -303,36 +303,46 @@ void MiningController::iterate(
         this->tf_cache,
         this->mining_eval_interface);
 
-    MINING_DEBUG(
-        "Stage : " << static_cast<int>(this->stage)
-                   << ", Constrained? : " << this->constraints.hasRemaining()
-                   << ", Joy? : " << static_cast<bool>(joy)
-                   << ", Toggle pressed? : "
-                   << (joy ? AssistedMiningToggleButton::wasPressed(*joy)
-                           : false));
-
     if ((this->stage < Stage::RAISING && !this->constraints.hasRemaining()) ||
         (this->stage != Stage::INITIALIZATION && joy &&
          AssistedMiningToggleButton::wasPressed(*joy)))
     {
-        MINING_DEBUG("CANCELLED!");
         this->stage = Stage::RAISING;
+    }
+
+    float hopper_act_target = this->params.hopper_actuator_mining_target_val;
+    if (joy)
+    {
+        const float raw = TeleopHopperActuateAxis::rawValue(*joy);
+        if (std::abs(raw) >= this->params.default_stick_deadzone)
+        {
+            if (raw > 0.f)
+            {
+                hopper_act_target +=
+                    raw * (this->params.hopper_actuator_transport_target_val -
+                           this->params.hopper_actuator_mining_target_val);
+            }
+            else if (raw < 0.f)
+            {
+                hopper_act_target +=
+                    raw * (this->params.hopper_actuator_mining_target_val -
+                           this->params.hopper_actuator_mining_min_val);
+            }
+        }
     }
 
     switch (this->stage)
     {
         case Stage::INITIALIZATION:
         {
-            MINING_DEBUG("init stage");
             this->stage = Stage::LOWERING;
             [[fallthrough]];
         }
         case Stage::LOWERING:
         {
-            MINING_DEBUG("lowering stage");
             const double hopper_act_val =
                 motor_status.getHopperActNormalizedValue();
-            if (hopper_act_val > this->params.hopper_actuator_mining_target_val)
+            if (hopper_act_val > hopper_act_target)
             {
                 commands.setTrencherVelocity(
                     this->params.trencher_mining_velocity_rps);
@@ -355,12 +365,8 @@ void MiningController::iterate(
         }
         case Stage::TRAVERSING:
         {
-            MINING_DEBUG("traversing stage");
             // default setpoints
             float trencher_target = this->params.trencher_mining_velocity_rps;
-            float hopper_act_target =
-                this->params.hopper_actuator_mining_target_val;
-            // float tracks_target = this->params.tracks_mining_velocity_rps;
             float tracks_target = std::min(
                 static_cast<float>(lance::trencherMotorRpsToMaxTrackMotorRps(
                     motor_status.trencher.velocity,
@@ -397,30 +403,6 @@ void MiningController::iterate(
                     this->params.trencher_mining_velocity_rps *
                     (1.f - TeleopTrencherSpeedAxis::triggerValue(*joy));
 
-                // adjust trencher depth
-                {
-                    const float raw = TeleopHopperActuateAxis::rawValue(*joy);
-                    if (std::abs(raw) >= this->params.default_stick_deadzone)
-                    {
-                        if (raw > 0.f)
-                        {
-                            hopper_act_target +=
-                                raw *
-                                (this->params
-                                     .hopper_actuator_transport_target_val -
-                                 this->params
-                                     .hopper_actuator_mining_target_val);
-                        }
-                        else if (raw < 0.f)
-                        {
-                            hopper_act_target +=
-                                raw *
-                                (this->params
-                                     .hopper_actuator_mining_target_val -
-                                 this->params.hopper_actuator_mining_min_val);
-                        }
-                    }
-                }
                 // adjust tracks
                 {
                     const float raw = TeleopDriveForwardAxis::rawValue(*joy);
@@ -439,7 +421,6 @@ void MiningController::iterate(
                         {
                             tracks_target *= (1.f + raw);
                         }
-                        // tracks_target *= (1.f + raw);
                     }
                 }
                 // manual hopper belt - don't override automatic setpts
@@ -469,7 +450,7 @@ void MiningController::iterate(
                 else if (hopper_val < hopper_act_target)
                 {
                     commands.setHopperActSpeed(
-                        this->params.hopper_actuator_plunge_speed);
+                        this->params.hopper_actuator_max_speed);
                 }
                 else if (hopper_val > hopper_act_target)
                 {
@@ -482,7 +463,6 @@ void MiningController::iterate(
         }
         case Stage::RAISING:
         {
-            MINING_DEBUG("raising stage");
             if (motor_status.getHopperActNormalizedValue() <
                 this->params.hopper_actuator_transport_target_val)
             {
@@ -493,12 +473,20 @@ void MiningController::iterate(
                 break;
             }
 
+            if (joy)
+            {
+                float tracks_vel = TeleopDriveForwardAxis::deadzoneValue(
+                                       *joy,
+                                       this->params.default_stick_deadzone) *
+                                   this->params.tracks_mining_max_velocity_rps;
+                commands.setTracksVelocity(tracks_vel, tracks_vel);
+            }
+
             this->stage = Stage::FINISHED;
             [[fallthrough]];
         }
         case Stage::FINISHED:
         {
-            MINING_DEBUG("finished stage");
             this->mining_eval_interface.cancelQuery();
         }
     }
