@@ -53,13 +53,14 @@ namespace zenoh_aliases
     using ZenohSub = ::zenoh::Subscriber<void>;
 };
 
-inline zenoh::Config configDirectConnectTo(const std::string& hostname)
+inline zenoh::Config configDirectConnectTo(const std::string& hostname, uint16_t batch_size = 65535)
 {
     zenoh::Config config = zenoh::Config::create_default();
     config.insert_json5("mode", "\"peer\"");
     config.insert_json5("scouting/multicast/enabled", "false");
     config.insert_json5("listen/endpoints", "[\"tcp/0.0.0.0:7447\"]");
     config.insert_json5("connect/endpoints", "[\"tcp/" + hostname + ":7447\"]");
+    config.insert_json5("transport/link/tx/batch_size", std::to_string(batch_size));
     return config;
 }
 
