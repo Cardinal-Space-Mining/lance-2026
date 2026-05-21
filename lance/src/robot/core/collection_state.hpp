@@ -116,16 +116,16 @@ private:  // parameters
 
 private:  // State
     /// @brief Current volume of regolith stored
-    double total_vol_l;
+    double total_vol_l{0.};
 
     /// @brief Current belt position
-    double belt_pos_m;
+    double belt_pos_m{0.};
 
     /// @brief Absolute start of pile
-    double high_pos_m;
+    double high_pos_m{0.};
 
     /// @brief Absolute end of pile
-    double low_pos_m;
+    double low_pos_m{0.};
 };
 
 class CollectionState
