@@ -9,7 +9,7 @@
             "client_hostname": "${ ip.net1.dev_1 }",
             "max_path_pub_freq": 1.0,
             "is_sim": false,
-            "net_batch_size": 16383
+            "net_batch_size": 65535
         },
         "robot_sim":
         {
@@ -26,7 +26,7 @@
             "path_frame_id": "${ id.odom_frame }",
             "max_joy_pub_freq": 100.0,
             "is_sim": false,
-            "net_batch_size": 16383
+            "net_batch_size": 65535
         },
         "client_mac_eth":
         {
