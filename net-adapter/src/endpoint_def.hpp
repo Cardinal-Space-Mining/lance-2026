@@ -243,7 +243,8 @@ EndPointNode<E>::EndPointNode() :
             util::declare_and_get_param<std::string>(
                 *this,
                 CONNECTION_PARAM_NAME,
-                DEFAULT_CONNECTION_HOSTNAME)))},
+                DEFAULT_CONNECTION_HOSTNAME),
+            util::declare_and_get_param<int>(*this, "net_batch_size", 65535)))},
     delay_queue{std::chrono::duration<double>{
         util::declare_and_get_param(*this, "net_delay_s", 0.0)}},
 

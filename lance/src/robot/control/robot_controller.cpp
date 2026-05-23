@@ -56,6 +56,13 @@ namespace lance
 
 RobotController::RobotController(RclNode& node) :
     params{node},
+    collection_state(
+        this->params.collection_model_initial_volume_liters,
+        this->params.collection_model_capacity_volume_liters,
+        this->params.collection_model_initial_belt_footprint_meters,
+        this->params.collection_model_belt_capacity_meters,
+        this->params.collection_model_belt_offload_length_meters,
+        this->params.collection_model_transfer_efficiency),
     sensing_interfaces{node, params},
     shared_controllers{
         params,
@@ -66,13 +73,6 @@ RobotController::RobotController(RclNode& node) :
     teleop_controller{node, params, sensing_interfaces, shared_controllers}
 {
     this->stall_state.setConfig(StallAnalyzerConfig::fromParams(this->params));
-    this->collection_state.setParams(
-        this->params.collection_model_initial_volume_liters,
-        this->params.collection_model_capacity_volume_liters,
-        this->params.collection_model_initial_belt_footprint_meters,
-        this->params.collection_model_belt_capacity_meters,
-        this->params.collection_model_belt_offload_length_meters,
-        this->params.collection_model_transfer_efficiency);
 }
 
 const HopperState& RobotController::hopperState() const
@@ -99,13 +99,14 @@ void RobotController::iterate(
     const RobotMotorFaults& motor_faults,
     RobotMotorCommands& commands)
 {
-    const RobotMotorStatus& filtered_status =
-        this->handleTestModeStateInjection(motor_status, ctrl_status);
-    this->collection_state.update(filtered_status);
-    this->sensing_interfaces.tf_cache.refresh();
-
     const ControlMode prev_mode = this->control_mode;
     this->control_mode = ControlStatus::getMode(ctrl_status);
+    const uint8_t ctrl_opts = ControlStatus::getOpts(ctrl_status);
+
+    const RobotMotorStatus& filtered_status =
+        this->handleTestModeStateInjection(motor_status, ctrl_opts);
+    this->collection_state.update(filtered_status);
+    this->sensing_interfaces.tf_cache.refresh();
 
     this->stall_state.update(
         filtered_status,
@@ -158,12 +159,13 @@ void RobotController::iterate(
     {
         case ControlMode::TELEOPERATED:
         {
-            this->teleop_controller.iterate(joy, filtered_status, commands);
+            this->teleop_controller
+                .iterate(ctrl_opts, joy, filtered_status, commands);
             break;
         }
         case ControlMode::AUTONOMOUS:
         {
-            this->auto_controller.iterate(filtered_status, commands);
+            this->auto_controller.iterate(ctrl_opts, filtered_status, commands);
             break;
         }
         default:
@@ -174,15 +176,19 @@ void RobotController::iterate(
 
 const RobotMotorStatus& RobotController::handleTestModeStateInjection(
     const RobotMotorStatus& ref,
-    int32_t ctrl_status)
+    uint8_t ctrl_opts)
 {
-    if (ControlStatus::hasOpt<ControlOpts::TEST_MODE>(ctrl_status))
+    if (ctrl_opts & static_cast<bool>(ControlOpts::TEST_MODE))
     {
         if (ref.getHopperActNormalizedValue() <
             this->params.hopper_actuator_traversal_target_val)
         {
             this->filtered_status = ref;
-            this->filtered_status.hopper_actuator.position = -1.;
+            // this->filtered_status.hopper_actuator.position = -1.;
+            this->filtered_status.hopper_actuator.position =
+                (ref.hopper_actuator.position -
+                 this->params.hopper_actuator_traversal_target_val) /
+                (1 - this->params.hopper_actuator_traversal_target_val);
             return this->filtered_status;
         }
     }

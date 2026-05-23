@@ -41,28 +41,69 @@
 
 #include "robot/model/dynamics.hpp"
 
+#include <iostream>
+
 
 namespace lance
 {
 
-void HopperState::setParams(
+HopperState::HopperState(
     double initial_volume_l,
     double capacity_volume_l,
     double initial_footprint_m,
     double capacity_len_m,
     double offload_len_m,
-    double transfer_efficiency)
+    double transfer_efficiency) :
+    initial_vol_l(initial_volume_l),
+    cap_vol_l(capacity_volume_l),
+    initial_footprint_m(initial_footprint_m),
+    cap_len_m(capacity_len_m),
+    offload_len_m(offload_len_m),
+    transfer_efficiency(transfer_efficiency),
+    total_vol_l(0),
+    belt_pos_m(0),
+    high_pos_m(0),
+    low_pos_m(0)
 {
-    this->initial_vol_l = initial_volume_l;
-    this->cap_vol_l = capacity_volume_l;
-    this->initial_footprint_m = initial_footprint_m;
-    this->cap_len_m = capacity_len_m;
-    this->offload_len_m = offload_len_m;
-    this->transfer_efficiency = transfer_efficiency;
 }
+
+double HopperState::occupied_delta_m() const
+{
+    return this->high_pos_m - this->low_pos_m;
+}
+double HopperState::cutoff_pos_m() const
+{
+    return this->belt_pos_m - this->offload_len_m;
+}
+
+double HopperState::volume() const { return this->total_vol_l; }
+double HopperState::remainingVolume() const
+{
+    return this->cap_vol_l - this->total_vol_l;
+}
+double HopperState::beltPosMeters() const { return this->belt_pos_m; }
+double HopperState::startPosMeters() const { return this->high_pos_m; }
+double HopperState::endPosMeters() const { return this->low_pos_m; }
+double HopperState::beltUsageMeters() const { return this->occupied_delta_m(); }
+double HopperState::beltUsagePercent() const
+{
+    return this->occupied_delta_m() / this->cap_len_m;
+}
+
+bool HopperState::isVolCapacity() const
+{
+    return this->total_vol_l >= this->cap_vol_l;
+}
+bool HopperState::isBeltCapacity() const
+{
+    return this->occupied_delta_m() >= this->cap_len_m;
+}
+
 
 void HopperState::update(double delta_volume_l, double belt_rotations)
 {
+    // std::cout << "pre : " << total_vol_l << std::endl;
+
     this->belt_pos_m = lance::hopperBeltMotorRpsToBeltMps(belt_rotations);
 
     // add new material
@@ -78,6 +119,11 @@ void HopperState::update(double delta_volume_l, double belt_rotations)
         else if (this->belt_pos_m > this->high_pos_m)
         {
             this->high_pos_m = this->belt_pos_m;
+            // Constrain the berm size markers to be shorter or eq to hopper length
+            if (occupied_delta_m() > this->cap_len_m)
+            {
+                this->low_pos_m = this->high_pos_m - this->cap_len_m;
+            }
         }
         this->total_vol_l += delta_volume_l * transfer_efficiency;
     }
@@ -114,6 +160,8 @@ void HopperState::update(double delta_volume_l, double belt_rotations)
     {
         this->high_pos_m = this->low_pos_m = this->belt_pos_m;
     }
+
+    // std::cout << "post : " << total_vol_l << std::endl;
 }
 
 double HopperState::miningTargetMotorPosition() const
@@ -156,23 +204,22 @@ double HopperState::calcOffloadTargetMotorPosition(double beg_motor_pos) const
 
 
 
-void CollectionState::setParams(
+CollectionState::CollectionState(
     double initial_volume_l,
     double capacity_volume_l,
     double initial_footprint_m,
     double capacity_len_m,
     double offload_len_m,
-    double transfer_efficiency)
-{
-    this->hopper_state.setParams(
+    double transfer_efficiency) :
+    hopper_state(
         initial_volume_l,
         capacity_volume_l,
         initial_footprint_m,
         capacity_len_m,
         offload_len_m,
-        transfer_efficiency);
+        transfer_efficiency)
+{
 }
-
 void CollectionState::update(const RobotMotorStatus& motors_status)
 {
     const double trencher_rotations = motors_status.trencher.position;
@@ -185,30 +232,46 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     double curr_impact_volume =
         lance::miningDepthToTrencherImpactVolume(curr_mining_depth_m);
 
-    this->handleInit(motors_status, curr_mining_depth_m, curr_impact_volume);
+    if (!prev_trencher_rotations.has_value() ||
+        !prev_ltrack_rotations.has_value() ||
+        !prev_rtrack_rotations.has_value() || !prev_mining_depth.has_value() ||
+        !prev_impact_volume.has_value())
+    {
+        prev_trencher_rotations = trencher_rotations;
+        prev_ltrack_rotations = ltrack_rotations;
+        prev_rtrack_rotations = rtrack_rotations;
+        prev_mining_depth = curr_mining_depth_m;
+        prev_impact_volume = curr_impact_volume;
+        this->hopper_state.update(0, belt_rotations);
+        return;
+    }
 
     // calculate maximum possible volume material transferred given number of trencher rotations
     double delta_trencher_rotations =
-        trencher_rotations - this->prev_trencher_rotations;
+        trencher_rotations - this->prev_trencher_rotations.value();
     double trencher_max_delta_volume =
         lance::trencherMotorRpsToMaxVolumeRate(delta_trencher_rotations);
     // ^ f(r/s) -> L/s <=> f(r) -> L
 
     // calculate maximum possible volume material 'swept' given change in track rotations (linear distance)
     double avg_mining_depth_m =
-        (curr_mining_depth_m + this->prev_mining_depth) * 0.5;
+        (curr_mining_depth_m + this->prev_mining_depth.value()) * 0.5;
     double avg_track_delta_rotations =
-        ((ltrack_rotations - this->prev_ltrack_rotations) +
-         (rtrack_rotations - this->prev_rtrack_rotations)) *
+        ((ltrack_rotations - this->prev_ltrack_rotations.value()) +
+         (rtrack_rotations - this->prev_rtrack_rotations.value())) *
         0.5;
     double delta_sweep_volume = lance::trackMotorRpsToVolumeRate(
         avg_track_delta_rotations,
         avg_mining_depth_m);
     // ^ f(m/s) -> L/s <=> f(m) -> L
 
+    // std::cout << "avg tdr " << avg_track_delta_rotations << std::endl;
+    // std::cout << "avg md " << avg_mining_depth_m << std::endl;
+    // std::cout << "md " << curr_mining_depth_m << std::endl;
+
     // calculate the volume which we have dug into the ground just by lowering the trencher
     double delta_impact_volume =
-        std::max(curr_impact_volume - this->prev_impact_volume, 0.);
+        std::max(curr_impact_volume - this->prev_impact_volume.value(), 0.);
     // ^ TODO: this will break if trencher is continually actuated up and down in the same spot!
 
     // calculate transmitted material volume
@@ -226,31 +289,10 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     this->prev_impact_volume = curr_impact_volume;
 }
 
-void CollectionState::handleInit(
-    const RobotMotorStatus& motors_status,
-    double mining_depth,
-    double impact_volume)
+const HopperState& CollectionState::getHopperState() const
 {
-    // clang-format off
-    #define SET_IF_UNINITTED(var, val)                \
-        if ((var) == DOUBLE_UNINITTED_VALUE) (var) = (val);
-    // clang-format on
-
-    SET_IF_UNINITTED(
-        this->prev_trencher_rotations,
-        motors_status.trencher.position)
-    SET_IF_UNINITTED(
-        this->prev_ltrack_rotations,
-        motors_status.track_left.position)
-    SET_IF_UNINITTED(
-        this->prev_rtrack_rotations,
-        motors_status.track_right.position)
-    SET_IF_UNINITTED(this->prev_mining_depth, mining_depth)
-    SET_IF_UNINITTED(this->prev_impact_volume, impact_volume)
-
-    // clang-format off
-    #undef SET_IF_UNINITTED
-    // clang-format on
+    return this->hopper_state;
 }
+
 
 };  // namespace lance

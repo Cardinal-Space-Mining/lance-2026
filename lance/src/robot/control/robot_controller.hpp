@@ -87,7 +87,7 @@ public:
 protected:
     const RobotMotorStatus& handleTestModeStateInjection(
         const RobotMotorStatus& ref,
-        int32_t ctrl_status);
+        uint8_t ctrl_opts);
 
 protected:
     RobotParams params;

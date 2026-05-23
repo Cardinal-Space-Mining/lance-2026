@@ -74,8 +74,7 @@ public:
     const float hopper_belt_max_velocity_rps;
     const float hopper_belt_mining_velocity_rps;
     const float tracks_max_velocity_rps;
-    const float tracks_mining_velocity_rps;
-    const float tracks_mining_adjustment_range_rps;
+    const float tracks_mining_max_velocity_rps;
     const float tracks_offload_velocity_rps;
 
     const float hopper_actuator_max_speed;
@@ -112,6 +111,9 @@ public:
     const std::string arena_frame_id;
 
     ZoneBounds bounds;
+
+    const float preset_mining_vol_l;
+    const float preset_offload_backup_m;
 
     const int auto_localization_min_num_search_samples;
     const float auto_localization_search_angular_velocity_rps;

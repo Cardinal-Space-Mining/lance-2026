@@ -147,7 +147,7 @@ void OffloadController::iterate(
         }
         case Stage::BACKUP:
         {
-            if (!joy && this->traversal_state.hasRemaining())
+            if (this->traversal_state.hasRemaining())
             {
                 commands.setTracksVelocity(
                     -this->params.tracks_offload_velocity_rps,

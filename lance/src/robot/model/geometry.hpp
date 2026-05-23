@@ -90,7 +90,7 @@ CONSTEXPR_VAL_TEMPLATE(COLLISION_Z_MIN, -0.102)
 CONSTEXPR_VAL_TEMPLATE(TRACKS_X_MAX, 0.466)
 CONSTEXPR_VAL_TEMPLATE(TRENCHER_X_MAX, 0.590)
 
-CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_OFFSET, -0.55)
+CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_OFFSET, -0.6)
 CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_WIDTH, 0.4)
 CONSTEXPR_VAL_TEMPLATE(OFFLOAD_FOOTPRINT_LENGTH, 0.3)
 #endif
@@ -240,13 +240,13 @@ inline Vec2<T> innerZoneNormalDir(const Box2<T>& outer, const Box2<T>& inner)
         // normal will be +/-y
         if (center_diff.y() > 0)
         {
-            // inner more positive than outer --> point towards negative
-            return Vec2<T>{0, -1};
+            // inner less positive than outer --> point towards positive
+            return Vec2<T>{0, 1};
         }
         else
         {
-            // inner less positive than outer --> point towards positive
-            return Vec2<T>{0, 1};
+            // inner more positive than outer --> point towards negative
+            return Vec2<T>{0, -1};
         }
     }
     else
@@ -254,13 +254,13 @@ inline Vec2<T> innerZoneNormalDir(const Box2<T>& outer, const Box2<T>& inner)
         // normal will be +/-x
         if (center_diff.x() > 0)
         {
-            // inner more positive than outer --> point towards negative
-            return Vec2<T>{-1, 0};
+            // inner less positive than outer --> point towards positive
+            return Vec2<T>{1, 0};
         }
         else
         {
-            // inner less positive than outer --> point towards positive
-            return Vec2<T>{1, 0};
+            // inner more positive than outer --> point towards negative
+            return Vec2<T>{-1, 0};
         }
     }
 }

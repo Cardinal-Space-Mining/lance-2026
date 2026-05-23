@@ -222,6 +222,8 @@ Phoenix6Base::RclMotor<MotorType>::RclMotor(
             // CustomMechanism is paired after all FXS motors are created.
         }
     }
+
+    this->motor.SetPosition(units::angle::turn_t{0});
 }
 
 template<typename MotorType>

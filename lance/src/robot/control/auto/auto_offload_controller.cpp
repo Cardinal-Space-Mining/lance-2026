@@ -38,6 +38,7 @@
 *******************************************************************************/
 
 #include "auto_offload_controller.hpp"
+#include "robot/model/geometry.hpp"
 
 #include <Eigen/Core>
 
@@ -98,20 +99,16 @@ void AutoOffloadController::iterate(
         }
         case Stage::PLANNING:
         {
-            if (false)  // *if not finished planning*
-            {
-                // planning algo here
-
-                break;  // break if more work is required
-            }
-
             // placeholder for testing
-            Eigen::Vector2f target_dir{0.f, 1.f};
+            // Eigen::Vector2f target_dir{0.f, 1.f};
+            Eigen::Vector2f target_dir = lance::geom::innerZoneNormalDir(
+                this->params.bounds.arena_zone,
+                this->params.bounds.offload_zone);
             Eigen::Vector2f target_pos =
                 ((this->params.bounds.offload_zone.max() +
                   this->params.bounds.offload_zone.min()) *
                  0.5f) +
-                (target_dir * 0.35f);
+                (target_dir * std::abs(lance::geom::OFFLOAD_FOOTPRINT_OFFSET));
 
             // init with planned destination
             this->traversal_controller.initializePoint(target_pos, target_dir);

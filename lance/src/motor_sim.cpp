@@ -115,7 +115,7 @@ class SimpleBattery
 {
 public:
     SimpleBattery(
-        double nominal_voltage = 16.0,
+        double nominal_voltage = 24.0,
         double internal_resistance = 0.02);
 
 public:
@@ -464,7 +464,7 @@ private:
 
 MotorSimNode::MotorSimNode() :
     RclNode("motor_sim"),
-    battery{16.0, 0.01},
+    battery{24.0, 0.01},
     watchdog_sub{this->create_subscription<Int32Msg>(
         lance::WATCHDOG_TOPIC,
         rclcpp::SensorDataQoS{},
