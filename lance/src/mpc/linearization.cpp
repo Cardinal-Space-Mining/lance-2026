@@ -8,15 +8,15 @@ namespace mpc
 
 LinModel Linearizer::linearize(
     const std::vector<State>& traj,
-    const std::vector<Control>& u)
+    const std::vector<Control>& u) const
 {
     LinModel m;
-    int N = traj.size();
+    size_t N = traj.size();
     m.A.resize(N);
     m.B.resize(N);
     m.d.resize(N);
 
-    for (int k = 0; k < N; ++k)
+    for (size_t k = 0; k < N; ++k)
     {
         double th = traj[k].theta;
         double v = u[k].v;

@@ -15,18 +15,18 @@ namespace
 {
 
 // tan(theta/2)
-static inline double halfTan(double theta) { return std::tan(theta * 0.5); }
+double halfTan(double theta) { return std::tan(theta * 0.5); }
 
 // cos(theta/2) / (1 - cos(theta/2))
 // Used to derive an initial radius proportional to the junction sharpness.
-static inline double rho(double theta)
+double rho(double theta)
 {
     const double a = std::cos(theta * 0.5);
     return a / (1.0 - a + 1e-12);
 }
 
 // Wrap angle to [-pi, pi]
-static inline double wrapAngle(double a)
+double wrapAngle(double a)
 {
     constexpr double PI = std::numbers::pi;
     constexpr double PI2 = PI * 2.0;
@@ -221,19 +221,17 @@ void PathSmoother::buildJunctions(
     std::vector<double>& seg_lengths,
     std::vector<double>& half_tans) const
 {
-    const int n_pts = static_cast<int>(path.size());
-    const int n_segs = n_pts - 1;
-    const int n_juncs = n_pts - 2;
+    const size_t n_pts = path.size();
+    const size_t n_segs = n_pts - 1;
+    const size_t n_juncs = n_pts - 2;
 
     assert(n_juncs >= 1);
 
     // Segment lengths
     seg_lengths.resize(n_segs);
-    for (int i = 0; i < n_segs; ++i)
+    for (size_t i = 0; i < n_segs; ++i)
     {
-        seg_lengths[i] = (path.pts[static_cast<size_t>(i + 1)].pos -
-                          path.pts[static_cast<size_t>(i)].pos)
-                             .norm();
+        seg_lengths[i] = (path.pts[i + 1].pos - path.pts[i].pos).norm();
     }
 
     // Radius caps: kinematic cap r_kin = v_max / omega_max and geometric
@@ -247,15 +245,12 @@ void PathSmoother::buildJunctions(
     half_tans.resize(n_juncs);
     juncs.resize(n_juncs);
 
-    for (int j = 0; j < n_juncs; ++j)
+    for (size_t j = 0; j < n_juncs; ++j)
     {
-        const Eigen::Vector2d s_in = (path.pts[static_cast<size_t>(j + 1)].pos -
-                                      path.pts[static_cast<size_t>(j)].pos)
-                                         .normalized();
+        const Eigen::Vector2d s_in =
+            (path.pts[j + 1].pos - path.pts[j].pos).normalized();
         const Eigen::Vector2d s_out =
-            (path.pts[static_cast<size_t>(j + 2)].pos -
-             path.pts[static_cast<size_t>(j + 1)].pos)
-                .normalized();
+            (path.pts[j + 2].pos - path.pts[j + 1].pos).normalized();
 
         const double cos_a = std::clamp(s_in.dot(s_out), -1.0, 1.0);
         juncs[j].theta = std::acos(cos_a);  // exterior turn angle in [0, pi]
@@ -288,26 +283,18 @@ void PathSmoother::buildJunctions(
     constexpr int kSweepPairs = 5;
     for (int sweep = 0; sweep < kSweepPairs; ++sweep)
     {
-        for (int s = 1; s < n_segs - 1; ++s)
+        for (size_t s = 1; s < n_segs - 1; ++s)
         {
-            optimizeJunction(
-                static_cast<size_t>(s),
-                juncs,
-                seg_lengths,
-                half_tans);
+            optimizeJunction(s, juncs, seg_lengths, half_tans);
         }
-        for (int s = n_segs - 2; s > 0; --s)
+        for (size_t s = n_segs - 2; s > 0; --s)
         {
-            optimizeJunction(
-                static_cast<size_t>(s),
-                juncs,
-                seg_lengths,
-                half_tans);
+            optimizeJunction(s, juncs, seg_lengths, half_tans);
         }
     }
 
     // Finalise: compute derived quantities
-    for (int j = 0; j < n_juncs; ++j)
+    for (size_t j = 0; j < n_juncs; ++j)
     {
         juncs[j].tan_off = juncs[j].radius * half_tans[j];
         juncs[j].v_max =
@@ -321,7 +308,7 @@ void PathSmoother::optimizeJunction(
     size_t seg_i,
     std::vector<Junction>& juncs,
     const std::vector<double>& seg_lengths,
-    const std::vector<double>& half_tans) const
+    const std::vector<double>& half_tans)
 {
     // seg_i is the SEGMENT index (1-based interior).
     // The two junctions bordering this segment are j_left = seg_i-1 and
@@ -403,8 +390,8 @@ PathSmoother::SmoothedPath PathSmoother::smooth(const Path& path) const
         seg.dir = (end - start) / length;
         seg.length = length;
 
-        sp.cum.push_back(0.0);
-        sp.segs.push_back(seg);
+        sp.cum.emplace_back(0.0);
+        sp.segs.emplace_back(seg);
         sp.total = length;
         return sp;
     }
@@ -414,11 +401,11 @@ PathSmoother::SmoothedPath PathSmoother::smooth(const Path& path) const
     std::vector<double> seg_lengths, half_tans;
     buildJunctions(path, juncs, seg_lengths, half_tans);
 
-    const int n_pts = static_cast<int>(path.size());
-    const int n_juncs = n_pts - 2;
+    const size_t n_pts = path.size();
+    const size_t n_juncs = n_pts - 2;
 
-    sp.segs.reserve(static_cast<size_t>(2 * n_pts));
-    sp.cum.reserve(static_cast<size_t>(2 * n_pts));
+    sp.segs.reserve(2 * n_pts);
+    sp.cum.reserve(2 * n_pts);
 
     // Lambda: append a LineSegment from a to b (skips degenerate segments).
     auto push_line = [&](const Eigen::Vector2d& a, const Eigen::Vector2d& b)
@@ -435,8 +422,8 @@ PathSmoother::SmoothedPath PathSmoother::smooth(const Path& path) const
         seg.dir = (b - a) / len;
         seg.length = len;
 
-        sp.cum.push_back(sp.total);
-        sp.segs.push_back(seg);
+        sp.cum.emplace_back(sp.total);
+        sp.segs.emplace_back(seg);
         sp.total += len;
     };
 
@@ -444,14 +431,12 @@ PathSmoother::SmoothedPath PathSmoother::smooth(const Path& path) const
     // path origin and advances as line segments and arc exits are appended.
     Eigen::Vector2d prev_end = path.pts.front().pos;
 
-    for (int i = 0; i < n_juncs; ++i)
+    for (size_t i = 0; i < n_juncs; ++i)
     {
-        const Eigen::Vector2d& prev_pt = path.pts[static_cast<size_t>(i)].pos;
-        const Eigen::Vector2d& curr_pt =
-            path.pts[static_cast<size_t>(i + 1)].pos;
-        const Eigen::Vector2d& next_pt =
-            path.pts[static_cast<size_t>(i + 2)].pos;
-        const Junction& jn = juncs[static_cast<size_t>(i)];
+        const Eigen::Vector2d& prev_pt = path.pts[i].pos;
+        const Eigen::Vector2d& curr_pt = path.pts[i + 1].pos;
+        const Eigen::Vector2d& next_pt = path.pts[i + 2].pos;
+        const Junction& jn = juncs[i];
 
         // Degenerate: near-straight junction -> straight through
         if (jn.radius < 1e-9 || jn.theta < 1e-4)

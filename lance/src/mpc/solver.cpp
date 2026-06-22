@@ -3,6 +3,7 @@
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
+#include <memory>
 
 
 namespace mpc
@@ -39,7 +40,9 @@ static OSQPCscMatrix* eigenToCSC(const Eigen::SparseMatrix<double>& mat)
         colptr[i] = (OSQPInt)A.outerIndexPtr()[i];
     }
 
-    return OSQPCscMatrix_new(m, n, nnz, values, rowind, colptr);
+    auto mtx = OSQPCscMatrix_new(m, n, nnz, values, rowind, colptr);
+    mtx->owned = true; // Give mtx ownership of values, rowind and colptr
+    return mtx;
 }
 
 // Constructor / destructor
@@ -133,7 +136,7 @@ std::vector<State> Solver::getStatePrediction() const
 
 void Solver::fullSetup(const QP& qp, int N)
 {
-    if (solver_)
+    if (solver_ != nullptr)
     {
         osqp_cleanup(solver_);
         solver_ = nullptr;
@@ -151,15 +154,15 @@ void Solver::fullSetup(const QP& qp, int N)
     q_buf_.resize(qp.q.size());
     l_buf_.resize(qp.l.size());
     u_buf_.resize(qp.u.size());
-    for (int i = 0; i < (int)qp.q.size(); ++i)
+    for (Eigen::Index i = 0; i < qp.q.size(); ++i)
     {
         q_buf_[i] = (OSQPFloat)qp.q[i];
     }
-    for (int i = 0; i < (int)qp.l.size(); ++i)
+    for (Eigen::Index i = 0; i < qp.l.size(); ++i)
     {
         l_buf_[i] = (OSQPFloat)qp.l[i];
     }
-    for (int i = 0; i < (int)qp.u.size(); ++i)
+    for (Eigen::Index i = 0; i < qp.u.size(); ++i)
     {
         u_buf_[i] = (OSQPFloat)qp.u[i];
     }
@@ -169,8 +172,8 @@ void Solver::fullSetup(const QP& qp, int N)
     Ac.makeCompressed();
     Ax_buf_.resize(Ac.nonZeros());
 
-    OSQPSettings* settings = (OSQPSettings*)malloc(sizeof(OSQPSettings));
-    osqp_set_default_settings(settings);
+    auto settings = std::make_unique<OSQPSettings>();
+    osqp_set_default_settings(settings.get());
     settings->verbose = false;
     settings->warm_starting = 1;
     settings->eps_abs = 1e-4;
@@ -187,11 +190,10 @@ void Solver::fullSetup(const QP& qp, int N)
         u_buf_.data(),
         (OSQPInt)m_,
         (OSQPInt)n_,
-        settings);
+        settings.get());
 
     OSQPCscMatrix_free(P);
     OSQPCscMatrix_free(A);
-    free(settings);
 
     if (ret != 0)
     {
@@ -206,17 +208,17 @@ void Solver::fullSetup(const QP& qp, int N)
 void Solver::incrementalUpdate(const QP& qp)
 {
     // Update linear cost q
-    for (int i = 0; i < (int)qp.q.size(); ++i)
+    for (Eigen::Index i = 0; i < qp.q.size(); ++i)
     {
         q_buf_[i] = (OSQPFloat)qp.q[i];
     }
 
     // Update bounds l, u
-    for (int i = 0; i < (int)qp.l.size(); ++i)
+    for (Eigen::Index i = 0; i < qp.l.size(); ++i)
     {
         l_buf_[i] = (OSQPFloat)qp.l[i];
     }
-    for (int i = 0; i < (int)qp.u.size(); ++i)
+    for (Eigen::Index i = 0; i < qp.u.size(); ++i)
     {
         u_buf_[i] = (OSQPFloat)qp.u[i];
     }
