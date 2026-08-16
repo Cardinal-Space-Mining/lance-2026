@@ -29,6 +29,8 @@ while [[ $# -gt 0 ]]; do
         --l2) ROBOT_TARGET="-DROBOT_TARGET=LANCE2" ;;
         --no-sim) SIM_IGNORE="csm_sim" ;;
         --clean) CLEAN="true"; break ;;
+        --native-arch) NATIVE_ARCH= \
+            "-DCMAKE_CXX_FLAGS=\"-march=native\" -DCMAKE_C_FLAGS=\"-march=native\"" ;;
     esac
     shift
 done
@@ -46,8 +48,7 @@ colcon build \
     --event-handlers console_direct+ \
     --packages-ignore lance ${SIM_IGNORE} \
     --cmake-args \
-        -DCMAKE_CXX_FLAGS="-march=native" \
-        -DCMAKE_C_FLAGS="-march=native" \
+        ${NATIVE_ARCH} \
         -Wno-dev \
         -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
         ${ROBOT_TARGET}
@@ -57,8 +58,7 @@ colcon build \
     --event-handlers console_direct+ \
     --packages-select lance \
     --cmake-args \
-        -DCMAKE_CXX_FLAGS="-march=native" \
-        -DCMAKE_C_FLAGS="-march=native" \
+        ${NATIVE_ARCH} \
         -Wno-dev \
         -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
         ${ROBOT_TARGET}

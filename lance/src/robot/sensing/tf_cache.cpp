@@ -54,6 +54,7 @@ TfCache::TfCache(RclNode& node, const RobotParams& params) :
     odom_frame_id{params.odom_frame_id},
     robot_frame_id{params.robot_frame_id},
     tf_buffer{node.get_clock()},
+    // LYRICAL DEPRECATION: tf_listener{this->tf_buffer, tf2_ros::TransformListener::RequiredInterfaces{node}}
     tf_listener{this->tf_buffer, &node}
 {
 }
@@ -66,6 +67,7 @@ TfCache::TfCache(
     odom_frame_id{odom_frame_id},
     robot_frame_id{robot_frame_id},
     tf_buffer{node.get_clock()},
+    // LYRICAL DEPRECATION: tf_listener{this->tf_buffer, tf2_ros::TransformListener::RequiredInterfaces{node}}
     tf_listener{this->tf_buffer, &node}
 {
 }
@@ -205,7 +207,7 @@ const std::string& TfCache::getFrameId(KeyFrame f) const
 {
     static const std::string EMPTY = "";
 
-    switch(f)
+    switch (f)
     {
         case ARENA_FRAME:
         {

@@ -44,6 +44,7 @@
 #endif
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #include <ctre/Phoenix.h>
 #pragma GCC diagnostic pop
 
