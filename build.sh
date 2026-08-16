@@ -22,11 +22,21 @@ if [ "$AVAIL_MEM" -le "$FREE_MEM_THRESH" ]; then
 fi
 
 
-case "$1" in
-    --la) ROBOT_TARGET="-DROBOT_TARGET=ALL" ;;
-    --l1) ROBOT_TARGET="-DROBOT_TARGET=LANCE1" ;;
-    --l2) ROBOT_TARGET="-DROBOT_TARGET=LANCE2" ;;
-esac
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --la) ROBOT_TARGET="-DROBOT_TARGET=ALL" ;;
+        --l1) ROBOT_TARGET="-DROBOT_TARGET=LANCE1" ;;
+        --l2) ROBOT_TARGET="-DROBOT_TARGET=LANCE2" ;;
+        --no-sim) SIM_IGNORE="csm_sim" ;;
+        --clean) CLEAN="true"; break ;;
+    esac
+    shift
+done
+
+if [ "$CLEAN" == "true" ]; then
+    rm -rf build install log
+    exit 0
+fi
 
 START_TIME=$(date +%s.%N)
 
@@ -34,7 +44,7 @@ colcon build \
     --symlink-install \
     --executor parallel \
     --event-handlers console_direct+ \
-    --packages-ignore lance \
+    --packages-ignore lance ${SIM_IGNORE} \
     --cmake-args \
         -DCMAKE_CXX_FLAGS="-march=native" \
         -DCMAKE_C_FLAGS="-march=native" \
