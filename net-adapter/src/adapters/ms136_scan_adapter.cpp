@@ -49,8 +49,8 @@
 
 #include <multiscan_driver/multiscan_spec.hpp>
 
-#include "../util/ros_utils.hpp"
-#include "../util/mem_helpers.hpp"
+#include <csm_utils/ros_utils.hpp>
+#include <csm_utils/mem_helpers.hpp>
 
 
 using namespace util;

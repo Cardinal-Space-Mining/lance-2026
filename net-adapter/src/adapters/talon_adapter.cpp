@@ -39,7 +39,7 @@
 
 #include "talon_adapter.hpp"
 
-#include "../util/mem_helpers.hpp"
+#include <csm_utils/mem_helpers.hpp>
 
 
 using namespace util;

@@ -48,7 +48,7 @@
 #include <ctre/phoenix6/unmanaged/Unmanaged.hpp>
 
 #include "common.hpp"
-#include "ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
 #include "phx6_utils.hpp"
 
 

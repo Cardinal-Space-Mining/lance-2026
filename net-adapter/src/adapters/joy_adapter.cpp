@@ -43,8 +43,8 @@
 #include <cstdint>
 #include <algorithm>
 
-#include "../util/mem_helpers.hpp"
-#include "../util/ros_utils.hpp"
+#include <csm_utils/mem_helpers.hpp>
+#include <csm_utils/ros_utils.hpp>
 
 
 using namespace util;
