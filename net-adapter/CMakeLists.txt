@@ -25,6 +25,8 @@ find_package(zenohcxx REQUIRED)
 
 find_package(zstd REQUIRED)
 
+standard_compile_options()
+
 # --- Messages -----------------------------------------------------------------
 rosidl_generate_interfaces(${PROJECT_NAME}
     "msg/Bytes.msg")

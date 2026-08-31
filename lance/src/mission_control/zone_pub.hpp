@@ -47,7 +47,7 @@
 
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
 
 #include "robot/core/robot_params.hpp"
 #include "robot/core/ros_interface.hpp"

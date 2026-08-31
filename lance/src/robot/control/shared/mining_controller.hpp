@@ -41,7 +41,8 @@
 
 #include <chrono>
 
-#include "util/joy_utils.hpp"
+#include <csm_utils/joy_utils.hpp>
+
 #include "robot/core/robot_params.hpp"
 #include "robot/core/stall_analyzer.hpp"
 #include "robot/core/motor_interface.hpp"

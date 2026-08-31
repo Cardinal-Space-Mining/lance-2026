@@ -43,9 +43,10 @@
 #include <array>
 #include <cmath>
 
-#include "util/geometry.hpp"
-#include "util/time_cvt.hpp"
-#include "util/mem_helpers.hpp"
+#include <csm_utils/geometry.hpp>
+#include <csm_utils/time_cvt.hpp>
+#include <csm_utils/mem_helpers.hpp>
+
 #include "robot/core/ros_interface.hpp"
 #include "robot/model/geometry.hpp"
 #include "robot/control/robot_controller.hpp"

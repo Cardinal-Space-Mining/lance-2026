@@ -13,6 +13,9 @@ find_package(geometry_msgs REQUIRED)
 
 find_package(phoenix6 REQUIRED)
 
+standard_compile_options()
+robot_target()
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wno-psabi)
 endif()

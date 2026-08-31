@@ -1,18 +1,21 @@
 # --- Standard Compiler Presets ------------------------------------------------
-if(NOT CMAKE_C_STANDARD)
-    set(CMAKE_C_STANDARD 99)
-endif()
-
-if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 20)
-endif()
-
-if(NOT MSVC)
-    if(NOT CMAKE_BUILD_TYPE)
-        set(CMAKE_BUILD_TYPE Release)
+macro(standard_compile_options)
+    if(NOT CMAKE_C_STANDARD)
+        set(CMAKE_C_STANDARD 99)
     endif()
-endif()
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+    if(NOT CMAKE_CXX_STANDARD)
+        set(CMAKE_CXX_STANDARD 20)
+    endif()
+
+    if(NOT MSVC)
+        if(NOT CMAKE_BUILD_TYPE)
+            set(CMAKE_BUILD_TYPE Release)
+        endif()
+    endif()
+
+    if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-Wall -Wextra -Wpedantic)
+    endif()
+endmacro()
+

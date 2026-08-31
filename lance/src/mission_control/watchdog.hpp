@@ -46,7 +46,7 @@
 #include <std_msgs/msg/int32.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
 
 #include "robot/core/robot_status.hpp"
 #include "robot/core/ros_interface.hpp"

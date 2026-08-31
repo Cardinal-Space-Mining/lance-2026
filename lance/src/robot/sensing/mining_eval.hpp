@@ -46,7 +46,8 @@
 #include <cardinal_perception/msg/mining_eval_results.hpp>
 #include <cardinal_perception/srv/update_mining_eval_mode.hpp>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
+
 #include "robot/core/robot_params.hpp"
 #include "robot/model/geometry.hpp"
 

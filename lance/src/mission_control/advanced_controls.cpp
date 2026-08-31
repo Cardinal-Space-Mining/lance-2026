@@ -43,8 +43,8 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
-#include "util/pub_map.hpp"
-#include "util/geometry.hpp"
+#include <csm_utils/pub_map.hpp>
+#include <csm_utils/geometry.hpp>
 
 #include "robot/core/hid_bindings.hpp"
 #include "robot/core/robot_status.hpp"

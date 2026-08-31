@@ -43,8 +43,9 @@
 
 #include <net_adapter/msg/bytes.hpp>
 
-#include "util/joy_utils.hpp"
-#include "util/ros_utils.hpp"
+#include <csm_utils/joy_utils.hpp>
+#include <csm_utils/ros_utils.hpp>
+
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"

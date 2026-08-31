@@ -39,7 +39,8 @@
 
 #pragma once
 
-#include "util/joy_utils.hpp"
+#include <csm_utils/joy_utils.hpp>
+
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/control/shared/shared_controllers.hpp"

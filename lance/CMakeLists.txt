@@ -22,6 +22,9 @@ find_package(cardinal_perception REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 
+standard_compile_options()
+robot_target()
+
 include_directories("src")
 
 

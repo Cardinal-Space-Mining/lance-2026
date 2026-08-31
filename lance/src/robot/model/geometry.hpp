@@ -45,7 +45,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include "util/geometry.hpp"
+#include <csm_utils/geometry.hpp>
 
 
 #ifndef LANCE

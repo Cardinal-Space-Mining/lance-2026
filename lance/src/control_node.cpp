@@ -46,9 +46,8 @@
 #include <sensor_msgs/msg/joy.hpp>
 
 #include <csm_metrics/profiling.hpp>
-
-#include "util/joy_utils.hpp"
-#include "util/ros_utils.hpp"
+#include <csm_utils/joy_utils.hpp>
+#include <csm_utils/ros_utils.hpp>
 
 #include "robot/core/robot_status.hpp"
 #include "robot/core/ros_interface.hpp"

@@ -52,7 +52,7 @@
 
 #include <cardinal_perception/srv/update_path_planning_mode.hpp>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
 
 
 namespace lance

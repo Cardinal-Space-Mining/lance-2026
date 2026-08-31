@@ -61,8 +61,8 @@
 #include <phoenix_ros_driver/msg/talon_info.hpp>
 #include <phoenix_ros_driver/msg/talon_faults.hpp>
 
-// #include "util/pub_map.hpp"
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
+
 #include "robot/core/ros_interface.hpp"
 #include "robot/model/dynamics.hpp"
 
