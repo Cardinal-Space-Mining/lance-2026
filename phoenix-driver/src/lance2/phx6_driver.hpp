@@ -48,7 +48,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 
-#include "ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
 #include "phx6_base.hpp"
 #include "phx6_utils.hpp"
 

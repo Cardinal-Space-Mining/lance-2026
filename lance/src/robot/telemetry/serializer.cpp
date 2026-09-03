@@ -42,7 +42,8 @@
 #include <algorithm>
 #include <cmath>
 
-#include "util/mem_helpers.hpp"
+#include <csm_utils/mem_helpers.hpp>
+
 #include "robot/core/ros_interface.hpp"
 #include "robot/model/dynamics.hpp"
 #include "robot/model/geometry.hpp"

@@ -43,7 +43,7 @@
 
 #include <sensor_msgs/msg/joint_state.hpp>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
 
 #include "robot/core/ros_interface.hpp"
 #include "robot/core/motor_interface.hpp"

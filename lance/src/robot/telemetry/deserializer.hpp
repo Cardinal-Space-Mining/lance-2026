@@ -46,7 +46,8 @@
 
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include "util/pub_map.hpp"
+#include <csm_utils/pub_map.hpp>
+
 #include "robot/sensing/tf_cache.hpp"
 
 #include "markers.hpp"

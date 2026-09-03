@@ -4,7 +4,8 @@ import sys
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 
-sys.path.append(os.path.join(get_package_share_directory('launch_utils'), 'src'))
+sys.path.append(os.path.join(
+    get_package_share_directory('launch_utils'), 'src'))
 from launch_utils.actions import NodeAction
 
 
@@ -19,7 +20,7 @@ def flatten_motors(config):
         motor.track_left.kP: 0.4
         ...
     """
-  
+
     if 'motors' in config:
         motors_list = config['motors']
         flattened = {
@@ -36,9 +37,9 @@ def flatten_motors(config):
             for k, v in m.items():
                 if k == 'name':
                     continue
-                flattened[f'motors.{name}.{k}'] = v     
+                flattened[f'motors.{name}.{k}'] = v
 
-        del config['motors'] 
+        del config['motors']
         config.update(flattened)
     else:
         config['motors'] = {'names': []}

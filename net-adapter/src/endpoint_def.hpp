@@ -54,7 +54,8 @@
 
 #include <net_adapter/msg/bytes.hpp>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
+
 #include "util/zenoh_utils.hpp"
 #include "core/delay_queue.hpp"
 #include "core/latency_ping.hpp"

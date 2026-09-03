@@ -8,22 +8,26 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import OpaqueFunction
 
-sys.path.append(os.path.join(get_package_share_directory('launch_utils'), 'src'))
-sys.path.append(os.path.join(get_package_share_directory('phoenix_ros_driver'), 'launch'))
+sys.path.append(os.path.join(
+    get_package_share_directory('launch_utils'), 'src'))
+sys.path.append(os.path.join(
+    get_package_share_directory('phoenix_ros_driver'), 'launch'))
 from launch_utils.preprocess import preprocess_launch_json
 from launch_utils.actions import NodeAction, get_util_actions
 from launch_utils.common import try_load_json_from_args, parse_launch_args, get_local_ips, get_matched_local_ip
 from phoenix_launch_utils import get_phoenix_actions
 
 try:
-    sys.path.append(os.path.join(get_package_share_directory('cardinal_perception'), 'launch'))
+    sys.path.append(os.path.join(
+        get_package_share_directory('cardinal_perception'), 'launch'))
     from perception_launch_utils import get_perception_actions
     HAVE_PERCEPTION_UTILS = True
 except Exception as e:
     HAVE_PERCEPTION_UTILS = False
 
 try:
-    sys.path.append(os.path.join(get_package_share_directory('csm_sim'), 'launch'))
+    sys.path.append(os.path.join(
+        get_package_share_directory('csm_sim'), 'launch'))
     from sim_launch_utils import get_sim_actions
     HAVE_SIM_UTILS = True
 except Exception as e:
@@ -46,9 +50,9 @@ def get_multiscan_driver_action(config):
             get_local_ips(),
             config['lidar_hostname'])
     return NodeAction(config).format_node(
-        package = 'multiscan_driver',
-        executable = 'multiscan_driver',
-        output = 'screen'
+        package='multiscan_driver',
+        executable='multiscan_driver',
+        output='screen'
     )
 
 # def get_phx5_action(config):
@@ -71,24 +75,24 @@ def get_multiscan_driver_action(config):
 
 def get_hopper_fullness_action(config):
     return NodeAction(config).format_node(
-        package = 'lance',
-        executable = 'hopper_fullness.py',
-        output = 'screen'
+        package='lance',
+        executable='hopper_fullness.py',
+        output='screen'
     )
 
 def get_redux_action(config):
     target = config.pop("target", None)
     if target == "robot":
         return NodeAction(config).format_node(
-            package = 'net_adapter',
-            executable = 'robot_endpoint',
-            output = 'screen'
+            package='net_adapter',
+            executable='robot_endpoint',
+            output='screen'
         )
     elif target == "client":
         return NodeAction(config).format_node(
-            package = 'net_adapter',
-            executable = 'client_endpoint',
-            output = 'screen'
+            package='net_adapter',
+            executable='client_endpoint',
+            output='screen'
         )
     print(f'Invalid redux value for target key : {target}')
     return None
@@ -97,15 +101,15 @@ def get_motor_sim_action(config):
     target = config.pop("model", 0)
     if target == 1:
         return NodeAction(config).format_node(
-            package = 'lance',
-            executable = 'lance1_motor_sim',
-            output = 'screen'
+            package='lance',
+            executable='lance1_motor_sim',
+            output='screen'
         )
     if target == 2:
         return NodeAction(config).format_node(
-            package = 'lance',
-            executable = 'lance2_motor_sim',
-            output = 'screen'
+            package='lance',
+            executable='lance2_motor_sim',
+            output='screen'
         )
     print(f'Invalid motor_sim model : {target} (1 for lance-1, 2 for lance-2)')
     return None
@@ -114,37 +118,39 @@ def get_robot_control_action(config):
     target = config.pop("controller", 0)
     if target == 1:
         return NodeAction(config).format_node(
-            package = 'lance',
-            executable = 'lance1_controller',
-            output = 'screen'
+            package='lance',
+            executable='lance1_controller',
+            output='screen'
         )
     if target == 2:
         return NodeAction(config).format_node(
-            package = 'lance',
-            executable = 'lance2_controller',
-            output = 'screen'
+            package='lance',
+            executable='lance2_controller',
+            output='screen'
         )
-    print(f'Invalid controller target : {target} (1 for lance-1, 2 for lance-2)')
+    print(
+        f'Invalid controller target : {target} (1 for lance-1, 2 for lance-2)')
     return None
 
 def get_mission_control_action(config):
     target = config.pop("controller", 0)
     if target == 1:
         return NodeAction(config).format_node(
-            package = 'lance',
-            executable = 'lance1_mission_control',
-            output = 'screen'
+            package='lance',
+            executable='lance1_mission_control',
+            output='screen'
         )
     if target == 2:
         return NodeAction(config).format_node(
-            package = 'lance',
-            executable = 'lance2_mission_control',
-            output = 'screen'
+            package='lance',
+            executable='lance2_mission_control',
+            output='screen'
         )
-    print(f'Invalid controller target : {target} (1 for lance-1, 2 for lance-2)')
+    print(
+        f'Invalid controller target : {target} (1 for lance-1, 2 for lance-2)')
     return None
 
-def get_robot_actions(config, launch_args = {}):
+def get_robot_actions(config, launch_args={}):
     a = []
     if 'multiscan_driver' in config:
         a.append(get_multiscan_driver_action(config['multiscan_driver']))

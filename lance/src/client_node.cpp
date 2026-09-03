@@ -42,7 +42,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
 
 #include "robot/sensing/tf_cache.hpp"
 #include "robot/telemetry/markers.hpp"

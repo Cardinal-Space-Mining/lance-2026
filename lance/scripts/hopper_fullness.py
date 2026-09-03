@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import glob, time
+import glob
+import time
 from serial import Serial
 
 import rclpy
@@ -13,18 +14,18 @@ from std_msgs.msg import Float32
 
 
 def serial_ports() -> list[str]:
-    try: 
+    try:
         return glob.glob("/dev/serial/by-id/*1a86*")
     except:
         return []
 
-def make_serial(port : str) -> Serial | None:
+def make_serial(port: str) -> Serial | None:
     try:
         return Serial(port, 9600)
     except:
         return None
 
-def wait_for_serial_port(attempts = 1, sleep_time = 1) -> Serial | None:
+def wait_for_serial_port(attempts=1, sleep_time=1) -> Serial | None:
     for i in range(attempts):
         try:
             ports = glob.glob("/dev/serial/by-id/*1a86*")
@@ -52,7 +53,7 @@ class HopperFullnessNode(Node):
 
     def __init__(self, serial_port: str | None = None):
         super().__init__("hopper_fullness_driver")
-        self.publisher_ = self.create_publisher(Float32, 
+        self.publisher_ = self.create_publisher(Float32,
                                                 "lance/hopper_fullness",
                                                 qos_profile_sensor_data)
         self.timer = self.create_timer(1, self.timer_callback)
@@ -96,6 +97,7 @@ def main(args=None):
     rclpy.spin(minimal_publisher)
     minimal_publisher.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()

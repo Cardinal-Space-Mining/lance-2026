@@ -16,10 +16,12 @@
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>
+  <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>
 
   <depend>csm_metrics</depend>
+  <depend>csm_utils</depend>
   <depend>net_adapter</depend>
   <depend>phoenix_ros_driver</depend>
   <depend>cardinal_perception</depend>

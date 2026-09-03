@@ -4,6 +4,7 @@ project(phoenix_ros_driver)
 # --- Dependencies -------------------------------------------------------------
 find_package(rosidl_default_generators REQUIRED)
 find_package(ament_cmake REQUIRED)
+find_package(csm_utils REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -12,43 +13,11 @@ find_package(geometry_msgs REQUIRED)
 
 find_package(phoenix6 REQUIRED)
 
-# --- Presets ------------------------------------------------------------------
-if(NOT CMAKE_C_STANDARD)
-    set(CMAKE_C_STANDARD 99)
-endif()
-
-if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 20)
-endif()
-
-if(NOT MSVC)
-    if(NOT CMAKE_BUILD_TYPE)
-        set(CMAKE_BUILD_TYPE Release)
-    endif()
-endif()
-
-# --- Target Config ------------------------------------------------------------
-set(ROBOT_TARGET "ALL" CACHE STRING
-    "Which robot(s) to build for: \"LANCE1\", \"LANCE2\", \"ALL\"")
-set_property(CACHE ROBOT_TARGET PROPERTY STRINGS LANCE1 LANCE2 ALL)
-
-set(BUILD_LANCE1 FALSE)
-set(BUILD_LANCE2 FALSE)
-if(ROBOT_TARGET STREQUAL "LANCE1" OR ROBOT_TARGET STREQUAL "ALL")
-    set(BUILD_LANCE1 TRUE)
-endif()
-if(ROBOT_TARGET STREQUAL "LANCE2" OR ROBOT_TARGET STREQUAL "ALL")
-    set(BUILD_LANCE2 TRUE)
-endif()
-
-message(STATUS
-    "Robot target is \"${ROBOT_TARGET}\";\n"
-    "\tLANCE-1 enabled: ${BUILD_LANCE1}\n"
-    "\tLANCE-2 enabled: ${BUILD_LANCE2}")
-
+standard_compile_options()
+robot_target()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -Wno-psabi)
+    add_compile_options(-Wno-psabi)
 endif()
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -87,7 +56,8 @@ if(BUILD_LANCE1)
         ${PHX5_LIB_DIR}/libCTRE_Phoenix.so
         ${PHX5_LIB_DIR}/libCTRE_PhoenixCCI.so
         ${PHX5_LIB_DIR}/libCTRE_PhoenixTools.so)
-    ament_target_dependencies(lance1_phx5_driver
+    auto_target_dependencies(lance1_phx5_driver
+        csm_utils
         rclcpp
         std_msgs)
     target_compile_features(lance1_phx5_driver PUBLIC c_std_99 cxx_std_20)     # not necessary but silences a lot of warnings
@@ -96,11 +66,12 @@ if(BUILD_LANCE1)
     add_executable(lance1_phx6_driver
         src/lance1/phx6_driver.cpp)
     target_link_libraries(lance1_phx6_driver
+        phoenix6
         ${phoenix_ros_driver_custom_types})
-    ament_target_dependencies(lance1_phx6_driver
+    auto_target_dependencies(lance1_phx6_driver
+        csm_utils
         rclcpp
-        std_msgs
-        phoenix6)
+        std_msgs)
     target_compile_features(lance1_phx6_driver PUBLIC c_std_99 cxx_std_20)     # not necessary but silences a lot of warnings
 endif()
 
@@ -111,16 +82,18 @@ if(BUILD_LANCE2)
         src/lance2/phx6_base.cpp
         src/lance2/phx6_driver.cpp)
     target_link_libraries(lance2_phx6_driver
+        phoenix6
         ${phoenix_ros_driver_custom_types})
-    ament_target_dependencies(lance2_phx6_driver
+    auto_target_dependencies(lance2_phx6_driver
+        csm_utils
         rclcpp
-        std_msgs
-        phoenix6)
+        std_msgs)
     target_compile_features(lance2_phx6_driver PUBLIC c_std_99 cxx_std_20)     # not necessary but silences a lot of warnings
 endif()
 
 # --- Export -------------------------------------------------------------------
 ament_export_dependencies(
+    csm_utils
     rclcpp
     nav_msgs
     std_msgs

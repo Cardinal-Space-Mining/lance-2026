@@ -42,7 +42,8 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include "util/ros_utils.hpp"
+#include <csm_utils/ros_utils.hpp>
+
 #include "robot/core/robot_params.hpp"
 #include "robot/core/motor_interface.hpp"
 #include "robot/model/geometry.hpp"

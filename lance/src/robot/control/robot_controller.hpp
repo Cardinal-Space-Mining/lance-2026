@@ -43,8 +43,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include "util/joy_utils.hpp"
-#include "util/ros_utils.hpp"
+#include <csm_utils/joy_utils.hpp>
+#include <csm_utils/ros_utils.hpp>
 
 #include "robot/core/robot_params.hpp"
 #include "robot/core/robot_status.hpp"

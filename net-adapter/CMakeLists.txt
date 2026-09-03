@@ -4,10 +4,12 @@ project(net_adapter)
 # --- Dependencies -------------------------------------------------------------
 find_package(rosidl_default_generators REQUIRED)
 find_package(ament_cmake REQUIRED)
+find_package(csm_utils REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(rosgraph_msgs REQUIRED)
@@ -23,20 +25,7 @@ find_package(zenohcxx REQUIRED)
 
 find_package(zstd REQUIRED)
 
-# --- Presets ------------------------------------------------------------------
-if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 20)
-endif()
-
-if(NOT MSVC)
-    if(NOT CMAKE_BUILD_TYPE)
-        set(CMAKE_BUILD_TYPE Release)
-    endif()
-endif()
-
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+standard_compile_options()
 
 # --- Messages -----------------------------------------------------------------
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -60,7 +49,8 @@ target_link_libraries(adapters_core
     Eigen3::Eigen
     zenohcxx::zenohc
     zstd::libzstd_shared)
-ament_target_dependencies(adapters_core
+auto_target_dependencies(adapters_core
+    csm_utils
     rclcpp
     std_msgs
     sensor_msgs
@@ -70,7 +60,7 @@ ament_target_dependencies(adapters_core
     tf2_geometry_msgs
     rosgraph_msgs
     phoenix_ros_driver
-    multiscan_driver)
+    multiscan_driver )
 
 # --- Executables --------------------------------------------------------------
 add_executable(robot_endpoint
@@ -94,7 +84,9 @@ target_link_libraries(client_endpoint
     # csm_metrics)
 
 # --- Export -------------------------------------------------------------------
+
 ament_export_dependencies(
+    csm_utils
     rclcpp
     rosidl_default_runtime
     std_msgs

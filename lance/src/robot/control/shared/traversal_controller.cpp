@@ -44,7 +44,8 @@
 #include <sstream>
 #include <iostream>
 
-#include "util/geometry.hpp"
+#include <csm_utils/geometry.hpp>
+
 #include "robot/model/dynamics.hpp"
 #include "robot/model/geometry.hpp"
 #include "robot/model/kinematics.hpp"
