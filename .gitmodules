@@ -14,3 +14,6 @@
 [submodule "launch-utils"]
 	path = launch-utils
 	url = https://github.com/Cardinal-Space-Mining/launch-utils
+[submodule "csm-utils"]
+	path = csm-utils
+	url = https://github.com/Cardinal-Space-Mining/csm-utils
