@@ -10,6 +10,11 @@
             "max_path_pub_freq": 1.0,
             "is_sim": false
         },
+        "robot_eth":
+        {
+            "pragma:derived": "robot",
+            "client_hostname": "${ ip.net1.dev_1_eth }"
+        },
         "robot_sim":
         {
             "pragma:derived": "robot",

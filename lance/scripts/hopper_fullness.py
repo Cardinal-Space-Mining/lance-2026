@@ -20,7 +20,7 @@ def serial_ports() -> list[str]:
 
 def make_serial(port : str) -> Serial | None:
     try:
-        return Serial(port, 9600)
+        return Serial(port, 9600, timeout = 1)
     except:
         return None
 
@@ -48,7 +48,14 @@ class HopperFullnessNode(Node):
     __slots__ = ("timer", "publisher_", "serial")
 
     def __get_data(self) -> str:
-        return self.serial.readline().decode().strip()
+        # The arduino sends several readings per second but this node only
+        # reads once per second, so drain whatever piled up in the buffer and
+        # keep only the newest complete line. Otherwise the published value
+        # falls further and further behind real time.
+        line = self.serial.readline()
+        while self.serial.in_waiting > 0:
+            line = self.serial.readline()
+        return line.decode(errors = "ignore").strip()
 
     def __init__(self, serial_port: str | None = None):
         super().__init__("hopper_fullness_driver")
@@ -65,7 +72,7 @@ class HopperFullnessNode(Node):
             self.serial = wait_for_serial_port(1)
 
         if self.serial is None:
-            print('Failed to initialize valid serial port!')
+            print('Failed to initialize valid serial port!', flush = True)
         else:
             self.serial.read_until()
 
@@ -78,16 +85,16 @@ class HopperFullnessNode(Node):
                 line = self.__get_data()
                 if "Fs: " in line:
                     data = float(line.replace("Fs: ", ""))
-                    print(f'{line} --> {data}')
+                    print(f'{line} --> {data}', flush = True)
 
                     msg = Float32()
                     msg.data = data
                     self.publisher_.publish(msg)
             except:
-                print("Failed to read line from serial!")
+                print("Failed to read line from serial!", flush = True)
                 return
         else:
-            print("Serial is invalid!")
+            print("Serial is invalid!", flush = True)
 
 
 def main(args=None):

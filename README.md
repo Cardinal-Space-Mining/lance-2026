@@ -105,6 +105,9 @@ Following any flag arguments come any number of "launch overrides" which directl
 > [!TIP]
 > All available presets can be found in the `lance/config/presets` directory, and all low-level action configs can be found in the `lance/config/actions` directory.
 
+## Recording bags for rocklabel
+If you are recording to build a rocklabel training dataset, record on the **client**, not the robot, and read [RECORDING-FOR-ROCKLABEL.md](RECORDING-FOR-ROCKLABEL.md) first - the robot-side `raw` preset writes no-return points that rocklabel reads as real measurements.
+
 ## Foxglove Studio
 A foxglove studio layout configuration (`foxglove_layout.json`) is included which provides a main control dashboard as well as tabs for each perception stage and motor status info. This can be loaded by clicking the **"LAYOUT"** dropdown in the top right corner of foxglove studio, then clicking **"Import from file..."** and navigating to the json.
 
