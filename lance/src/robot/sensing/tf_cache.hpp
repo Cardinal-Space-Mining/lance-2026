@@ -39,6 +39,17 @@
 
 #pragma once
 
+/**
+ * @file tf_cache.hpp
+ * @brief Thread-safe transform listener and cached transform chain for arena, odom, and robot frames.
+ *
+ * Wraps tf2_ros::Buffer and TransformListener with pre-composed transforms:
+ *   - Key frames: ARENA_FRAME (map), ODOM_FRAME (odom), ROBOT_FRAME (base_link).
+ *   - Avoids repetitive lookupTransform overhead by caching active transforms on every control tick.
+ *   - Automatically chains: `robot_to_arena = (arena_to_odom)^-1 * (odom_to_robot)^-1`.
+ *   - Provides zero-allocation lookups returning Eigen isometry representations.
+ */
+
 #include <mutex>
 #include <string>
 
@@ -57,13 +68,22 @@
 namespace lance
 {
 
+/**
+ * @enum KeyFrame
+ * @brief Discrete enumerated IDs for primary system reference frames.
+ */
 enum KeyFrame
 {
     INVALID_FRAME = 0,
-    ARENA_FRAME = 1,
-    ODOM_FRAME = 2,
-    ROBOT_FRAME = 3
+    ARENA_FRAME = 1, ///< World fixed competition arena frame (typically "map").
+    ODOM_FRAME = 2,  ///< Continuous wheel-odometry / visual odometry frame ("odom").
+    ROBOT_FRAME = 3  ///< Robot base chassis kinematic origin ("base_link" or "robot").
 };
+
+/**
+ * @enum KeyTf
+ * @brief Packed directional transform identifiers: `(from << 2) | to`.
+ */
 enum KeyTf
 {
     INVALID_TF = 0,
@@ -75,18 +95,19 @@ enum KeyTf
     ROBOT_TO_ODOM_TF = (ROBOT_FRAME << 2 | ODOM_FRAME)
 };
 
-
+/**
+ * @brief Bit-pack source and target KeyFrames into a single KeyTf enum value.
+ */
 inline constexpr KeyTf composeKeyTf(KeyFrame from, KeyFrame to)
 {
     return static_cast<KeyTf>(from << 2 | to);
 }
 
 
-/* Collects primary robot transforms from a tf2_ros::Buffer. Note that the
- * buffer must be connected to an external tf2_ros::Listener for it to get
- * updated, and the internal state won't get updated unless the refresh()
- * method is called! Use the getBuffer() method to connect the internal
- * buffer instance to an external listener. */
+/**
+ * @class TfCache
+ * @brief Synchronized cache of critical coordinate transforms between world, odom, and robot.
+ */
 class TfCache : public util::UsingRosAliases
 {
 public:
@@ -95,9 +116,9 @@ public:
     using PoseTf = lance::geom::PoseTf3f;
 
 public:
-    const std::string arena_frame_id;
-    const std::string odom_frame_id;
-    const std::string robot_frame_id;
+    const std::string arena_frame_id; ///< Frame string for ARENA_FRAME ("map").
+    const std::string odom_frame_id;  ///< Frame string for ODOM_FRAME ("odom").
+    const std::string robot_frame_id; ///< Frame string for ROBOT_FRAME ("base_link" / "robot").
 
 public:
     TfCache(RclNode&, const RobotParams&);
@@ -108,50 +129,70 @@ public:
         const std::string& robot_frame_id);
 
 public:
+    /**
+     * @brief Poll TF2 buffer and refresh cached forward and inverse isometry transforms.
+     * Called at start of each control cycle.
+     */
     void refresh();
 
+    /// @brief Access underlying TF2 buffer.
     Tf2Buffer& getBuffer();
     const Tf2Buffer& getBuffer() const;
 
+    /// @brief Check if valid transform has been received for the specified KeyTf.
     bool hasTf(KeyTf k) const;
+
+    /// @brief Overload accepting either KeyFrame enums or frame name strings.
     template<typename KeyOrStr1, typename KeyOrStr2>
     bool hasTf(KeyOrStr1&& from, KeyOrStr2&& to) const;
 
+    /// @brief Retrieve timestamp (seconds) of the latest update for transform k.
     double getStamp(KeyTf k) const;
+
+    /// @brief Overload retrieving timestamp using frame names or enums.
     template<typename KeyOrStr1, typename KeyOrStr2>
     double getStamp(KeyOrStr1&& from, KeyOrStr2&& to) const;
 
+    /// @brief Retrieve pointer to cached forward PoseTf, or nullptr if unavailable.
     const PoseTf* getTf(KeyTf k) const;
+
+    /// @brief Overload retrieving PoseTf using frame names or enums.
     template<typename KeyOrStr1, typename KeyOrStr2>
     const PoseTf* getTf(KeyOrStr1&& from, KeyOrStr2&& to) const;
 
+    /// @brief Map a frame ID string or enum to KeyFrame.
     template<typename T>
     KeyFrame resolveKeyFrame(T&& val) const;
+
+    /// @brief Map KeyFrame enum to its configured ROS frame string.
     const std::string& getFrameId(KeyFrame f) const;
 
 protected:
+    /**
+     * @struct TfLink
+     * @brief Pair of forward and inverse transforms with timestamp.
+     */
     struct TfLink
     {
-        PoseTf tf;
-        PoseTf inv_tf;
-
-        double stamp{-1.};
+        PoseTf tf;        ///< Forward transform.
+        PoseTf inv_tf;    ///< Precomputed matrix inverse.
+        double stamp{-1.};///< ROS epoch timestamp in seconds.
     };
 
 protected:
-    Tf2Buffer tf_buffer;
-    Tf2Listener tf_listener;
+    Tf2Buffer tf_buffer;       ///< TF2 buffer accumulating transform broadcasts.
+    Tf2Listener tf_listener;   ///< Listener thread receiving TF2 messages.
 
-    TfLink arena_to_odom;
-    TfLink odom_to_robot;
-    TfLink robot_to_arena;
+    TfLink arena_to_odom;      ///< Cached arena -> odom link.
+    TfLink odom_to_robot;      ///< Cached odom -> robot link.
+    TfLink robot_to_arena;     ///< Synthesized robot -> arena global link.
 
-    mutable std::mutex mtx;
+    mutable std::mutex mtx;    ///< Protects concurrent cache access.
 };
 
 
 
-// ---
+// --- Template Method Implementations ---
 
 #include <string_view>
 #include <type_traits>

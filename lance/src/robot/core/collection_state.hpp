@@ -39,6 +39,17 @@
 
 #pragma once
 
+/**
+ * @file collection_state.hpp
+ * @brief Volumetric estimation and conveyor belt regolith distribution tracking.
+ *
+ * Provides real-time state estimation for regolith excavation and storage:
+ *   - HopperState: Models the physical pile/berm of collected material on the hopper conveyor bed,
+ *     tracking linear footprint [low_pos_m, high_pos_m], volume in liters, and indexing setpoints.
+ *   - CollectionState: Integrates encoder feedback from track travel, plunge depth change,
+ *     and trencher bucket rotations to infer instantaneous material excavated and transfer rates.
+ */
+
 #include <limits>
 #include <optional>
 
@@ -48,16 +59,29 @@
 namespace lance
 {
 
+/**
+ * @class HopperState
+ * @brief Geometric model of the regolith pile residing on the hopper conveyor belt.
+ *
+ * Tracks the spatial extent of regolith as a continuous 1D berm along the conveyor belt.
+ * As new material drops in from the trencher, it expands the berm near `high_pos_m`.
+ * When the belt is indexed forward, material shifts towards the discharge edge (`low_pos_m`).
+ * Once material crosses the discharge roller (`cutoff_pos_m`), it falls off the belt into
+ * the collection bin, proportionally reducing `total_vol_l`.
+ */
 class HopperState
 {
 public:
-    /// @brief Sets the hopper parameters
-    /// @param initial_volume_l How much regolith to collect before the hopper is first rotated
-    /// @param capacity_volume_l Total capacity of the hopper in liters
-    /// @param initial_footprint_m How far back the initial pile in the belt is
-    /// @param capacity_len_m How long the hopper belt is
-    /// @param offload_len_m How far to move the belt to offload
-    /// @param transfer_efficiency Efficiency of regolith transfer between trencher and hopper
+    /**
+     * @brief Construct HopperState with geometric and volumetric parameters.
+     *
+     * @param initial_volume_l Minimum volume threshold before first belt indexing move (Liters).
+     * @param capacity_volume_l Maximum total rated volume capacity of the hopper (Liters).
+     * @param initial_footprint_m Initial longitudinal spread of material when entering empty belt (m).
+     * @param capacity_len_m Total usable length of the conveyor bed (m).
+     * @param offload_len_m Total belt advance distance required to fully purge hopper (m).
+     * @param transfer_efficiency Ratio of cut material successfully entering hopper [0.0 - 1.0].
+     */
     HopperState(
         double initial_volume_l,
         double capacity_volume_l,
@@ -66,68 +90,89 @@ public:
         double offload_len_m,
         double transfer_efficiency);
 
-    /// @brief Updates internal hopper model
-    /// @param delta_volume_l How much additional regolith has been added
-    /// @param belt_rotations Current position of belt in Motor Angle Units
+    /**
+     * @brief Update the hopper berm model with newly excavated regolith and updated belt position.
+     *
+     * @param delta_volume_l Increment of newly excavated volume since last tick (Liters).
+     * @param belt_rotations Accumulated hopper belt motor rotations.
+     */
     void update(double delta_volume_l, double belt_rotations);
 
 public:
-    // estimated volume in liters
+    /// @brief Estimated total volume of regolith currently retained in the hopper (Liters).
     double volume() const;
-    // volume left until full in liters
+
+    /// @brief Remaining volumetric capacity before reaching capacity_volume_l (Liters).
     double remainingVolume() const;
-    // tracked belt position in meters
+
+    /// @brief Absolute cumulative belt displacement in meters.
     double beltPosMeters() const;
-    // belt position of "head" of regolith pile (closest to trencher)
+
+    /// @brief Position of the head of the regolith pile (closest to trencher intake) in meters.
     double startPosMeters() const;
-    // belt position of "end" of regloith pile (closest to opening)
+
+    /// @brief Position of the tail of the regolith pile (closest to offload roller) in meters.
     double endPosMeters() const;
-    // region of belt occupiled by regolith pile, in meters
+
+    /// @brief Total longitudinal length of conveyor belt currently occupied by regolith (meters).
     double beltUsageMeters() const;
-    // the relative proportion of the belt which is used
-    double beltUsagePercent() const;  //TODO: This is returning values > one
+
+    /// @brief Relative fraction of conveyor length occupied [0.0 - 1.0].
+    double beltUsagePercent() const;
 
 public:
-    // have we reached the max configured volume
+    /// @brief True if total stored volume meets or exceeds capacity_vol_l.
     bool isVolCapacity() const;
-    // has the belt reached the end
+
+    /// @brief True if regolith pile has reached the full longitudinal length of the belt.
     bool isBeltCapacity() const;
 
 public:
-    // output is in motor rotations
+    /// @brief Target motor position (rotations) to index belt forward during mining to distribute regolith.
     double miningTargetMotorPosition() const;
-    // outut is in motor rotations
+
+    /// @brief Target motor position (rotations) to completely discharge current pile off the belt.
     double offloadTargetMotorPosition() const;
 
 public:
+    /**
+     * @brief Calculate offload target motor position starting from a specified motor baseline position.
+     * @param beg_motor_pos Starting motor position in rotations.
+     * @return Target motor position after adding offload_len_m worth of rotation.
+     */
     double calcOffloadTargetMotorPosition(double beg_motor_pos) const;
 
 private:
+    /// @brief Distance between high_pos_m and low_pos_m (meters).
     double occupied_delta_m() const;
+
+    /// @brief Position along belt travel at which material drops off the discharge roller (meters).
     double cutoff_pos_m() const;
 
-private:  // parameters
-    const double initial_vol_l;
-    const double cap_vol_l;
-    const double initial_footprint_m;
-    const double cap_len_m;
-    const double offload_len_m;
-    const double transfer_efficiency;
+private:  // Model parameters
+    const double initial_vol_l;         ///< Minimum volume before initial indexing step.
+    const double cap_vol_l;             ///< Volumetric capacity in Liters.
+    const double initial_footprint_m;   ///< Initial pile spread length in meters.
+    const double cap_len_m;             ///< Conveyor bed usable length in meters.
+    const double offload_len_m;         ///< Travel distance to purge payload in meters.
+    const double transfer_efficiency;   ///< Transfer factor accounting for spillage.
 
-private:  // State
-    /// @brief Current volume of regolith stored
-    double total_vol_l{0.};
-
-    /// @brief Current belt position
-    double belt_pos_m{0.};
-
-    /// @brief Absolute start of pile
-    double high_pos_m{0.};
-
-    /// @brief Absolute end of pile
-    double low_pos_m{0.};
+private:  // Tracked State
+    double total_vol_l{0.};  ///< Integrated volume currently on belt (Liters).
+    double belt_pos_m{0.};   ///< Current linear belt travel (meters).
+    double high_pos_m{0.};   ///< Front edge position of regolith pile (meters).
+    double low_pos_m{0.};    ///< Rear edge position of regolith pile (meters).
 };
 
+/**
+ * @class CollectionState
+ * @brief High-level observer calculating volume intake from robot actuators and feeding HopperState.
+ *
+ * Integrates:
+ *   1. Plunge cut impact volume: Volumetric change from lower trencher depth.
+ *   2. Forward sweep volume: Volumetric change from track driving forward into regolith.
+ *   3. Trencher throughput limit: Bucket speed cap preventing unrealistic intake rates.
+ */
 class CollectionState
 {
 public:
@@ -139,16 +184,20 @@ public:
         double offload_len_m,
         double transfer_efficiency);
 
-
+    /**
+     * @brief Process latest motor telemetry and advance the volumetric model.
+     * @param motors_status Current motor positions, velocities, and linear actuator state.
+     */
     void update(const RobotMotorStatus& motors_status);
 
 public:
+    /// @brief Read-only accessor for the underlying HopperState.
     const HopperState& getHopperState() const;
 
-
 private:
-    HopperState hopper_state;
+    HopperState hopper_state; ///< Embedded conveyor pile state model.
 
+    // Previous tick values for numerical differentiation / integration
     std::optional<double> prev_trencher_rotations;
     std::optional<double> prev_ltrack_rotations;
     std::optional<double> prev_rtrack_rotations;

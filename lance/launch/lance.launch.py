@@ -1,3 +1,23 @@
+"""
+LANCE Master Launch Script.
+
+This launch script provides a JSON-configurable, modular launcher for the entire
+LANCE robot software stack. It loads actions and presets from JSON config files
+(located in lance/config/) and instantiates ROS 2 nodes according to the requested
+configuration (e.g. real robot vs Gazebo sim vs replay presets, lance-1 vs lance-2 targets).
+
+Integrated subsystems:
+  - multiscan_driver: SICK multiScan 3D LiDAR driver
+  - phoenix_ros_driver: CTRE Phoenix CAN motor controller interface
+  - hopper_fullness: Serial driver for regolith hopper fullness sensor
+  - net_adapter / redux: Network bridge endpoints (robot_endpoint or client_endpoint)
+  - motor_sim: High-fidelity physics-based software-in-the-loop motor simulation
+  - robot_control: Core robot autonomy/teleop controller node (lance1_controller or lance2_controller)
+  - mission_control: Operator client node (lance1_mission_control or lance2_mission_control)
+  - cardinal_perception: Point cloud filtering, reflector localization, and path planning
+  - csm_sim: Gazebo simulation integration
+"""
+
 import os
 import sys
 # import glob
@@ -45,6 +65,10 @@ DEFAULT_JSON_PATH = os.path.join(PKG_PATH, 'config', 'launch.json')
 
 
 def get_multiscan_driver_action(config):
+    """
+    Configures and spawns the SICK multiScan LiDAR driver node.
+    Automatically matches local IP subnet with LiDAR hostname if not explicitly configured.
+    """
     if 'driver_hostname' not in config and 'lidar_hostname' in config:
         config['driver_hostname'] = get_matched_local_ip(
             get_local_ips(),
@@ -74,6 +98,7 @@ def get_multiscan_driver_action(config):
 #     )
 
 def get_hopper_fullness_action(config):
+    """Launches the serial reader node for the regolith hopper fullness sensor."""
     return NodeAction(config).format_node(
         package='lance',
         executable='hopper_fullness.py',
@@ -81,6 +106,11 @@ def get_hopper_fullness_action(config):
     )
 
 def get_redux_action(config):
+    """
+    Launches network adapter (redux / net_adapter) bridge node.
+    - target == "robot": launches robot_endpoint
+    - target == "client": launches client_endpoint
+    """
     target = config.pop("target", None)
     if target == "robot":
         return NodeAction(config).format_node(
@@ -98,6 +128,12 @@ def get_redux_action(config):
     return None
 
 def get_motor_sim_action(config):
+    """
+    Launches the software-in-the-loop motor simulation node.
+    Model target selects robot hardware iteration:
+      1: lance1_motor_sim
+      2: lance2_motor_sim
+    """
     target = config.pop("model", 0)
     if target == 1:
         return NodeAction(config).format_node(
@@ -115,6 +151,12 @@ def get_motor_sim_action(config):
     return None
 
 def get_robot_control_action(config):
+    """
+    Launches the main robot controller node on the robot target.
+    Controller target selects robot hardware iteration:
+      1: lance1_controller
+      2: lance2_controller
+    """
     target = config.pop("controller", 0)
     if target == 1:
         return NodeAction(config).format_node(
@@ -133,6 +175,12 @@ def get_robot_control_action(config):
     return None
 
 def get_mission_control_action(config):
+    """
+    Launches the mission control client node on the operator workstation.
+    Controller target selects robot hardware iteration:
+      1: lance1_mission_control
+      2: lance2_mission_control
+    """
     target = config.pop("controller", 0)
     if target == 1:
         return NodeAction(config).format_node(
@@ -151,6 +199,9 @@ def get_mission_control_action(config):
     return None
 
 def get_robot_actions(config, launch_args={}):
+    """
+    Gathers all robot-specific node actions according to the active configuration dictionary.
+    """
     a = []
     if 'multiscan_driver' in config:
         a.append(get_multiscan_driver_action(config['multiscan_driver']))
@@ -174,6 +225,13 @@ def get_robot_actions(config, launch_args={}):
 
 
 def launch(context, *args, **kwargs):
+    """
+    OpaqueFunction entry point executed during launch description generation:
+    1. Parses command line launch arguments.
+    2. Loads base configuration JSON from config/launch.json or custom path.
+    3. Preprocesses JSON (resolving extends, overrides, and environment variables).
+    4. Aggregates launch actions across utilities, motor drivers, perception, simulation, and lance nodes.
+    """
     actions = []
 
     launch_args = parse_launch_args(context.argv)
@@ -200,6 +258,7 @@ def launch(context, *args, **kwargs):
 
 
 def generate_launch_description():
+    """Generates the launch description utilizing an OpaqueFunction to allow dynamic context parsing."""
     return LaunchDescription([
         OpaqueFunction(function=launch),
     ])

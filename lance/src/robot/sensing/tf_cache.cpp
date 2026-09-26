@@ -37,6 +37,11 @@
 *                                                                              *
 *******************************************************************************/
 
+/**
+ * @file tf_cache.cpp
+ * @brief Implementation of cached spatial transform chain between arena, odom, and robot.
+ */
+
 #include "tf_cache.hpp"
 
 #include <csm_utils/geometry.hpp>
@@ -58,6 +63,7 @@ TfCache::TfCache(RclNode& node, const RobotParams& params) :
     tf_listener{this->tf_buffer, &node}
 {
 }
+
 TfCache::TfCache(
     RclNode& node,
     const std::string& arena_frame_id,
@@ -76,6 +82,7 @@ void TfCache::refresh()
 {
     std::unique_lock lock{this->mtx};
 
+    // 1. Look up arena -> odom transform (global relocalization offset)
     try
     {
         auto tf_msg = this->tf_buffer.lookupTransform(
@@ -95,8 +102,10 @@ void TfCache::refresh()
     }
     catch (...)
     {
+        // Transform not yet available in buffer
     }
 
+    // 2. Look up odom -> robot transform (continuous dead reckoning / odometry)
     try
     {
         auto tf_msg = this->tf_buffer.lookupTransform(
@@ -116,8 +125,11 @@ void TfCache::refresh()
     }
     catch (...)
     {
+        // Transform not yet available in buffer
     }
 
+    // 3. Synthesize full robot <-> arena global transform by chaining links:
+    //    T_robot_to_arena = (T_arena_to_odom)^-1 * (T_odom_to_robot)^-1
     if ((this->arena_to_odom.stamp >= 0. && this->odom_to_robot.stamp >= 0.) &&
         (this->arena_to_odom.stamp > this->robot_to_arena.stamp ||
          this->odom_to_robot.stamp > this->robot_to_arena.stamp))

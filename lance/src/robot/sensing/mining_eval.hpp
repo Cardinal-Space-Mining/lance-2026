@@ -39,6 +39,17 @@
 
 #pragma once
 
+/**
+ * @file mining_eval.hpp
+ * @brief Perception client querying traversability and excavation clearance for candidate cuts.
+ *
+ * Interfaces with `cardinal_perception`'s 2.5D elevation and ray-marching engine:
+ *   - Submits query poses representing trench start points and headings.
+ *   - Perception casts volumetric boxes along candidate cuts, evaluating obstacle collisions
+ *     and soil terrain height.
+ *   - Receives maximum unobstructed excavation distances (`ranges`) for each candidate cut line.
+ */
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <Eigen/Core>
@@ -55,6 +66,10 @@
 namespace lance
 {
 
+/**
+ * @class MiningEvalInterface
+ * @brief Manages asynchronous RPC queries to `cardinal_perception/update_mining_eval`.
+ */
 class MiningEvalInterface : public util::UsingRosAliases
 {
     using UpdateMiningEvalSrv = cardinal_perception::srv::UpdateMiningEvalMode;
@@ -68,11 +83,19 @@ public:
     MiningEvalInterface(RclNode&, const RobotParams&);
 
 public:
+    /// @brief Dispatch batch evaluation query for multiple candidate cut poses in arena (map) frame.
     void queryArenaFrame(const std::vector<Pose2f>& poses);
+
+    /// @brief Query forward clearance directly in front of the robot's current pose.
     void queryRobotFrame();
+
+    /// @brief Abort any pending evaluation query.
     void cancelQuery();
 
+    /// @brief True when evaluation results for the active query ID have arrived.
     bool hasResult() const;
+
+    /// @brief Read-only pointer to vector of valid excavation cut lengths in meters (or nullptr).
     const std::vector<float>* getDists() const;
 
 protected:
@@ -82,12 +105,12 @@ protected:
     const RobotParams& params;
     RclClock::ConstSharedPtr rcl_clock;
 
-    RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;
-    RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;
+    RclSubPtr<MiningEvalResultsMsg> mining_eval_sub;       ///< Evaluation result subscriber.
+    RclClientPtr<UpdateMiningEvalSrv> mining_eval_client;   ///< Service client sending queries.
 
-    MiningEvalResultsMsg::UniquePtr eval_results{nullptr};
-    int32_t eval_id{-1};
-    float offset_dist{0.f};
+    MiningEvalResultsMsg::UniquePtr eval_results{nullptr}; ///< Received result cache.
+    int32_t eval_id{-1};                                   ///< Active query transaction ID.
+    float offset_dist{0.f};                                ///< Distance subtracted to account for robot body length.
 };
 
 };  // namespace lance

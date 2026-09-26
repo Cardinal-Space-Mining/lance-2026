@@ -37,6 +37,11 @@
 *                                                                              *
 *******************************************************************************/
 
+/**
+ * @file collection_state.cpp
+ * @brief Implementation of regolith volume accumulation and hopper conveyor belt model.
+ */
+
 #include "collection_state.hpp"
 
 #include "robot/model/dynamics.hpp"
@@ -71,20 +76,27 @@ double HopperState::occupied_delta_m() const
 {
     return this->high_pos_m - this->low_pos_m;
 }
+
 double HopperState::cutoff_pos_m() const
 {
     return this->belt_pos_m - this->offload_len_m;
 }
 
 double HopperState::volume() const { return this->total_vol_l; }
+
 double HopperState::remainingVolume() const
 {
     return this->cap_vol_l - this->total_vol_l;
 }
+
 double HopperState::beltPosMeters() const { return this->belt_pos_m; }
+
 double HopperState::startPosMeters() const { return this->high_pos_m; }
+
 double HopperState::endPosMeters() const { return this->low_pos_m; }
+
 double HopperState::beltUsageMeters() const { return this->occupied_delta_m(); }
+
 double HopperState::beltUsagePercent() const
 {
     return this->occupied_delta_m() / this->cap_len_m;
@@ -94,6 +106,7 @@ bool HopperState::isVolCapacity() const
 {
     return this->total_vol_l >= this->cap_vol_l;
 }
+
 bool HopperState::isBeltCapacity() const
 {
     return this->occupied_delta_m() >= this->cap_len_m;
@@ -102,35 +115,36 @@ bool HopperState::isBeltCapacity() const
 
 void HopperState::update(double delta_volume_l, double belt_rotations)
 {
-    // std::cout << "pre : " << total_vol_l << std::endl;
-
+    // Convert current motor rotations to linear belt displacement
     this->belt_pos_m = lance::hopperBeltMotorRpsToBeltMps(belt_rotations);
 
-    // add new material
+    // 1. Process incoming regolith from trencher
     if (delta_volume_l > 0.)
     {
-        // set initial footprint if starting fresh
+        // If starting with an empty hopper, seed the initial longitudinal footprint
         if (this->total_vol_l <= 0.)
         {
             this->low_pos_m = (this->belt_pos_m - this->initial_footprint_m);
             this->high_pos_m = this->belt_pos_m;
         }
-        // handle backwards belt
+        // Expand the head of the pile as belt indexes forward
         else if (this->belt_pos_m > this->high_pos_m)
         {
             this->high_pos_m = this->belt_pos_m;
-            // Constrain the berm size markers to be shorter or eq to hopper length
+            // Constrain pile length so it does not exceed maximum physical conveyor bed length
             if (occupied_delta_m() > this->cap_len_m)
             {
                 this->low_pos_m = this->high_pos_m - this->cap_len_m;
             }
         }
+        // Scale added material by transfer efficiency (accounting for dust/spillage losses)
         this->total_vol_l += delta_volume_l * transfer_efficiency;
     }
 
+    // 2. Process offload discharge and belt movement
     if (this->total_vol_l > 0.)
     {
-        // belt moved backwards -- shift positions to mitigate bugs
+        // Mitigate edge-case if belt moved backwards: shift tracked markers
         if (this->high_pos_m > this->belt_pos_m)
         {
             double occ_delta_m = this->occupied_delta_m();
@@ -138,14 +152,16 @@ void HopperState::update(double delta_volume_l, double belt_rotations)
             this->low_pos_m = this->belt_pos_m - occ_delta_m;
         }
 
-        // handle offloading
+        // Determine discharge cutoff threshold along belt coordinate
         double cutoff_pos_m = this->cutoff_pos_m();
 
+        // If entire pile has passed beyond the discharge cutoff point, hopper is empty
         if (this->high_pos_m < cutoff_pos_m)
         {
             this->total_vol_l = 0.;
             this->high_pos_m = this->low_pos_m = this->belt_pos_m;
         }
+        // Partial offload: tail of the pile has crossed cutoff point
         else if (this->low_pos_m < cutoff_pos_m)
         {
             double cutoff_delta_m = (cutoff_pos_m - this->low_pos_m);
@@ -158,14 +174,14 @@ void HopperState::update(double delta_volume_l, double belt_rotations)
     }
     else
     {
+        // Empty hopper: reset pile markers to current belt position
         this->high_pos_m = this->low_pos_m = this->belt_pos_m;
     }
-
-    // std::cout << "post : " << total_vol_l << std::endl;
 }
 
 double HopperState::miningTargetMotorPosition() const
 {
+    // Don't index belt until initial deposit volume and footprint thresholds are satisfied
     if (this->total_vol_l < this->initial_vol_l &&
         this->occupied_delta_m() <= this->initial_footprint_m)
     {
@@ -173,6 +189,7 @@ double HopperState::miningTargetMotorPosition() const
     }
     else
     {
+        // Index belt proportionally to fill ratio along the conveyor bed length
         return lance::hopperBeltMpsToMotorRps(
             std::max(
                 (this->low_pos_m +
@@ -186,6 +203,7 @@ double HopperState::offloadTargetMotorPosition() const
 {
     if (this->occupied_delta_m() > 0.)
     {
+        // Drive belt forward until the entire pile (up through high_pos_m) clears offload_len_m
         return lance::hopperBeltMpsToMotorRps(
             std::max(this->high_pos_m + this->offload_len_m, this->belt_pos_m));
     }
@@ -220,6 +238,7 @@ CollectionState::CollectionState(
         transfer_efficiency)
 {
 }
+
 void CollectionState::update(const RobotMotorStatus& motors_status)
 {
     const double trencher_rotations = motors_status.trencher.position;
@@ -227,11 +246,13 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     const double ltrack_rotations = motors_status.track_left.position;
     const double rtrack_rotations = motors_status.track_right.position;
 
+    // Determine current trencher cutting depth from linear actuator stroke
     double curr_mining_depth_m = lance::linearActuatorToMiningDepthClamped(
         motors_status.getHopperActNormalizedValue());
     double curr_impact_volume =
         lance::miningDepthToTrencherImpactVolume(curr_mining_depth_m);
 
+    // First cycle initialization check: store baselines and return
     if (!prev_trencher_rotations.has_value() ||
         !prev_ltrack_rotations.has_value() ||
         !prev_rtrack_rotations.has_value() || !prev_mining_depth.has_value() ||
@@ -246,14 +267,13 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
         return;
     }
 
-    // calculate maximum possible volume material transferred given number of trencher rotations
+    // 1. Trencher capacity ceiling: max volume trencher bucket chain could convey
     double delta_trencher_rotations =
         trencher_rotations - this->prev_trencher_rotations.value();
     double trencher_max_delta_volume =
         lance::trencherMotorRpsToMaxVolumeRate(delta_trencher_rotations);
-    // ^ f(r/s) -> L/s <=> f(r) -> L
 
-    // calculate maximum possible volume material 'swept' given change in track rotations (linear distance)
+    // 2. Track sweep volume: material carved as rover drives forward
     double avg_mining_depth_m =
         (curr_mining_depth_m + this->prev_mining_depth.value()) * 0.5;
     double avg_track_delta_rotations =
@@ -263,28 +283,23 @@ void CollectionState::update(const RobotMotorStatus& motors_status)
     double delta_sweep_volume = lance::trackMotorRpsToVolumeRate(
         avg_track_delta_rotations,
         avg_mining_depth_m);
-    // ^ f(m/s) -> L/s <=> f(m) -> L
 
-    // std::cout << "avg tdr " << avg_track_delta_rotations << std::endl;
-    // std::cout << "avg md " << avg_mining_depth_m << std::endl;
-    // std::cout << "md " << curr_mining_depth_m << std::endl;
-
-    // calculate the volume which we have dug into the ground just by lowering the trencher
+    // 3. Impact volume: material carved strictly by plunging trencher deeper into regolith
     double delta_impact_volume =
         std::max(curr_impact_volume - this->prev_impact_volume.value(), 0.);
-    // ^ TODO: this will break if trencher is continually actuated up and down in the same spot!
 
-    // calculate transmitted material volume
+    // Total transmitted volume is bounded by physical cutting and trencher conveying capacity
     double transmitted_volume = std::min(
         (delta_impact_volume + delta_sweep_volume),
         trencher_max_delta_volume);
 
+    // Update hopper berm model
     this->hopper_state.update(transmitted_volume, belt_rotations);
 
+    // Advance history registers
     this->prev_trencher_rotations = trencher_rotations;
     this->prev_ltrack_rotations = ltrack_rotations;
     this->prev_rtrack_rotations = rtrack_rotations;
-
     this->prev_mining_depth = curr_mining_depth_m;
     this->prev_impact_volume = curr_impact_volume;
 }
@@ -293,6 +308,5 @@ const HopperState& CollectionState::getHopperState() const
 {
     return this->hopper_state;
 }
-
 
 };  // namespace lance

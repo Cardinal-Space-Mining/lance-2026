@@ -37,6 +37,11 @@
 *                                                                              *
 *******************************************************************************/
 
+/**
+ * @file localization_controller.cpp
+ * @brief Implementation of autonomous retroreflective beacon search and alignment.
+ */
+
 #include "localization_controller.hpp"
 
 #include <cmath>
@@ -87,8 +92,8 @@ void LocalizationController::iterate(
 #define V_max (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
 
-    // if at any point the full localization transform is established,
-    // the command is finished
+    // Master completion check: if the global localization transform (robot -> arena/map)
+    // is established in the TF cache at any point, the localization objective is satisfied
     if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
     {
         this->stage = Stage::FINISHED;
@@ -100,7 +105,8 @@ void LocalizationController::iterate(
     {
         case Stage::INITIALIZATION:
         {
-            // go up if below
+            // Position hopper tilt actuator to traversal height so LiDAR has an unobstructed view
+            // Actuate up if below target
             if (this->params.hopper_actuator_traversal_target_val -
                     motor_status.getHopperActNormalizedValue() >
                 this->params.hopper_actuator_targetting_thresh)
@@ -109,7 +115,7 @@ void LocalizationController::iterate(
                     this->params.hopper_actuator_max_speed);
                 break;
             }
-            // go down if above
+            // Actuate down if above target
             if (motor_status.getHopperActNormalizedValue() -
                     this->params.hopper_actuator_traversal_target_val >
                 this->params.hopper_actuator_targetting_thresh)
@@ -119,17 +125,20 @@ void LocalizationController::iterate(
                 break;
             }
 
+            // Linear actuator is now at traversal height: activate reflector hint service
             this->refl_hint_interface.setEnableSrv(true);
             this->stage = Stage::SEARCHING;
             [[fallthrough]];
         }
         case Stage::SEARCHING:
         {
+            // Spin robot in-place until reflector hint is received with sufficient LiDAR returns
             if (!this->refl_hint_interface.hasHint() ||
                 this->refl_hint_interface.getLatestHint()->samples <
                     static_cast<uint32_t>(
                         this->params.auto_localization_min_num_search_samples))
             {
+                // Turn in-place with zero forward velocity and constant search yaw rate
                 commands.setTracksVelocity(
                     lance::groundMpsToTrackMotorRps(
                         lance::bodyDynamicsToLeftTrackVelocityMps(
@@ -144,24 +153,27 @@ void LocalizationController::iterate(
                 break;
             }
 
+            // Beacon acquired: transition to precise heading alignment
             this->stage = Stage::ALIGN_HEADING;
             [[fallthrough]];
         }
         case Stage::ALIGN_HEADING:
         {
-            // centroid in robot reference frame
+            // Extract reflector centroid coordinates in robot base frame
             const auto& pt =
                 this->refl_hint_interface.getLatestHint()->centroid;
             const Vec2f rel{
                 static_cast<float>(pt.point.x),
                 static_cast<float>(pt.point.y)};
 
+            // Compute sine of heading angle error: sin(theta) = y / |rel|
             const float sin_heading = rel.normalized().y();
             if (std::abs(sin_heading) >
                 std::sin(
                     this->params.auto_localization_align_angular_thresh_deg *
                     (std::numbers::pi_v<float> / 180.f)))
             {
+                // Turn in direction of beacon centroid
                 const float s = sin_heading > 0.f ? 1.f : -1.f;
                 const float W =
                     this->params.auto_localization_align_angular_velocity_rps *
@@ -176,12 +188,13 @@ void LocalizationController::iterate(
                 break;
             }
 
+            // Heading aligned within tolerance: transition to standoff distance adjustment
             this->stage = Stage::ADJUST_RANGE;
             [[fallthrough]];
         }
         case Stage::ADJUST_RANGE:
         {
-            // centroid in robot reference frame
+            // Compute Euclidean distance to reflector centroid
             const auto& pt =
                 this->refl_hint_interface.getLatestHint()->centroid;
 
@@ -190,8 +203,10 @@ void LocalizationController::iterate(
             const float range_error =
                 (range - this->params.auto_localization_range_target_m);
             const float abs_range_error = std::abs(range_error);
+
             if (abs_range_error > this->params.auto_localization_range_thresh_m)
             {
+                // Compute current robot forward velocity from track motor telemetry
                 const float Vl_prev =
                     static_cast<float>(lance::trackMotorRpsToGroundMps(
                         motor_status.track_left.velocity));
@@ -201,9 +216,13 @@ void LocalizationController::iterate(
                 const float V_prev =
                     lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
                 const float Vd_max = (A_max * Dt);
+
+                // Compute kinematic target velocity: v = sqrt(2 * a * d) signed by range error
                 const float V_target =
                     util::kmx::maxStartVel(0.f, abs_range_error, A_max) *
                     (std::signbit(range_error) ? -1.f : 1.f);
+
+                // Rate-limit acceleration within [V_prev - Vd_max, V_prev + Vd_max] and clamp to V_max
                 const float V = std::clamp(
                     V_target,
                     std::max((V_prev - Vd_max), -V_max),
@@ -218,6 +237,7 @@ void LocalizationController::iterate(
         }
         case Stage::FINISHED:
         {
+            // Mission complete or cancelled: disable perception hint service
             this->refl_hint_interface.setEnableSrv(false);
         }
     }

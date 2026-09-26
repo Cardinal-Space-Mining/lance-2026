@@ -39,6 +39,17 @@
 
 #pragma once
 
+/**
+ * @file sensing_interfaces.hpp
+ * @brief Aggregator bundle of perception and coordinate transformation interfaces.
+ *
+ * Combines:
+ *   - TfCache: TF2 transform buffer and cached transforms for map, odom, and base_link.
+ *   - PathPlanInterface: Client interface requesting waypoint trajectories from perception.
+ *   - MiningEvalInterface: Service and topic client analyzing mining cut depth from LiDAR elevation maps.
+ *   - ReflectorHintInterface: LiDAR retroreflector detector subscriber and enable service client.
+ */
+
 #include "tf_cache.hpp"
 #include "path_plan.hpp"
 #include "mining_eval.hpp"
@@ -48,13 +59,17 @@
 namespace lance
 {
 
+/**
+ * @class SensingInterfaces
+ * @brief Aggregates sensing subsystems passed down to controllers and planning routines.
+ */
 class SensingInterfaces : public util::UsingRosAliases
 {
 public:
-    TfCache tf_cache;
-    PathPlanInterface path_plan_interface;
-    MiningEvalInterface mining_eval_interface;
-    ReflectorHintInterface reflector_hint_interface;
+    TfCache tf_cache;                                 ///< TF2 spatial transform listener and query helper.
+    PathPlanInterface path_plan_interface;             ///< Autonomous path planning request/response client.
+    MiningEvalInterface mining_eval_interface;         ///< Mining area traversability and depth evaluator.
+    ReflectorHintInterface reflector_hint_interface;   ///< LiDAR retroreflector beacon detector interface.
 
 public:
     SensingInterfaces(RclNode& node, const RobotParams& params) :

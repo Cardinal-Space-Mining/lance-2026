@@ -37,6 +37,23 @@
 *                                                                              *
 *******************************************************************************/
 
+/**
+ * @file client_node.cpp
+ * @brief Operator station / mission control process entrypoint for LANCE.
+ *
+ * ## Architecture Overview
+ * This node runs on the off-board operator control computer (ground station):
+ *   - `WatchDog`: Broadcasts the INT32 heartbeat on `/lance/watchdog_status` to keep the robot alive.
+ *   - `TelemetryDeserializer`: Listens for binary telemetry packets over `/lance/telemetry`,
+ *     reconstituting robot internal state machines and publishing RVIZ diagnostic markers.
+ *   - `ZonePublisher`: Periodically publishes 3D visualization boxes representing the arena boundaries,
+ *     mining excavation zone, offload container, and obstacle construction areas.
+ *   - `JointPublisher`: Broadcasts URDF joint positions on `/joint_states` for real-time 3D model visualization.
+ *   - `AdvancedControls`: Processes gamepad inputs, interactive waypoint cursors, and operator commands,
+ *     forwarding them to the rover.
+ *   - `TfCache`: Caches spatial frames (`map`, `odom`, `robot`) to project coordinates between RVIZ and the robot.
+ */
+
 #include <memory>
 #include <iostream>
 
@@ -57,25 +74,29 @@ using namespace util;
 using namespace lance;
 
 
+/**
+ * @class MissionControlNode
+ * @brief Central ground station ROS 2 node managing operator interface, visualization, and watchdog feeding.
+ */
 class MissionControlNode : public rclcpp::Node, public UsingRosAliases
 {
 public:
     MissionControlNode();
 
 private:
-    TfCache tf_cache;
-    MarkerManager markers;
-    TelemetryDeserializer telemetry;
+    TfCache tf_cache;                 ///< Coordinate frame listener for map, odom, and base_link.
+    MarkerManager markers;             ///< RVIZ visualization marker lifecycle manager.
+    TelemetryDeserializer telemetry;   ///< Unpacks binary telemetry into state displays and markers.
 
-    WatchDog watchdog;
-    ZonePublisher zone_publisher;
-    JointPublisher joint_publisher;
-    AdvancedControls controls;
+    WatchDog watchdog;                 ///< Operator watchdog heartbeat transmitter.
+    ZonePublisher zone_publisher;      ///< Arena boundary marker broadcaster.
+    JointPublisher joint_publisher;    ///< URDF joint state publisher for 3D model display.
+    AdvancedControls controls;         ///< Interactive cursor and teleop command dispatcher.
 };
 
 
 
-// --- Client Node -------------------------------------------------------------
+// --- Implementation ---
 
 MissionControlNode::MissionControlNode() :
     Node("mission_control"),
@@ -103,8 +124,6 @@ MissionControlNode::MissionControlNode() :
 }
 
 
-
-// --- Main --------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {

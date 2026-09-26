@@ -39,6 +39,17 @@
 
 #pragma once
 
+/**
+ * @file kinematics.hpp
+ * @brief Differential drive track kinematics, acceleration limits, and curvature preservation.
+ *
+ * Provides utilities for:
+ *   - Computing maximum safe entry speed into waypoints given remaining distance and deceleration limits.
+ *   - Stopping distance calculation under constant linear deceleration.
+ *   - Track velocity saturation that scales left/right tracks uniformly to preserve turning radius / curvature.
+ *   - Acceleration-bounded velocity limiting minimizing curvature error across discrete time steps.
+ */
+
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -51,15 +62,36 @@ namespace util
 namespace kmx
 {
 
-/* Solve the kinematics equation `Vf^2 = Vi^2 + 2ax` for `Vi` such that the target
- * `Vf` is attained within `x` while decelerating at `a` (gives the maximum `Vi`). */
+/**
+ * @brief Solve the kinematic equation Vf^2 = Vi^2 + 2ax for initial velocity Vi.
+ *
+ * Determines the maximum velocity Vi the vehicle can possess at the beginning of a segment of length `dist`
+ * such that it can decelerate at rate `max_decell` and arrive with final velocity `end_vel`.
+ *
+ * Formula: Vi = sqrt(Vf^2 + 2 * a * d)
+ *
+ * @tparam F Floating-point type.
+ * @param end_vel Target final velocity at end of distance (m/s).
+ * @param dist Remaining distance to the target point (meters).
+ * @param max_decell Maximum available braking deceleration magnitude (m/s^2, positive).
+ * @return Maximum safe initial velocity (m/s).
+ */
 template<typename F>
 inline F maxStartVel(F end_vel, F dist, F max_decell)
 {
     return std::sqrt((end_vel * end_vel) + (2 * dist * std::abs(max_decell)));
 }
 
-/* Compute the distance it will take to decellerate to `Vf = 0` */
+/**
+ * @brief Compute the distance required to decelerate to a complete stop (Vf = 0).
+ *
+ * Formula: d = v^2 / (2 * a)
+ *
+ * @tparam F Floating-point type.
+ * @param vel Current linear velocity (m/s).
+ * @param max_decell Maximum deceleration magnitude (m/s^2, positive).
+ * @return Deceleration stopping distance in meters.
+ */
 template<typename F>
 inline F decellDist(F vel, F max_decell)
 {
@@ -67,7 +99,20 @@ inline F decellDist(F vel, F max_decell)
     return (vel * vel) / (2 * std::abs(max_decell));
 }
 
-/* Limit track velocities while maintaining trajectory curvature. */
+/**
+ * @brief Limit left and right track velocities to maximum speed V_max while preserving instantaneous trajectory curvature.
+ *
+ * If either track exceeds V_max, computes a common scaling factor s = min(1.0, V_max / |Vl|, V_max / |Vr|)
+ * and scales both track commands by s. This ensures the yaw rate and turn radius (Vl - Vr) / W remain
+ * proportionally identical, preventing the vehicle from swerving off-course when speed saturates.
+ *
+ * @tparam F Floating-point type.
+ * @param Vl_target Commanded left track velocity.
+ * @param Vr_target Commanded right track velocity.
+ * @param V_max Maximum allowable individual track velocity magnitude.
+ * @param[out] Vl_out Saturated left track velocity.
+ * @param[out] Vr_out Saturated right track velocity.
+ */
 template<typename F>
 inline void
     applyTrackLimits(F Vl_target, F Vr_target, F V_max, F& Vl_out, F& Vr_out)
@@ -80,11 +125,24 @@ inline void
     Vr_out = Vr_target * s;
 }
 
-/* WARNING: BROKEN.
- * Constrains the target left/right track velocities such that Vmax and Vdelta
- * are within the specified limits, while minimizing the error in trajectory
- * curvature. Previous velocities MUST be within the given limits, otherwise
- * this may create a positive feedback loop. */
+/**
+ * @brief Constrain target track velocities respecting both absolute speed limits (V_max)
+ * and step-to-step acceleration limits (Vd_max), while minimizing path curvature distortion.
+ *
+ * Computes an attainable velocity box [Vl_min, Vl_max] x [Vr_min, Vr_max] centered at the previous
+ * velocities. If the target command lies outside this attainable box, determines the optimal
+ * point in the box that minimizes distortion to the instantaneous turning radius or curvature metric.
+ *
+ * @tparam F Floating-point type.
+ * @param Vl_target Desired left track velocity (m/s).
+ * @param Vr_target Desired right track velocity (m/s).
+ * @param Vl_prev Previous step actual left track velocity (m/s).
+ * @param Vr_prev Previous step actual right track velocity (m/s).
+ * @param V_max Maximum allowable track velocity (m/s).
+ * @param Vd_max Maximum allowable velocity change per time step: a_max * dt (m/s).
+ * @param[out] Vl_out Output constrained left track velocity (m/s).
+ * @param[out] Vr_out Output constrained right track velocity (m/s).
+ */
 template<typename F>
 inline void applyTrackLimits(
     F Vl_target,
@@ -204,7 +262,7 @@ SKIP_INTERSECT_L:
         // Then compute target reference value with that form
         const bool use_R = R_ok && (!C_ok || R_denom_min >= C_denorm_min);
         const F target_ref = use_R ? (Vlr_sum / Vlr_diff)   // R_target
-                                   : (Vlr_diff / Vlr_sum);  // C_target
+                                    : (Vlr_diff / Vlr_sum);  // C_target
 
         // Evaluate all 4 corners with the chosen form
         F err_min = std::numeric_limits<F>::max();

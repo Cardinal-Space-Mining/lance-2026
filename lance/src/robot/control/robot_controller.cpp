@@ -37,9 +37,17 @@
 *                                                                              *
 *******************************************************************************/
 
+/**
+ * @file robot_controller.cpp
+ * @brief Implementation of master mode transitions, shared state stepping, and controller dispatch.
+ */
+
 #include "robot_controller.hpp"
 
 
+/**
+ * @brief Bit-pack state transition pair into an integer: `(from << 2) | to`
+ */
 inline constexpr int encodeTransition(
     lance::ControlMode from,
     lance::ControlMode to)
@@ -103,18 +111,24 @@ void RobotController::iterate(
     this->control_mode = ControlStatus::getMode(ctrl_status);
     const uint8_t ctrl_opts = ControlStatus::getOpts(ctrl_status);
 
+    // Apply simulation/test mode constraints on physical actuator feedback
     const RobotMotorStatus& filtered_status =
         this->handleTestModeStateInjection(motor_status, ctrl_opts);
+
+    // Update regolith collection and conveyor pile model
     this->collection_state.update(filtered_status);
+
+    // Refresh coordinate transformations (base_link, odom, map)
     this->sensing_interfaces.tf_cache.refresh();
 
+    // Evaluate motor stall detectors
     this->stall_state.update(
         filtered_status,
         motor_faults,
         commands,
         this->params.iteration_period_seconds);
 
-    // process transition actions
+    // Handle high-level operational state transitions
     switch (encodeTransition(prev_mode, this->control_mode))
     {
         case transition_v<ControlMode::DISABLED, ControlMode::TELEOPERATED>:
@@ -151,10 +165,11 @@ void RobotController::iterate(
         }
         default:
         {
+            // No mode change occurred
         }
     }
 
-    // process current state actions
+    // Step active controller
     switch (this->control_mode)
     {
         case ControlMode::TELEOPERATED:
@@ -170,6 +185,7 @@ void RobotController::iterate(
         }
         default:
         {
+            // DISABLED mode: commands remain in all-disabled state
         }
     }
 }
@@ -178,13 +194,13 @@ const RobotMotorStatus& RobotController::handleTestModeStateInjection(
     const RobotMotorStatus& ref,
     uint8_t ctrl_opts)
 {
+    // In test mode, map lower stroke range so the physical trencher cannot plunge into lab floor
     if (ctrl_opts & static_cast<bool>(ControlOpts::TEST_MODE))
     {
         if (ref.getHopperActNormalizedValue() <
             this->params.hopper_actuator_traversal_target_val)
         {
             this->filtered_status = ref;
-            // this->filtered_status.hopper_actuator.position = -1.;
             this->filtered_status.hopper_actuator.position =
                 (ref.hopper_actuator.position -
                  this->params.hopper_actuator_traversal_target_val) /

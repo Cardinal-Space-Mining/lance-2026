@@ -37,6 +37,11 @@
 *                                                                              *
 *******************************************************************************/
 
+/**
+ * @file path_plan.cpp
+ * @brief Implementation of path planning client communication with `cardinal_perception`.
+ */
+
 #include "path_plan.hpp"
 
 #include "robot/core/ros_interface.hpp"
@@ -67,10 +72,12 @@ void PathPlanInterface::init(const Vec3f& arena_dest, std::string_view frame_id)
     req->target.pose.position.z = arena_dest.z();
     req->completed = false;
 
+    // Asynchronously dispatch planning request to avoid blocking control loop
     this->pplan_control_client->async_send_request(
         req,
         [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
 }
+
 void PathPlanInterface::init(const PoseStampedMsg& dest)
 {
     auto req = std::make_shared<UpdatePathPlanSrv::Request>();
@@ -81,6 +88,7 @@ void PathPlanInterface::init(const PoseStampedMsg& dest)
         req,
         [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
 }
+
 void PathPlanInterface::init(const PointStampedMsg& dest)
 {
     auto req = std::make_shared<UpdatePathPlanSrv::Request>();
@@ -92,11 +100,13 @@ void PathPlanInterface::init(const PointStampedMsg& dest)
         req,
         [](RclClient<UpdatePathPlanSrv>::SharedFuture) {});
 }
+
 void PathPlanInterface::cancel()
 {
     auto req = std::make_shared<UpdatePathPlanSrv::Request>();
     req->completed = true;
 
+    // Discard cached path when request concludes
     this->pplan_control_client->async_send_request(
         req,
         [this](RclClient<UpdatePathPlanSrv>::SharedFuture)
@@ -107,6 +117,7 @@ bool PathPlanInterface::hasPath() const
 {
     return this->last_path.operator bool();
 }
+
 const PathPlanInterface::PathMsg* PathPlanInterface::getPath() const
 {
     return this->last_path ? this->last_path.get() : nullptr;

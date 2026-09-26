@@ -39,6 +39,27 @@
 
 #pragma once
 
+/**
+ * @file robot_status.hpp
+ * @brief Robot operational status, watchdog encoding, and control mode bitfield definitions.
+ *
+ * ## Robot Status INT32 Protocol
+ *
+ * To maintain safety over wireless links, the robot status message is sent as a compact
+ * single INT32 integer over the `/robot_status` topic. This encodes:
+ *
+ *   1. **Watchdog Timeout & Operating Mode (Sign and Quotient / 1000):**
+ *      - `status / 1000 > 0`: **TELEOPERATED** mode. Magnitude is watchdog feed timeout in ms (default: 250 ms).
+ *      - `status / 1000 < 0`: **AUTONOMOUS** mode. Magnitude is watchdog feed timeout in ms (default: 10,000 ms).
+ *      - `status / 1000 == 0`: **DISABLED** mode. Actuators remain unpowered.
+ *
+ *   2. **Augmentation & Test Options (Remainder % 1000):**
+ *      - `abs(status) % 1000` is a bitfield (9 available bits, 0-511) containing flags such as:
+ *          * `TEST_MODE`: Prevents full plunge depth during lab testing.
+ *          * `QUICK_AUTO`: Minimizes auto duration to harvest quick competition points.
+ *          * `ASSIST_AS_AUTO`: Forces assisted driver-assist modes into fully autonomous routines.
+ */
+
 #include <chrono>
 #include <limits>
 #include <cstdint>
@@ -47,34 +68,37 @@
 namespace lance
 {
 
-/* --- ROBOT STATUS ---
- * The robot status is sent as an INT32, where the connection timeout time,
- * control mode, and augmentation options are encoded. This works as follows:
- * The SIGNED value divided by 1000 is read as the watchdog timeout in
- * milliseconds, where a positive sign corresponds to TELEOP mode, a negative
- * sign corresponds to AUTO mode, and a value of 0 corresponds to DISABLED
- * mode. The remaining value % 1000 component's absolute value contains any
- * augmentation options - roughly 9 states can be encoded in the bitfield
- * (the 9 lowest bits). */
-
+/**
+ * @enum ControlMode
+ * @brief High-level robot execution state.
+ */
 enum class ControlMode : uint8_t
 {
-    DISABLED = 0,
-    TELEOPERATED = 1,
-    AUTONOMOUS = 2
+    DISABLED = 0,     ///< Robot e-stopped or idle; zero motor output.
+    TELEOPERATED = 1, ///< Direct operator control via joystick/teleop commands.
+    AUTONOMOUS = 2    ///< Closed-loop state machine executing navigation/mining missions.
 };
+
+/**
+ * @enum ControlOpts
+ * @brief Bitfield flags modifying operational constraints or autonomous behaviors.
+ */
 enum class ControlOpts : uint8_t
 {
     NONE = 0,
-    // limit hopper minimum height for testing and simulation
+    /// Limits minimum trencher actuator height for benchtop testing and sim sanity.
     TEST_MODE = (1 << 0),
-    // minimize time in auto for quick points
+    /// Prioritizes fast traversal and mining return for maximum points under time limit.
     QUICK_AUTO = (1 << 1),
-    // override assisted modes to run as autonomous routines
+    /// Promotes operator-assisted sub-routines (e.g. alignment) into autonomous execution.
     ASSIST_AS_AUTO = (1 << 2)
 };
 
 
+/**
+ * @class ControlStatus
+ * @brief Encoder and decoder utility methods for the INT32 `/robot_status` protocol.
+ */
 class ControlStatus
 {
 private:
@@ -82,9 +106,12 @@ private:
     using Duration = std::chrono::duration<R, P>;
     using Milliseconds = std::chrono::milliseconds;
 
-    static constexpr int64_t DEFAULT_TELEOP_FEED_TIME_MS = 250;
-    static constexpr int64_t DEFAULT_AUTO_FEED_TIME_MS = 10000;
+    static constexpr int64_t DEFAULT_TELEOP_FEED_TIME_MS = 250;   ///< Nominal 4 Hz watchdog feed for teleoperation.
+    static constexpr int64_t DEFAULT_AUTO_FEED_TIME_MS = 10000;  ///< Extended 10s watchdog feed for autonomous execution.
 
+    /**
+     * @brief Safely clamp duration to prevent 32-bit integer overflow when scaled by 1000.
+     */
     template<typename R, typename P>
     static constexpr inline int32_t getClampedFeedTimeUs(Duration<R, P> dur)
     {
@@ -101,6 +128,15 @@ private:
     }
 
 public:
+    /**
+     * @brief Encode control mode, option bitflags, and custom feed times into an INT32 word.
+     *
+     * @param mode Target ControlMode (DISABLED, TELEOPERATED, AUTONOMOUS).
+     * @param opts Bitwise OR of ControlOpts flags.
+     * @param teleop_feed_time Watchdog duration for teleoperated mode.
+     * @param auto_feed_time Watchdog duration for autonomous mode.
+     * @return Packed INT32 status value.
+     */
     template<typename R1, typename P1, typename R2, typename P2>
     static constexpr inline int32_t format(
         ControlMode mode,
@@ -135,6 +171,9 @@ public:
         return v;
     }
 
+    /**
+     * @brief Overload using compile-time default feed times in milliseconds.
+     */
     template<
         int64_t Teleop_Feed_Time_Ms = DEFAULT_TELEOP_FEED_TIME_MS,
         int64_t Auto_Feed_Time_Ms = DEFAULT_AUTO_FEED_TIME_MS>
@@ -151,26 +190,47 @@ public:
             milliseconds(Auto_Feed_Time_Ms));
     }
 
+    /**
+     * @brief Extract ControlMode from an INT32 status word.
+     *
+     * Evaluates the sign of status / 1000:
+     *   > 0 -> TELEOPERATED
+     *   < 0 -> AUTONOMOUS
+     *   == 0 -> DISABLED
+     */
     static constexpr inline ControlMode getMode(int32_t status)
     {
         const int32_t watchdog = status / 1000;
         return (watchdog > 0) ? ControlMode::TELEOPERATED
-                              : ((watchdog < 0) ? ControlMode::AUTONOMOUS
-                                                : ControlMode::DISABLED);
+                               : ((watchdog < 0) ? ControlMode::AUTONOMOUS
+                                                 : ControlMode::DISABLED);
     }
+
+    /**
+     * @brief Extract watchdog timeout period in milliseconds from an INT32 status word.
+     */
     static constexpr inline uint32_t getTimeoutMs(int32_t status)
     {
         return std::abs(status / 1000);
     }
+
+    /**
+     * @brief Extract option bitfield byte from an INT32 status word.
+     */
     static constexpr inline uint8_t getOpts(int32_t status)
     {
         return static_cast<uint8_t>(std::abs(status) % 1000);
     }
+
+    /**
+     * @brief Check whether a specific ControlOpts flag is enabled in an INT32 status word.
+     */
     template<ControlOpts Opt_V>
     static constexpr inline bool hasOpt(int32_t status)
     {
         return !(getOpts(status) ^ static_cast<uint8_t>(Opt_V));
     }
 
-};  // namespace ctrl_status
+};
+
 };  // namespace lance

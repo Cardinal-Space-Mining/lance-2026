@@ -1,3 +1,8 @@
+/**
+ * @file stall_analyzer.cpp
+ * @brief Implementation of debounced current limit and velocity deficit stall detection.
+ */
+
 #include "stall_analyzer.hpp"
 
 #include <cmath>
@@ -90,10 +95,20 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
     double dt_seconds) const
 {
     const double safe_dt_seconds = std::max(0.0, dt_seconds);
+
+    // Only monitor stalls if commanded velocity exceeds deadzone
     const bool command_outside_deadzone =
         std::abs(command.value) > motor_config.command_deadzone_rps;
+
+    // Actual vs commanded speed ratio
     const double velocity_proportion =
         command_outside_deadzone ? status.velocity / command.value : 0.0;
+
+    // Stall criteria:
+    // 1. Operating in closed-loop velocity mode
+    // 2. Command is significant (above deadzone)
+    // 3. CTRE Talon hardware flag: stator current limit actively hit
+    // 4. Actual speed dropped below expected fraction of command
     const bool stall_condition =
         command.mode == TalonCtrlMsg::VELOCITY && command_outside_deadzone &&
         faults.stator_current_limit_fault &&
@@ -104,6 +119,7 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
         state.initialized = true;
     }
 
+    // Accumulate time in candidate state while resetting competing timer
     if (stall_condition)
     {
         state.stall_candidate_seconds += safe_dt_seconds;
@@ -115,12 +131,15 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
         state.stall_candidate_seconds = 0.0;
     }
 
+    // Debounce transitions:
+    // Transition from NORMAL -> STALLED
     if (!state.is_stalled &&
         state.stall_candidate_seconds >= motor_config.debounce_time_seconds)
     {
         state.is_stalled = true;
         state.time_stalled_seconds = state.stall_candidate_seconds;
     }
+    // Transition from STALLED -> RECOVERED
     else if (
         state.is_stalled &&
         state.recovery_candidate_seconds >= motor_config.debounce_time_seconds)
@@ -128,6 +147,7 @@ MotorStallInfo StallAnalyzer::analyzeMotor(
         state.is_stalled = false;
         state.time_stalled_seconds = 0.0;
     }
+    // Continue in STALLED state
     else if (state.is_stalled)
     {
         state.time_stalled_seconds += safe_dt_seconds;
