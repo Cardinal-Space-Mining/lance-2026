@@ -2,6 +2,9 @@
 This repo houses all client and robot code used for running LANCE-2 (2026) as well as backwards compatibility for LANCE-1. If setting up from scratch, you will want to read this entire document.
 
 ## Setup
+> [!TIP]
+> Setting up a brand-new machine (or new to Linux)? Follow the [full install guide](doc/full-install-guide.md), which goes from a fresh Ubuntu install all the way to running the simulation.
+
 1. Install [ROS2](https://docs.ros.org/en/jazzy/Installation.html) if not already done (we are using Jazzy for 2025-2026).
 
 2. Setup your workspace and clone this repo.
@@ -75,32 +78,60 @@ The following flags may be used to enable different features:
 * `--local` : Sets the required environment variables so that ROS uses cyclonedds configured for localhost-only discovery. This is necessary to enforce bandwidth reduction strategies.
 * `--help` : Displays a usage message.
 
-Following any flag arguments come any number of "launch overrides" which directly interface with the config/launch system and determine what software is run. More info on the underlying system which manages this can be found [here](https://github.com/Cardinal-Space-Mining/launch-utils). There is a vast combination of launch overrides and presets availble for use, but a few simple and common examples are listed below:
+Following any flag arguments come any number of "launch overrides" which directly interface with the config/launch system and determine what software is run. More info on the underlying system which manages this can be found [here](https://github.com/Cardinal-Space-Mining/launch-utils). Overrides come in two flavors:
+* **Presets** (`robot:=`, `client:=`, `gz_full:=`, etc.) select a whole group of actions at once. Most presets are named `<robot>_<arena>`, where robot is `lance1` or `lance2` and arena is `ksc`, `ucf_left` or `ucf_right`.
+* **Actions** (`foxglove_bridge:=`, `redux:=`, `gz_gui:=`, etc.) enable or swap out a single component, and override whatever the preset chose.
 
+Some common examples are listed below:
+
+**On the robot / driver station**
 1. Run the **robot code** for LANCE-2 in the KSC arena:
     ```bash
     ./src/run.sh --canbus --local robot:=lance2_ksc
     ```
-2. Run the **robot code** for LANCE-1 int the UCF left-side arena:
-    ```bash
-    ./src/run.sh --canbus --local robot:=lance1_ucf_left
-    ```
-3. Run the **client code** for LANCE-2 in the UCF right-side arena:
+2. Run the **client code** (driver station) for LANCE-2 in the UCF right-side arena:
     ```bash
     ./src/run.sh --local client:=lance2_ucf_right
     ```
-4. Run a Gazebo simulation of LANCE-1 in the UCF left-side arena:
+3. Run the **robot code** for LANCE-2 but also start a foxglove bridge on the robot for debugging:
     ```bash
-    ./src/run.sh gz_motor_sim:=lance1_ucf_right
+    ./src/run.sh --canbus --local robot:=lance2_ksc foxglove_bridge:=all
     ```
-5. Run the **robot code** for LANCE-1 in the UCF right-side arena but explitlcy enable a foxglove server for debugging:
-    ```bash
-    ./src/run.sh --canbus --local robot:=lance1_ucf_right foxglove_bridge:=all
-    ```
-6. Run the **client code** for LANCE-2 in the KSC arena but targetting a development mac-mini using it's ethernet interface (assumes standard networking layout which matches that defined in the config):
+4. Run the **client code** for LANCE-2 but target a development mac-mini over its ethernet interface instead of the default (assumes the standard networking layout defined in the config):
     ```bash
     ./src/run.sh --local client:=lance2_ksc redux:=client_mac_eth
     ```
+
+**Simulation** (requires [csm-sim](#simulation))
+
+5. Run a full **Gazebo simulation** (simulator + robot code + client code) of LANCE-2 in the KSC arena, with the Gazebo window open:
+    ```bash
+    ./src/run.sh gz_full:=lance2_ksc gz_gui:=enabled
+    ```
+    - Without `gz_gui:=enabled` the simulator runs headless (use Foxglove to view it).
+    - `gz_robot:=` and `gz_client:=` run only the robot or client side alongside the simulator.
+6. Same as above, but also automatically open Foxglove Studio connected to the local bridge:
+    ```bash
+    ./src/run.sh gz_full:=lance1_ucf_left gz_gui:=enabled foxglove_gui:=local
+    ```
+7. Run robot control with **simulated motors only** (no Gazebo or perception) - a lightweight way to test control/mission logic:
+    ```bash
+    ./src/run.sh dev:=motor_sim
+    ```
+
+**Replaying recorded data**
+
+8. Replay a recorded bag through the **perception** pipeline (useful for tuning perception without the robot):
+    ```bash
+    ./src/run.sh replay:=lance2_perception bag:=<path/to/bag>
+    ```
+9. Replay a recorded bag through perception **and** mission control for a specific arena:
+    ```bash
+    ./src/run.sh replay:=rerun_lance2_ucf_left bag:=<path/to/bag>
+    ```
+
+> [!NOTE]
+> The `robot:=` and `client:=` presets automatically record bags into a `bag_recordings/` folder in the directory you launched from.
 
 > [!TIP]
 > All available presets can be found in the `lance/config/presets` directory, and all low-level action configs can be found in the `lance/config/actions` directory.
@@ -152,4 +183,4 @@ Install the `autopep8` extension and add the following block to `.vscode/setting
     ]
 }
 ```
-__*Last updated: 2/20/26*__
+__*Last updated: 10/9/26*__
