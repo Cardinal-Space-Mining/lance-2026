@@ -11,7 +11,7 @@ usage() {
     echo ""
     echo "Launch Args:"
     echo "> Dynamic config reassignments of the form KEY:=VALUE"
-    echo "> See lance/config/lance.json for main configuration."
+    echo "> See lance/config/launch.json for main configuration."
     exit 1
 }
 
