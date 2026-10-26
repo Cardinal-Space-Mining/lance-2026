@@ -3,9 +3,11 @@ This repo houses all client and robot code used for running LANCE-2 (2026) as we
 
 ## Setup
 > [!TIP]
-> Setting up a brand-new machine (or new to Linux)? Follow the [full install guide](doc/full-install-guide.md), which goes from a fresh Ubuntu install all the way to running the simulation.
+> Setting up a brand-new machine (or new to Linux)? Follow the [install guide](doc/full-install-guide.md), which goes from a fresh Ubuntu 26.04 install all the way to running the simulation.
+> - **Already set up with the distrobox container?** Follow the [migration guide](doc/migrate-to-native.md) to switch to the native setup.
+> - **Need ROS 2 Jazzy?** See the [container install guide](doc/container-install-guide.md).
 
-1. Install [ROS2](https://docs.ros.org/en/jazzy/Installation.html) if not already done (we are using Jazzy for 2025-2026).
+1. Install [ROS2](https://docs.ros.org/en/lyrical/Installation.html) if not already done. We use **Lyrical** on Ubuntu 26.04; **Jazzy** (Ubuntu 24.04) is also supported.
 
 2. Setup your workspace and clone this repo.
     - Create directory:
@@ -183,4 +185,4 @@ Install the `autopep8` extension and add the following block to `.vscode/setting
     ]
 }
 ```
-__*Last updated: 10/9/26*__
+__*Last updated: 10/26/26*__
