@@ -203,6 +203,8 @@ Foxglove is the dashboard used to view sensor data and control the robot, both t
 > **No NVIDIA graphics card?** If your computer only has Intel or AMD graphics, **skip this step**.
 >
 > **Not sure?** Run `lspci | grep -i nvidia`. If it prints anything, you have an NVIDIA GPU.
+>
+> **Using WSL on Windows?** **Skip this step.** Don't install NVIDIA drivers inside Ubuntu. Follow the [WSL guide](wsl-guide.md#3-make-gazebo-use-your-gpu) instead.
 
 1. **Check whether a driver is already installed.** The Ubuntu installer sometimes installs one for you:
    ```bash
@@ -576,6 +578,8 @@ MAKEFLAGS="-j 2" ./src/build.sh --l2
 
 <details>
 <summary><b>Gazebo is very slow</b></summary>
+
+**On WSL?** See the [WSL guide's GPU fix](wsl-guide.md#3-make-gazebo-use-your-gpu). Gazebo renders on the CPU unless you apply it.
 
 If you have an NVIDIA GPU, run `nvidia-smi` and check that your GPU shows up. If it doesn't, revisit [step 4](#4-install-nvidia-drivers-nvidia-gpus-only) (and check the Secure Boot/MOK note). You can also run the simulation without `gz_gui:=enabled` and use Foxglove only.
 </details>
