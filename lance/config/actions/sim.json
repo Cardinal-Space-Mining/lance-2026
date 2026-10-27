@@ -37,7 +37,8 @@
             "world": "ksc",
             "robot": "lance1",
             "hid_control": true,
-            "hid_inverted_yaw": false
+            "hid_inverted_yaw": false,
+            "terrain": {}
         },
         "lance1_ucf_right":
         {
@@ -55,7 +56,8 @@
             "world": "ksc",
             "robot": "lance2",
             "hid_control": true,
-            "hid_inverted_yaw": false
+            "hid_inverted_yaw": false,
+            "terrain": {}
         },
         "lance2_ucf_right":
         {

@@ -190,7 +190,7 @@ def launch(context, *args, **kwargs):
         print("Failed to load 'Cardinal Perception' launch utils!")
 
     if HAVE_SIM_UTILS:
-        actions.extend(get_sim_actions(config))
+        actions.extend(get_sim_actions(config, launch_args))
     else:
         print("Failed to load 'csm-sim' launch utils! " +
               "The simulation package can be cloned from " +
