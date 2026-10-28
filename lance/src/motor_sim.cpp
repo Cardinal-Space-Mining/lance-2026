@@ -91,6 +91,7 @@ using TalonFaultsMsg = phoenix_ros_driver::msg::TalonFaults;
 #define GZ_LEFT_TRACK_ODOM_TOPIC  "/left_track_odom"
 #define GZ_RIGHT_TRACK_ODOM_TOPIC "/right_track_odom"
 #define GZ_HOPPER_VEL_TOPIC       "/dump_cmd_vel"
+#define GZ_TRENCHER_VEL_TOPIC     "/trencher_vel"
 #define GZ_TWIST_TOPIC            "/cmd_vel"
 #define GZ_JOINT_STATES_TOPIC     "/gz_joint_states"
 
@@ -447,6 +448,7 @@ private:
     RclSubPtr<OdometryMsg> left_track_odom_sub;
     RclSubPtr<OdometryMsg> right_track_odom_sub;
     RclPubPtr<Float64Msg> act_vel_pub;
+    RclPubPtr<Float64Msg> trencher_vel_pub;
     RclPubPtr<TwistMsg> track_twist_pub;
 
     RclTimer::SharedPtr sim_timer;
@@ -471,6 +473,9 @@ MotorSimNode::MotorSimNode() :
         [this](const Int32Msg& msg) { this->onWatchdog(msg.data); })},
     act_vel_pub{this->create_publisher<Float64Msg>(
         GZ_HOPPER_VEL_TOPIC,
+        rclcpp::SystemDefaultsQoS())},
+    trencher_vel_pub{this->create_publisher<Float64Msg>(
+        GZ_TRENCHER_VEL_TOPIC,
         rclcpp::SystemDefaultsQoS())},
     track_twist_pub{this->create_publisher<TwistMsg>(
         GZ_TWIST_TOPIC,
@@ -648,6 +653,11 @@ void MotorSimNode::publishState()
         motors[1].motor.getVelocity(),
         twist_msg);
     this->track_twist_pub->publish(twist_msg);
+
+    // trencher motor velocity (turns/s) for the gz deformable terrain system
+    this->trencher_vel_pub->publish(
+        Float64Msg{}.set__data(
+            motors[2].motor.getVelocity() / (2.0 * std::numbers::pi)));
 }
 
 
