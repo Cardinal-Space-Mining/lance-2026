@@ -101,6 +101,11 @@ protected:
     AutoOffloadController offload_controller;
 
     Stage stage{Stage::LOCALIZATION};
+
+    // The first full cycle (mine -> offload) is driven forward-only so the
+    // robot sees the terrain ahead; reverse traversal is enabled afterwards.
+    // Persists across auto restarts for the life of the node.
+    bool first_cycle_complete{false};
 };
 
 };  // namespace lance

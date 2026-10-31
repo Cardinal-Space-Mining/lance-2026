@@ -102,7 +102,8 @@ public:
     using BytePtr = const Byte*;
     using BytePtrRef = const Byte*&;
 
-    constexpr static uint8_t AUTO_MINING_STATE_STAGE_MASK = 0x3f;
+    constexpr static uint8_t AUTO_MINING_STATE_STAGE_MASK = 0x1f;
+    constexpr static uint8_t AUTO_MINING_STATE_POLAR_BIT = 0x20;
     constexpr static uint8_t AUTO_MINING_STATE_GRID_BIT = 0x40;
     constexpr static uint8_t AUTO_MINING_STATE_PATHS_BIT = 0x80;
     constexpr static size_t AUTO_MINING_MAX_GRID_DIVS = 64;

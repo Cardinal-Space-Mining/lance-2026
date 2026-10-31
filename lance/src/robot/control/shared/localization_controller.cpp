@@ -40,10 +40,12 @@
 #include "localization_controller.hpp"
 
 #include <cmath>
+#include <iostream>
 
 #include <Eigen/Core>
 
 #include "robot/model/dynamics.hpp"
+#include "robot/model/geometry.hpp"
 #include "robot/model/kinematics.hpp"
 
 
@@ -66,6 +68,12 @@ void LocalizationController::initialize()
 {
     this->stage = Stage::INITIALIZATION;
     this->refl_hint_interface.clearHint();
+
+    this->spin_odom_rad = 0.f;
+    this->spin_tracks_rad = 0.f;
+    this->spin_accum_rad = 0.f;
+    this->have_last_yaw = false;
+    this->spin_logged = false;
 }
 
 bool LocalizationController::isFinished()
@@ -87,11 +95,19 @@ void LocalizationController::iterate(
 #define V_max (this->params.auto_traversal_max_track_velocity_mps)
 #define A_max (this->params.auto_traversal_max_track_acceleration_mpss)
 
-    // if at any point the full localization transform is established,
-    // the command is finished
-    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF))
+    // all rotation after the hopper is positioned counts toward the 360
+    if (this->stage != Stage::INITIALIZATION && this->stage != Stage::FINISHED)
     {
-        this->stage = Stage::FINISHED;
+        this->updateSpin(motor_status);
+    }
+
+    // once the full localization transform is established, finish whatever
+    // is left of the 360 deg spin (if anything) and then the command is done
+    if (this->tf_cache.hasTf(ROBOT_TO_ARENA_TF) &&
+        this->stage != Stage::FINISHED)
+    {
+        this->stage =
+            this->spinComplete() ? Stage::FINISHED : Stage::COMPLETE_SPIN;
     }
 
     commands.disableAll();
@@ -216,6 +232,28 @@ void LocalizationController::iterate(
 
             break;
         }
+        case Stage::COMPLETE_SPIN:
+        {
+            if (!this->spinComplete())
+            {
+                // continue in the same direction as the search spin
+                commands.setTracksVelocity(
+                    lance::groundMpsToTrackMotorRps(
+                        lance::bodyDynamicsToLeftTrackVelocityMps(
+                            0.f,
+                            this->params
+                                .auto_localization_search_angular_velocity_rps)),
+                    lance::groundMpsToTrackMotorRps(
+                        lance::bodyDynamicsToRightTrackVelocityMps(
+                            0.f,
+                            this->params
+                                .auto_localization_search_angular_velocity_rps)));
+                break;
+            }
+
+            this->stage = Stage::FINISHED;
+            [[fallthrough]];
+        }
         case Stage::FINISHED:
         {
             this->refl_hint_interface.setEnableSrv(false);
@@ -224,6 +262,60 @@ void LocalizationController::iterate(
 
 #undef V_max
 #undef A_max
+}
+
+void LocalizationController::updateSpin(const RobotMotorStatus& motor_status)
+{
+    // Odom heading (available before arena localization)
+    if (this->tf_cache.hasTf(ROBOT_TO_ODOM_TF))
+    {
+        const float yaw = lance::geom::quatToYaw(
+            this->tf_cache.getTf(ROBOT_TO_ODOM_TF)->pose.quat);
+        if (this->have_last_yaw)
+        {
+            const float d = yaw - this->last_yaw;
+            this->spin_odom_rad +=
+                std::abs(std::atan2(std::sin(d), std::cos(d)));
+        }
+        this->last_yaw = yaw;
+        this->have_last_yaw = true;
+    }
+    else
+    {
+        this->have_last_yaw = false;
+    }
+
+    // Integrated measured track angular velocity
+    const float Vl = static_cast<float>(
+        lance::trackMotorRpsToGroundMps(motor_status.track_left.velocity));
+    const float Vr = static_cast<float>(
+        lance::trackMotorRpsToGroundMps(motor_status.track_right.velocity));
+    this->spin_tracks_rad +=
+        std::abs(lance::trackVelocitiesToAngularVelocity(Vl, Vr)) *
+        this->params.iteration_period_seconds;
+
+    this->spin_accum_rad = std::max(this->spin_odom_rad, this->spin_tracks_rad);
+
+    if (this->spinComplete() && !this->spin_logged &&
+        this->params.auto_localization_require_full_rotation)
+    {
+        constexpr float RAD_TO_DEG = 180.f / std::numbers::pi_v<float>;
+        const bool localized = this->tf_cache.hasTf(ROBOT_TO_ARENA_TF);
+        std::cout << "[LocalizationController] Full 360 spin complete (odom "
+                  << (this->spin_odom_rad * RAD_TO_DEG) << " deg, tracks "
+                  << (this->spin_tracks_rad * RAD_TO_DEG) << " deg) - "
+                  << (localized ? "localized, finishing"
+                                : "not localized yet, continuing to the "
+                                  "reflector without extra spinning")
+                  << "\n";
+        this->spin_logged = true;
+    }
+}
+
+bool LocalizationController::spinComplete() const
+{
+    return !this->params.auto_localization_require_full_rotation ||
+           this->spin_accum_rad >= 2.f * std::numbers::pi_v<float>;
 }
 
 };  // namespace lance

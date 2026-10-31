@@ -244,6 +244,9 @@ void TraversalController::iterate(
                 static_cast<float>(lance::trackMotorRpsToGroundMps(
                     motor_status.track_right.velocity));
 
+            this->reverse = false;
+            this->direction_decided = false;
+
             this->state =
                 this->need_traverse ? State::FOLLOW_PATH : State::REORIENT;
             [[fallthrough]];
@@ -345,6 +348,23 @@ bool TraversalController::iterateTraversal(
             const auto& pt = path->poses[i].pose.position;
             keypoints[i].x() = static_cast<float>(pt.x);
             keypoints[i].y() = static_cast<float>(pt.y);
+        }
+    }
+
+    // 1b. Pick drive direction, then mirror keypoints if reversing ------------
+    // Rotating the path 180 degrees puts the robot's back at +X, so the
+    // forward-only follower below works unchanged; runStanley() flips the
+    // sign of the forward velocity to match.
+    if (!this->direction_decided)
+    {
+        this->reverse = this->chooseReverse(keypoints);
+        this->direction_decided = true;
+    }
+    if (this->reverse)
+    {
+        for (auto& k : keypoints)
+        {
+            k = -k;
         }
     }
 
@@ -480,6 +500,72 @@ bool TraversalController::iterateReorient(
     return false;
 }
 
+bool TraversalController::chooseReverse(
+    const std::vector<Vec2f>& keypoints) const
+{
+    if (!this->params.auto_traversal_allow_reverse || !this->reverse_enabled ||
+        keypoints.empty())
+    {
+        return false;
+    }
+
+    constexpr float PI = std::numbers::pi_v<float>;
+    constexpr float RAD_TO_DEG = 180.f / PI;
+    // Skip keypoints this close to the robot when finding the start direction
+    constexpr float LOOKAHEAD_M = 0.15f;
+    // Reverse must save at least this much turning, so near-ties stay forward
+    constexpr float MARGIN_RAD = 10.f / RAD_TO_DEG;
+
+    // Turn needed at the start to face along the path (or away from it)
+    Vec2f start_pt = keypoints.back();
+    for (const auto& k : keypoints)
+    {
+        if (k.norm() > LOOKAHEAD_M)
+        {
+            start_pt = k;
+            break;
+        }
+    }
+    const float start_fwd = std::abs(std::atan2(start_pt.y(), start_pt.x()));
+    const float start_rev = PI - start_fwd;
+
+    // Turn needed at the end to reorient to the destination heading
+    float end_fwd = 0.f;
+    float end_rev = 0.f;
+    if (this->destination_type == DestinationType::POSE && keypoints.size() >= 2)
+    {
+        const auto* tf = this->tf_cache.getTf(ARENA_TO_ROBOT_TF);
+        const Vec2f d_end = keypoints.back() - keypoints[keypoints.size() - 2];
+        if (tf && d_end.squaredNorm() > 1e-6f)
+        {
+            const Vec2f dest_dir =
+                (tf->pose.quat.toRotationMatrix() *
+                 Vec3f{
+                     this->arena_dest_direction.x(),
+                     this->arena_dest_direction.y(),
+                     0.f})
+                    .template head<2>();
+
+            // Arriving forward faces d_end; arriving in reverse faces -d_end
+            end_fwd = std::abs(std::atan2(
+                d_end.x() * dest_dir.y() - d_end.y() * dest_dir.x(),
+                d_end.dot(dest_dir)));
+            end_rev = PI - end_fwd;
+        }
+    }
+
+    const float cost_fwd = start_fwd + end_fwd;
+    const float cost_rev = start_rev + end_rev;
+    const bool use_reverse = (cost_rev + MARGIN_RAD) < cost_fwd;
+
+    std::cout << "[TraversalController] Turning needed: forward "
+              << (cost_fwd * RAD_TO_DEG) << " deg, reverse "
+              << (cost_rev * RAD_TO_DEG) << " deg -> driving "
+              << (use_reverse ? "REVERSE" : "forward") << "\n";
+
+    return use_reverse;
+}
+
 
 
 void TraversalController::runStanley(
@@ -500,8 +586,11 @@ void TraversalController::runStanley(
     float Vl_prev, Vr_prev;
     this->getFilteredPrevVelocities(motor_status, Vl_prev, Vr_prev);
 
+    // In reverse the keypoints are mirrored, so forward velocity in that
+    // virtual frame is the negative of the robot's actual forward velocity
+    const float V_dir = this->reverse ? -1.f : 1.f;
     const float V_prev =
-        lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
+        V_dir * lance::trackVelocitiesToForwardVelocity(Vl_prev, Vr_prev);
     // const float W_prev =
     //     lance::trackVelocitiesToAngularVelocity(Vl_prev, Vr_prev);
 
@@ -524,8 +613,8 @@ void TraversalController::runStanley(
         const float Vc =
             std::clamp(std::min(Va, Vb), V_prev - Vd_max, V_prev + Vd_max);
         // differential drive kinematics to get left and right velocities
-        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(Vc, W);
-        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(Vc, W);
+        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(V_dir * Vc, W);
+        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(V_dir * Vc, W);
     }
     // b. Target current segment ---
     else
@@ -626,8 +715,8 @@ void TraversalController::runStanley(
         const float Wd =
             std::clamp(Wa, -W_max, W_max);  // IGNORE PROPORTIONAL CONTROLLER
         // apply kinematics
-        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(Vd, Wd);
-        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(Vd, Wd);
+        Vl_target = lance::bodyDynamicsToLeftTrackVelocityMps(V_dir * Vd, Wd);
+        Vr_target = lance::bodyDynamicsToRightTrackVelocityMps(V_dir * Vd, Wd);
     }
 
     // 4. Apply per-track V, A limits ------------------------------------------

@@ -307,6 +307,7 @@ void TelemetrySerializer::addAutoMiningController(
     switch (controller.stage)
     {
         case Stage::TRAVERSING:
+        case Stage::PIVOT_TURNING:
         {
             this->addTravController(bytes, controller.traversal_controller);
             break;
@@ -398,6 +399,12 @@ void TelemetrySerializer::addTravController(
     bytes.push_back(AS_U8(ControllerType::TRAVERSAL));
     bytes.push_back(AS_U8(controller.state));
 
+    // second-highest bit signals the path is being driven in reverse
+    if (controller.reverse)
+    {
+        bytes.back() |= 0x40;
+    }
+
     if (controller.pplan_interface.hasPath() &&
         this->filterFreq(this->last_path_pub))
     {
@@ -431,7 +438,13 @@ void TelemetrySerializer::addMiningPlannerDebug(
     size_t state_byte_idx)
 {
     const auto& paths = controller.mining_planner.getCachedPaths();
-    const size_t n_paths = std::min(paths.size(), AUTO_MINING_MAX_PATHS);
+    const auto& sweep = controller.polar_planner.getLastSweep();
+
+    // While the polar planner owns the current choice, hide grid paths
+    const bool polar_active =
+        sweep.valid && !controller.current_mining_path.has_value();
+    const size_t n_paths =
+        polar_active ? 0 : std::min(paths.size(), AUTO_MINING_MAX_PATHS);
 
     const bool has_current_path = controller.current_mining_path.has_value();
     DirectedMiningPath::Vec2f current_start;
@@ -569,6 +582,37 @@ void TelemetrySerializer::addMiningPlannerDebug(
         writeAndIncrement(grid_ptr, max_corner_with_offset.y());
         writeAndIncrement(grid_ptr, cell_length_x);
         writeAndIncrement(grid_ptr, cell_length_y);
+    }
+
+    if (polar_active)
+    {
+        bytes[state_byte_idx] |= AUTO_MINING_STATE_POLAR_BIT;
+
+        constexpr size_t N = PolarMiningPlanner::N_HEADINGS;
+        const size_t polar_reserve_size =
+            (sizeof(float) * 2) + (sizeof(uint8_t) * 2) +
+            (N * sizeof(float) * 2) + sizeof(uint8_t) + (sizeof(float) * 4);
+        bytes.resize(bytes.size() + polar_reserve_size);
+        Byte* polar_ptr = (bytes.end() - polar_reserve_size).base();
+
+        writeAndIncrement(polar_ptr, sweep.origin.x());
+        writeAndIncrement(polar_ptr, sweep.origin.y());
+        writeAndIncrement(polar_ptr, static_cast<uint8_t>(N));
+        writeAndIncrement(
+            polar_ptr,
+            static_cast<uint8_t>(sweep.selected < 0 ? 0xff : sweep.selected));
+        for (size_t i = 0; i < N; i++)
+        {
+            writeAndIncrement(polar_ptr, sweep.headings[i]);
+            writeAndIncrement(polar_ptr, sweep.ranges[i]);
+        }
+
+        // Second leg of a two-leg route (always written, flag says if valid)
+        writeAndIncrement(polar_ptr, static_cast<uint8_t>(sweep.has_leg2));
+        writeAndIncrement(polar_ptr, sweep.pivot.x());
+        writeAndIncrement(polar_ptr, sweep.pivot.y());
+        writeAndIncrement(polar_ptr, sweep.leg2_heading);
+        writeAndIncrement(polar_ptr, sweep.leg2_range);
     }
 }
 

@@ -90,11 +90,13 @@ void MiningConstraints::updateSettings(const JoyState& joy)
         this->enabled_constraints ^= CONSTRAINT_ZONE_BOUNDARY;
     }
 }
-void MiningConstraints::resetState(float target_fullness)
+void MiningConstraints::resetState(float target_fullness, float max_distance_m)
 {
     this->remaining_dist = std::numeric_limits<float>::infinity();
     this->prev_odom = std::numeric_limits<float>::infinity();
     this->current_constraint = CONSTRAINT_NONE;
+    this->distance_limit = max_distance_m;
+    this->start_odom = std::numeric_limits<float>::infinity();
 
     if (target_fullness > 0.f)
     {
@@ -181,6 +183,26 @@ void MiningConstraints::updateState(
             this->current_constraint = CONSTRAINT_ZONE_BOUNDARY;
         }
     }
+    if ((this->enabled_constraints & CONSTRAINT_DISTANCE_LIMIT) &&
+        !std::isinf(this->distance_limit))
+    {
+        // Same track odometry measure as updateOdom()
+        const float odom = static_cast<float>(lance::trackMotorRpsToGroundMps(
+            0.5 * (motor_status.track_left.position +
+                   motor_status.track_right.position)));
+        if (std::isinf(this->start_odom))
+        {
+            this->start_odom = odom;
+        }
+
+        const float d = this->distance_limit - (odom - this->start_odom);
+        if (d < this->remaining_dist ||
+            this->current_constraint == CONSTRAINT_DISTANCE_LIMIT)
+        {
+            this->remaining_dist = d;
+            this->current_constraint = CONSTRAINT_DISTANCE_LIMIT;
+        }
+    }
 }
 
 float MiningConstraints::remainingDist() const { return this->remaining_dist; }
@@ -233,12 +255,12 @@ MiningController::MiningController(
 {
 }
 
-void MiningController::initialize(float target_fullness)
+void MiningController::initialize(float target_fullness, float max_distance_m)
 {
     this->stage = Stage::INITIALIZATION;
 
     this->mining_eval_interface.queryRobotFrame();
-    this->constraints.resetState(target_fullness);
+    this->constraints.resetState(target_fullness, max_distance_m);
 }
 
 bool MiningController::isFinished() { return this->stage == Stage::FINISHED; }
@@ -303,10 +325,49 @@ void MiningController::iterate(
         this->tf_cache,
         this->mining_eval_interface);
 
+    // Track odometry for the end-of-run log
+    const float odom = static_cast<float>(lance::trackMotorRpsToGroundMps(
+        0.5 * (motor_status.track_left.position +
+               motor_status.track_right.position)));
+    if (this->stage == Stage::INITIALIZATION)
+    {
+        this->run_start_odom = odom;
+    }
+
     if ((this->stage < Stage::RAISING && !this->constraints.hasRemaining()) ||
         (this->stage != Stage::INITIALIZATION && joy &&
          AssistedMiningToggleButton::wasPressed(*joy)))
     {
+        if (this->stage < Stage::RAISING)
+        {
+            const char* reason = "user stop";
+            if (!this->constraints.hasRemaining())
+            {
+                switch (this->constraints.currentConstraint())
+                {
+                    case MiningConstraints::CONSTRAINT_MOTOR_STALL:
+                        reason = "motor stall";
+                        break;
+                    case MiningConstraints::CONSTRAINT_OBSTACLE:
+                        reason = "obstacle";
+                        break;
+                    case MiningConstraints::CONSTRAINT_HOPPER_FULL:
+                        reason = "hopper full";
+                        break;
+                    case MiningConstraints::CONSTRAINT_ZONE_BOUNDARY:
+                        reason = "zone boundary";
+                        break;
+                    case MiningConstraints::CONSTRAINT_DISTANCE_LIMIT:
+                        reason = "distance limit";
+                        break;
+                    default:
+                        reason = "unknown";
+                }
+            }
+            std::cout << "[MiningController] Mining stopped: " << reason
+                      << " after " << (odom - this->run_start_odom)
+                      << " m\n";
+        }
         this->stage = Stage::RAISING;
     }
 

@@ -121,6 +121,7 @@ public:
     const float auto_localization_align_angular_thresh_deg;
     const float auto_localization_range_target_m;
     const float auto_localization_range_thresh_m;
+    const bool auto_localization_require_full_rotation;  // Always spin a full 360 degrees before localization can finish
 
     const float auto_traversal_max_track_velocity_mps;
     const float auto_traversal_max_track_acceleration_mpss;
@@ -132,6 +133,7 @@ public:
     const float auto_traversal_angular_kp;
     const float auto_traversal_min_theta_window_deg;
     const float auto_traversal_align_angular_thresh_deg;
+    const bool auto_traversal_allow_reverse;  // Drive paths backwards when it requires less total turning
 
     const float auto_mining_min_path_length; // The minimum length a mining path must be to be considered valid and added to the list of paths to choose from
     const float auto_mining_min_replan_vol_liters;  // The minimum volume that should be remaining before the mining planner replans a mining path

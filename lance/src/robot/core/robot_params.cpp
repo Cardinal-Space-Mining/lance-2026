@@ -119,6 +119,7 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(auto_localization, align_angular_thresh_deg, 2.f, float),
     INIT_PARAM2(auto_localization, range_target_m, 1.05f, float),
     INIT_PARAM2(auto_localization, range_thresh_m, 0.05f, float),
+    INIT_PARAM2(auto_localization, require_full_rotation, true, bool),
 
     INIT_PARAM2(auto_traversal, max_track_velocity_mps, 0.25f, float),
     INIT_PARAM2(auto_traversal, max_track_acceleration_mpss, 0.5f, float),
@@ -130,6 +131,7 @@ RobotParams::RobotParams(rclcpp::Node& node) :
     INIT_PARAM2(auto_traversal, angular_kp, 1.f, float),
     INIT_PARAM2(auto_traversal, min_theta_window_deg, 2.f, float),
     INIT_PARAM2(auto_traversal, align_angular_thresh_deg, 0.5f, float),
+    INIT_PARAM2(auto_traversal, allow_reverse, true, bool),
 
     INIT_PARAM2(auto_mining, min_path_length, 2.1f, float),
     INIT_PARAM2(auto_mining, min_replan_vol_liters, 8.f, float),

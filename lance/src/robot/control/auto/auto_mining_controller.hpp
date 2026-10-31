@@ -50,6 +50,7 @@
 #include "robot/control/shared/shared_controllers.hpp"
 #include "robot/sensing/sensing_interfaces.hpp"
 #include "robot/planning/mining_planner.hpp"
+#include "robot/planning/polar_mining_planner.hpp"
 
 
 namespace lance
@@ -77,15 +78,22 @@ public:
         RobotMotorCommands& commands);
 
 protected:
-        
+
     enum class Stage
     {
         INITIALIZATION,
-        PLANNING,
+        POLAR_PLANNING,
+        GRID_PLANNING,
         TRAVERSING,
         MINING,
+        PIVOT_TURNING,
+        PIVOT_PLANNING,  // re-sweeping at the pivot to choose leg 2
         FINISHED
     };
+
+protected:
+    // After a mining run ends: replan if worthwhile, otherwise finish
+    void replanOrFinish();
 
 protected:
     const RobotParams& params;
@@ -94,13 +102,23 @@ protected:
     TraversalController& traversal_controller;
     MiningController& mining_controller;
 
+    // Only set when the grid planner chose the path
     std::optional<DirectedMiningPath> current_mining_path;
+    PolarMiningPlanner polar_planner;
     MiningPlanner mining_planner;
+
+    // Two-leg polar routes: mine leg1_dist along leg1_dir, then re-sweep at
+    // the pivot to choose leg 2 (pending_leg2_dir is the planned leg 2; it
+    // marks a two-leg route but the re-sweep's heading is what gets mined)
+    float leg1_dist{std::numeric_limits<float>::infinity()};
+    PolarMiningPlanner::Vec2f leg1_dir{PolarMiningPlanner::Vec2f::Zero()};
+    std::optional<PolarMiningPlanner::Vec2f> pending_leg2_dir;
     std::chrono::steady_clock::time_point next_path_validity_recheck_time{};
 
     Stage stage{Stage::FINISHED};
 
     bool is_quick_run = false;
+    int iteration_count = 0;
 
 };
 

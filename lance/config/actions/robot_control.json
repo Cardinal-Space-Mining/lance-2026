@@ -76,6 +76,7 @@
             "odom_frame_id": "${ id.odom_frame }",
             "arena_frame_id": "${ id.arena_frame }",
 
+            "arena_zone_bounds": "${ zone.ksc.arena }",
             "mining_zone_bounds": "${ zone.ksc.mining }",
             "offload_zone_bounds": "${ zone.ksc.offload }",
             "construction_zone_bounds": "${ zone.ksc.construction }",
@@ -93,7 +94,8 @@
                 "align_angular_velocity_rps": 0.25,
                 "align_angular_thresh_deg": 2.0,
                 "range_target_m": 1.05,
-                "range_thresh_m": 0.05
+                "range_thresh_m": 0.05,
+                "require_full_rotation": true
             },
 
             "auto_traversal":
@@ -107,8 +109,9 @@
                 "stanley_k_coeff": 0.8,
                 "angular_kp": 1.5,
                 "min_theta_window_deg": 2.0,
-                "align_angular_thresh_deg": 0.5
-            },
+                "align_angular_thresh_deg": 0.5,
+                "allow_reverse": true
+},
 
             "auto_mining":
             {
@@ -146,8 +149,9 @@
                 "stanley_k_coeff": 0.5,
                 "angular_kp": 1.5,
                 "min_theta_window_deg": 2.0,
-                "align_angular_thresh_deg": 0.5
-            }
+                "align_angular_thresh_deg": 0.5,
+                "allow_reverse": true
+}
         },
 
         "lance2_sim":
@@ -170,6 +174,7 @@
         "lance2_ucf_right":
         {
             "pragma:derived": "lance2",
+            "arena_zone_bounds": "${ zone.ucf_right.arena }",
             "mining_zone_bounds": "${ zone.ucf_right.mining }",
             "offload_zone_bounds": "${ zone.ucf_right.offload }",
             "construction_zone_bounds": "${ zone.ucf_right.construction }"
@@ -177,6 +182,7 @@
         "lance2_ucf_left":
         {
             "pragma:derived": "lance2",
+            "arena_zone_bounds": "${ zone.ucf_left.arena }",
             "mining_zone_bounds": "${ zone.ucf_left.mining }",
             "offload_zone_bounds": "${ zone.ucf_left.offload }",
             "construction_zone_bounds": "${ zone.ucf_left.construction }"
@@ -206,6 +212,7 @@
         "lance1_ucf_right":
         {
             "pragma:derived": "lance1",
+            "arena_zone_bounds": "${ zone.ucf_right.arena }",
             "mining_zone_bounds": "${ zone.ucf_right.mining }",
             "offload_zone_bounds": "${ zone.ucf_right.offload }",
             "construction_zone_bounds": "${ zone.ucf_right.construction }"
@@ -213,6 +220,7 @@
         "lance1_ucf_left":
         {
             "pragma:derived": "lance1",
+            "arena_zone_bounds": "${ zone.ucf_left.arena }",
             "mining_zone_bounds": "${ zone.ucf_left.mining }",
             "offload_zone_bounds": "${ zone.ucf_left.offload }",
             "construction_zone_bounds": "${ zone.ucf_left.construction }"

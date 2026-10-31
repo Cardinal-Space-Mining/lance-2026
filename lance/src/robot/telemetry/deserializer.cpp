@@ -205,7 +205,10 @@ TelemetryDeserializer::TelemetryDeserializer(
     auto_mining_paths_marker_id{
         markers.reserveGroup(AUTO_MINING_MAX_PATHS, "mining_planner")},
     auto_mining_grid_marker_id{
-        markers.reserveGroup(AUTO_MINING_GRID_MARKER_COUNT, "mining_planner")}
+        markers.reserveGroup(AUTO_MINING_GRID_MARKER_COUNT, "mining_planner")},
+    auto_mining_polar_marker_id{markers.reserveGroup(
+        PolarMiningPlanner::N_HEADINGS + 1,  // +1 for the second leg
+        "mining_planner/polar")}
 #endif
 {
     this->initMarkers();
@@ -243,6 +246,19 @@ void TelemetryDeserializer::initMarkers()
             itr->points.resize(2);
             itr->points[0].z = 0.05;
             itr->points[1].z = 0.05;
+        }
+    }
+    {
+        auto g = markers.getGroup(this->auto_mining_polar_marker_id)
+                     .setFrameId(this->tf_cache.arena_frame_id)
+                     .setType(MarkerMsg::ARROW)
+                     .setDuration(RclDur{1, 500000000});
+
+        for (auto itr = g.beg; itr < g.end; itr++)
+        {
+            itr->points.resize(2);
+            itr->points[0].z = 0.06;
+            itr->points[1].z = 0.06;
         }
     }
     {
@@ -408,6 +424,10 @@ bool TelemetryDeserializer::pubRobotState(BytePtrRef ptr, BytePtr end)
     this->pub_map.publish<BoolMsg>(
         ROBOT_TOPIC("mining_constraints/zone_boundary"),
         static_cast<bool>(state & MiningConstraints::CONSTRAINT_ZONE_BOUNDARY));
+    this->pub_map.publish<BoolMsg>(
+        ROBOT_TOPIC("mining_constraints/distance_limit"),
+        static_cast<bool>(
+            state & MiningConstraints::CONSTRAINT_DISTANCE_LIMIT));
 
     this->pub_map.publish<BoolMsg>(
         COLLECTION_STATE_TOPIC("is_full_volume"),
@@ -635,7 +655,14 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
     using Stage = AutoMiningController::Stage;
 
     constexpr char const* STAGE_TAGS[] =
-        {"Initializing", "Planning", "Traversing", "Mining", "Finished"};
+        {"Initializing",
+         "Polar Planning",
+         "Grid Planning",
+         "Traversing",
+         "Mining",
+         "Pivot Turning",
+         "Pivot Planning",
+         "Finished"};
 
     uint8_t state_bits;
     readAndIncrement(ptr, state_bits);
@@ -651,6 +678,11 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
     {
         return false;
     }
+    if ((state_bits & AUTO_MINING_STATE_POLAR_BIT) &&
+        !this->pubMiningPlannerPolar(ptr, end))
+    {
+        return false;
+    }
 #endif
 
     const uint8_t stage_id = (state_bits & AUTO_MINING_STATE_STAGE_MASK);
@@ -658,6 +690,7 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
     {
         case AS_U8(Stage::TRAVERSING):
         case AS_U8(Stage::MINING):
+        case AS_U8(Stage::PIVOT_TURNING):
         {
             this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
 
@@ -665,7 +698,9 @@ bool TelemetryDeserializer::pubAutoMiningController(BytePtrRef ptr, BytePtr end)
             return this->pubDerivedController(ptr, end);
         }
         case AS_U8(Stage::INITIALIZATION):
-        case AS_U8(Stage::PLANNING):
+        case AS_U8(Stage::POLAR_PLANNING):
+        case AS_U8(Stage::GRID_PLANNING):
+        case AS_U8(Stage::PIVOT_PLANNING):
         case AS_U8(Stage::FINISHED):
         {
             this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
@@ -784,6 +819,7 @@ bool TelemetryDeserializer::pubLocController(BytePtrRef ptr, BytePtr end)
         "Searching",
         "Align Heading",
         "Adjust Range",
+        "Completing Spin",
         "Finished"};
 
     uint8_t stage_id;
@@ -810,10 +846,18 @@ bool TelemetryDeserializer::pubTravController(BytePtrRef ptr, BytePtr end)
     uint8_t val;
     readAndIncrement(ptr, val);
 
-    const uint8_t stage_id = (val & 0x7f);
+    const uint8_t stage_id = (val & 0x3f);
     if (stage_id < (sizeof(STAGE_TAGS) / sizeof(*STAGE_TAGS)))
     {
-        this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+        // 0x40 is set when the path is being driven in reverse
+        if ((val & 0x40) && stage_id == 1)
+        {
+            this->ctrl_chain.push_back("Tracking Path (Reverse)");
+        }
+        else
+        {
+            this->ctrl_chain.push_back(STAGE_TAGS[stage_id]);
+        }
     }
 
     // highest bit gets set when path data is written next
@@ -933,6 +977,93 @@ bool TelemetryDeserializer::pubMiningPlannerPaths(BytePtrRef ptr, BytePtr end)
     this->markers.addSubGroupToOutput(
         this->auto_mining_paths_marker_id,
         n_paths);
+
+    return true;
+}
+
+bool TelemetryDeserializer::pubMiningPlannerPolar(BytePtrRef ptr, BytePtr end)
+{
+    EXIT_IF_INSUFFICIENT_SIZE((sizeof(float) * 2) + (sizeof(uint8_t) * 2))
+
+    float ox, oy;
+    readAndIncrement(ptr, ox);
+    readAndIncrement(ptr, oy);
+    uint8_t n_headings;
+    readAndIncrement(ptr, n_headings);
+    uint8_t selected;
+    readAndIncrement(ptr, selected);
+
+    EXIT_IF_INSUFFICIENT_SIZE(
+        (sizeof(float) * 2 * n_headings) + sizeof(uint8_t) + (sizeof(float) * 4))
+
+    std::vector<float> thetas(n_headings), ranges(n_headings);
+    for (size_t i = 0; i < n_headings; i++)
+    {
+        readAndIncrement(ptr, thetas[i]);
+        readAndIncrement(ptr, ranges[i]);
+    }
+
+    uint8_t has_leg2;
+    float px, py, leg2_theta, leg2_range;
+    readAndIncrement(ptr, has_leg2);
+    readAndIncrement(ptr, px);
+    readAndIncrement(ptr, py);
+    readAndIncrement(ptr, leg2_theta);
+    readAndIncrement(ptr, leg2_range);
+
+    // Minimum drawn length so zero-range headings remain visible
+    constexpr float MIN_VIS_LEN_M = 0.10f;
+    // Mineable range is measured from the trencher, so draw each arrow over
+    // the actual trench rather than from the robot origin
+    constexpr float START_R = lance::geom::TRENCHER_X_MAX_<float>;
+
+    const auto set_arrow =
+        [&](MarkerMsg& marker, float x, float y, float theta, float len)
+    {
+        marker.points[0].x = x + std::cos(theta) * START_R;
+        marker.points[0].y = y + std::sin(theta) * START_R;
+        marker.points[1].x = x + std::cos(theta) * (START_R + len);
+        marker.points[1].y = y + std::sin(theta) * (START_R + len);
+    };
+
+    auto m = this->markers.getGroup(this->auto_mining_polar_marker_id);
+    // last marker in the group is reserved for the second leg
+    const size_t n_vis = std::min<size_t>(n_headings, m.size() - 1);
+    for (size_t i = 0; i < n_vis; i++)
+    {
+        const bool is_selected = (i == selected);
+        float len = std::max(ranges[i], MIN_VIS_LEN_M);
+        if (is_selected && has_leg2)
+        {
+            // First leg of a two-leg route ends at the pivot
+            len = std::max(std::hypot(px - ox, py - oy), MIN_VIS_LEN_M);
+        }
+
+        MarkerMsg& marker = m[i];
+        setMiningPathScale(marker, is_selected);
+        if (is_selected)
+        {
+            marker.color.set__r(0.2f).set__g(0.95f).set__b(0.2f).set__a(1.f);
+        }
+        else
+        {
+            marker.color.set__r(0.6f).set__g(0.6f).set__b(0.6f).set__a(0.7f);
+        }
+
+        set_arrow(marker, ox, oy, thetas[i], len);
+    }
+
+    size_t n_out = n_vis;
+    if (has_leg2)
+    {
+        MarkerMsg& marker = m[n_vis];
+        setMiningPathScale(marker, true);
+        marker.color.set__r(1.f).set__g(0.55f).set__b(0.1f).set__a(1.f);
+        set_arrow(marker, px, py, leg2_theta, std::max(leg2_range, MIN_VIS_LEN_M));
+        n_out++;
+    }
+
+    this->markers.addSubGroupToOutput(this->auto_mining_polar_marker_id, n_out);
 
     return true;
 }
@@ -1068,6 +1199,11 @@ void TelemetryDeserializer::addMiningMarker(uint8_t constraint, float dist)
         case MiningConstraints::CONSTRAINT_ZONE_BOUNDARY:
         {
             m.color.set__r(0.8f).set__g(0.5f).set__b(0.2f).set__a(0.5f);
+            break;
+        }
+        case MiningConstraints::CONSTRAINT_DISTANCE_LIMIT:
+        {
+            m.color.set__r(0.2f).set__g(0.8f).set__b(0.9f).set__a(0.5f);
             break;
         }
         default:

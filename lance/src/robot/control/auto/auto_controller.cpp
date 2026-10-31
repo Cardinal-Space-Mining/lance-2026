@@ -40,6 +40,7 @@
 #include "auto_controller.hpp"
 
 #include <memory>
+#include <iostream>
 
 #include "robot/core/robot_status.hpp"
 #include "robot/model/geometry.hpp"
@@ -73,6 +74,8 @@ void AutoController::initialize()
     {
         this->localization_controller.initialize();
     }
+
+    this->traversal_controller.setReverseEnabled(this->first_cycle_complete);
 }
 
 void AutoController::setCancelled()
@@ -180,6 +183,14 @@ void AutoController::iterate(
             if (!this->offload_controller.isFinished())
             {
                 break;
+            }
+
+            if (!this->first_cycle_complete)
+            {
+                this->first_cycle_complete = true;
+                this->traversal_controller.setReverseEnabled(true);
+                std::cout << "[AutoController] First cycle complete - reverse "
+                             "traversal enabled\n";
             }
 
             this->traversal_controller.initializeZone(

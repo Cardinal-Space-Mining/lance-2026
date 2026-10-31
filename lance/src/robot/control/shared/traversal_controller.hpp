@@ -85,6 +85,9 @@ public:
     bool isFinished();
     void setCancelled();
 
+    // Runtime gate on reverse driving (the allow_reverse param still applies)
+    void setReverseEnabled(bool enabled) { this->reverse_enabled = enabled; }
+
     void iterate(
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
@@ -114,6 +117,10 @@ protected:
         const RobotMotorStatus& motor_status,
         RobotMotorCommands& commands);
 
+    /* Returns true if driving the path (robot-frame keypoints) in reverse
+     * requires less total turning than driving it forwards. */
+    bool chooseReverse(const std::vector<Vec2f>& keypoints) const;
+
     void runStanley(
         const RobotMotorStatus& motor_status,
         const std::vector<Vec2f>& keypoints,
@@ -138,6 +145,10 @@ protected:
     Vec2f arena_dest_direction{};
     DestinationType destination_type{DestinationType::POINT};
     bool need_traverse{true};
+    // Reverse driving is decided once per traversal so it cannot flip-flop
+    bool reverse{false};
+    bool direction_decided{false};
+    bool reverse_enabled{true};
 
     float prev_left_velocity{0.f};
     float prev_right_velocity{0.f};
