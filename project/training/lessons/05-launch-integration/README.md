@@ -24,7 +24,7 @@ same system decides what runs on the **real robot** versus the **simulator**. Ge
 simulated sensor publishing fake data on the robot, or a real driver missing from it.
 
 ## Background
-Read the [launch-utils README](../../../launch-utils/README.md), sections 1–7 (about 20 minutes). The key ideas:
+Read the [launch-utils README](../../../../launch-utils/README.md), sections 1–7 (about 20 minutes). The key ideas:
 
 | Term | Meaning |
 |------|---------|
@@ -45,12 +45,12 @@ How a launch works, end to end:
 ```
 
 ### A tool to help: preview the config
-`src/training/tools/preview_launch_config.py` runs the same preprocessing step **without launching anything**:
+`src/project/training/tools/preview_launch_config.py` runs the same preprocessing step **without launching anything**:
 ```bash
 cd ~/code/lance-ws
 source install/setup.bash
-python3 src/training/tools/preview_launch_config.py gz_full:=lance2_ksc
-python3 src/training/tools/preview_launch_config.py gz_full:=lance2_ksc show:=motor_sim
+python3 src/project/training/tools/preview_launch_config.py gz_full:=lance2_ksc
+python3 src/project/training/tools/preview_launch_config.py gz_full:=lance2_ksc show:=motor_sim
 ```
 The first command lists every enabled action. The second shows the final parameters one action receives. Use it
 constantly in this lesson. It's much faster than launching Gazebo to check a JSON change.
@@ -59,10 +59,10 @@ constantly in this lesson. It's much faster than launching Gazebo to check a JSO
 
 ## Part 1: Explore the existing config (no editing)
 Open these files and use the preview tool to answer the questions:
-- [`lance/config/launch.json`](../../../lance/config/launch.json)
-- [`lance/config/actions/sim.json`](../../../lance/config/actions/sim.json), the `motor_sim` action
-- [`lance/config/presets/gz_sim_presets.json`](../../../lance/config/presets/gz_sim_presets.json), the `gz_full` presets
-- [`lance/launch/lance.launch.py`](../../../lance/launch/lance.launch.py)
+- [`lance/config/launch.json`](../../../../lance/config/launch.json)
+- [`lance/config/actions/sim.json`](../../../../lance/config/actions/sim.json), the `motor_sim` action
+- [`lance/config/presets/gz_sim_presets.json`](../../../../lance/config/presets/gz_sim_presets.json), the `gz_full` presets
+- [`lance/launch/lance.launch.py`](../../../../lance/launch/lance.launch.py)
 
 1. `gz_full:=lance2_ksc` enables `motor_sim`. Which line makes that happen, and which preset does it pick?
 2. Run the preview with `gz_full:=lance2_ucf_left`. That preset doesn't mention `motor_sim`, so why is it still enabled?
@@ -70,11 +70,11 @@ Open these files and use the preview tool to answer the questions:
    which wins: the command line or `pragma:action_overrides`?
 4. In `lance.launch.py`, follow what happens to the `motor_sim` config. Which function turns it into a `Node`? What
    does it do with the `"model"` key, and why does it `pop` it instead of passing it on as a parameter?
-5. Open [`actions/hopper_fullness.json`](../../../lance/config/actions/hopper_fullness.json), the real sensor's
-   Python driver, and the `lance2_ksc` preset in [`robot_presets.json`](../../../lance/config/presets/robot_presets.json).
+5. Open [`actions/hopper_fullness.json`](../../../../lance/config/actions/hopper_fullness.json), the real sensor's
+   Python driver, and the `lance2_ksc` preset in [`robot_presets.json`](../../../../lance/config/presets/robot_presets.json).
    Does the real robot run the hopper fullness driver right now? Now suppose someone misspelled `pragma:default` as
    `prgama:default` in that file. What would the preprocessor do? (Read `preprocess_launch_json` in
-   [`launch-utils/src/launch_utils/preprocess.py`](../../../launch-utils/src/launch_utils/preprocess.py).) Would anyone notice?
+   [`launch-utils/src/launch_utils/preprocess.py`](../../../../launch-utils/src/launch_utils/preprocess.py).) Would anyone notice?
 
 <details>
 <summary>Check your answers</summary>
@@ -143,7 +143,7 @@ Add `"actions/hopper_sensor_sim.json"` to the `pragma:import` list in `lance/con
 
 ✅ **Checkpoint:**
 ```bash
-python3 src/training/tools/preview_launch_config.py hopper_sensor_sim:=sim_fast_fill show:=hopper_sensor_sim
+python3 src/project/training/tools/preview_launch_config.py hopper_sensor_sim:=sim_fast_fill show:=hopper_sensor_sim
 ```
 This shows the full `sim` config with only `fill_l_per_trencher_rev` changed.
 
@@ -246,7 +246,7 @@ Put it back when you're done: `mv install/hopper_sensor_sim.hidden install/hoppe
 ## Reference solution
 - [`solution/hopper_sensor_sim.json`](solution/hopper_sensor_sim.json): the action file from Part 2
 - [`solution/lance-launch-integration.patch`](solution/lance-launch-integration.patch): all the changes from Parts 2–4. Apply from
-  `src/` with `git apply training/lessons/05-launch-integration/solution/lance-launch-integration.patch`
+  `src/` with `git apply project/training/lessons/05-launch-integration/solution/lance-launch-integration.patch`
 
 > [!NOTE]
 > **For mentors:** This lesson relies on the `lance` config *not* already having a `hopper_sensor_sim` action on `main`.

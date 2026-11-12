@@ -3,10 +3,10 @@ This repo houses all client and robot code used for running LANCE-2 (2026) as we
 
 ## Setup
 > [!TIP]
-> Setting up a brand-new machine (or new to Linux)? Follow the [install guide](doc/full-install-guide.md), which goes from a fresh Ubuntu 26.04 install all the way to running the simulation.
-> - **Already set up with the distrobox container?** Follow the [migration guide](doc/migrate-to-native.md) to switch to the native setup.
-> - **Need ROS 2 Jazzy?** See the [container install guide](doc/container-install-guide.md).
-> - **On Windows (WSL)?** Also read the [WSL guide](doc/wsl-guide.md). It includes a required fix to make Gazebo use your GPU.
+> Setting up a brand-new machine (or new to Linux)? Follow the [install guide](project/doc/full-install-guide.md), which goes from a fresh Ubuntu 26.04 install all the way to running the simulation.
+> - **Already set up with the distrobox container?** Follow the [migration guide](project/doc/migrate-to-native.md) to switch to the native setup.
+> - **Need ROS 2 Jazzy?** See the [container install guide](project/doc/container-install-guide.md).
+> - **On Windows (WSL)?** Also read the [WSL guide](project/doc/wsl-guide.md). It includes a required fix to make Gazebo use your GPU.
 
 1. Install [ROS2](https://docs.ros.org/en/lyrical/Get-Started/Installation.html) if not already done. We use **Lyrical** on Ubuntu 26.04; **Jazzy** (Ubuntu 24.04) is also supported.
 
@@ -140,7 +140,7 @@ Some common examples are listed below:
 > All available presets can be found in the `lance/config/presets` directory, and all low-level action configs can be found in the `lance/config/actions` directory.
 
 ## Foxglove Studio
-A foxglove studio layout configuration (`foxglove_layout.json`) is included which provides a main control dashboard as well as tabs for each perception stage and motor status info. This can be loaded by clicking the **"LAYOUT"** dropdown in the top right corner of foxglove studio, then clicking **"Import from file..."** and navigating to the json.
+A foxglove studio layout configuration (`project/foxglove_layout.json`) is included which provides a main control dashboard as well as tabs for each perception stage and motor status info. This can be loaded by clicking the **"LAYOUT"** dropdown in the top right corner of foxglove studio, then clicking **"Import from file..."** and navigating to the json.
 
 ## Simulation
 Simulation assets (Gazebo and Nvidia Isaac) and launch utilities are contained in a separate repo since including them here by default would make the repo quite bloated. Conveniently, the repo just needs to be cloned alongside the other packages to be built and used (see included readme for dependencies!):

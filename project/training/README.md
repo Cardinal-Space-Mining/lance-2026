@@ -44,7 +44,7 @@ For mentors: each lesson introduces a few new C++ ideas and reuses the earlier o
 ## How the lessons are laid out
 
 ```
-training/
+project/training/
 ├── README.md               ← you are here
 ├── sandbox/                ← YOUR work goes here (gitignored)
 ├── tools/                  ← helper scripts (e.g. preview_launch_config.py)

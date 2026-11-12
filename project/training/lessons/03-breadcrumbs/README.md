@@ -17,8 +17,8 @@ view.
 Every part of LANCE that needs to know *where something is* uses **TF**: perception, path planning, autonomous
 mining, and the mission control display. Markers are how the team sees what the robot is "thinking" during
 testing. The zone boxes, planned paths, and mining targets you see in Foxglove are all markers. See
-[`zone_pub.hpp`](../../../lance/src/mission_control/zone_pub.hpp) for the arena zones, and
-[`tf_cache.hpp`](../../../lance/src/robot/sensing/tf_cache.hpp) for how the robot controller does TF lookups.
+[`zone_pub.hpp`](../../../../lance/src/mission_control/zone_pub.hpp) for the arena zones, and
+[`tf_cache.hpp`](../../../../lance/src/robot/sensing/tf_cache.hpp) for how the robot controller does TF lookups.
 
 ## Background
 Read these first (about 45 minutes):
@@ -58,7 +58,7 @@ This lesson needs the **full simulation**. The motor simulator by itself doesn't
 
 ```bash
 cd ~/code/lance-ws
-cp -r src/training/lessons/03-breadcrumbs/starter/breadcrumbs src/training/sandbox/
+cp -r src/project/training/lessons/03-breadcrumbs/starter/breadcrumbs src/project/training/sandbox/
 colcon build --symlink-install --packages-select breadcrumbs
 ```
 
@@ -185,7 +185,7 @@ Without it, `now()` is the real clock: about 1.8 billion seconds since 1970. Wit
 `/clock` topic, which counts from when Gazebo started. Everything in the sim (TF, sensor data) is stamped in sim
 time. If your node stamps messages in real time, other tools may decide your data is from the far future and
 refuse to use it. **Rule: in simulation, always run with `use_sim_time:=true`.** The sim presets set it for the
-robot's own nodes. Search [`robot_control.json`](../../../lance/config/actions/robot_control.json) for `use_sim_time`.
+robot's own nodes. Search [`robot_control.json`](../../../../lance/config/actions/robot_control.json) for `use_sim_time`.
 </details>
 
 ---
@@ -318,7 +318,7 @@ on a robot must expect information to be missing **sometimes**, and keep working
 4. **Clear the trail.** Add a `std_srvs/srv/Trigger` service `breadcrumbs/clear` that empties the trail and resets
    the distance. (Lesson 6 covers services in depth. This is a preview.)
 5. **Challenge: distance to the mining zone.** Mission control publishes the arena zones as markers on `/arena_zones`
-   (see [`zone_pub.hpp`](../../../lance/src/mission_control/zone_pub.hpp)). The mining zone is the marker with
+   (see [`zone_pub.hpp`](../../../../lance/src/mission_control/zone_pub.hpp)). The mining zone is the marker with
    `ns: zones`, `id: 2`. Its `pose.position` is the center of the box, and `scale` is its size. Subscribe to it, and show
    the distance from the robot to the nearest edge of the mining zone in your label. The zones are in the `map` frame, so this
    only works once the robot has localized. Ask a mentor how to trigger localization in the sim.

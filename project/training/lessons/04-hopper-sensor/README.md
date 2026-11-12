@@ -7,7 +7,7 @@ The real robot measures how full its hopper is with a sensor that talks to the c
 cable. The sensor is a set of light-sensor bars run by an Arduino
 ([code on GitHub](https://github.com/Cardinal-Space-Mining/Arduino-Hopper-Fullness-Sensor)), which sends lines like
 `Fs: 0.47`, meaning 47% full. The driver that reads them is a small **Python** node,
-[`lance/scripts/hopper_fullness.py`](../../../lance/scripts/hopper_fullness.py), which publishes the fraction
+[`lance/scripts/hopper_fullness.py`](../../../../lance/scripts/hopper_fullness.py), which publishes the fraction
 (0.0 = empty, 1.0 = full) on `lance/hopper_fullness`. In the simulator, nothing publishes that topic, so its line in Foxglove's hopper plot is
 empty.
 
@@ -25,7 +25,7 @@ Foxglove, next to the robot's own *estimate* of how full the hopper is.
   You'll write a parser that rejects garbage safely, and prove it with tests.
 - Simulating a sensor is how you test code that *uses* the sensor without the robot.
 - **Integrating over time** ("rate × time = change") is how the robot estimates things it can't measure directly.
-  [`collection_state.cpp`](../../../lance/src/robot/core/collection_state.cpp) estimates hopper volume this way.
+  [`collection_state.cpp`](../../../../lance/src/robot/core/collection_state.cpp) estimates hopper volume this way.
 
 > [!WARNING]
 > Your node publishes on the same topic as the real sensor. **Never run it on a network with the real robot.**
@@ -64,7 +64,7 @@ Foxglove, next to the robot's own *estimate* of how full the hopper is.
 ## Setup
 ```bash
 cd ~/code/lance-ws
-cp -r src/training/lessons/04-hopper-sensor/starter/hopper_sensor_sim src/training/sandbox/
+cp -r src/project/training/lessons/04-hopper-sensor/starter/hopper_sensor_sim src/project/training/sandbox/
 colcon build --symlink-install --packages-select hopper_sensor_sim
 ```
 The package is already set up with dependencies and a test target. Look at `CMakeLists.txt` and compare it with
@@ -73,7 +73,7 @@ Lesson 1. What's new? (Hint: `include/` and `if(BUILD_TESTING)`.)
 ---
 
 ## Part 1: Read the Python (no coding)
-Open [`hopper_fullness.py`](../../../lance/scripts/hopper_fullness.py) and answer:
+Open [`hopper_fullness.py`](../../../../lance/scripts/hopper_fullness.py) and answer:
 1. What topic, message type, and QoS does it publish with? How often?
 2. What does a line from the sensor look like? What does the node do with a line it can't understand?
 3. What happens if the serial cable is unplugged while the node is running?
@@ -197,7 +197,7 @@ Run it from the workspace root:
 ```bash
 ros2 run hopper_sensor_sim hopper_sensor_sim_node --ros-args \
     -p source:=file \
-    -p replay_file:=src/training/lessons/04-hopper-sensor/sample_serial_log.txt
+    -p replay_file:=src/project/training/lessons/04-hopper-sensor/sample_serial_log.txt
 ```
 
 **Look closely at your log output.** Does anything look garbled? `getline` removes the `\n` but leaves the `\r`.
@@ -254,7 +254,7 @@ In `stepSimulation()`:
    const double dt = (now - *this->last_step_time).seconds();
    ```
    Skip the step if `dt <= 0`. That happens if sim time is paused or jumps backwards. Compare this with
-   `prev_trencher_rotations` and friends in [`collection_state.cpp`](../../../lance/src/robot/core/collection_state.cpp):
+   `prev_trencher_rotations` and friends in [`collection_state.cpp`](../../../../lance/src/robot/core/collection_state.cpp):
    it's the same `std::optional` "first call" pattern.
 3. Work out `fill_rate` and `drain_rate` (liters per second) from the table, using `std::abs` on the velocities.
 4. **Integrate:** `volume_l += (fill_rate - drain_rate) * dt;`, then `std::clamp` it.

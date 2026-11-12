@@ -3,7 +3,7 @@
 Your workspace for training lessons. Copy starter packages here, for example:
 
 ```bash
-cp -r src/training/lessons/01-motor-monitor/starter/motor_monitor src/training/sandbox/
+cp -r src/project/training/lessons/01-motor-monitor/starter/motor_monitor src/project/training/sandbox/
 ```
 
 Everything in this folder except this README is **gitignored**, so your work stays on your machine.

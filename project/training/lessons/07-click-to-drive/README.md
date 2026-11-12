@@ -29,7 +29,7 @@ This brings together nearly everything from the earlier lessons:
 
 ## Why it matters
 Driving to a point is the core of autonomy. The real robot does a far more sophisticated version in
-[`traversal_controller.cpp`](../../../lance/src/robot/control/shared/traversal_controller.cpp): it follows planned
+[`traversal_controller.cpp`](../../../../lance/src/robot/control/shared/traversal_controller.cpp): it follows planned
 paths from perception, limits acceleration, and uses a Stanley steering controller. Mission control even has its own
 "click a target" feature. After this lesson, you'll be able to read that code and recognize the pieces.
 
@@ -56,7 +56,7 @@ right = v + ω × (track_separation / 2)
 ```
 `ω = 0` drives straight, `v = 0` spins in place, and anything else follows an arc. These are the same equations as
 `bodyDynamicsToLeftTrackVelocityMps` / `...Right...` in
-[`dynamics.hpp`](../../../lance/src/robot/model/dynamics.hpp).
+[`dynamics.hpp`](../../../../lance/src/robot/model/dynamics.hpp).
 
 ### Where is the goal, *from the robot's point of view*?
 If you transform the goal into the robot's own frame, `base_link` (+x forward, +y left), the math becomes easy:
@@ -98,7 +98,7 @@ same idea applies to speed: slow down as you get close.
 ## Setup
 ```bash
 cd ~/code/lance-ws
-cp -r src/training/lessons/07-click-to-drive/starter/goto_point src/training/sandbox/
+cp -r src/project/training/lessons/07-click-to-drive/starter/goto_point src/project/training/sandbox/
 colcon build --symlink-install --packages-select goto_point
 ```
 Start the simulator **without the robot controller**:
@@ -184,7 +184,7 @@ the same curve. That's the same idea as `applyTrackLimits`, which you tested in 
 
 ### 3b. From m/s to motor commands
 The tracks are commanded in **motor rotations per second**. Work out the conversion from
-[`dynamics.hpp`](../../../lance/src/robot/model/dynamics.hpp) (the `#elif LANCE >= 2` block):
+[`dynamics.hpp`](../../../../lance/src/robot/model/dynamics.hpp) (the `#elif LANCE >= 2` block):
 ```
 motor rev per meter = TRACK_GEARING / (2π × TRACK_EFFECTIVE_OUTPUT_RADIUS_M)
 ```
@@ -220,7 +220,7 @@ Lesson 3. When there's no goal, publish the same `ns` + `id` with `action = Mark
 1. Click a far-away goal, and while the robot is driving, press `Ctrl` + `C` on your node. What does the robot do?
 2. Click **Disable** in Foxglove. What happens now?
 3. Talk with your mentor: how does the real robot protect against a crashed controller? (Hint: look at what
-   `feedWatchdogStatus` in [`phx6_driver.cpp`](../../../phoenix-driver/src/lance2/phx6_driver.cpp) does with the
+   `feedWatchdogStatus` in [`phx6_driver.cpp`](../../../../phoenix-driver/src/lance2/phx6_driver.cpp) does with the
    watchdog value, and at which node publishes it.) What *doesn't* that protect against?
 
 ---

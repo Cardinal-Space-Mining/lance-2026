@@ -39,7 +39,7 @@ cd ~/code/lance-ws
 ./src/run.sh gz_full:=lance2_ksc gz_gui:=enabled
 ```
 
-Connect Foxglove to `ws://localhost:8765` and import `src/foxglove_layout.json`.
+Connect Foxglove to `ws://localhost:8765` and import `src/project/foxglove_layout.json`.
 
 ✅ **Checkpoint:** You can see the robot in the Gazebo window and data in Foxglove.
 
@@ -50,8 +50,8 @@ Connect Foxglove to `ws://localhost:8765` and import `src/foxglove_layout.json`.
    the hopper (right stick). Hold a bumper to reverse the trencher or belt. **A** stops everything.
 
 > [!NOTE]
-> [CONTROLS.md](../../../lance/CONTROLS.md) lists every binding, including the assisted routines. The source of
-> truth is the code: [`hid_bindings.hpp`](../../../lance/src/robot/core/hid_bindings.hpp) maps each button and
+> [CONTROLS.md](../../../../lance/CONTROLS.md) lists every binding, including the assisted routines. The source of
+> truth is the code: [`hid_bindings.hpp`](../../../../lance/src/robot/core/hid_bindings.hpp) maps each button and
 > axis to what it does. Reading it is good practice. Can you find which button toggles the mining stall check
 > without looking at CONTROLS.md?
 

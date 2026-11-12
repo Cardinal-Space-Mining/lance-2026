@@ -4,7 +4,7 @@
 
 ## What you'll do
 The robot has a **stall analyzer** that decides when a track or the trencher is stuck. It has a test file,
-[`lance/test/stall_analyzer_test.cpp`](../../../lance/test/stall_analyzer_test.cpp), but the whole file is
+[`lance/test/stall_analyzer_test.cpp`](../../../../lance/test/stall_analyzer_test.cpp), but the whole file is
 commented out and never runs. You'll:
 
 1. read and understand the stall detection logic
@@ -22,7 +22,7 @@ Summary: 24 tests, 0 errors, 0 failures, 0 skipped
 (Your count will differ depending on how many tests you write.)
 
 ## Why it matters
-When the stall constraint is enabled, [`MiningConstraints`](../../../lance/src/robot/control/shared/mining_controller.cpp)
+When the stall constraint is enabled, [`MiningConstraints`](../../../../lance/src/robot/control/shared/mining_controller.cpp)
 (around line 128) **ends the mining run** as soon as `stall_state.anyStalled()` is true. (It can be toggled from the
 controller during mining.) A false positive wastes competition time. A missed stall can grind a motor until it overheats.
 
@@ -52,8 +52,8 @@ Read before starting (about 40 minutes):
 ---
 
 ## Part 1: Understand the code (no coding)
-Open [`stall_analyzer.hpp`](../../../lance/src/robot/core/stall_analyzer.hpp) and
-[`stall_analyzer.cpp`](../../../lance/src/robot/core/stall_analyzer.cpp). The interesting function is
+Open [`stall_analyzer.hpp`](../../../../lance/src/robot/core/stall_analyzer.hpp) and
+[`stall_analyzer.cpp`](../../../../lance/src/robot/core/stall_analyzer.cpp). The interesting function is
 `StallAnalyzer::analyzeMotor`. Read it slowly and answer these questions in writing.
 
 1. A motor is a **stall candidate** only when *four* things are all true. What are they?
@@ -77,7 +77,7 @@ Open [`stall_analyzer.hpp`](../../../lance/src/robot/core/stall_analyzer.hpp) an
 4. The stall condition must be false continuously for the debounce time (`recovery_candidate_seconds`).
 5. They use different `MotorConfig`s (`config.tracks` vs `config.trencher`) and separate `MotorState`s.
 6. From ROS parameters, through `RobotParams`. The values are in the `stall_analyzer` section of
-   [`lance/config/actions/robot_control.json`](../../../lance/config/actions/robot_control.json).
+   [`lance/config/actions/robot_control.json`](../../../../lance/config/actions/robot_control.json).
 </details>
 
 ---
@@ -208,7 +208,7 @@ Now write these yourself:
 | `NegativeTimeStepsAreIgnored` | A negative `dt` (for example a clock glitch) can't cause a stall |
 | `DetectsStallWhileReversing` | With a command of `-10` rps, `-9` rps is fine but `-1` rps is a stall |
 | `ResetClearsStall` | After `reset()`, a stalled motor immediately reports not stalled |
-| `StallStateTest.AnyStalledReportsTrencherStall` | Use the `StallState` class with `RobotMotorStatus`, `RobotMotorFaults`, and `RobotMotorCommands` (from [`motor_interface.hpp`](../../../lance/src/robot/core/motor_interface.hpp)). Stall only the trencher and check `anyStalled()` |
+| `StallStateTest.AnyStalledReportsTrencherStall` | Use the `StallState` class with `RobotMotorStatus`, `RobotMotorFaults`, and `RobotMotorCommands` (from [`motor_interface.hpp`](../../../../lance/src/robot/core/motor_interface.hpp)). Stall only the trencher and check `anyStalled()` |
 
 > [!TIP]
 > **`ASSERT_*` vs. `EXPECT_*`:** `EXPECT` records a failure and keeps going, while `ASSERT` stops the test. Use
@@ -220,7 +220,7 @@ Now write these yourself:
 ---
 
 ## Part 5: Test the kinematics templates
-[`lance/src/robot/model/kinematics.hpp`](../../../lance/src/robot/model/kinematics.hpp) has small physics
+[`lance/src/robot/model/kinematics.hpp`](../../../../lance/src/robot/model/kinematics.hpp) has small physics
 helpers used by the autonomous driving code. They're **templates**, so the same code works for `float` and
 `double`, and they're **header-only**, so there's no `.cpp` and nothing to link.
 
@@ -297,7 +297,7 @@ To get back to the main code afterwards: `git switch main`. Your branch is still
 - [`solution/test/stall_analyzer_test.cpp`](solution/test/stall_analyzer_test.cpp): the original tests plus the Part 4 tests
 - [`solution/test/kinematics_test.cpp`](solution/test/kinematics_test.cpp): Part 5 plus the detective stretch goal
 - [`solution/lance-test-setup.patch`](solution/lance-test-setup.patch): the `package.xml` and `CMakeLists.txt` changes.
-  Apply from `src/` with `git apply training/lessons/02-unit-tests/solution/lance-test-setup.patch`
+  Apply from `src/` with `git apply project/training/lessons/02-unit-tests/solution/lance-test-setup.patch`
 
 > [!NOTE]
 > **For mentors:** This lesson relies on `lance/test/stall_analyzer_test.cpp` staying commented out and the test

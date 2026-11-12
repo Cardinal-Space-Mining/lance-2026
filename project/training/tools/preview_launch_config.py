@@ -8,10 +8,10 @@ Runs the same preprocessing as `./src/run.sh` (lance.launch.py), using the same
 Usage (from the workspace root, after `source install/setup.bash`):
 
     # Which actions are enabled, and with which preset?
-    python3 src/training/tools/preview_launch_config.py gz_full:=lance2_ksc
+    python3 src/project/training/tools/preview_launch_config.py gz_full:=lance2_ksc
 
     # Show the final parameters for one action
-    python3 src/training/tools/preview_launch_config.py gz_full:=lance2_ksc show:=motor_sim
+    python3 src/project/training/tools/preview_launch_config.py gz_full:=lance2_ksc show:=motor_sim
 """
 
 import json

@@ -25,7 +25,7 @@ When you're done, spinning the trencher in the simulator will look like this:
 
 ## Why it matters
 Motors that draw too much current overheat, trip breakers, and brown out the rest of the robot. The real
-robot code watches for this. [`StallAnalyzer`](../../../lance/src/robot/core/stall_analyzer.hpp) uses the same
+robot code watches for this. [`StallAnalyzer`](../../../../lance/src/robot/core/stall_analyzer.hpp) uses the same
 `TalonInfo` messages you'll use here to detect stalled tracks and a jammed trencher. The node you write
 follows the same pattern as the robot's own nodes: subscriptions, publishers, parameters, and timers inside
 a class.
@@ -49,7 +49,7 @@ If any of these are new, look them up on [learncpp.com](https://www.learncpp.com
 | References (`const T&`) | Reading messages without copying them |
 
 ### The message you'll read
-Every motor publishes a [`phoenix_ros_driver/msg/TalonInfo`](../../../phoenix-driver/msg/TalonInfo.msg) on
+Every motor publishes a [`phoenix_ros_driver/msg/TalonInfo`](../../../../phoenix-driver/msg/TalonInfo.msg) on
 `/lance/<motor_name>/info`, 50 times per second in the simulator. The fields you'll use are:
 
 | Field | Type | Meaning |
@@ -72,10 +72,10 @@ linear actuator).
 ### 1. Copy the starter package into your sandbox
 ```bash
 cd ~/code/lance-ws
-cp -r src/training/lessons/01-motor-monitor/starter/motor_monitor src/training/sandbox/
+cp -r src/project/training/lessons/01-motor-monitor/starter/motor_monitor src/project/training/sandbox/
 ```
 
-Open `src/training/sandbox/motor_monitor/` in VS Code. A ROS 2 C++ package is three things:
+Open `src/project/training/sandbox/motor_monitor/` in VS Code. A ROS 2 C++ package is three things:
 
 ```
 motor_monitor/
@@ -110,7 +110,7 @@ ros2 topic pub -r 20 --qos-reliability best_effort /lance/trencher/ctrl \
 ```
 Press `Ctrl` + `C` in terminal 3 to stop the trencher. Change `trencher` to `track_left` (and `1.0` to `0.8`) to
 spin a track instead. `mode: 0` means "percent output". Look at
-[`TalonCtrl.msg`](../../../phoenix-driver/msg/TalonCtrl.msg) for the other modes.
+[`TalonCtrl.msg`](../../../../phoenix-driver/msg/TalonCtrl.msg) for the other modes.
 
 ---
 
@@ -355,7 +355,7 @@ Talk these through with your mentor:
 2. Why do the motors publish with *best effort* instead of *reliable*? When *would* you want reliable?
 3. Your callbacks and timers all touch `motors`. Can two of them run at the same time? (Hint: what kind of
    executor does `rclcpp::spin` use?) What would change if they could?
-4. Look at [`control_node.cpp`](../../../lance/src/control_node.cpp) around line 105. How does the real
+4. Look at [`control_node.cpp`](../../../../lance/src/control_node.cpp) around line 105. How does the real
    robot controller subscribe to motor info? How is it like your code, and how is it different?
 5. What is the peak current right when a motor starts, compared with when it runs steadily? Why might that
    matter for the real robot's battery and breakers?
@@ -371,7 +371,7 @@ Talk these through with your mentor:
 4. **Rolling average.** A short spike when starting shouldn't trigger a warning. Warn on the average over
    the last 0.5 s instead. (`std::deque` is handy for this.)
 5. **Python comparison.** Write the Step 2 version in Python with `rclpy`. Look at
-   [`hopper_fullness.py`](../../../lance/scripts/hopper_fullness.py) for an example. Which do you prefer, and why does
+   [`hopper_fullness.py`](../../../../lance/scripts/hopper_fullness.py) for an example. Which do you prefer, and why does
    the robot's main code use C++?
 
 ## Reference solution

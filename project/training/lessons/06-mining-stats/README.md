@@ -30,9 +30,9 @@ trencher_energy_wh=28.35194969177246, trencher_peak_current_a=108.14517974853516
 ## Why it matters
 Standard messages like `Float32` carry a single number with no meaning attached. As soon as data has *structure*
 (several related values, units, named constants), you define your own type. The robot does this a lot:
-- [`phoenix_ros_driver`](../../../phoenix-driver/msg/) defines `TalonInfo`, `TalonCtrl`, and `TalonFaults`, which you've
+- [`phoenix_ros_driver`](../../../../phoenix-driver/msg/) defines `TalonInfo`, `TalonCtrl`, and `TalonFaults`, which you've
   used since Lesson 1.
-- [`cardinal_perception`](../../../cardinal-perception/srv/) defines services like `UpdatePathPlanningMode`.
+- [`cardinal_perception`](../../../../cardinal-perception/srv/) defines services like `UpdatePathPlanningMode`.
 - `TalonCtrl.msg` has **constants** (`VELOCITY = 2` and so on), exactly as your `MiningStats` will.
 
 **Services** are for request → response interactions: "do this and tell me the result". Mission control's Enable
@@ -59,7 +59,7 @@ Read these (about 40 minutes):
 ## Setup
 ```bash
 cd ~/code/lance-ws
-cp -r src/training/lessons/06-mining-stats/starter/* src/training/sandbox/
+cp -r src/project/training/lessons/06-mining-stats/starter/* src/project/training/sandbox/
 ```
 This copies **two** packages. Make sure your Lesson 4 `hopper_sensor_sim` is also in `sandbox/`. The stats node reads
 its output. (If you skipped Lesson 4, copy its `solution/hopper_sensor_sim` instead.)
@@ -182,8 +182,8 @@ Keep a `uint8_t state` member. In `step()`, classify the new state. **If it chan
 Why only on a *change*? `step()` runs 10 times per second. If you counted "is dumping" on every step, one dump would
 count as about 30. Reacting to the moment something *becomes* true is called **edge detection**, and you'll use it all the
 time. Button presses work the same way. Look for `wasPressed` in
-[`mining_controller.cpp`](../../../lance/src/robot/control/shared/mining_controller.cpp) and
-[`advanced_controls.cpp`](../../../lance/src/mission_control/advanced_controls.cpp).
+[`mining_controller.cpp`](../../../../lance/src/robot/control/shared/mining_controller.cpp) and
+[`advanced_controls.cpp`](../../../../lance/src/mission_control/advanced_controls.cpp).
 
 ### 3c. Accumulate
 - `session_seconds += dt`, and `digging_seconds += dt` while digging.
@@ -251,7 +251,7 @@ The response contains the stats you'd built up. The next message on `/mining_sta
 
 ## Check your understanding
 1. Why put the `.msg`/`.srv` files in a *separate* package? Now look at how
-   [`cardinal-perception`](../../../cardinal-perception/CMakeLists.txt) does it (search for `rosidl_generate_interfaces`):
+   [`cardinal-perception`](../../../../cardinal-perception/CMakeLists.txt) does it (search for `rosidl_generate_interfaces`):
    it defines interfaces in the *same* package as its code. What's the trade-off? (The ROS docs page
    [Implementing custom interfaces](https://docs.ros.org/en/lyrical/ROS-Framework/interfaces/Working-with-interfaces/Single-Package-Define-And-Use-Interface.html)
    shows that approach.)
