@@ -147,7 +147,7 @@ constexpr inline T trackVelocitiesToAngularVelocity(
     const T& left_mps,
     const T& right_mps)
 {
-    return static_cast<T>((left_mps - right_mps) / TRACK_SEPARATION_M);
+    return static_cast<T>((right_mps - left_mps) / TRACK_SEPARATION_M);
 }
 template<typename T>
 constexpr inline T bodyDynamicsToLeftTrackVelocityMps(

@@ -39,14 +39,14 @@ When you're done, you will build and run everything from a **normal terminal**, 
 
 ## 1. Install ROS 2 Lyrical
 
-These steps are the same ones you ran inside the container, now run on your computer. They follow the [official ROS 2 Lyrical install guide](https://docs.ros.org/en/lyrical/Installation/Ubuntu-Install-Debs.html).
+These steps are the same ones you ran inside the container, now run on your computer. They follow the [official ROS 2 Lyrical install guide](https://docs.ros.org/en/lyrical/Get-Started/Installation/Ubuntu-Install-Debs.html).
 
 ### 1a. Check your locale
 ROS needs a UTF-8 "locale" (language setting). A normal Ubuntu desktop install already has one. Check with:
 ```bash
 locale | grep LANG=
 ```
-If the result ends in `UTF-8` (for example `LANG=en_US.UTF-8`), you're good. If not, see the [official guide's locale step](https://docs.ros.org/en/lyrical/Installation/Ubuntu-Install-Debs.html).
+If the result ends in `UTF-8` (for example `LANG=en_US.UTF-8`), you're good. If not, see the [official guide's locale step](https://docs.ros.org/en/lyrical/Get-Started/Installation/Ubuntu-Install-Debs.html).
 
 ### 1b. Enable the "universe" software source
 ```bash
