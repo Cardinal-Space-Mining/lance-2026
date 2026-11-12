@@ -312,7 +312,7 @@ sudo apt upgrade
 
 📦 **CONTAINER** (your prompt should start with `[BOX:ros-jazzy]`)
 
-These steps follow the [official ROS 2 Jazzy install guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debians.html).
+These steps follow the [official ROS 2 Jazzy install guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html).
 
 ### 6a. Enable the "universe" software source
 ```bash

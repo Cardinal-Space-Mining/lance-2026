@@ -8,7 +8,7 @@ This repo houses all client and robot code used for running LANCE-2 (2026) as we
 > - **Need ROS 2 Jazzy?** See the [container install guide](doc/container-install-guide.md).
 > - **On Windows (WSL)?** Also read the [WSL guide](doc/wsl-guide.md). It includes a required fix to make Gazebo use your GPU.
 
-1. Install [ROS2](https://docs.ros.org/en/lyrical/Installation.html) if not already done. We use **Lyrical** on Ubuntu 26.04; **Jazzy** (Ubuntu 24.04) is also supported.
+1. Install [ROS2](https://docs.ros.org/en/lyrical/Get-Started/Installation.html) if not already done. We use **Lyrical** on Ubuntu 26.04; **Jazzy** (Ubuntu 24.04) is also supported.
 
 2. Setup your workspace and clone this repo.
     - Create directory:
