@@ -1,4 +1,4 @@
-# LANCE Software Training
+# LANCE Slopware Training
 
 A set of hands-on mini-projects for learning **C++** and **ROS 2** on the LANCE codebase.
 Every lesson ends with something you can see working on the simulated robot.
