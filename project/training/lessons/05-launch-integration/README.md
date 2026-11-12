@@ -97,11 +97,8 @@ Open these files and use the preview tool to answer the questions:
 ---
 
 ## Part 2: Create your action
-You're changing the real `lance` package, so make a **practice branch** first (it stays unmerged, as in Lesson 2):
-```bash
-cd ~/code/lance-ws/src
-git switch -c training/<your-name>-lesson5
-```
+Start `training/<you>/lesson-5` from `training/<you>/main`. Your main should already have your Lesson 4 package. As in
+Lesson 2, you'll change the real `lance` package, and that's fine on your own branches. Commit at each checkpoint.
 
 ### 2a. The action file
 Create `lance/config/actions/hopper_sensor_sim.json`:
@@ -200,8 +197,8 @@ climbs. (In testing, 12 s of digging reached about 0.17.)
 ---
 
 ## Part 5: Break it on purpose
-What if a teammate checks out your branch, but they don't have your `hopper_sensor_sim` package? Find out by
-temporarily hiding your installed package:
+What if your config change ends up somewhere your package isn't, for example if it's merged without the package, or a
+teammate pulls your branch but doesn't rebuild? Find out by temporarily hiding your installed package:
 ```bash
 cd ~/code/lance-ws
 mv install/hopper_sensor_sim install/hopper_sensor_sim.hidden
@@ -214,10 +211,70 @@ in `install/`. That's a surprise worth remembering.)
 [ERROR] [launch]: Caught exception in launch (see debug for traceback): "package 'hopper_sensor_sim' not found, ...
 ```
 The **entire launch** fails. Gazebo, the controller, everything. One missing package takes down the whole robot. This is
-why config changes that refer to a new package must be merged *together with* that package, and why your practice
-branch stays unmerged: your package lives in the gitignored sandbox.
+why config changes that refer to a new package must be merged *together with* that package, in the same pull request.
+Your branch has both, because your package is committed in the sandbox. But it's also why, after pulling, you should
+always rebuild before you launch.
 
 Put it back when you're done: `mv install/hopper_sensor_sim.hidden install/hopper_sensor_sim`.
+
+---
+
+## Part 6: A merge conflict 🔀
+On a team, someone else is always changing the same files as you. Usually git combines both changes by itself. When two
+people change the **same lines**, git stops and asks you to decide. That's a **merge conflict**. Here you'll make one on
+purpose, playing both people, so the first real one isn't a surprise.
+
+### 6a. Be the teammate
+1. Commit everything on `training/<you>/lesson-5`. Source Control should show no changes.
+2. Switch to `training/<you>/main`. Your Lesson 5 changes disappear from the files. They're safe on the other branch.
+3. Your "teammate" wants Foxglove to open by itself in the simulator. In `lance/config/presets/gz_sim_presets.json`,
+   change the end of the `lance2_ksc` overrides to:
+   ```json
+                   "foxglove_bridge": "all",
+                   "foxglove_gui": "local"
+   ```
+4. Commit it with the message `Open Foxglove automatically in the KSC sim`.
+
+### 6b. Merge, and get a conflict
+1. Switch back to `training/<you>/lesson-5`.
+2. `Ctrl` + `Shift` + `P` → **Git: Merge** → `training/<you>/main`.
+3. VS Code reports a conflict. In Source Control, `gz_sim_presets.json` is listed under **Merge Changes**. Open it:
+   ```
+                   "foxglove_bridge": "all",
+   <<<<<<< HEAD
+                   "hopper_sensor_sim": "sim"
+   =======
+                   "foxglove_gui": "local"
+   >>>>>>> training/<you>/main
+   ```
+   The top half is **yours** (the "current" branch, the one you're on), and the bottom half is **theirs** (the
+   "incoming" branch, the one you're merging in). Both of you changed the line after `foxglove_bridge`.
+
+### 6c. Resolve it, then check it
+1. You want **both** lines, so click **Accept Both Changes** above the conflict.
+2. Before you commit, run the preview tool:
+   ```bash
+   python3 src/project/training/tools/preview_launch_config.py gz_full:=lance2_ksc
+   ```
+   Look closely at the output. It prints a `Failed to load json data` error, and then **keeps going**, with almost
+   nothing enabled. **Accept Both Changes** put the two lines together, but the first one has no comma. The whole
+   `gz_sim_presets.json` file is now invalid, and the launch system *skips files it can't read*. A real launch would
+   start, print one error that's easy to miss, and run almost nothing.
+3. Add the missing comma, and run the preview again. Now both `hopper_sensor_sim` and `foxglove_gui` are enabled.
+4. Stage the file (**+**). VS Code has already written a commit message (`Merge branch ...`). Click **Commit**.
+
+✅ **Checkpoint:** `./src/run.sh gz_full:=lance2_ksc gz_gui:=enabled` starts the simulator, your node, *and* opens
+Foxglove by itself. (If you're on WSL with Foxglove installed on Windows, it won't open by itself. Check the preview
+instead.) The **Graph** in Source Control shows your two branches coming back together.
+
+> [!IMPORTANT]
+> **Git only checks that the text merged, not that the result works.** After every conflict, build and run what you
+> merged before you push it.
+
+## Part 7: Pull request
+Push, and open a PR from `training/<you>/lesson-5` into `training/<you>/main`, with your answers to the questions below.
+Your PR's **Files changed** tab doesn't show the Foxglove change, because your main already has it. GitHub only shows
+what the PR would *add* to its base.
 
 ---
 
@@ -230,6 +287,8 @@ Put it back when you're done: `mv install/hopper_sensor_sim.hidden install/hoppe
 4. What's the difference between something in a preset (a ROS parameter) and something the launch function `pop`s,
    like `motor_sim`'s `model`?
 5. Look at the `lance2_sim` preset in `robot_control.json`. How is it like your `sim_no_noise` preset?
+6. In Part 6, git merged your branches with no complaints once the conflict markers were gone, but the result was
+   broken. What other kinds of changes could merge cleanly but still break the robot?
 
 ## Stretch goals
 1. **Fail gracefully.** Make `get_hopper_sensor_sim_action` print a warning and skip the node (return `None`, and make
@@ -249,6 +308,10 @@ Put it back when you're done: `mv install/hopper_sensor_sim.hidden install/hoppe
   `src/` with `git apply project/training/lessons/05-launch-integration/solution/lance-launch-integration.patch`
 
 > [!NOTE]
-> **For mentors:** This lesson relies on the `lance` config *not* already having a `hopper_sensor_sim` action on `main`.
+> **For mentors:**
+> - This lesson relies on the `lance` config *not* already having a `hopper_sensor_sim` action on `main`.
+> - For a more realistic Part 6, play the teammate yourself: make the 6a commit on the trainee's `training/<name>/main`
+>   with GitHub's web editor while they work on Parts 2–5. Their PR then shows "This branch has conflicts", and they
+>   skip 6a and merge their main to fix it.
 
 **Next:** [Lesson 6: Custom messages and services](../06-mining-stats/README.md)

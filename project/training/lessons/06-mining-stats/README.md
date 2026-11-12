@@ -57,6 +57,23 @@ Read these (about 40 minutes):
 ---
 
 ## Setup
+### Catch up with the team first
+While you've been working through the lessons, the team has kept changing `main`. Your branches don't have those changes
+yet. Bring them in, following [Keeping up with the team](../../GIT.md#keeping-up-with-the-team):
+1. Switch to `training/<you>/main`.
+2. `Ctrl` + `Shift` + `P` → **Git: Fetch**.
+3. **Git: Merge** → `origin/main`, then **Sync Changes**.
+4. Rebuild everything with `./src/build.sh`. Someone may have changed code you depend on.
+
+Look at the **Graph** in Source Control: the team's commits and yours, joined by your merge commit. Click a few of the
+team's commits to see what changed.
+
+> [!NOTE]
+> If the merge has conflicts, they're probably in the files you changed in Lessons 2 and 5. Resolve them as in Lesson 5,
+> or ask a mentor.
+
+### Start the lesson
+Start `training/<you>/lesson-6` from your updated main, then copy the starters:
 ```bash
 cd ~/code/lance-ws
 cp -r src/project/training/lessons/06-mining-stats/starter/* src/project/training/sandbox/
@@ -277,6 +294,11 @@ The response contains the stats you'd built up. The next message on `/mining_sta
    member you need to store.
 5. **Session summary service.** Add a second service, `GetStats.srv`, with an empty request and the stats as the
    response. What's the difference between that and just echoing the topic once?
+
+## Pull request
+Open a PR from `training/<you>/lesson-6` into `training/<you>/main`, with your answers to the questions above. This
+lesson changes two packages. In your PR description, explain to your reviewer which order to read the files in.
+(Hint: what does the node depend on?)
 
 ## Reference solution
 [`solution/mining_stats_interfaces/`](solution/mining_stats_interfaces/) and [`solution/mining_stats/`](solution/mining_stats/).

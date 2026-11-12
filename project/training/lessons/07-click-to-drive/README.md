@@ -96,6 +96,7 @@ same idea applies to speed: slow down as you get close.
 ---
 
 ## Setup
+Start `training/<you>/lesson-7` from `training/<you>/main`, then:
 ```bash
 cd ~/code/lance-ws
 cp -r src/project/training/lessons/07-click-to-drive/starter/goto_point src/project/training/sandbox/
@@ -251,11 +252,20 @@ Lesson 3. When there's no goal, publish the same `ns` + `id` with `action = Mark
    whole setup safely.
 6. **Report progress.** Publish your state and distance remaining as a custom message (Lesson 6).
 
+## Pull request and cleanup
+1. Open your final PR, from `training/<you>/lesson-7` into `training/<you>/main`. Include your screen capture and your
+   answers to the questions above.
+2. Once it's merged, tidy up: delete your merged `lesson-N` branches, on GitHub and locally (see
+   [Finishing up](../../GIT.md#finishing-up)). Keep `training/<you>/main`.
+3. Look at your history one more time: `git log --oneline --graph` in a terminal, or the **Graph** in Source Control.
+   Every lesson you did, in order, with a review behind each one.
+
 ## Reference solution
 [`solution/goto_point/`](solution/goto_point/) covers Parts 1–4.
 
 ---
 
 🎓 **That's the end of the core lessons!** Next, ask a mentor about an open issue in the robot code, or try one of the
-stretch goals above. Several of them, such as smooth acceleration, unit tests, and launch presets, are exactly the kind of
+stretch goals above. Real work uses the same git routine you've been practicing, with one difference: your branch starts
+from `main` (for example `jsmith/fix-hopper-limit`), and the pull request goes into `main`, reviewed by the team. Several of them, such as smooth acceleration, unit tests, and launch presets, are exactly the kind of
 work the team does every day.

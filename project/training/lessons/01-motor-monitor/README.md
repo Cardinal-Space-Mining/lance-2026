@@ -69,11 +69,20 @@ linear actuator).
 
 ## Setup
 
-### 1. Copy the starter package into your sandbox
+### 1. Start a branch and copy the starter package
+Each lesson gets its own branch, started from **your** main (see [The lesson routine](../../GIT.md#the-lesson-routine)).
+In VS Code, click the branch name in the bottom-left corner → **Create new branch from…** → `training/<you>/main`,
+and name the new branch `training/<you>/lesson-1`.
+
+Then copy the starter package into your sandbox:
 ```bash
 cd ~/code/lance-ws
 cp -r src/project/training/lessons/01-motor-monitor/starter/motor_monitor src/project/training/sandbox/
 ```
+
+**Commit the starter before you change anything.** Stage the new `motor_monitor` folder in Source Control (hover over
+it → **+**) and commit with the message `Add Lesson 1 starter package`. Now every diff from here on shows only what
+*you* wrote.
 
 Open `src/project/training/sandbox/motor_monitor/` in VS Code. A ROS 2 C++ package is three things:
 
@@ -228,6 +237,12 @@ You'll see `rclcpp::SensorDataQoS{}` used for subscriptions throughout the LANCE
 ✅ **Checkpoint:** Velocities scroll past. In Option A, drive forward and watch them change. In Option B, publish to
 `/lance/track_left/ctrl`.
 
+💾 **Commit.** In Source Control, click `motor_monitor_node.cpp` first: the diff shows exactly what you changed in Step 2,
+in green and red. Click `package.xml` and `CMakeLists.txt` too. Are all three dependency changes there? Then stage all
+three and commit: `Subscribe to left track motor info`.
+
+**From now on, commit at every ✅ checkpoint**, with a message that says what the step added.
+
 ---
 
 ## Step 3: Monitor every motor
@@ -346,6 +361,17 @@ If you used Option B, start the Foxglove bridge in another terminal first:
    spike every time a motor **starts**.
 
 ✅ **Done!** Take a screenshot of your plot and your terminal showing a warning, and share it with your mentor.
+
+---
+
+## Save your work
+1. Commit anything left over, then click **Publish Branch** to push `training/<you>/lesson-1` to GitHub.
+2. Look at your history: the **Graph** section at the bottom of Source Control shows one dot per commit. Can you tell
+   what each step did from the messages alone?
+3. Merge the lesson into your main. Switch to `training/<you>/main` (click the branch name in the bottom-left corner),
+   then `Ctrl` + `Shift` + `P` → **Git: Merge** → `training/<you>/lesson-1`. Then **Sync Changes** to push it.
+
+From Lesson 3 on, you'll merge through a pull request instead, so a mentor can review your code first.
 
 ---
 

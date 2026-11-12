@@ -62,12 +62,13 @@ Foxglove, next to the robot's own *estimate* of how full the hopper is.
 ---
 
 ## Setup
+Start `training/<you>/lesson-4` from `training/<you>/main`, then:
 ```bash
 cd ~/code/lance-ws
 cp -r src/project/training/lessons/04-hopper-sensor/starter/hopper_sensor_sim src/project/training/sandbox/
 colcon build --symlink-install --packages-select hopper_sensor_sim
 ```
-The package is already set up with dependencies and a test target. Look at `CMakeLists.txt` and compare it with
+Commit the starter before you change anything. The package is already set up with dependencies and a test target. Look at `CMakeLists.txt` and compare it with
 Lesson 1. What's new? (Hint: `include/` and `if(BUILD_TESTING)`.)
 
 ---
@@ -154,6 +155,12 @@ Add the tests listed at the bottom of `test/fullness_parser_test.cpp`. For each 
 `"Fs: +3"` and `"Fs: 1_000"` both work in Python but not with `from_chars`, and `nan` is deliberately different.
 Which differences matter? (The Arduino never prints `+` or `_`, so a port doesn't have to copy every quirk. It
 just has to be *deliberate* about the differences.)
+
+💾 **Commit, then fix the commit.** Commit your parser and tests, but leave out one file on purpose: stage only
+`fullness_parser.hpp`, and commit it with the message `Add parser`. Now pretend you just noticed your mistake. Stage
+`test/fullness_parser_test.cpp` too, change the message to `Add fullness parser and tests`, and use the arrow next to **Commit** →
+**Commit (Amend)**. The Graph shows one commit, not two. (Only amend commits you haven't pushed yet. See
+[GIT.md](../../GIT.md#pull-requests).)
 
 ---
 
@@ -303,6 +310,25 @@ about *why*. (Hint: the robot's model also accounts for driving distance and min
 `CollectionState::update`.) This is exactly why the real robot has a sensor: estimates drift.
 
 ✅ **Done!** Screenshot the plot while mining and dumping, and share it.
+
+---
+
+## Part 6: Pull request and review
+Push, and open a PR from `training/<you>/lesson-4` into `training/<you>/main`, as in Lesson 3. Put your plot screenshot
+and your answers to the questions below in the description.
+
+This time, your mentor will probably ask for changes. **Responding to review** is a normal part of every change on
+the team:
+1. Read every comment. If you're not sure what one means, ask by replying to it.
+2. Fix the code, commit, and push. **Don't amend**: these commits are already on GitHub. The PR updates by itself.
+3. Reply to each comment to say what you changed (or why you didn't), and click **Resolve conversation**.
+4. Click **Re-request review** (the 🔄 icon next to your mentor's name) to tell them it's ready again.
+
+> [!TIP]
+> With the GitHub Pull Requests extension, review comments also appear in VS Code, right next to the line they're about.
+> Click the GitHub icon in the sidebar to see your PRs.
+
+✅ **Checkpoint:** Your PR is approved and merged. Sync `training/<you>/main` before starting Lesson 5.
 
 ---
 

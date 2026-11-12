@@ -56,11 +56,13 @@ seen from frame A?" and it chains the transforms together for you.
 ## Setup
 This lesson needs the **full simulation**. The motor simulator by itself doesn't publish TF.
 
+Start `training/<you>/lesson-3` from `training/<you>/main`, then copy and build the starter:
 ```bash
 cd ~/code/lance-ws
 cp -r src/project/training/lessons/03-breadcrumbs/starter/breadcrumbs src/project/training/sandbox/
 colcon build --symlink-install --packages-select breadcrumbs
 ```
+Commit the starter (`Add Lesson 3 starter package`) before you change anything, and commit at each checkpoint.
 
 In a separate terminal, start the simulation and click **Enable** in Foxglove:
 ```bash
@@ -298,6 +300,29 @@ Could not find a connection between 'map' and 'base_link' because they are not p
 Your node *keeps running* instead of crashing. That's your `try` / `catch` doing its job. Until the robot localizes
 against the arena fiducial, nothing publishes `map → odom`, so TF really can't answer the question. Code that runs
 on a robot must expect information to be missing **sometimes**, and keep working when it is.
+
+---
+
+## Step 8: Open your first pull request
+Until now, you merged your lessons yourself. On the team, every change is **reviewed** before it's merged, through a
+**pull request** (PR). From now on, your lessons work the same way.
+
+1. Push your branch (**Publish Branch**, or **Sync Changes** if it's already published).
+2. Open a PR, following [Pull requests](../../GIT.md#pull-requests) in GIT.md:
+   - **base:** `training/<you>/main`. ⚠️ Not `main`! Double-check it before you click Create.
+   - **merge:** `training/<you>/lesson-3`
+   - **Title:** `Lesson 3: Breadcrumb trail visualizer`
+   - **Description:** what your node does, your Foxglove screenshot (paste it straight into the box), and your answers to
+     the **Check your understanding** questions below.
+3. Add your mentor as a **reviewer**.
+4. Look at the PR's **Files changed** tab. This is what your reviewer sees. Is there anything in it you didn't mean to
+   include?
+
+Wait for review before merging. Start Lesson 4 while you wait. (Lesson 4 starts from `training/<you>/main`, which
+doesn't have Lesson 3 yet. That's fine, because Lesson 4 doesn't need it.)
+
+✅ **Checkpoint:** Your mentor approved your PR, and you merged it on GitHub. Switch to `training/<you>/main` and click
+**Sync Changes**: your breadcrumbs package is now there too.
 
 ---
 

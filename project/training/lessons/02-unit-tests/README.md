@@ -83,11 +83,9 @@ Open [`stall_analyzer.hpp`](../../../../lance/src/robot/core/stall_analyzer.hpp)
 ---
 
 ## Part 2: Turn the tests back on
-You'll be changing the real `lance` package, so **make a branch first**:
-```bash
-cd ~/code/lance-ws/src
-git switch -c training/<your-name>-lesson2
-```
+Start your lesson branch, `training/<you>/lesson-2`, from `training/<you>/main`, as in Lesson 1. This time you're
+changing the real `lance` package, not just your sandbox. That's fine on your own branches: they never get merged
+into the team's `main`.
 
 ### 2a. Uncomment the test file
 Open `lance/test/stall_analyzer_test.cpp`, select everything (`Ctrl` + `A`), and toggle comments
@@ -162,10 +160,16 @@ A test that can never fail is worse than no test, because it gives you false con
 2. Rebuild and run `./build/lance/stall_analyzer_test`.
 3. Which tests fail? Read one failure message and explain *why* that one-character change breaks it.
    (Hint: look at the `dt` values the tests pass in, compared with the debounce time in `makeConfig()`.)
-4. Put the code back: `git restore lance/src/robot/core/stall_analyzer.cpp`.
+4. Put the code back. In Source Control, click `stall_analyzer.cpp` to see your one-character change in the diff.
+   Then hover over the file and click **Discard Changes** (↶). The file is back to how it was at your last commit.
 
 Try one more "mutation" of your own. For example, delete the `faults.stator_current_limit_fault &&` line. Do the
-tests catch it?
+tests catch it? This time, instead of discarding, **stash** it (**…** → **Stash** → **Stash**). The change disappears, and
+the tests pass again. **…** → **Stash** → **Pop Latest Stash** brings it back. Discard it when you're done.
+
+> [!TIP]
+> Before every commit, look at the diff of every file you're about to commit. It's the easiest way to catch a
+> leftover debugging line, or a mutation you forgot to undo.
 
 ✅ **Checkpoint:** You've seen the tests fail for a real reason and pass again after the fix.
 
@@ -255,17 +259,24 @@ Everything passes. Take a screenshot and show your mentor.
 ---
 
 ## Wrapping up
-Commit your work on your branch:
+If you followed the checkpoints, most of your work is already committed. Check Source Control for anything left over.
+Only `lance/package.xml`, `lance/CMakeLists.txt`, and files in `lance/test/` should have changed. If anything else is
+listed, such as `stall_analyzer.cpp` with a mutation still in it, discard it.
+
+The terminal equivalent, for comparison:
 ```bash
 cd ~/code/lance-ws/src
+git status
 git add lance/package.xml lance/CMakeLists.txt lance/test/
-git commit -m "Re-enable stall analyzer tests, add kinematics tests"
+git commit -m "Add stall analyzer and kinematics tests"
 ```
-This branch is **for practice and stays unmerged**, so don't open a pull request. Show your mentor your branch
-and your test results instead. Compare your tests with another trainee's: did either of you catch behavior
-the other missed?
 
-To get back to the main code afterwards: `git switch main`. Your branch is still there if you want to come back to it.
+Then push (**Publish Branch**), and merge the lesson into `training/<you>/main` as in Lesson 1. Show your mentor your branch
+and your test results. Compare your tests with another trainee's: did either of you catch behavior the other missed?
+
+> [!NOTE]
+> These changes to `lance` stay on your own branches. The team keeps the stall analyzer test turned off on `main` on
+> purpose, because stall detection was never tested on the real robot.
 
 ## Check your understanding
 1. Your test only `#include`s `stall_analyzer.hpp`. Why does it still need to link against `lance2_core`,
@@ -302,6 +313,6 @@ To get back to the main code afterwards: `git switch main`. Your branch is still
 > [!NOTE]
 > **For mentors:** This lesson relies on `lance/test/stall_analyzer_test.cpp` staying commented out and the test
 > setup staying out of `lance/CMakeLists.txt` on `main`. If that ever changes, have trainees start from an older
-> commit (`git switch -c training/<name> <commit>`), or change Part 2 to "read how the tests are wired up".
+> commit (`git switch -c training/<you>/lesson-2 <commit>`), or change Part 2 to "read how the tests are wired up".
 
 **Next:** [Lesson 3: Breadcrumb trail visualizer](../03-breadcrumbs/README.md)

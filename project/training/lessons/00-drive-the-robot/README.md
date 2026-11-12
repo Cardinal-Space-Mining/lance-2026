@@ -1,11 +1,11 @@
 # Lesson 0: Drive the Robot
 
-**Time:** ~1 hour (after setup) &nbsp;·&nbsp; **Code written:** none
+**Time:** ~1.5 hours (after setup) &nbsp;·&nbsp; **Code written:** none
 
 ## What you'll do
 You'll launch the simulated LANCE robot, drive it with a controller, and use the `ros2` command line
 tools to see how it works inside. By the end you'll have drawn a map of how a joystick press
-becomes a moving robot.
+becomes a moving robot. Then you'll set up git, and save your map as your first commit on your own branch.
 
 ## Why it matters
 The robot software is made of many small programs (**nodes**) that talk to each other. Before you
@@ -111,6 +111,40 @@ message type. Follow the path from **pushing the left stick** to **the robot mov
 Show your diagram to a mentor. They'll compare it with how the real robot works: on the robot, the
 `phoenix_driver` node replaces `motor_sim` and talks to real motor controllers over CAN bus.
 
+## Step 6: Save your work with git
+The team keeps all its code in a **git repository** on GitHub. You'll save every lesson there, on **your own
+branches**, so mentors can review your work, and so you never lose it. Read the top of [GIT.md](../../GIT.md) first
+("Your branches").
+
+### 6a. One-time setup
+Follow [**One-time setup**](../../GIT.md#one-time-setup-lesson-0) in GIT.md: GitHub access, your name and email, and the
+VS Code extension. Ask a mentor to add you to the team on GitHub *before* the rest of this step.
+
+### 6b. Make your branch
+1. In VS Code, open the **Source Control** view (`Ctrl` + `Shift` + `G`) and find the `src` repository.
+2. Click **Fetch** (in the **…** menu) so you can see the latest branches on GitHub.
+3. Click the branch name in the **bottom-left corner** → **Create new branch from…** → `origin/main`.
+4. Name it `training/<you>/main`, using your GitHub username, for example `training/jsmith/main`.
+
+The bottom-left corner now shows your branch. Every commit you make goes on this branch until you switch.
+
+### 6c. Your first commit
+Write your system map as text in a new file, `src/project/training/sandbox/system-map.md`. One line per arrow is enough:
+```
+joy_node --/joy [sensor_msgs/msg/Joy]--> mission_control
+...
+```
+(Or take a photo of your drawing, and put the image in the sandbox next to a short `system-map.md` that describes it.)
+
+Then:
+1. In Source Control, the new file appears under **Changes**. Click it to see what git sees.
+2. Hover over it and click **+** to **stage** it. Staging means "include this in my next commit".
+3. Type a message, `Add system map from Lesson 0`, and click **Commit**.
+4. Click **Publish Branch**. Sign in with GitHub if VS Code asks.
+
+✅ **Checkpoint:** On GitHub, open the repository, click the branch dropdown, and find your branch. Your
+`system-map.md` is there. Send your mentor the link.
+
 ---
 
 ## Check your understanding
@@ -119,6 +153,7 @@ Show your diagram to a mentor. They'll compare it with how the real robot works:
 3. If you open a new terminal and `ros2 topic list` shows almost nothing, what did you probably forget?
 4. `motor_sim` and the real `phoenix_driver` publish the same topics with the same message types.
    Why is that useful?
+5. What's the difference between **staging**, **committing**, and **pushing**? After each one, who can see your work?
 
 ## Stretch goals
 - Open `foxglove_layout.json` in VS Code. Find the "Motors" plot and work out how Foxglove knows which fields to plot.
