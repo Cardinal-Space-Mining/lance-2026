@@ -204,7 +204,7 @@ In a normal terminal, from `~/code/lance-ws`:
 ```
 The Gazebo window should open, now running directly on your computer. Everything else works the same as in the container:
 - Leave off `gz_gui:=enabled` to run the simulator headless.
-- Other options (`gz_robot`, `gz_client`, other robots and arenas) are listed in [step 10 of the main install guide](full-install-guide.md#10-run-the-simulation) and in the [README](../README.md#running).
+- Other options (`gz_robot`, `gz_client`, other robots and arenas) are listed in [step 10 of the main install guide](full-install-guide.md#10-run-the-simulation) and in the [README](../../README.md#running).
 - Connect Foxglove to `ws://localhost:8765` exactly as before.
 - Press `Ctrl` + `C` in the terminal to stop.
 

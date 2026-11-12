@@ -4,7 +4,7 @@
 IGNORE_PATTERNS=(
     multiscan-driver/src/sick_scan_xd/
     phoenix-driver/libs/
-    foxglove_layout.json
+    project/foxglove_layout.json
     csm-sim/assets/
 )
 

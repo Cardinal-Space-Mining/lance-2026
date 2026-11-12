@@ -1,0 +1,5 @@
+# Clear the mining statistics and start a new session.
+
+string reason             # why the stats were reset (written to the log)
+---
+MiningStats final_stats   # the statistics just before they were cleared
