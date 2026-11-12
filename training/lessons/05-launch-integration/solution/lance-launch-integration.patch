@@ -1,0 +1,87 @@
+diff --git a/lance/config/launch.json b/lance/config/launch.json
+index 6f0b622..1e618fc 100644
+--- a/lance/config/launch.json
++++ b/lance/config/launch.json
+@@ -6,6 +6,7 @@
+         "actions/client.json",
+         "actions/foxglove.json",
+         "actions/hopper_fullness.json",
++        "actions/hopper_sensor_sim.json",
+         "actions/multiscan_driver.json",
+         "actions/perception.json",
+         "actions/phoenix_driver.json",
+diff --git a/lance/config/presets/gz_sim_presets.json b/lance/config/presets/gz_sim_presets.json
+index f091215..1776e1b 100644
+--- a/lance/config/presets/gz_sim_presets.json
++++ b/lance/config/presets/gz_sim_presets.json
+@@ -49,7 +49,8 @@
+                 "robot_control": "lance2_ksc_sim",
+                 "mission_control": "lance2_ksc_sim",
+                 "perception": "lance2_sim",
+-                "foxglove_bridge": "all"
++                "foxglove_bridge": "all",
++                "hopper_sensor_sim": "sim"
+             }
+         },
+         "lance2_ucf_right":
+diff --git a/lance/launch/lance.launch.py b/lance/launch/lance.launch.py
+index 11a82d3..43cdf2e 100644
+--- a/lance/launch/lance.launch.py
++++ b/lance/launch/lance.launch.py
+@@ -80,6 +80,13 @@ def get_hopper_fullness_action(config):
+         output='screen'
+     )
+ 
++def get_hopper_sensor_sim_action(config):
++    return NodeAction(config).format_node(
++        package='hopper_sensor_sim',
++        executable='hopper_sensor_sim_node',
++        output='screen'
++    )
++
+ def get_redux_action(config):
+     target = config.pop("target", None)
+     if target == "robot":
+@@ -161,6 +168,8 @@ def get_robot_actions(config, launch_args={}):
+     #     a.append(get_phx6_action(config['phoenix6_driver']))
+     if 'hopper_fullness' in config:
+         a.append(get_hopper_fullness_action(config['hopper_fullness']))
++    if 'hopper_sensor_sim' in config:
++        a.append(get_hopper_sensor_sim_action(config['hopper_sensor_sim']))
+ 
+     if 'redux' in config:
+         a.append(get_redux_action(config['redux']))
+diff --git a/lance/config/actions/hopper_sensor_sim.json b/lance/config/actions/hopper_sensor_sim.json
+new file mode 100644
+index 0000000..c0b2ebc
+--- /dev/null
++++ b/lance/config/actions/hopper_sensor_sim.json
+@@ -0,0 +1,28 @@
++{
++    "hopper_sensor_sim":
++    {
++        "pragma:default": null,
++
++        "sim":
++        {
++            "source": "sim",
++            "use_sim_time": true,
++            "capacity_l": 50.0,
++            "fill_l_per_trencher_rev": 0.005,
++            "drain_l_per_belt_rev": 0.03,
++            "dig_below_pos": 0.35,
++            "dump_above_pos": 0.8,
++            "noise_stddev": 0.01
++        },
++        "sim_fast_fill":
++        {
++            "pragma:derived": "sim",
++            "fill_l_per_trencher_rev": 0.02
++        },
++        "sim_no_noise":
++        {
++            "pragma:derived": "sim",
++            "noise_stddev": 0.0
++        }
++    }
++}

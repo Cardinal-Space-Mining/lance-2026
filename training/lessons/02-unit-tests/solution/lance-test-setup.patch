@@ -1,0 +1,45 @@
+diff --git a/lance/package.xml b/lance/package.xml
+index 7acfd5d..a0bc7d2 100644
+--- a/lance/package.xml
++++ b/lance/package.xml
+@@ -30,7 +30,7 @@
+ 
+   <test_depend>ament_lint_auto</test_depend>
+   <test_depend>ament_lint_common</test_depend>
+-  <!-- <test_depend>ament_cmake_gtest</test_depend> -->
++  <test_depend>ament_cmake_gtest</test_depend>
+ 
+   <export>
+     <build_type>ament_cmake</build_type>
+diff --git a/lance/CMakeLists.txt b/lance/CMakeLists.txt
+index 854abf6..62796fb 100644
+--- a/lance/CMakeLists.txt
++++ b/lance/CMakeLists.txt
+@@ -148,6 +148,27 @@ if(BUILD_LANCE2)
+     lance_build_target(2)
+ endif()
+ 
++# --- Tests --------------------------------------------------------------------
++if(BUILD_TESTING)
++    find_package(ament_cmake_gtest REQUIRED)
++
++    # Tests link against one robot version's core lib (LANCE-2 if it's built)
++    if(BUILD_LANCE2)
++        set(test_core_lib lance2_core)
++    else()
++        set(test_core_lib lance1_core)
++    endif()
++
++    ament_add_gtest(stall_analyzer_test
++        "test/stall_analyzer_test.cpp")
++    target_link_libraries(stall_analyzer_test
++        ${test_core_lib})
++
++    # kinematics.hpp is header-only, so there's nothing to link
++    ament_add_gtest(kinematics_test
++        "test/kinematics_test.cpp")
++endif()
++
+ # --- Export -------------------------------------------------------------------
+ ament_export_dependencies(
+     csm_utils

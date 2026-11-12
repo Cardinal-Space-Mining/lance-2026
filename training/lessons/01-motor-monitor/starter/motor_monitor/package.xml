@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>motor_monitor</name>
+  <version>0.1.0</version>
+  <description>Training lesson 1: watches LANCE motor telemetry and warns on high current.</description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <!-- TODO (Step 2): add the packages that contain the messages you use -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
