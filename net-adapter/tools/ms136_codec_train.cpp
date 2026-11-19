@@ -49,7 +49,31 @@
  * Writes the generated tables header (if -o is given) and prints the
  * estimated mean encoded size per scan for the training set and for any
  * --eval sets (cross-entropy under the quantized 12-bit tables, which rANS
- * achieves to within a few bytes). */
+ * achieves to within a few bytes).
+ *
+ * --- How training works ------------------------------------------------------
+ *
+ * The codec's "model" is just one probability distribution per context (see
+ * ms136_codec_model.hpp). Training walks every scan exactly as the encoder
+ * does and counts how often each symbol occurs in each context. The observed
+ * frequency is the best estimate of the true probability, and coding with it
+ * minimizes the expected size on data like the training data. There is
+ * nothing iterative: one counting pass, then normalization into 12-bit
+ * integer frequencies.
+ *
+ * Generalization: with ~500 small contexts and ~20k training scans, the
+ * tables barely overfit. Tables trained on five bags and evaluated on the
+ * sixth come within ~1.5% of tables trained on that bag itself. To check this
+ * after retraining, run with one bag held out and pass it to --eval.
+ *
+ * Typical retraining run (ROS sourced, built with
+ * -DNET_ADAPTER_BUILD_TOOLS=ON):
+ *
+ *   1. For each bag directory BAG:
+ *        tools/ms136_extract_scans.py BAG scans/BAG_NAME.bin --stride 5
+ *   2. ms136_codec_train -o src/util/ms136_codec/ms136_codec_tables.hpp
+ *          --version <TABLE_VERSION + 1> --train scans/a.bin scans/b.bin ...
+ *   3. Rebuild and run test_ms136_codec. */
 
 #include <array>
 #include <cmath>
@@ -102,7 +126,18 @@ std::vector<Scan> loadScans(const std::string& path)
     return scans;
 }
 
-/* Visit every coded symbol of a scan exactly as the encoder emits them */
+/* Visit every coded symbol of a scan exactly as the encoder emits them.
+ *
+ * MAINTENANCE: this mirrors the forward pass of encodeScan()
+ * (ms136_codec.cpp). Both call the shared computeContext(), but the loop
+ * itself is duplicated, so a change to what encodeScan() emits (order, which
+ * symbols, raw-bit counts) must be made here too. If they drift apart, the
+ * tables still decode correctly but no longer match the data, and
+ * compression silently degrades. test_ms136_codec's size check would
+ * catch it.
+ *
+ * on_bin(which, ctx, bit)    which: 0 = valid bit, 1 = reflector bit
+ * on_range(ctx, k, raw_bits) ctx = -1 for the unpredicted first point */
 template<typename VisitBin, typename VisitRange>
 void traverse(const Scan& dense, VisitBin&& on_bin, VisitRange&& on_range)
 {
@@ -161,7 +196,20 @@ void accumulate(Counts& c, const std::vector<Scan>& scans)
     }
 }
 
-/* Smoothed counts -> frequencies summing to PROB_SCALE, each >= 1 */
+/* Smoothed counts -> frequencies summing to PROB_SCALE, each >= 1.
+ *
+ * Smoothing (adding `alpha` to every count before normalizing) handles
+ * symbols that never occurred in training. The raw estimate for those would be
+ * probability 0, i.e. unencodable, so every symbol gets a small share.
+ * alpha = 0.5 for the binary tables is the classic Krichevsky-Trofimov
+ * estimator. The 16-symbol range rows use a smaller 0.05, because many
+ * contexts are sparse and a larger alpha would noticeably flatten their
+ * distributions. A context never seen at all ends up uniform.
+ *
+ * Rounding to integers: each frequency is round(p * 4096), at least 1. The
+ * rounded values may not sum to exactly 4096, so the difference is added to
+ * the most probable symbol. That symbol is always large enough to absorb it,
+ * and a small change to a high probability costs the least. */
 template<size_t N>
 std::array<uint16_t, N> normalize(const CountRow<N>& counts, double alpha)
 {
@@ -212,7 +260,14 @@ Tables buildTables(const Counts& c)
     return t;
 }
 
-/* Mean estimated bytes per scan (payload + fixed codec overhead) */
+/* Mean estimated bytes per scan (payload + fixed codec overhead).
+ *
+ * This is the cross-entropy of the data under the quantized tables: each
+ * modelled symbol costs -log2(freq / 4096) bits and each raw bit costs 1. rANS
+ * gets within a fraction of a byte per scan of this, so the estimate predicts
+ * real encodeScan() output closely (it matched to within 1 byte on the test
+ * fixture). That makes --eval a quick way to try model changes without
+ * touching the codec. */
 double estimate(const Tables& t, const std::vector<Scan>& scans)
 {
     // header (6 B) + rANS final state (4 B) + raw-bit stream padding (~0.5 B)

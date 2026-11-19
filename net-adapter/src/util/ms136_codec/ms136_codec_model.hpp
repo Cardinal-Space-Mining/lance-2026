@@ -47,24 +47,52 @@
 #include <multiscan_driver/multiscan_spec.hpp>
 
 
-/* Shared probability-model definition for the MS136 scan codec.
+/* =============================================================================
+ *  MS136 scan codec: the model (what gets coded, and with which probabilities)
+ * =============================================================================
  *
- * Everything here is used identically by the encoder, the decoder, and the
- * offline table trainer (tools/ms136_codec_train.cpp). Any change to the
- * context computation MUST be followed by retraining the tables and bumping
- * TABLE_VERSION, otherwise compression degrades (decoding stays correct as
- * long as encoder and decoder are built from the same sources).
+ * Read ms136_codec.hpp first for the big picture. This file defines
+ * everything that must be identical in the encoder, the decoder and the
+ * offline trainer (tools/ms136_codec_train.cpp). ms136_codec.cpp only turns
+ * the symbols defined here into bytes.
  *
- * Points are coded in dense order (layer-major, by elevation). Each point
- * codes up to three things:
- *   1. valid bit            - binary symbol, NUM_VALID_CTX contexts
- *   2. reflector bit        - binary symbol, NUM_REFL_CTX contexts (valid only)
- *   3. quantized range      - residual vs. a MED (LOCO-I) prediction from the
- *                             left / below / below-left neighbors; the zigzag
- *                             residual's bit-length ("size class") is a symbol
- *                             under NUM_RANGE_CTX contexts and the remaining
- *                             low bits are written raw. If no neighbor is
- *                             available, RAW_RANGE_BITS raw bits are used. */
+ * If you change anything in computeContext() or the residual mapping, you
+ * must retrain the tables and bump TABLE_VERSION / FORMAT_VERSION. Decoding
+ * stays correct as long as both ends are built from the same sources, but
+ * compression silently gets worse when the tables no longer match the model.
+ *
+ *
+ * --- Coding order and causality ----------------------------------------------
+ *
+ * Cells are visited layer by layer, starting from dense layer 0 (lowest
+ * elevation), and within a layer by azimuth index a = 0 .. 359. When cell X is
+ * coded, every cell before it is already known to the decoder:
+ *
+ *                     a-1    a    a+1
+ *       layer l        L     X     .      L  = left neighbour, same layer
+ *       layer l-1      UL    U     UR     the whole previous layer is known
+ *
+ * "U" is not simply the same array index one layer down: each layer starts at
+ * a different azimuth (AZIMUTH_OFFSET_LUT). Layer 7, for example, starts
+ * ~180 deg away from layer 6. PREV_LAYER_OFFSET[l] is the index shift that
+ * lands on the azimuthally closest beam in layer l-1. The shift wraps around
+ * the 360 cells, which is safe because the whole previous layer is known.
+ *
+ * Within a layer, L is not taken across the 359 -> 0 wrap: for a == 0, cell
+ * 359 of the same layer hasn't been decoded yet.
+ *
+ *
+ * --- What is coded per cell --------------------------------------------------
+ *
+ *   1. valid bit              always            binary, 16 contexts
+ *   2. reflector bit          if valid          binary, 9 contexts
+ *   3. range, as a residual   if valid          size class under 450
+ *      against a prediction                     contexts, then raw low bits
+ *
+ * Typical cost on the competition bags: ~146 B/scan for all valid bits,
+ * ~24 B for reflectors, ~3.1 KB for ranges. That is ~6.3 bits per valid
+ * point, nearly all of it in the range residuals, which are dominated by
+ * sensor noise that no model can predict. */
 namespace util::ms136_codec
 {
 
@@ -75,8 +103,17 @@ constexpr size_t NUM_CELLS = ms136::POINTS_PER_LR_SCAN;
 static_assert(NUM_CELLS == NUM_LAYERS * LAYER_WIDTH);
 
 // --- Quantization ------------------------------------------------------------
-/* Range quantization step. Measured sensor noise is ~3.6 mm (1 sigma), so a
- * 2 mm step adds ~0.58 mm RMS error (+1.3% total). */
+/* Range quantization step: q = round(mm / QUANT_MM), with q == 0 reserved for
+ * "no return". With QUANT_MM = 2, valid q is in [1, 16384] and needs 15 bits.
+ *
+ * Why 2 mm: measured sensor noise is ~3.6 mm (1 sigma; 3.2-4.7 mm depending on
+ * range, ~0.5 mm more with the trencher running). Uniform rounding to a step
+ * of Q adds Q / sqrt(12) RMS error, 0.58 mm here, so the combined error grows
+ * from 3.60 to 3.65 mm (+1.3%). Each doubling of the step saves ~1 bit per
+ * point, because the bits removed are noise. 5 mm would still add only ~8%.
+ *
+ * dequantizeRange() clamps to RANGE_MASK: q = 16384 would become 32768 mm,
+ * which would spill into the reflector bit of the DenseBuffer format. */
 constexpr uint16_t QUANT_MM = 2;
 constexpr uint16_t MAX_QRANGE =
     (ms136::redux::RANGE_MASK + QUANT_MM / 2) / QUANT_MM;
@@ -94,18 +131,32 @@ inline constexpr uint16_t dequantizeRange(uint16_t q)
         mm > ms136::redux::RANGE_MASK ? ms136::redux::RANGE_MASK : mm);
 }
 
-// --- Model dimensions ----------------------------------------------------------
+// --- Model dimensions --------------------------------------------------------
+/* Probabilities are integer frequencies out of PROB_SCALE = 4096: P(s) =
+ * freq[s] / 4096, each freq >= 1, and each table row sums to exactly 4096.
+ * Consequences:
+ *  - The cheapest symbol costs -log2(4095/4096) ~ 0.0004 bit and the most
+ *    expensive costs 12 bits, which bounds the damage of a badly mispredicted
+ *    symbol.
+ *  - 12 bits is the usual choice for a 32-bit rANS state with byte-wise
+ *    renormalization (see ms136_codec.cpp): the arithmetic fits in 32 bits
+ *    and each symbol emits at most 2 bytes. */
 constexpr uint32_t PROB_BITS = 12;
 constexpr uint32_t PROB_SCALE = 1U << PROB_BITS;
 
-constexpr size_t NUM_VALID_CTX = 16;
-constexpr size_t NUM_REFL_CTX = 9;
-constexpr size_t NUM_ACT_BUCKETS = 15;
-constexpr size_t NUM_DIST_BUCKETS = 15;
+/* Number of contexts, i.e. separate probability distributions, per symbol
+ * kind. How each index is formed is documented in computeContext(). */
+constexpr size_t NUM_VALID_CTX = 16;     // 4 binary neighbour flags
+constexpr size_t NUM_REFL_CTX = 9;       // 3 states x 3 states
+constexpr size_t NUM_ACT_BUCKETS = 15;   // 0 = unknown, 1..14 = log2 classes
+constexpr size_t NUM_DIST_BUCKETS = 15;  // floor(log2(pred)), capped
 constexpr size_t NUM_RANGE_CTX = NUM_ACT_BUCKETS * NUM_DIST_BUCKETS * 2;
-/* zigzag residual < 2 * MAX_QRANGE  ->  bit length <= RAW_RANGE_BITS */
+/* Range symbols are size classes 0..15: with q and pred both in
+ * [1, MAX_QRANGE], |residual| < MAX_QRANGE, so zigzag(residual) <
+ * 2 * MAX_QRANGE = 2^15 and its bit length is <= RAW_RANGE_BITS (15). */
 constexpr size_t NUM_RANGE_SYM = RAW_RANGE_BITS + 1;
 
+/* One table row = the distribution for one context */
 using BinaryFreqs = std::array<uint16_t, 2>;
 using RangeFreqs = std::array<uint16_t, NUM_RANGE_SYM>;
 
@@ -129,7 +180,11 @@ inline constexpr uint32_t floorLog2(uint32_t v)
 }
 };  // namespace detail
 
-/* Non-negative azimuth index offset into the previous layer */
+/* PREV_LAYER_AZ_SHIFT (multiscan_spec.hpp) can be negative; this is the same
+ * shift as a non-negative offset mod LAYER_WIDTH, so U's index is just
+ * (a + offset), minus LAYER_WIDTH if it went past the end. For example, layer
+ * 1 has shift -11: cell a of layer 1 points the same way as cell a - 11 of
+ * layer 0. */
 constexpr std::array<size_t, NUM_LAYERS> PREV_LAYER_OFFSET =
     detail::computePrevLayerOffsets();
 
@@ -141,10 +196,52 @@ struct PointContext
     uint16_t range_ctx;  // [0, NUM_RANGE_CTX)
 };
 
-/* Compute contexts and prediction for cell (l, a) from causal data only.
- *  q    : quantized ranges (0 = invalid); cells before (l, a) must be final
+/* Compute the prediction and the three context indices for cell (l, a),
+ * using only causal data (see the diagram at the top of this file).
+ *
+ *  q    : quantized ranges (0 = invalid); cells before (l, a) must be final.
+ *         Cells at or after (l, a) are never read.
  *  refl : reflector bits (0/1) for the same cells
- *  last : last valid quantized range before (l, a) in coding order (0 = none) */
+ *  last : last valid quantized range before (l, a) in coding order
+ *         (0 = none yet)
+ *
+ * Valid-bit context (16): four "is it valid?" flags,
+ *     bit 0: L     bit 1: U     bit 2: UR     bit 3: any earlier valid point
+ *   Nulls come in runs (sky, beyond max range, the robot's own body), so
+ *   valid neighbours make "valid" very likely and vice versa. On the bags this
+ *   costs ~0.2 bit per cell on average.
+ *
+ * Reflector context (9): each of L and U is in one of three states, 0 = null,
+ *   1 = valid non-reflector, 2 = valid reflector; ctx = state(L) * 3 +
+ *   state(U). Reflective targets cover several adjacent beams, so a
+ *   reflective neighbour makes this cell much more likely to be reflective.
+ *
+ * Range prediction: MED, the "median edge detector" from LOCO-I / JPEG-LS.
+ *   With all of L, U and UL valid:
+ *     UL >= max(L, U)  -> min(L, U)    edge: X is on the low side with
+ *                                       whichever of L/U is smaller
+ *     UL <= min(L, U)  -> max(L, U)    edge, X on the high side
+ *     otherwise        -> L + U - UL   smooth: the value that makes the 2x2
+ *                                       patch {UL, U, L, X} a plane
+ *   (This equals the median of {L, U, L + U - UL}, hence the name.) It is
+ *   cheap and handles both smooth ground and depth discontinuities. Without
+ *   the full neighbourhood it falls back to L, then U, then `last`. Only the
+ *   first valid point of a scan has no prediction at all; it is sent as
+ *   RAW_RANGE_BITS raw bits.
+ *
+ * Range context (450) = (activity bucket, distance bucket, full flag):
+ *   activity = how much the neighbours disagree, a local gradient magnitude:
+ *     |L - UL| + |U - UL| with a full neighbourhood, |L - U| with only L and
+ *     U, unknown otherwise. Flat patches give small residuals and edges give
+ *     big ones. Bucketed as 1 + floor(log2(act + 1)), capped at 14, because
+ *     the residual scale grows roughly in proportion to the activity.
+ *     Bucket 0 = unknown.
+ *   distance = floor(log2(pred)), capped at 14. Farther points are noisier,
+ *     and the 1 deg beam spacing covers more ground (~17 cm at 10 m), so
+ *     residuals grow with range.
+ *   full = 1 if MED was used, 0 for a fallback. Fallback predictions are less
+ *     reliable, so their residual distribution is different.
+ *   Index = (activity * NUM_DIST_BUCKETS + distance) * 2 + full. */
 inline PointContext computeContext(
     const uint16_t* q,
     const uint8_t* refl,
@@ -226,7 +323,34 @@ inline PointContext computeContext(
     return c;
 }
 
-// --- Residual mapping ----------------------------------------------------------
+// --- Residual mapping --------------------------------------------------------
+/* A residual e = q - pred is coded in two parts:
+ *
+ * 1. zigzag maps signed to unsigned so small magnitudes get small values:
+ *        e :  0  -1  +1  -2  +2  -3  +3 ...
+ *        u :  0   1   2   3   4   5   6 ...
+ *
+ * 2. u is split into a size class k (its bit length), which is entropy coded
+ *    under the range context, and the k - 1 bits below its leading 1, which
+ *    are written raw. The leading 1 itself is implied by k:
+ *
+ *        u          k    raw bits                      e
+ *        0          0    none                          0
+ *        1          1    none                          -1
+ *        2..3       2    1    (u - 2)                  +1, -2
+ *        4..7       3    2    (u - 4)                  +2 .. -4
+ *        8..15      4    3    (u - 8)                  +4 .. -8
+ *        ...
+ *        16384..    15   14
+ *
+ *    Example: e = +5 -> u = 10 = 0b1010 -> k = 4, raw = 0b010 (3 bits).
+ *
+ * Why split: the size class carries nearly all the predictable structure (how
+ * big is the error likely to be here?), while the bits below the leading 1 are
+ * close to uniformly random, i.e. sensor noise. Modelling them would grow the
+ * tables a lot and save almost nothing. The same idea appears as Elias-gamma
+ * codes and as JPEG's "category + extra bits". It keeps the range alphabet to
+ * 16 symbols. */
 inline constexpr uint32_t zigzag(int32_t e)
 {
     return e >= 0 ? (static_cast<uint32_t>(e) << 1)
