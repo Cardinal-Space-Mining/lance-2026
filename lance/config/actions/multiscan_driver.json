@@ -25,7 +25,7 @@
             "sopas_read_timeout": 3.0,
             "error_restart_timeout": 3.0,
             "max_segment_buffers": 3,
-            "echo_selection": 3
+            "echo_selection": 1
         },
         "net2":
         {

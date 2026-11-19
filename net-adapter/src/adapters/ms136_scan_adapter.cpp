@@ -189,13 +189,15 @@ bool MS136ScanAdapter::serializeMsg(
         const size_t layer_i = static_cast<size_t>(
             *reinterpret_cast<const uint32_t*>(pt_base + layer_off));
 
-        if (ms136::isHdLayer(layer_i))
+        const size_t index_i = static_cast<size_t>(
+            *reinterpret_cast<const uint32_t*>(pt_base + index_off));
+        // indices come straight from the cloud: out-of-range ones would write
+        // outside dense_buff
+        if (layer_i >= ms136::NUM_LAYERS || ms136::isHdLayer(layer_i) ||
+            index_i >= ms136::POINTS_PER_LR_LAYER)
         {
             continue;
         }
-
-        const size_t index_i = static_cast<size_t>(
-            *reinterpret_cast<const uint32_t*>(pt_base + index_off));
         const float range =
             *reinterpret_cast<const float*>(pt_base + range_off);
         const uint8_t reflector = static_cast<uint8_t>(

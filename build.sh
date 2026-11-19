@@ -28,9 +28,11 @@ while [[ $# -gt 0 ]]; do
         --l1) ROBOT_TARGET="-DROBOT_TARGET=LANCE1" ;;
         --l2) ROBOT_TARGET="-DROBOT_TARGET=LANCE2" ;;
         --no-sim) SIM_IGNORE="csm_sim" ;;
+        # offline dev tools (e.g. ms136_codec_train); sticky in the CMake cache
+        --tools) BUILD_TOOLS="-DNET_ADAPTER_BUILD_TOOLS=ON" ;;
+        --no-tools) BUILD_TOOLS="-DNET_ADAPTER_BUILD_TOOLS=OFF" ;;
         --clean) CLEAN="true"; break ;;
-        --native-arch) NATIVE_ARCH= \
-            "-DCMAKE_CXX_FLAGS=\"-march=native\" -DCMAKE_C_FLAGS=\"-march=native\"" ;;
+        --native-arch) NATIVE_ARCH=("-DCMAKE_CXX_FLAGS=-march=native" "-DCMAKE_C_FLAGS=-march=native") ;;
     esac
     shift
 done
@@ -48,17 +50,18 @@ colcon build \
     --event-handlers console_direct+ \
     --packages-ignore lance ${SIM_IGNORE} \
     --cmake-args \
-        ${NATIVE_ARCH} \
+        "${NATIVE_ARCH[@]}" \
         -Wno-dev \
         -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
-        ${ROBOT_TARGET}
+        ${ROBOT_TARGET} \
+        ${BUILD_TOOLS}
 
 colcon build \
     --symlink-install \
     --event-handlers console_direct+ \
     --packages-select lance \
     --cmake-args \
-        ${NATIVE_ARCH} \
+        "${NATIVE_ARCH[@]}" \
         -Wno-dev \
         -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
         ${ROBOT_TARGET}

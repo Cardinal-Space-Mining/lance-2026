@@ -66,8 +66,12 @@
  * sixth come within ~1.5% of tables trained on that bag itself. To check this
  * after retraining, run with one bag held out and pass it to --eval.
  *
- * Typical retraining run (ROS sourced, built with
- * -DNET_ADAPTER_BUILD_TOOLS=ON):
+ * Typical retraining run (ROS sourced, built with ./src/build.sh --tools,
+ * i.e. -DNET_ADAPTER_BUILD_TOOLS=ON):
+ *
+ * Easiest: run tools/ms136_extract_scans.py with no arguments. Its GUI picks
+ * bags, extracts (cached), trains, writes the header and optionally rebuilds
+ * and runs the test. By hand:
  *
  *   1. For each bag directory BAG:
  *        tools/ms136_extract_scans.py BAG scans/BAG_NAME.bin --stride 5
