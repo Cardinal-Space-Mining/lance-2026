@@ -107,10 +107,22 @@ static_assert(NUM_CELLS == NUM_LAYERS * LAYER_WIDTH);
  * "no return". With QUANT_MM = 2, valid q is in [1, 16384] and needs 15 bits.
  *
  * Why 2 mm: measured sensor noise is ~3.6 mm (1 sigma; 3.2-4.7 mm depending on
- * range, ~0.5 mm more with the trencher running). Uniform rounding to a step
- * of Q adds Q / sqrt(12) RMS error, 0.58 mm here, so the combined error grows
- * from 3.60 to 3.65 mm (+1.3%). Each doubling of the step saves ~1 bit per
- * point, because the bits removed are noise. 5 mm would still add only ~8%.
+ * range, ~0.5 mm more with the trencher running). Each doubling of the step
+ * saves ~1 bit per point, because the bits removed are noise.
+ *
+ * Error budget. The input has already been rounded to whole mm by
+ * reducePoint(), so this is a second rounding, and an odd mm value sits
+ * exactly halfway between two steps. Those ties are rounded to even q (half
+ * go down, half go up). Always rounding them up would bias every range by
+ * +0.5 mm on average, which the link test (tools/ms136_link_report.py)
+ * caught. Relative to the true float range the total error is then:
+ *
+ *   whole-mm rounding alone (old format)    0.29 mm RMS, max 0.5 mm
+ *   whole mm, then 2 mm with ties-to-even   0.76 mm RMS, max 1.5 mm, no bias
+ *
+ * Combined with 3.6 mm of sensor noise that is 3.61 -> 3.68 mm (+1.9%).
+ * (Rounding the float range straight to 2 mm would give 0.58 mm RMS, but the
+ * codec only ever sees the whole-mm DenseBuffer.)
  *
  * dequantizeRange() clamps to RANGE_MASK: q = 16384 would become 32768 mm,
  * which would spill into the reflector bit of the DenseBuffer format. */
@@ -120,9 +132,21 @@ constexpr uint16_t MAX_QRANGE =
 constexpr uint32_t RAW_RANGE_BITS = std::bit_width(MAX_QRANGE);
 static_assert(RAW_RANGE_BITS <= 16);
 
+/* Encoder side only: the decoder just multiplies (dequantizeRange), so the
+ * tie-breaking rule can change without affecting the wire format. */
 inline constexpr uint16_t quantizeRange(uint16_t mm)
 {
-    return mm ? static_cast<uint16_t>((mm + QUANT_MM / 2) / QUANT_MM) : 0;
+    if (!mm)
+    {
+        return 0;
+    }
+    uint16_t q = static_cast<uint16_t>((mm + QUANT_MM / 2) / QUANT_MM);
+    const bool tie = (2 * (mm % QUANT_MM) == QUANT_MM);
+    if (tie && (q & 1) && q > 1)  // round half to even; q >= 1 stays valid
+    {
+        q--;
+    }
+    return q;
 }
 inline constexpr uint16_t dequantizeRange(uint16_t q)
 {

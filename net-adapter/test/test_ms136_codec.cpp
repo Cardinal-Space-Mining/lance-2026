@@ -131,6 +131,24 @@ TEST(MS136Codec, ModelConstants)
     EXPECT_EQ(codec::dequantizeRange(codec::quantizeRange(0x7FFF)), 0x7FFF);
 }
 
+TEST(MS136Codec, QuantizationUnbiased)
+{
+    // The input is already whole mm, so odd values are exact ties between two
+    // 2 mm steps; always rounding them up biased every range by +0.5 mm.
+    int64_t sum = 0;
+    for (uint32_t mm = 1; mm <= ms136::redux::RANGE_MASK; mm++)
+    {
+        const uint16_t q = codec::quantizeRange(static_cast<uint16_t>(mm));
+        ASSERT_GE(q, 1U) << "mm " << mm;  // valid ranges must stay valid
+        ASSERT_LE(q, codec::MAX_QRANGE) << "mm " << mm;
+        const int err = int(codec::dequantizeRange(q)) - int(mm);
+        ASSERT_LE(std::abs(err), codec::QUANT_MM / 2) << "mm " << mm;
+        sum += err;
+    }
+    const double mean = double(sum) / ms136::redux::RANGE_MASK;
+    EXPECT_LT(std::abs(mean), 0.01) << "mean quantization error " << mean;
+}
+
 TEST(MS136Codec, RoundTripRecordedScans)
 {
     const auto scans = loadFixture();

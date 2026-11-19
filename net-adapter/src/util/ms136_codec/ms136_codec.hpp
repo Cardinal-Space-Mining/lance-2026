@@ -61,7 +61,8 @@
  *   old format (gap-skip packing + zstd -15)   ~6,600 B/scan
  *   this codec                                 ~3,300-3,500 B/scan
  *   encode / decode time                       ~0.2 ms each, per scan
- *   range error                                <= 1 mm (QUANT_MM / 2)
+ *   range error vs. input DenseBuffer          <= 1 mm (QUANT_MM / 2)
+ *   range error vs. true range                 0.76 mm RMS, <= 1.5 mm, unbiased
  *   valid / null pattern, reflector bits       exact
  *
  *
@@ -77,7 +78,8 @@
  *  1. Quantize. Ranges are rounded to QUANT_MM (2 mm) steps. The sensor's own
  *     noise is ~3.6 mm (1 sigma, measured from stationary periods in the
  *     bags), so the dropped bit was mostly noise anyway: this saves ~1 bit
- *     per point for +0.58 mm RMS error (+1.3% total error).
+ *     per point and raises total error from 3.61 to 3.68 mm (+1.9%; see
+ *     the error budget in ms136_codec_model.hpp).
  *
  *  2. Predict. Neighbouring beams usually hit nearby surfaces, so each range
  *     is predicted from already-coded neighbours and only the residual
