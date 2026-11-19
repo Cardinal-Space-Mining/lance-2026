@@ -42,6 +42,7 @@
 #include <csm_utils/ros_utils.hpp>
 #include "util/zenoh_utils.hpp"
 #include "core/delay_queue.hpp"
+#include "core/bandwidth_monitor.hpp"
 
 
 enum EndPoint
@@ -86,7 +87,8 @@ struct AdapterTraits : public ChannelTraits<D, E>
             zenoh::Session&,
             const std::string&,
             const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
+            DelayQueue* = nullptr,
+            BandwidthMonitor* = nullptr);
     };
     class IPublisher : public RawPublisherT
     {
@@ -98,7 +100,8 @@ struct AdapterTraits : public ChannelTraits<D, E>
             zenoh::Session&,
             const std::string&,
             const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-            DelayQueue* = nullptr);
+            DelayQueue* = nullptr,
+            BandwidthMonitor* = nullptr);
     };
 
     using ChannelTraits<D, E>::Is_Subscriber;
@@ -114,8 +117,9 @@ AdapterTraits<A, D, E>::ISubscriber::ISubscriber(
     zenoh::Session& zsh,
     const std::string& topic,
     const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawSubscriberT{node, zsh, topic, qos, dq}
+    DelayQueue* dq,
+    BandwidthMonitor* bw) :
+    RawSubscriberT{node, zsh, topic, qos, dq, bw}
 {
 }
 
@@ -125,8 +129,9 @@ AdapterTraits<A, D, E>::IPublisher::IPublisher(
     zenoh::Session& zsh,
     const std::string& topic,
     const rclcpp::QoS& qos,
-    DelayQueue* dq) :
-    RawPublisherT{node, zsh, topic, qos}
+    DelayQueue* dq,
+    BandwidthMonitor* bw) :
+    RawPublisherT{node, zsh, topic, qos, bw}
 {
     (void)dq;
 }

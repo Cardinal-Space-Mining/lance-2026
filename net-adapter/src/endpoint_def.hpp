@@ -53,11 +53,13 @@
 #include <rosgraph_msgs/msg/clock.hpp>
 
 #include <net_adapter/msg/bytes.hpp>
+#include <net_adapter/msg/net_bandwidth.hpp>
 
 #include <csm_utils/ros_utils.hpp>
 
 #include "util/zenoh_utils.hpp"
 #include "core/delay_queue.hpp"
+#include "core/bandwidth_monitor.hpp"
 #include "core/latency_ping.hpp"
 
 #include "adapters/joy_adapter.hpp"
@@ -107,6 +109,8 @@ private:
         (Is_Robot ? "client_hostname" : "robot_hostname");
     constexpr static char const* DEFAULT_CONNECTION_HOSTNAME =
         (Is_Robot ? DEFAULT_CLIENT_HOSTNAME : DEFAULT_ROBOT_HOSTNAME);
+    constexpr static char const* BANDWIDTH_TOPIC =
+        (Is_Robot ? "lance/net_bandwidth/robot" : "lance/net_bandwidth/client");
 
 private:
     class LatencyPublisher
@@ -143,7 +147,8 @@ private:
             const std::string&,
             const rclcpp::QoS&,
             bool is_sim,
-            DelayQueue* = nullptr);
+            DelayQueue* = nullptr,
+            BandwidthMonitor* = nullptr);
 
     private:
         std::shared_ptr<void> data;
@@ -159,7 +164,8 @@ private:
             const std::string&,
             const rclcpp::QoS&,
             bool is_sim,
-            DelayQueue* = nullptr);
+            DelayQueue* = nullptr,
+            BandwidthMonitor* = nullptr);
 
     private:
         std::shared_ptr<void> data{nullptr};
@@ -178,7 +184,8 @@ private:
             zenoh::Session& zsh,
             const std::vector<std::string>& topics,
             const rclcpp::QoS& qos,
-            DelayQueue* dq);
+            DelayQueue* dq,
+            BandwidthMonitor* bw);
 
     private:
         std::vector<InfoChannelT> info_channels;
@@ -202,6 +209,8 @@ private:
 
 private:
     zenoh::Session zsh;
+    // Before delay_queue: must outlive queued sends that count into it
+    BandwidthMonitor bandwidth;
     DelayQueue delay_queue;
 
     LatencyPing latency_ping;
@@ -223,18 +232,25 @@ private:
     Channel<StdInt8Adapter, ROBOT_TO_CLIENT> relay_status;
 
     SimClockChannel<ROBOT_TO_CLIENT> sim_clock;
+
+    // Declared last: every channel has registered with `bandwidth` by now
+    rclcpp::Publisher<net_adapter::msg::NetBandwidth>::SharedPtr bandwidth_pub;
+    rclcpp::TimerBase::SharedPtr bandwidth_timer;
 };
 
 
 
 // ---
 
-#define PARAMS_FROM_TOPIC(topic)                                 \
-    *this, zsh, topic, rclcpp::SensorDataQoS{}, this->getQueue()
-#define PARAMS_FROM_TOPIC_SIM(topic)                                           \
-    *this, zsh, topic, rclcpp::SensorDataQoS{}, this->is_sim, this->getQueue()
-#define PARAMS_FROM_TOPICS(...)                                        \
-    *this, zsh, __VA_ARGS__, rclcpp::SensorDataQoS{}, this->getQueue()
+#define PARAMS_FROM_TOPIC(topic)                                        \
+    *this, zsh, topic, rclcpp::SensorDataQoS{}, this->getQueue(),       \
+        &this->bandwidth
+#define PARAMS_FROM_TOPIC_SIM(topic)                                    \
+    *this, zsh, topic, rclcpp::SensorDataQoS{}, this->is_sim,           \
+        this->getQueue(), &this->bandwidth
+#define PARAMS_FROM_TOPICS(...)                                         \
+    *this, zsh, __VA_ARGS__, rclcpp::SensorDataQoS{}, this->getQueue(), \
+        &this->bandwidth
 
 template<EndPoint E>
 EndPointNode<E>::EndPointNode() :
@@ -272,7 +288,23 @@ EndPointNode<E>::EndPointNode() :
     hopper_fullness{PARAMS_FROM_TOPIC("lance/hopper_fullness")},
     relay_status{PARAMS_FROM_TOPIC("lance/relay_status")},
 
-    sim_clock{PARAMS_FROM_TOPIC_SIM("/clock")}
+    sim_clock{PARAMS_FROM_TOPIC_SIM("/clock")},
+
+    bandwidth_pub{this->create_publisher<net_adapter::msg::NetBandwidth>(
+        BANDWIDTH_TOPIC,
+        rclcpp::SensorDataQoS{})},
+    bandwidth_timer{this->create_wall_timer(
+        std::chrono::duration<double>{util::declare_and_get_param(
+            *this,
+            "bandwidth_pub_period_s",
+            1.0)},
+        [this]()
+        {
+            net_adapter::msg::NetBandwidth msg;
+            this->bandwidth.sample(msg);
+            msg.stamp = this->now();
+            this->bandwidth_pub->publish(msg);
+        })}
 {
 #if ENABLE_NET_DELAY
     this->delay_queue.startThread();
@@ -320,18 +352,21 @@ EndPointNode<E>::MS136ScanChannel<D>::MS136ScanChannel(
     const std::string& topic,
     const rclcpp::QoS& qos,
     bool is_sim,
-    DelayQueue* dq)
+    DelayQueue* dq,
+    BandwidthMonitor* bw)
 {
     using SimChannelT = Channel<MS136SimScanAdapter, D>;
     using LiveChannelT = Channel<MS136ScanAdapter, D>;
 
     if (is_sim)
     {
-        this->data = std::make_shared<SimChannelT>(node, zsh, topic, qos, dq);
+        this->data =
+            std::make_shared<SimChannelT>(node, zsh, topic, qos, dq, bw);
     }
     else
     {
-        this->data = std::make_shared<LiveChannelT>(node, zsh, topic, qos, dq);
+        this->data =
+            std::make_shared<LiveChannelT>(node, zsh, topic, qos, dq, bw);
     }
 }
 
@@ -343,13 +378,14 @@ EndPointNode<E>::SimClockChannel<D>::SimClockChannel(
     const std::string& topic,
     const rclcpp::QoS& qos,
     bool is_sim,
-    DelayQueue* dq)
+    DelayQueue* dq,
+    BandwidthMonitor* bw)
 {
     using ChannelT = Channel<ClockAdapter, D>;
 
     if (is_sim)
     {
-        this->data = std::make_shared<ChannelT>(node, zsh, topic, qos, dq);
+        this->data = std::make_shared<ChannelT>(node, zsh, topic, qos, dq, bw);
     }
 }
 
@@ -360,7 +396,8 @@ EndPointNode<E>::TalonDataChannelsGroup<D>::TalonDataChannelsGroup(
     zenoh::Session& zsh,
     const std::vector<std::string>& topics,
     const rclcpp::QoS& qos,
-    DelayQueue* dq)
+    DelayQueue* dq,
+    BandwidthMonitor* bw)
 {
     this->info_channels.reserve(topics.size());
     this->ctrl_channels.reserve(topics.size());
@@ -368,10 +405,10 @@ EndPointNode<E>::TalonDataChannelsGroup<D>::TalonDataChannelsGroup(
     for (const std::string& base_topic : topics)
     {
         this->info_channels
-            .emplace_back(node, zsh, (base_topic + "/info"), qos, dq);
+            .emplace_back(node, zsh, (base_topic + "/info"), qos, dq, bw);
         this->ctrl_channels
-            .emplace_back(node, zsh, (base_topic + "/ctrl"), qos, dq);
+            .emplace_back(node, zsh, (base_topic + "/ctrl"), qos, dq, bw);
         this->faults_channels
-            .emplace_back(node, zsh, (base_topic + "/faults"), qos, dq);
+            .emplace_back(node, zsh, (base_topic + "/faults"), qos, dq, bw);
     }
 }

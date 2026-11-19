@@ -3,6 +3,7 @@ project(net_adapter)
 
 # --- Dependencies -------------------------------------------------------------
 find_package(rosidl_default_generators REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(csm_utils REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -29,7 +30,10 @@ standard_compile_options()
 
 # --- Messages -----------------------------------------------------------------
 rosidl_generate_interfaces(${PROJECT_NAME}
-    "msg/Bytes.msg")
+    "msg/Bytes.msg"
+    "msg/NetBandwidth.msg"
+    "msg/NetChannelBandwidth.msg"
+    DEPENDENCIES builtin_interfaces)
 
 rosidl_get_typesupport_target(${PROJECT_NAME}_custom_types
     ${PROJECT_NAME} rosidl_typesupport_cpp)
@@ -56,6 +60,7 @@ endif()
 # --- Common -------------------------------------------------------------------
 add_library(adapters_core STATIC
     "src/core/zstd_ctx.cpp"
+    "src/core/bandwidth_monitor.cpp"
     "src/core/delay_queue.cpp"
     "src/core/latency_ping.cpp"
     "src/adapters/joy_adapter.cpp"
