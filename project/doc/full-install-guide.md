@@ -253,14 +253,14 @@ Foxglove is the dashboard used to view sensor data and control the robot, both t
 
 ## 5. Install ROS 2 Lyrical
 
-**ROS 2** (Robot Operating System) is the framework all of the LANCE code is built on. **Lyrical** is the version made for Ubuntu 26.04. These steps follow the [official ROS 2 Lyrical install guide](https://docs.ros.org/en/lyrical/Installation/Ubuntu-Install-Debs.html).
+**ROS 2** (Robot Operating System) is the framework all of the LANCE code is built on. **Lyrical** is the version made for Ubuntu 26.04. These steps follow the [official ROS 2 Lyrical install guide](https://docs.ros.org/en/lyrical/Get-Started/Installation/Ubuntu-Install-Debs.html).
 
 ### 5a. Check your locale
 ROS needs a UTF-8 "locale" (language setting). A normal Ubuntu desktop install already has one. Check with:
 ```bash
 locale | grep LANG=
 ```
-If the result ends in `UTF-8` (for example `LANG=en_US.UTF-8`), you're good. If not, see the [official guide's locale step](https://docs.ros.org/en/lyrical/Installation/Ubuntu-Install-Debs.html).
+If the result ends in `UTF-8` (for example `LANG=en_US.UTF-8`), you're good. If not, see the [official guide's locale step](https://docs.ros.org/en/lyrical/Get-Started/Installation/Ubuntu-Install-Debs.html).
 
 ### 5b. Enable the "universe" software source
 ```bash
@@ -326,7 +326,7 @@ This should print a long list of package names. If it does, ROS is installed. ðŸ
 
 ## 7. Download the LANCE Code
 
-From here on, the steps follow the project's [`README.md`](../README.md), with extra explanation added.
+From here on, the steps follow the project's [`README.md`](../../README.md), with extra explanation added.
 
 ### 7a. Install Git LFS
 The simulation repo stores large 3D models using **Git LFS** ("Large File Storage"). Install it **before** cloning, so the large files download automatically:
@@ -488,7 +488,7 @@ Other simulation options follow the pattern `<mode>:=<robot>_<arena>`:
 | `lance1_ksc`, `lance1_ucf_left`, `lance1_ucf_right` |
 | `lance2_ksc`, `lance2_ucf_left`, `lance2_ucf_right` |
 
-For example: `./src/run.sh gz_full:=lance1_ucf_left gz_gui:=enabled`. All presets are defined in [`lance/config/presets/`](../lance/config/presets/). See the [README](../README.md#running) for robot/client (non-simulation) examples and the `--local` / `--canbus` flags.
+For example: `./src/run.sh gz_full:=lance1_ucf_left gz_gui:=enabled`. All presets are defined in [`lance/config/presets/`](../../lance/config/presets/). See the [README](../../README.md#running) for robot/client (non-simulation) examples and the `--local` / `--canbus` flags.
 
 **To stop the simulation**, click into the terminal and press `Ctrl` + `C`.
 
@@ -497,7 +497,7 @@ For example: `./src/run.sh gz_full:=lance1_ucf_left gz_gui:=enabled`. All preset
 2. Click **Open connection**, keep the **Foxglove WebSocket** option, use the URL `ws://localhost:8765`, and click **Open**.
 3. Load the project's dashboard layout: click the **Layout** dropdown (top-right), choose **Import from file...**, and select:
    ```
-   ~/code/lance-ws/src/foxglove_layout.json
+   ~/code/lance-ws/src/project/foxglove_layout.json
    ```
    (In the file picker, press `Ctrl` + `H` to show hidden folders if needed, or type the path directly.)
 
@@ -529,7 +529,7 @@ cd src && git pull && git submodule update --init --recursive && cd ..
 ./src/run.sh gz_full:=lance2_ksc gz_gui:=enabled
 ```
 
-- **Edit code** in VS Code: open the `~/code/lance-ws` folder (`code ~/code/lance-ws`). See the [VSCode section of the README](../README.md#vscode) for IntelliSense and formatting settings.
+- **Edit code** in VS Code: open the `~/code/lance-ws` folder (`code ~/code/lance-ws`). See the [VSCode section of the README](../../README.md#vscode) for IntelliSense and formatting settings.
 - **View data** in Foxglove.
 
 ---

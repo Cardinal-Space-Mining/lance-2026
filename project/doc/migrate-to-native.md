@@ -39,14 +39,14 @@ When you're done, you will build and run everything from a **normal terminal**, 
 
 ## 1. Install ROS 2 Lyrical
 
-These steps are the same ones you ran inside the container, now run on your computer. They follow the [official ROS 2 Lyrical install guide](https://docs.ros.org/en/lyrical/Installation/Ubuntu-Install-Debs.html).
+These steps are the same ones you ran inside the container, now run on your computer. They follow the [official ROS 2 Lyrical install guide](https://docs.ros.org/en/lyrical/Get-Started/Installation/Ubuntu-Install-Debs.html).
 
 ### 1a. Check your locale
 ROS needs a UTF-8 "locale" (language setting). A normal Ubuntu desktop install already has one. Check with:
 ```bash
 locale | grep LANG=
 ```
-If the result ends in `UTF-8` (for example `LANG=en_US.UTF-8`), you're good. If not, see the [official guide's locale step](https://docs.ros.org/en/lyrical/Installation/Ubuntu-Install-Debs.html).
+If the result ends in `UTF-8` (for example `LANG=en_US.UTF-8`), you're good. If not, see the [official guide's locale step](https://docs.ros.org/en/lyrical/Get-Started/Installation/Ubuntu-Install-Debs.html).
 
 ### 1b. Enable the "universe" software source
 ```bash
@@ -204,7 +204,7 @@ In a normal terminal, from `~/code/lance-ws`:
 ```
 The Gazebo window should open, now running directly on your computer. Everything else works the same as in the container:
 - Leave off `gz_gui:=enabled` to run the simulator headless.
-- Other options (`gz_robot`, `gz_client`, other robots and arenas) are listed in [step 10 of the main install guide](full-install-guide.md#10-run-the-simulation) and in the [README](../README.md#running).
+- Other options (`gz_robot`, `gz_client`, other robots and arenas) are listed in [step 10 of the main install guide](full-install-guide.md#10-run-the-simulation) and in the [README](../../README.md#running).
 - Connect Foxglove to `ws://localhost:8765` exactly as before.
 - Press `Ctrl` + `C` in the terminal to stop.
 

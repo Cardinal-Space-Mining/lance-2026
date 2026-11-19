@@ -1,0 +1,28 @@
+{
+    "hopper_sensor_sim":
+    {
+        "pragma:default": null,
+
+        "sim":
+        {
+            "source": "sim",
+            "use_sim_time": true,
+            "capacity_l": 50.0,
+            "fill_l_per_trencher_rev": 0.005,
+            "drain_l_per_belt_rev": 0.03,
+            "dig_below_pos": 0.35,
+            "dump_above_pos": 0.8,
+            "noise_stddev": 0.01
+        },
+        "sim_fast_fill":
+        {
+            "pragma:derived": "sim",
+            "fill_l_per_trencher_rev": 0.02
+        },
+        "sim_no_noise":
+        {
+            "pragma:derived": "sim",
+            "noise_stddev": 0.0
+        }
+    }
+}

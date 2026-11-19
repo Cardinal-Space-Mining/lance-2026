@@ -1,0 +1,49 @@
+# MADE-UP sample data for training lesson 4 -- not a real sensor recording
+Calibrating...
+Calibration done
+Fs: 0.02
+Fs: 0.03
+Fs: 0.04
+Fs: 0.07
+Fs: 0.09
+Fs: 0.11
+Fs: 0.13
+Fs: 0.15
+Fs: 
+Fs: 0.18
+Fs: 0.18
+Fs: 0.20
+Fs: 0.23
+Fs: 0.26
+Fs: 0.29
+Fs: 0.30
+Fs: 0.32
+Fs: 0.#7
+Fs: 0.35
+Fs: 0.36
+Fs: 0.38
+Fs: 0.41
+Fs: 0.43
+Fs: 0.45
+
+Fs: 0.46
+Fs: 0.48
+Fs: 0.49
+Fs: 0.51
+Fs: 0.52
+Fs: 0.56
+Fs: 0.47
+Fs: 0.40
+Fs: 0.32
+Fs: nan
+Fs: 0.24
+Fs: ovf
+Fs: 0.15
+Fs: 0.08
+Fs: 0.41.2
+Fs: 0.08
+Fs: 0.07
+Fs: 0.08
+Fs: 0.08
+Fs: 0.08
+Fs: 0.08

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mining_stats_interfaces</name>
+  <version>0.1.0</version>
+  <description>Training lesson 6: message and service definitions for mining_stats.</description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- TODO (Part 1): an interface package needs four more things here:
+         - a buildtool_depend on the code generators
+         - a depend on any package whose messages you use inside yours
+         - an exec_depend on the generators' runtime
+         - membership in the rosidl_interface_packages group
+       See the lesson README. -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

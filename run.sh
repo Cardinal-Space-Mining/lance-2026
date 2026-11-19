@@ -35,7 +35,7 @@ done
 if [[ "$LOCAL_ONLY_ROS" == true ]]; then
     # Set env vars to change dds and disable net discovery
     export RMW_IMPLEMENTATION="rmw_cyclonedds_cpp"
-    export CYCLONEDDS_URI="file://$SCRIPTPATH/cyclonedds.xml"
+    export CYCLONEDDS_URI="file://$SCRIPTPATH/project/cyclonedds.xml"
 fi
 
 # Run the can bus bringup script if enabled
