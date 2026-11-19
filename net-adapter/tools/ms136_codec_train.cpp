@@ -61,7 +61,7 @@
 #include <iostream>
 #include <algorithm>
 
-#include "../src/core/ms136_codec_model.hpp"
+#include "../src/util/ms136_codec/ms136_codec_model.hpp"
 
 using namespace util::ms136_codec;
 

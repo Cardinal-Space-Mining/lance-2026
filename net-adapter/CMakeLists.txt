@@ -37,7 +37,7 @@ rosidl_get_typesupport_target(${PROJECT_NAME}_custom_types
 # --- MS136 scan codec ---------------------------------------------------------
 # Kept free of ROS/zenoh deps so the trainer tool and unit tests stay light.
 add_library(ms136_codec STATIC
-    "src/core/ms136_codec.cpp")
+    "src/util/ms136_codec/ms136_codec.cpp")
 target_link_libraries(ms136_codec
     Eigen3::Eigen)
 auto_target_dependencies(ms136_codec

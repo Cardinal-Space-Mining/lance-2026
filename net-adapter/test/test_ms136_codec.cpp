@@ -46,8 +46,8 @@
 
 #include <gtest/gtest.h>
 
-#include "../src/core/ms136_codec.hpp"
-#include "../src/core/ms136_codec_model.hpp"
+#include "../src/util/ms136_codec/ms136_codec.hpp"
+#include "../src/util/ms136_codec/ms136_codec_model.hpp"
 
 using ms136::redux::DenseBuffer;
 using ms136::redux::REFLECTOR_MASK;

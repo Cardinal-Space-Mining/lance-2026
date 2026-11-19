@@ -51,6 +51,7 @@ constexpr std::array<BinaryFreqs, NUM_REFL_CTX> REFL_FREQS{{
     {189, 3907},
 }};
 
+// clang-format on
 constexpr std::array<RangeFreqs, NUM_RANGE_CTX> RANGE_FREQS{{
     {256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256},
     {256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256},
@@ -503,5 +504,6 @@ constexpr std::array<RangeFreqs, NUM_RANGE_CTX> RANGE_FREQS{{
     {256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256},
     {256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256},
 }};
+// clang-format off
 
 };  // namespace util::ms136_codec

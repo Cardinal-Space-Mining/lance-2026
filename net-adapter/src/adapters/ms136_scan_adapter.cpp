@@ -52,7 +52,7 @@
 #include <csm_utils/ros_utils.hpp>
 #include <csm_utils/mem_helpers.hpp>
 
-#include "../core/ms136_codec.hpp"
+#include "../util/ms136_codec/ms136_codec.hpp"
 
 
 using namespace util;

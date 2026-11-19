@@ -97,9 +97,15 @@ constexpr bool tablesValid(const std::array<std::array<uint16_t, N>, R>& freqs)
     return true;
 }
 
-static_assert(tablesValid(VALID_FREQS), "VALID_FREQS rows must be > 0 and sum to PROB_SCALE");
-static_assert(tablesValid(REFL_FREQS), "REFL_FREQS rows must be > 0 and sum to PROB_SCALE");
-static_assert(tablesValid(RANGE_FREQS), "RANGE_FREQS rows must be > 0 and sum to PROB_SCALE");
+static_assert(
+    tablesValid(VALID_FREQS),
+    "VALID_FREQS rows must be > 0 and sum to PROB_SCALE");
+static_assert(
+    tablesValid(REFL_FREQS),
+    "REFL_FREQS rows must be > 0 and sum to PROB_SCALE");
+static_assert(
+    tablesValid(RANGE_FREQS),
+    "RANGE_FREQS rows must be > 0 and sum to PROB_SCALE");
 
 constexpr auto VALID_CUM = makeCum(VALID_FREQS);
 constexpr auto REFL_CUM = makeCum(REFL_FREQS);
@@ -258,7 +264,9 @@ private:
 class BitReader
 {
 public:
-    BitReader(const uint8_t* begin, const uint8_t* end) : ptr{begin}, end{end} {}
+    BitReader(const uint8_t* begin, const uint8_t* end) : ptr{begin}, end{end}
+    {
+    }
 
     inline bool get(uint32_t bits, uint32_t& v)
     {
@@ -301,7 +309,9 @@ inline uint16_t readU16(const uint8_t* p)
 }  // namespace
 
 
-void encodeScan(const ms136::redux::DenseBuffer& dense, std::vector<uint8_t>& out)
+void encodeScan(
+    const ms136::redux::DenseBuffer& dense,
+    std::vector<uint8_t>& out)
 {
     std::array<uint16_t, NUM_CELLS> q;
     std::array<uint8_t, NUM_CELLS> f;
