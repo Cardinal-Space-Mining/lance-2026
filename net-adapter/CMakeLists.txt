@@ -3,6 +3,7 @@ project(net_adapter)
 
 # --- Dependencies -------------------------------------------------------------
 find_package(rosidl_default_generators REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(csm_utils REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -29,14 +30,37 @@ standard_compile_options()
 
 # --- Messages -----------------------------------------------------------------
 rosidl_generate_interfaces(${PROJECT_NAME}
-    "msg/Bytes.msg")
+    "msg/Bytes.msg"
+    "msg/NetBandwidth.msg"
+    "msg/NetChannelBandwidth.msg"
+    DEPENDENCIES builtin_interfaces)
 
 rosidl_get_typesupport_target(${PROJECT_NAME}_custom_types
     ${PROJECT_NAME} rosidl_typesupport_cpp)
 
+# --- MS136 scan codec ---------------------------------------------------------
+# Kept free of ROS/zenoh deps so the trainer tool and unit tests stay light.
+add_library(ms136_codec STATIC
+    "src/util/ms136_codec/ms136_codec.cpp")
+target_link_libraries(ms136_codec
+    Eigen3::Eigen)
+auto_target_dependencies(ms136_codec
+    multiscan_driver)
+
+option(NET_ADAPTER_BUILD_TOOLS "Build the offline ms136 codec table trainer" OFF)
+if(NET_ADAPTER_BUILD_TOOLS)
+    add_executable(ms136_codec_train
+        "tools/ms136_codec_train.cpp")
+    target_link_libraries(ms136_codec_train
+        Eigen3::Eigen)
+    auto_target_dependencies(ms136_codec_train
+        multiscan_driver)
+endif()
+
 # --- Common -------------------------------------------------------------------
 add_library(adapters_core STATIC
     "src/core/zstd_ctx.cpp"
+    "src/core/bandwidth_monitor.cpp"
     "src/core/delay_queue.cpp"
     "src/core/latency_ping.cpp"
     "src/adapters/joy_adapter.cpp"
@@ -45,6 +69,7 @@ add_library(adapters_core STATIC
     "src/adapters/talon_adapter.cpp"
     "src/adapters/path_adapter.cpp")
 target_link_libraries(adapters_core
+    ms136_codec
     ${${PROJECT_NAME}_custom_types}
     Eigen3::Eigen
     zenohcxx::zenohc
@@ -82,6 +107,17 @@ target_link_libraries(client_endpoint
 # ament_target_dependencies(client_endpoint
 #     rclcpp)
     # csm_metrics)
+
+# --- Tests --------------------------------------------------------------------
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    ament_add_gtest(test_ms136_codec
+        "test/test_ms136_codec.cpp")
+    target_link_libraries(test_ms136_codec
+        ms136_codec)
+    target_compile_definitions(test_ms136_codec PRIVATE
+        MS136_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/test/data/ms136_scans.bin")
+endif()
 
 # --- Export -------------------------------------------------------------------
 

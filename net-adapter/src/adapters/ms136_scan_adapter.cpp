@@ -52,6 +52,8 @@
 #include <csm_utils/ros_utils.hpp>
 #include <csm_utils/mem_helpers.hpp>
 
+#include "../util/ms136_codec/ms136_codec.hpp"
+
 
 using namespace util;
 
@@ -79,6 +81,44 @@ using PointField = sensor_msgs::msg::PointField;
          .set__datatype(PointField::FLOAT32) \
          .set__count(1)                      \
          .set__offset(12)}
+
+
+
+// --- Payload helpers ---------------------------------------------------------
+
+using Stamp = builtin_interfaces::msg::Time;
+constexpr size_t STAMP_BYTES = sizeof(Stamp::sec) + sizeof(Stamp::nanosec);
+
+/* Payload = [stamp sec][stamp nanosec][ms136_codec scan] */
+static void writeScanPayload(
+    std::vector<uint8_t>& bytes,
+    const Stamp& stamp,
+    const ms136::redux::DenseBuffer& dense)
+{
+    bytes.resize(STAMP_BYTES);
+    uint8_t* ptr = bytes.data();
+    writeAndIncrement(ptr, stamp.sec);
+    writeAndIncrement(ptr, stamp.nanosec);
+    util::ms136_codec::encodeScan(dense, bytes);
+}
+
+static bool readScanPayload(
+    Stamp& stamp,
+    ms136::redux::DenseBuffer& dense,
+    const std::vector<uint8_t>& bytes)
+{
+    if (bytes.size() < STAMP_BYTES)
+    {
+        return false;
+    }
+    const uint8_t* ptr = bytes.data();
+    readAndIncrement(ptr, stamp.sec);
+    readAndIncrement(ptr, stamp.nanosec);
+    return util::ms136_codec::decodeScan(
+        ptr,
+        bytes.size() - STAMP_BYTES,
+        dense);
+}
 
 
 
@@ -142,20 +182,22 @@ bool MS136ScanAdapter::serializeMsg(
         return false;
     }
 
-    ms136::redux::DenseBuffer dense_buff;
+    ms136::redux::DenseBuffer dense_buff{};  // cells absent from msg stay null
     for (auto p = msg.data.begin(); p < msg.data.end(); p += msg.point_step)
     {
         const uint8_t* pt_base = p.base();
         const size_t layer_i = static_cast<size_t>(
             *reinterpret_cast<const uint32_t*>(pt_base + layer_off));
 
-        if (ms136::isHdLayer(layer_i))
+        const size_t index_i = static_cast<size_t>(
+            *reinterpret_cast<const uint32_t*>(pt_base + index_off));
+        // indices come straight from the cloud: out-of-range ones would write
+        // outside dense_buff
+        if (layer_i >= ms136::NUM_LAYERS || ms136::isHdLayer(layer_i) ||
+            index_i >= ms136::POINTS_PER_LR_LAYER)
         {
             continue;
         }
-
-        const size_t index_i = static_cast<size_t>(
-            *reinterpret_cast<const uint32_t*>(pt_base + index_off));
         const float range =
             *reinterpret_cast<const float*>(pt_base + range_off);
         const uint8_t reflector = static_cast<uint8_t>(
@@ -169,19 +211,7 @@ bool MS136ScanAdapter::serializeMsg(
             reflector);
     }
 
-    ms136::redux::PackedBuffer packed_buff;
-    ms136::redux::packBuffer(packed_buff, dense_buff);
-
-    bytes.resize(
-        sizeof(decltype(msg.header.stamp.sec)) +      //
-        sizeof(decltype(msg.header.stamp.nanosec)) +  //
-        packed_buff.size() * sizeof(uint16_t));
-    uint8_t* ptr = bytes.data();
-
-    writeAndIncrement(ptr, msg.header.stamp.sec);
-    writeAndIncrement(ptr, msg.header.stamp.nanosec);
-    writeManyAndIncrement(ptr, packed_buff);
-
+    writeScanPayload(bytes, msg.header.stamp, dense_buff);
     return true;
 }
 
@@ -190,19 +220,12 @@ bool MS136ScanAdapter::deserializeMsg(
     const ByteBuffer& bytes,
     PubStateT& state)
 {
-    const uint8_t* ptr = bytes.data();
-
-    msg.header.frame_id = state.lidar_frame_id;
-    readAndIncrement(ptr, msg.header.stamp.sec);
-    readAndIncrement(ptr, msg.header.stamp.nanosec);
-
-    const size_t n_packed_bytes = (bytes.end().base() - ptr);
-
-    ms136::redux::PackedBuffer packed_buff;
-    readManyAndIncrement(ptr, packed_buff, n_packed_bytes / sizeof(uint16_t));
-
     ms136::redux::DenseBuffer dense_buff;
-    ms136::redux::unpackBuffer(dense_buff, packed_buff);
+    if (!readScanPayload(msg.header.stamp, dense_buff, bytes))
+    {
+        return false;
+    }
+    msg.header.frame_id = state.lidar_frame_id;
 
     msg.data.reserve(dense_buff.size() * OUTPUT_POINT_BYTE_LEN);
     for (size_t i = 0; i < dense_buff.size(); i++)
@@ -243,7 +266,7 @@ bool MS136ScanAdapter::deserializeMsg(
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 
-Eigen::Vector3f projectGzSimPoint(size_t i, uint16_t pt)
+static ms136::redux::DirectionLUT computeGzSimDirectionLUT()
 {
     constexpr float THETA_START = 0.f;
     constexpr float THETA_STEP =
@@ -254,21 +277,31 @@ Eigen::Vector3f projectGzSimPoint(size_t i, uint16_t pt)
                                (ms136::NUM_LR_LAYERS - 1);
 
 
-    const size_t layer_i = i / ms136::POINTS_PER_LR_LAYER;
-    const size_t local_i = i % ms136::POINTS_PER_LR_LAYER;
+    ms136::redux::DirectionLUT lut;
+    for (size_t i = 0; i < ms136::POINTS_PER_LR_SCAN; i++)
+    {
+        const size_t layer_i = i / ms136::POINTS_PER_LR_LAYER;
+        const size_t local_i = i % ms136::POINTS_PER_LR_LAYER;
 
-    const float r = ms136::redux::getRangeMeters(pt);
-    const float theta = THETA_START + THETA_STEP * local_i;
-    const float phi = PHI_START + PHI_STEP * layer_i;
-    const float sin_theta = std::sin(theta);
-    const float cos_theta = std::cos(theta);
-    const float sin_phi = std::sin(phi);
-    const float cos_phi = std::cos(phi);
+        const float theta = THETA_START + THETA_STEP * local_i;
+        const float phi = PHI_START + PHI_STEP * layer_i;
+        const float sin_theta = std::sin(theta);
+        const float cos_theta = std::cos(theta);
+        const float sin_phi = std::sin(phi);
+        const float cos_phi = std::cos(phi);
 
-    return Eigen::Vector3f{
-        r * cos_phi * cos_theta,
-        r * cos_phi * sin_theta,
-        r * sin_phi};
+        lut[i] = Eigen::Vector3f{
+            cos_phi * cos_theta,
+            cos_phi * sin_theta,
+            sin_phi};
+    }
+    return lut;
+}
+
+Eigen::Vector3f projectGzSimPoint(size_t i, uint16_t pt)
+{
+    static const ms136::redux::DirectionLUT lut = computeGzSimDirectionLUT();
+    return lut[i] * ms136::redux::getRangeMeters(pt);
 }
 
 
@@ -317,19 +350,7 @@ bool MS136SimScanAdapter::serializeMsg(
         return false;
     }
 
-    ms136::redux::PackedBuffer packed_buff;
-    ms136::redux::packBuffer(packed_buff, dense_buff);
-
-    bytes.resize(
-        sizeof(decltype(msg.header.stamp.sec)) +      //
-        sizeof(decltype(msg.header.stamp.nanosec)) +  //
-        packed_buff.size() * sizeof(uint16_t));
-    uint8_t* ptr = bytes.data();
-
-    writeAndIncrement(ptr, msg.header.stamp.sec);
-    writeAndIncrement(ptr, msg.header.stamp.nanosec);
-    writeManyAndIncrement(ptr, packed_buff);
-
+    writeScanPayload(bytes, msg.header.stamp, dense_buff);
     return true;
 }
 
@@ -338,19 +359,12 @@ bool MS136SimScanAdapter::deserializeMsg(
     const ByteBuffer& bytes,
     PubStateT& state)
 {
-    const uint8_t* ptr = bytes.data();
-
-    msg.header.frame_id = state.lidar_frame_id;
-    readAndIncrement(ptr, msg.header.stamp.sec);
-    readAndIncrement(ptr, msg.header.stamp.nanosec);
-
-    const size_t n_packed_bytes = (bytes.end().base() - ptr);
-
-    ms136::redux::PackedBuffer packed_buff;
-    readManyAndIncrement(ptr, packed_buff, n_packed_bytes / sizeof(uint16_t));
-
     ms136::redux::DenseBuffer dense_buff;
-    ms136::redux::unpackBuffer(dense_buff, packed_buff);
+    if (!readScanPayload(msg.header.stamp, dense_buff, bytes))
+    {
+        return false;
+    }
+    msg.header.frame_id = state.lidar_frame_id;
 
     msg.data.reserve(dense_buff.size() * OUTPUT_POINT_BYTE_LEN);
     for (size_t i = 0; i < dense_buff.size(); i++)

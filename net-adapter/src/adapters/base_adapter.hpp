@@ -49,6 +49,7 @@
 
 #include "../core/zstd_ctx.hpp"
 #include "../core/delay_queue.hpp"
+#include "../core/bandwidth_monitor.hpp"
 
 
 /* Base class for adapter implementations (CRTP static polymorphism).
@@ -112,11 +113,13 @@ public:
             zenoh::Session&,
             const std::string&,
             const rclcpp::QoS&,
-            DelayQueue* delay_q = nullptr);
+            DelayQueue* delay_q = nullptr,
+            BandwidthMonitor* bw = nullptr);
 
     private:
         SubStateT state;
         ZenohPub zpub;
+        BandwidthMonitor::Counter* tx_counter;  // null: not counted
         RosSub rsub;
 
         [[no_unique_address]]
@@ -134,11 +137,13 @@ public:
             rclcpp::Node&,
             zenoh::Session&,
             const std::string&,
-            const rclcpp::QoS&);
+            const rclcpp::QoS&,
+            BandwidthMonitor* bw = nullptr);
 
     private:
         PubStateT state;
         RosPub rpub;
+        BandwidthMonitor::Counter* rx_counter;  // null: not counted
         ZenohSub zsub;
 
         [[no_unique_address]]
@@ -151,26 +156,30 @@ public:
         zenoh::Session&,
         const std::string&,
         const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-        DelayQueue* delay_q = nullptr);
+        DelayQueue* delay_q = nullptr,
+        BandwidthMonitor* bw = nullptr);
 
     static Publisher createPublisher(
         rclcpp::Node&,
         zenoh::Session&,
         const std::string&,
-        const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+        const rclcpp::QoS& = rclcpp::SensorDataQoS{},
+        BandwidthMonitor* bw = nullptr);
 
     static std::shared_ptr<Subscriber> createSharedSubscriber(
         rclcpp::Node&,
         zenoh::Session&,
         const std::string&,
         const rclcpp::QoS& = rclcpp::SensorDataQoS{},
-        DelayQueue* delay_q = nullptr);
+        DelayQueue* delay_q = nullptr,
+        BandwidthMonitor* bw = nullptr);
 
     static std::shared_ptr<Publisher> createSharedPublisher(
         rclcpp::Node&,
         zenoh::Session&,
         const std::string&,
-        const rclcpp::QoS& = rclcpp::SensorDataQoS{});
+        const rclcpp::QoS& = rclcpp::SensorDataQoS{},
+        BandwidthMonitor* bw = nullptr);
 
 protected:
     /* Override in derivee class to implement serialization to bytes! */
@@ -198,9 +207,12 @@ BaseAdapter<M, D, C, P, S>::Subscriber::Subscriber(
     zenoh::Session& zsh,
     const std::string& topic,
     const rclcpp::QoS& qos,
-    DelayQueue* delay_q) :
+    DelayQueue* delay_q,
+    BandwidthMonitor* bw) :
     state{node},
     zpub{zsh.declare_publisher(topic.front() == '/' ? topic.substr(1) : topic)},
+    tx_counter{
+        bw ? bw->addChannel(topic, BandwidthMonitor::Direction::TX) : nullptr},
     rsub{node.create_subscription<MsgT>(
         topic,
         qos,
@@ -235,14 +247,26 @@ BaseAdapter<M, D, C, P, S>::Subscriber::Subscriber(
                 // Capture a raw pointer to zpub, probably safe because both this
                 // Subscriber and the DelayQueue are owned by EndPointNode,
                 // so zpub always outlives every queued entry.
+                // Same reasoning for tx_counter (owned by EndPointNode too).
                 ZenohPub* pub = &this->zpub;
+                BandwidthMonitor::Counter* tx = this->tx_counter;
                 delay_q->push(
-                    [pub](ByteBuffer&& b)
-                    { pub->put(zenoh::Bytes(std::move(b))); },
+                    [pub, tx](ByteBuffer&& b)
+                    {
+                        if (tx)
+                        {
+                            tx->add(b.size());
+                        }
+                        pub->put(zenoh::Bytes(std::move(b)));
+                    },
                     std::move(bytes));
             }
             else
             {
+                if (this->tx_counter)
+                {
+                    this->tx_counter->add(bytes.size());
+                }
                 this->zpub.put(zenoh::Bytes(std::move(bytes)));
             }
         })}
@@ -254,15 +278,22 @@ BaseAdapter<M, D, C, P, S>::Publisher::Publisher(
     rclcpp::Node& node,
     zenoh::Session& zsh,
     const std::string& topic,
-    const rclcpp::QoS& qos) :
+    const rclcpp::QoS& qos,
+    BandwidthMonitor* bw) :
     state{node},
     rpub{node.create_publisher<MsgT>(topic, qos)},
+    rx_counter{
+        bw ? bw->addChannel(topic, BandwidthMonitor::Direction::RX) : nullptr},
     zsub{zsh.declare_subscriber(
         topic.front() == '/' ? topic.substr(1) : topic,
         [this, logger = node.get_logger(), clock = node.get_clock(), topic](
             const zenoh::Sample& sample)
         {
             ByteBuffer bytes = sample.get_payload().as_vector();
+            if (this->rx_counter)
+            {
+                this->rx_counter->add(bytes.size());
+            }
             if constexpr (USING_COMPRESSION)
             {
                 if (!this->decompress_ctx.decompress(bytes))
@@ -294,9 +325,10 @@ typename BaseAdapter<M, D, C, P, S>::Subscriber
         zenoh::Session& zsh,
         const std::string& topic,
         const rclcpp::QoS& qos,
-        DelayQueue* delay_q)
+        DelayQueue* delay_q,
+        BandwidthMonitor* bw)
 {
-    return Subscriber(node, zsh, topic, qos, delay_q);
+    return Subscriber(node, zsh, topic, qos, delay_q, bw);
 }
 
 template<typename M, typename D, int C, typename P, typename S>
@@ -305,9 +337,10 @@ typename BaseAdapter<M, D, C, P, S>::Publisher
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
-        const rclcpp::QoS& qos)
+        const rclcpp::QoS& qos,
+        BandwidthMonitor* bw)
 {
-    return Publisher(node, zsh, topic, qos);
+    return Publisher(node, zsh, topic, qos, bw);
 }
 
 template<typename M, typename D, int C, typename P, typename S>
@@ -317,14 +350,16 @@ std::shared_ptr<typename BaseAdapter<M, D, C, P, S>::Subscriber>
         zenoh::Session& zsh,
         const std::string& topic,
         const rclcpp::QoS& qos,
-        DelayQueue* delay_q)
+        DelayQueue* delay_q,
+        BandwidthMonitor* bw)
 {
     return std::make_shared<Subscriber>(
         std::ref(node),
         std::ref(zsh),
         std::cref(topic),
         std::cref(qos),
-        delay_q);
+        delay_q,
+        bw);
 }
 
 template<typename M, typename D, int C, typename P, typename S>
@@ -333,11 +368,13 @@ std::shared_ptr<typename BaseAdapter<M, D, C, P, S>::Publisher>
         rclcpp::Node& node,
         zenoh::Session& zsh,
         const std::string& topic,
-        const rclcpp::QoS& qos)
+        const rclcpp::QoS& qos,
+        BandwidthMonitor* bw)
 {
     return std::make_shared<Publisher>(
         std::ref(node),
         std::ref(zsh),
         std::cref(topic),
-        std::cref(qos));
+        std::cref(qos),
+        bw);
 }
