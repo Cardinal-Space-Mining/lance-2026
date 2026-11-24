@@ -17,20 +17,120 @@
             "lidar_frame": "${ id.lidar_frame }",
             "lidar_hostname": "${ ip.net1.lidar }",
             "lidar_udp_port": 2115,
+            "imu_udp_port": 2116,
+            "udp_receive_buffer_bytes": 4194304,
             "sopas_tcp_port": 2111,
-            "use_msgpack": false,
-            "use_cola_binary": false,
+            "sopas_password": "F4724744",
             "udp_reset_timeout": 2.0,
-            "udp_receive_timeout": 1.0,
             "sopas_read_timeout": 3.0,
             "error_restart_timeout": 3.0,
-            "max_segment_buffers": 3,
-            "echo_selection": 1
+            "echo_selection": 1,
+
+            "time":
+            {
+                "source": "estimated"
+            },
+            "imu":
+            {
+                "frame_id": "",
+                "publish_tf": true,
+                "orientation_covariance": [0.0, 0.0, 0.0],
+                "angular_velocity_covariance": [0.0, 0.0, 0.0],
+                "linear_acceleration_covariance": [0.0, 0.0, 0.0]
+            },
+            "diagnostics":
+            {
+                "status_period": 2.0
+            },
+            "output":
+            {
+                "point_fields": ["x", "y", "z", "intensity", "range", "azimuth", "elevation",
+                                 "layer", "echo", "index", "tl", "th", "reflective"],
+                "publish_partial_frames": true
+            },
+            "ghost_filter":
+            {
+                "enabled": false,
+                "model_file": "artifact_full",
+                "fallback_model_file": "artifact_xyz",
+                "mode": "drop",
+                "threshold": -1.0,
+                "early_exit": true
+            },
+            "sensor":
+            {
+                "apply": true,
+                "echo_filter": "last",
+                "layers": [1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+                "output_range_deg": [-180.0, 180.0],
+                "interlaced": false,
+                "range_filter":
+                {
+                    "enabled": false,
+                    "min_mm": 0,
+                    "max_mm": 200000
+                },
+                "cubic_filter":
+                {
+                    "enabled": false,
+                    "min_mm": [-20000, -20000, -20000],
+                    "max_mm": [20000, 20000, 20000]
+                },
+                "particle_filter": false,
+                "fog_filter": false,
+                "moving_average":
+                {
+                    "enabled": false,
+                    "depth": 2
+                },
+                "interval_filter":
+                {
+                    "enabled": false,
+                    "factor": 4
+                },
+                "contamination":
+                {
+                    "strategy": "inactive",
+                    "response_time_s": 3,
+                    "sensitivity": "low",
+                    "custom_sectors": true,
+                    "sectors": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    "warning": true,
+                    "error": true
+                },
+                "time_sync":
+                {
+                    "mode": "off",
+                    "ntp_server": "",
+                    "ntp_update_s": 10
+                }
+            }
         },
         "net2":
         {
             "pragma:derived": "net1",
             "lidar_hostname": "${ ip.net2.lidar }"
+        },
+
+        "net1_ghost_drop":
+        {
+            "pragma:derived": "net1",
+            "ghost_filter.enabled": true
+        },
+        "net2_ghost_drop":
+        {
+            "pragma:derived": "net2",
+            "ghost_filter.enabled": true
+        },
+        "net1_ghost_annotate":
+        {
+            "pragma:derived": "net1_ghost_drop",
+            "ghost_filter.mode": "annotate"
+        },
+        "net2_ghost_annotate":
+        {
+            "pragma:derived": "net2_ghost_drop",
+            "ghost_filter.mode": "annotate"
         },
 
         "net1_debug":
