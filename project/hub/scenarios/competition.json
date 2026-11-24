@@ -1,0 +1,40 @@
+{
+    "label": "Competition run",
+    "description": "The real thing: robot code on the robot computer (CAN motors, lidar, bag recording) and the driver station with joystick, mission control and Foxglove. Each side is pointed at the other's address automatically.",
+    "order": 10,
+    "roles": {
+        "robot": {"label": "Robot computer", "default": "robot-vm"},
+        "client": {"label": "Driver station", "default": "local"}
+    },
+    "options": {
+        "robot": {"label": "Robot", "default": "lance2",
+                  "choices": {"lance2": "LANCE-2", "lance1": "LANCE-1"}},
+        "arena": {"label": "Arena", "default": "ksc",
+                  "choices": {"ksc": "KSC", "ucf_left": "UCF left",
+                              "ucf_right": "UCF right"}}
+    },
+    "processes": [
+        {
+            "key": "robot",
+            "label": "Robot stack",
+            "role": "robot",
+            "lance": {
+                "flags": ["--canbus", "--local"],
+                "args": {"robot": "{robot}_{arena}"},
+                "set": {"redux": {"client_hostname": "{ip:client}"}}
+            }
+        },
+        {
+            "key": "client",
+            "label": "Driver station",
+            "role": "client",
+            "after": ["robot"],
+            "start_delay_s": 2,
+            "lance": {
+                "flags": ["--local"],
+                "args": {"client": "{robot}_{arena}"},
+                "set": {"redux": {"robot_hostname": "{ip:robot}"}}
+            }
+        }
+    ]
+}

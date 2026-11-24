@@ -1,0 +1,78 @@
+{
+    "machines": [
+        {
+            "id": "robot-mac",
+            "label": "Robot mac",
+            "role": "LANCE-2 mac mini (M4). Hosts the robot VM.",
+            "routes": [
+                {"host": "10.11.11.34", "user": "lance",
+                 "host_key_alias": "robot-mac.csm-hub"},
+                {"host": "10.11.11.60", "user": "lance",
+                 "host_key_alias": "robot-mac.csm-hub"}
+            ],
+            "vm": {"csm_vm_path": "~/code/csm-vm", "guest": "robot-vm"}
+        },
+        {
+            "id": "robot-vm",
+            "label": "Robot VM",
+            "role": "Runs the robot code (Ubuntu VM on the robot mac).",
+            "host": "robot-mac",
+            "workspace": "~/lance-ws",
+            "routes": [
+                {"host": "10.11.11.48", "user": "lance",
+                 "host_key_alias": "robot-vm.csm-hub"},
+                {"host": "10.11.11.15", "user": "lance",
+                 "host_key_alias": "robot-vm.csm-hub"},
+                {"host": "192.168.18.2", "user": "lance", "via": "robot-mac",
+                 "host_key_alias": "robot-vm.csm-hub"}
+            ]
+        },
+        {
+            "id": "mac2",
+            "label": "Mac mini 2",
+            "role": "Second mac mini (M2), used for testing.",
+            "routes": [
+                {"host": "10.11.11.9", "user": "samri",
+                 "host_key_alias": "sams-mac-mini.local"},
+                {"host": "10.11.11.246", "user": "samri",
+                 "host_key_alias": "sams-mac-mini.local"}
+            ],
+            "vm": {"csm_vm_path": "~/code/csm-vm", "guest": "mac2-vm"}
+        },
+        {
+            "id": "mac2-vm",
+            "label": "Mac mini 2 VM",
+            "role": "Ubuntu VM on mac mini 2.",
+            "host": "mac2",
+            "workspace": "~/lance-ws",
+            "routes": [
+                {"host": "10.11.11.10", "user": "samri",
+                 "host_key_alias": "mac2-vm.csm-hub"},
+                {"host": "10.11.11.11", "user": "samri",
+                 "host_key_alias": "mac2-vm.csm-hub"},
+                {"host": "192.168.18.2", "user": "samri", "via": "mac2",
+                 "host_key_alias": "mac2-vm.csm-hub"}
+            ]
+        },
+        {
+            "id": "mochapanda",
+            "label": "mochapanda",
+            "role": "Backup robot computer (LattePanda Delta 3, Ubuntu).",
+            "workspace": "~/lance-ws",
+            "routes": [
+                {"host": "10.11.11.13", "user": "lance",
+                 "host_key_alias": "mochapanda.csm-hub"}
+            ]
+        },
+        {
+            "id": "frappepanda",
+            "label": "frappepanda",
+            "role": "Backup robot computer (LattePanda Delta 3, Ubuntu).",
+            "workspace": "~/lance-ws",
+            "routes": [
+                {"host": "10.11.11.14", "user": "lance",
+                 "host_key_alias": "frappepanda.csm-hub"}
+            ]
+        }
+    ]
+}

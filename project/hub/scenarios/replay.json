@@ -1,0 +1,29 @@
+{
+    "label": "Replay a bag",
+    "description": "Play a recorded bag through perception (and optionally mission control) on one machine. Use it to tune perception without the robot. The bag path is on the machine that runs it.",
+    "order": 60,
+    "roles": {
+        "machine": {"label": "Machine", "default": "local"}
+    },
+    "options": {
+        "pipeline": {"label": "Pipeline", "default": "lance2_perception",
+                     "choices": {
+                         "lance2_perception": "LANCE-2 perception",
+                         "lance1_perception": "LANCE-1 perception",
+                         "rerun_lance2_ksc": "LANCE-2 perception + mission (KSC)",
+                         "rerun_lance2_ucf_left": "LANCE-2 perception + mission (UCF left)",
+                         "rerun_lance2_ucf_right": "LANCE-2 perception + mission (UCF right)"
+                     }},
+        "bag": {"label": "Bag path", "type": "text", "default": "",
+                "placeholder": "bag_recordings/<bag folder>"}
+    },
+    "processes": [
+        {
+            "key": "replay",
+            "label": "Replay",
+            "role": "machine",
+            "lance": {"flags": [], "args": {"replay": "{pipeline}",
+                                             "bag": "{bag}"}}
+        }
+    ]
+}

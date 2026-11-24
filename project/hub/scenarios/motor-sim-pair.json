@@ -1,0 +1,34 @@
+{
+    "label": "Two-machine motor sim",
+    "description": "Robot control with simulated motors on one machine and the driver station on another, connected through net_adapter exactly like a real run. No hardware needed: use it to test networking, the joystick path and mission control. The lidar driver starts but finds no sensor.",
+    "order": 20,
+    "roles": {
+        "robot": {"label": "Robot side", "default": "robot-vm"},
+        "client": {"label": "Driver station", "default": "local"}
+    },
+    "options": {},
+    "processes": [
+        {
+            "key": "robot",
+            "label": "Robot (motor sim)",
+            "role": "robot",
+            "lance": {
+                "flags": ["--local"],
+                "args": {"dev": "robot_motor_sim"},
+                "set": {"redux": {"client_hostname": "{ip:client}"}}
+            }
+        },
+        {
+            "key": "client",
+            "label": "Driver station",
+            "role": "client",
+            "after": ["robot"],
+            "start_delay_s": 2,
+            "lance": {
+                "flags": ["--local"],
+                "args": {"dev": "client_mac_wifi"},
+                "set": {"redux": {"robot_hostname": "{ip:robot}"}}
+            }
+        }
+    ]
+}
