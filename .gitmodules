@@ -17,3 +17,6 @@
 [submodule "csm-utils"]
 	path = csm-utils
 	url = https://github.com/Cardinal-Space-Mining/csm-utils
+[submodule "orchestrator"]
+	path = orchestrator
+	url = ./orchestrator/

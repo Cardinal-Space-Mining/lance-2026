@@ -6,9 +6,9 @@
             "role": "LANCE-2 mac mini (M4). Hosts the robot VM.",
             "routes": [
                 {"host": "10.11.11.34", "user": "lance",
-                 "host_key_alias": "robot-mac.csm-hub"},
+                 "host_key_alias": "robot-mac.orchestrator"},
                 {"host": "10.11.11.60", "user": "lance",
-                 "host_key_alias": "robot-mac.csm-hub"}
+                 "host_key_alias": "robot-mac.orchestrator"}
             ],
             "vm": {"csm_vm_path": "~/code/csm-vm", "guest": "robot-vm"}
         },
@@ -20,11 +20,11 @@
             "workspace": "~/lance-ws",
             "routes": [
                 {"host": "10.11.11.48", "user": "lance",
-                 "host_key_alias": "robot-vm.csm-hub"},
+                 "host_key_alias": "robot-vm.orchestrator"},
                 {"host": "10.11.11.15", "user": "lance",
-                 "host_key_alias": "robot-vm.csm-hub"},
+                 "host_key_alias": "robot-vm.orchestrator"},
                 {"host": "192.168.18.2", "user": "lance", "via": "robot-mac",
-                 "host_key_alias": "robot-vm.csm-hub"}
+                 "host_key_alias": "robot-vm.orchestrator"}
             ]
         },
         {
@@ -47,11 +47,11 @@
             "workspace": "~/lance-ws",
             "routes": [
                 {"host": "10.11.11.10", "user": "samri",
-                 "host_key_alias": "mac2-vm.csm-hub"},
+                 "host_key_alias": "mac2-vm.orchestrator"},
                 {"host": "10.11.11.11", "user": "samri",
-                 "host_key_alias": "mac2-vm.csm-hub"},
+                 "host_key_alias": "mac2-vm.orchestrator"},
                 {"host": "192.168.18.2", "user": "samri", "via": "mac2",
-                 "host_key_alias": "mac2-vm.csm-hub"}
+                 "host_key_alias": "mac2-vm.orchestrator"}
             ]
         },
         {
@@ -61,7 +61,7 @@
             "workspace": "~/lance-ws",
             "routes": [
                 {"host": "10.11.11.13", "user": "lance",
-                 "host_key_alias": "mochapanda.csm-hub"}
+                 "host_key_alias": "mochapanda.orchestrator"}
             ]
         },
         {
@@ -71,7 +71,7 @@
             "workspace": "~/lance-ws",
             "routes": [
                 {"host": "10.11.11.14", "user": "lance",
-                 "host_key_alias": "frappepanda.csm-hub"}
+                 "host_key_alias": "frappepanda.orchestrator"}
             ]
         }
     ]
