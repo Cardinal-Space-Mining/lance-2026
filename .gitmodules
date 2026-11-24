@@ -19,4 +19,4 @@
 	url = https://github.com/Cardinal-Space-Mining/csm-utils
 [submodule "orchestrator"]
 	path = orchestrator
-	url = ./orchestrator/
+	url = https://github.com/Cardinal-Space-Mining/orchestrator
