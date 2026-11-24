@@ -71,7 +71,7 @@
             }
         },
 
-        "liar_dev_net1":
+        "lidar_dev_net1":
         {
             "pragma:action_overrides":
             {
@@ -81,7 +81,7 @@
                 "foxglove_bride": "all"
             }
         },
-        "liar_dev_net2":
+        "lidar_dev_net2":
         {
             "pragma:derived": "lidar_dev_net1",
             "pragma:action_overrides":
