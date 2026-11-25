@@ -1,0 +1,14 @@
+{
+    "client": "The driver station: joystick, mission control, redux to the robot, perception views, the Foxglove bridge and a full bag. One preset per robot and arena.",
+    "dev": "Development setups: one piece of the stack, or the robot with simulated motors.",
+    "dev:=client_mac_wifi": "The client half of the motor sim pair (LANCE-2, KSC): joystick, mission control, redux to the robot over Wi-Fi, Foxglove bridge.",
+    "dev:=lidar_dev_net1": "The lidar driver on net1 with lidar-only perception and the path-planning client, for lidar work.",
+    "dev:=lidar_dev_net2": "lidar_dev_net1 with the lidar on net2.",
+    "dev:=motor_sim": "LANCE-2 robot control and mission control with simulated motors and a joystick, all on one machine.",
+    "dev:=robot_motor_sim": "The robot half of the motor sim pair (LANCE-2, KSC): robot control with simulated motors, the lidar driver on net2, lidar-only perception, redux to the client.",
+    "gz_client": "The client half of the Gazebo sim split across two machines (pair with gz_robot).",
+    "gz_full": "The whole Gazebo sim on one machine: the simulator, robot control, mission control, perception, joystick and Foxglove bridge.",
+    "gz_robot": "The robot half of the Gazebo sim split across two machines: the simulator, robot control, perception and redux to the client (pair with gz_client).",
+    "replay": "Replays a recorded bag through perception; the rerun_* presets add mission control for an arena.",
+    "robot": "The robot for a real run: motor drivers, robot control, the lidar driver, headless perception, redux to the client and bag recording. One preset per robot and arena."
+}
