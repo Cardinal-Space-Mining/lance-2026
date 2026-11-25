@@ -35,40 +35,6 @@
             }
         },
         {
-            "id": "mac2",
-            "label": "Mac mini 2",
-            "role": "Second mac mini (M2), used for testing.",
-            "user": "samri",
-            "host_key_alias": "sams-mac-mini.local",
-            "routes": [
-                {"host": "10.11.11.9"},
-                {"host": "10.11.11.246"}
-            ],
-            "config_addresses": {
-                "ip.net1.mac2_native_eth": "ethernet",
-                "ip.net1.mac2_native_wifi": "wifi"
-            },
-            "vm": {"csm_vm_path": "~/code/csm-vm", "guest": "mac2-vm"}
-        },
-        {
-            "id": "mac2-vm",
-            "label": "Mac mini 2 VM",
-            "role": "Ubuntu VM on mac mini 2.",
-            "host": "mac2",
-            "workspace": "~/lance-ws",
-            "user": "samri",
-            "host_key_alias": "mac2-vm.orchestrator",
-            "routes": [
-                {"host": "10.11.11.10"},
-                {"host": "10.11.11.11"},
-                {"host": "192.168.18.2", "via": "mac2"}
-            ],
-            "config_addresses": {
-                "ip.net1.mac2_vm_eth": "ethernet",
-                "ip.net1.mac2_vm_wifi": "wifi"
-            }
-        },
-        {
             "id": "mochapanda",
             "label": "mochapanda",
             "role": "Backup robot computer (LattePanda Delta 3, Ubuntu).",

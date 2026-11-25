@@ -139,6 +139,15 @@ Some common examples are listed below:
 > [!TIP]
 > All available presets can be found in the `lance/config/presets` directory, and all low-level action configs can be found in the `lance/config/actions` directory.
 
+## Orca (running the robot from a laptop)
+[Orca](https://github.com/Cardinal-Space-Mining/orca) is the team's robot orchestrator, included as the `orca` submodule. It's a web app you run on your laptop that drives every machine over SSH: it shows which machines are up and what code they have, launches the robot and driver station together with live output (the same `./src/run.sh` commands as above, with each side pointed at the other's current address), deploys and builds code, pulls bags, reads and cleans up logs, and browses and edits `lance/config`.
+
+```bash
+./src/orca/orca
+```
+
+It needs Python 3.10+ and nothing else on the laptop (the workspace doesn't even need to be built). Each robot computer needs SSH access with your key and a little one-time setup. Start with Orca's [README](https://github.com/Cardinal-Space-Mining/orca#getting-started), then see [preparing a machine](https://github.com/Cardinal-Space-Mining/orca/blob/main/docs/machine-setup.md). The team's machine list and launch scenarios live in `project/orca/`.
+
 ## Foxglove Studio
 A foxglove studio layout configuration (`project/foxglove_layout.json`) is included which provides a main control dashboard as well as tabs for each perception stage and motor status info. This can be loaded by clicking the **"LAYOUT"** dropdown in the top right corner of foxglove studio, then clicking **"Import from file..."** and navigating to the json.
 
@@ -186,4 +195,4 @@ Install the `autopep8` extension and add the following block to `.vscode/setting
     ]
 }
 ```
-__*Last updated: 10/26/26*__
+__*Last updated: 11/25/26*__
