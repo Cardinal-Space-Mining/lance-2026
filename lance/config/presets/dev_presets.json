@@ -78,7 +78,7 @@
                 "multiscan_driver": "net1",
                 "perception": "lidar_only",
                 "pplan_client": "enabled",
-                "foxglove_bride": "all"
+                "foxglove_bridge": "all"
             }
         },
         "lidar_dev_net2":
