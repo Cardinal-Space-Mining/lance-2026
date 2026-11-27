@@ -3,7 +3,7 @@
     "description": "Robot control with simulated motors on one machine and the driver station on another, connected through net_adapter exactly like a real run. No hardware needed: use it to test networking, the joystick path and mission control. The lidar driver starts but finds no sensor.",
     "order": 20,
     "roles": {
-        "robot": {"label": "Robot side", "default": "robot-vm"},
+        "robot": {"label": "Robot side", "default": "ubuntu-vm"},
         "client": {"label": "Driver station", "default": "local"}
     },
     "options": {},

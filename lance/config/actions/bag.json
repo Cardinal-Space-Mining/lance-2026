@@ -146,7 +146,7 @@
                 "/lance/hopper_act/info",
 
                 "/lance/telemetry",
-                "/cardinal_perception/trace_notifications",
+                "/trace_notifications",
                 "/rosout"
             ]
         },
@@ -192,7 +192,7 @@
                 "/cardinal_perception/mining_eval_results",
                 "/cardinal_perception/reflector_hint",
                 "/cardinal_perception/planned_path",
-                "/cardinal_perception/trace_notifications",
+                "/trace_notifications",
                 "/rosout"
             ],
             "services": true

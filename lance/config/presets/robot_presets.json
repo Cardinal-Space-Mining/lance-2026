@@ -13,7 +13,7 @@
                 "robot_control": "lance1_ksc",
                 "redux": "robot",
                 "multiscan_driver": "net2",
-                "perception": "lance1_headless",
+                "perception": "lance1",
                 "bag_record": "telemetry"
             }
         },
@@ -44,7 +44,7 @@
                 "robot_control": "lance2_ksc",
                 "redux": "robot",
                 "multiscan_driver": "net2",
-                "perception": "lance2_headless",
+                "perception": "lance2",
                 "bag_record": "raw"
             }
         },

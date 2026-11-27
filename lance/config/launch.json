@@ -9,6 +9,7 @@
         "actions/multiscan_driver.json",
         "actions/perception.json",
         "actions/phoenix_driver.json",
+        "actions/profiling_manager.json",
         "actions/redux.json",
         "actions/robot_control.json",
         "actions/shared.json",
