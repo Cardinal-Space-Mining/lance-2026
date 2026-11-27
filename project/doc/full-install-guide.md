@@ -531,6 +531,7 @@ cd src && git pull && git submodule update --init --recursive && cd ..
 
 - **Edit code** in VS Code: open the `~/code/lance-ws` folder (`code ~/code/lance-ws`). See the [VSCode section of the README](../../README.md#vscode) for IntelliSense and formatting settings.
 - **View data** in Foxglove.
+- **Run the real robot** (or anything on another machine) from this laptop with [Orca](https://github.com/Cardinal-Space-Mining/orca#getting-started): `./src/orca/orca` opens it in your browser. It's already in your workspace (the `orca` submodule) and needs no extra install; each robot computer needs your SSH key and a one-time [setup](https://github.com/Cardinal-Space-Mining/orca/blob/main/docs/machine-setup.md).
 
 ---
 

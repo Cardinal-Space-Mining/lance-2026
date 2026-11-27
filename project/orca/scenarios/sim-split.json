@@ -1,0 +1,42 @@
+{
+    "label": "Gazebo sim, split",
+    "description": "Gazebo plus the robot code on one machine and the driver station on another, talking through net_adapter like a real run. Needs csm-sim on the robot side. Good for testing the network path with simulated sensors.",
+    "order": 30,
+    "roles": {
+        "robot": {"label": "Simulator + robot", "default": "local"},
+        "client": {"label": "Driver station", "default": "local"}
+    },
+    "options": {
+        "robot": {"label": "Robot", "default": "lance2",
+                  "choices": {"lance2": "LANCE-2", "lance1": "LANCE-1"}},
+        "arena": {"label": "Arena", "default": "ksc",
+                  "choices": {"ksc": "KSC", "ucf_left": "UCF left",
+                              "ucf_right": "UCF right"}},
+        "gui": {"label": "Gazebo window", "default": "null",
+                "choices": {"null": "Headless", "enabled": "Show window"}}
+    },
+    "processes": [
+        {
+            "key": "robot",
+            "label": "Simulator + robot",
+            "role": "robot",
+            "lance": {
+                "flags": ["--local"],
+                "args": {"gz_robot": "{robot}_{arena}", "gz_gui": "{gui}"},
+                "set": {"redux": {"client_hostname": "{ip:client}"}}
+            }
+        },
+        {
+            "key": "client",
+            "label": "Driver station",
+            "role": "client",
+            "after": ["robot"],
+            "start_delay_s": 5,
+            "lance": {
+                "flags": ["--local"],
+                "args": {"gz_client": "{robot}_{arena}"},
+                "set": {"redux": {"robot_hostname": "{ip:robot}"}}
+            }
+        }
+    ]
+}

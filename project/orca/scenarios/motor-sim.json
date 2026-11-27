@@ -1,0 +1,17 @@
+{
+    "label": "Motor sim, one machine",
+    "description": "Robot control and mission control with simulated motors only: no Gazebo, no perception, no network. The lightest way to test control logic.",
+    "order": 50,
+    "roles": {
+        "machine": {"label": "Machine", "default": "local"}
+    },
+    "options": {},
+    "processes": [
+        {
+            "key": "sim",
+            "label": "Motor sim",
+            "role": "machine",
+            "lance": {"flags": [], "args": {"dev": "motor_sim"}}
+        }
+    ]
+}

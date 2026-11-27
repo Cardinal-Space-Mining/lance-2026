@@ -17,3 +17,6 @@
 [submodule "csm-utils"]
 	path = csm-utils
 	url = https://github.com/Cardinal-Space-Mining/csm-utils
+[submodule "orca"]
+	path = orca
+	url = https://github.com/Cardinal-Space-Mining/orca

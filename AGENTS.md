@@ -27,8 +27,9 @@ through ROS discovery.
 | `cardinal-perception/` | `cardinal_perception` | Localization / mapping. *Submodule* (branch `functionality`) |
 | `launch-utils/` | `launch_utils` | JSON preset launch framework. *Submodule* |
 | `csm-utils/`, `csm-metrics/` | `csm_utils`, `csm_metrics` | Shared helpers, process/profiling metrics. *Submodules* |
+| `orca/` | — | Orca, the web app that runs the robot from a laptop (launch, deploy, logs, config editing) over SSH. *Submodule*, not a ROS package (`COLCON_IGNORE`); its team files are in `project/orca/`. See its README |
 | `csm-sim/` | `csm_sim` | Gazebo sim. **Separate GitLab repo, gitignored here** (`git clone https://gitlab.com/csm2.0/csm-sim` into `src/`) |
-| `project/` | — | Non-package files: install docs (`doc/`), `cyclonedds.xml`, Foxglove layout, training curriculum (`training/`) |
+| `project/` | — | Non-package files: install docs (`doc/`), `cyclonedds.xml`, Foxglove layout, training curriculum (`training/`), Orca's machine inventory and launch scenarios (`orca/`) |
 | `build.sh`, `run.sh`, `sync.sh` | — | Build, launch, and rsync-deploy scripts |
 
 ## Building
@@ -123,7 +124,7 @@ with trained probability tables (`net-adapter/src/util/ms136_codec/`; see
 
 - C++: follow [Code style](#code-style) below.
 - Branch from `main` and open PRs into `main`. Commit subjects are short, lower-case and imperative ("add bandwidth monitoring").
-- **Submodules:** to change `multiscan-driver`, `cardinal-perception`, `launch-utils`, `csm-utils` or `csm-metrics`, commit inside the submodule (on a branch, and push it there), then commit the updated submodule pointer here. Don't leave the parent pointing at an unpushed commit.
+- **Submodules:** to change `multiscan-driver`, `cardinal-perception`, `launch-utils`, `csm-utils`, `csm-metrics` or `orca`, commit inside the submodule (on a branch, and push it there), then commit the updated submodule pointer here. Don't leave the parent pointing at an unpushed commit.
 - `multiscan-driver` no longer contains vendored sick_scan_xd code; its decoder is checked against the old driver's output (`test/data/golden_clouds.txt`) and its SOPAS client against a recorded transcript of the real sensor. Run `colcon test --packages-select multiscan_driver` after changing it.
 - Python launch/tool scripts use the system ROS Python. Don't add pip-only dependencies without updating the install docs (`project/doc/`) and the rosdep keys in `package.xml`.
 

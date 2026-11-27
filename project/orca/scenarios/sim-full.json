@@ -1,0 +1,28 @@
+{
+    "label": "Gazebo sim, one machine",
+    "description": "Simulator, robot code and driver station all on one machine (no net_adapter). The quickest way to try control or mission logic in a simulated arena. Needs csm-sim.",
+    "order": 40,
+    "roles": {
+        "machine": {"label": "Machine", "default": "local"}
+    },
+    "options": {
+        "robot": {"label": "Robot", "default": "lance2",
+                  "choices": {"lance2": "LANCE-2", "lance1": "LANCE-1"}},
+        "arena": {"label": "Arena", "default": "ksc",
+                  "choices": {"ksc": "KSC", "ucf_left": "UCF left",
+                              "ucf_right": "UCF right"}},
+        "gui": {"label": "Gazebo window", "default": "enabled",
+                "choices": {"enabled": "Show window", "null": "Headless"}}
+    },
+    "processes": [
+        {
+            "key": "sim",
+            "label": "Full simulation",
+            "role": "machine",
+            "lance": {
+                "flags": [],
+                "args": {"gz_full": "{robot}_{arena}", "gz_gui": "{gui}"}
+            }
+        }
+    ]
+}

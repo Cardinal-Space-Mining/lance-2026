@@ -1,0 +1,62 @@
+{
+    "machines": [
+        {
+            "id": "robot-mac",
+            "label": "Robot mac",
+            "role": "LANCE-2 mac mini (M4). Hosts the robot VM.",
+            "user": "lance",
+            "host_key_alias": "robot-mac.orchestrator",
+            "routes": [
+                {"host": "10.11.11.34"},
+                {"host": "10.11.11.60"}
+            ],
+            "config_addresses": {
+                "ip.net1.mac_native_eth": "ethernet",
+                "ip.net1.mac_native_wifi": "wifi"
+            },
+            "vm": {"csm_vm_path": "~/code/csm-vm", "guest": "robot-vm"}
+        },
+        {
+            "id": "robot-vm",
+            "label": "Robot VM",
+            "role": "Runs the robot code (Ubuntu VM on the robot mac).",
+            "host": "robot-mac",
+            "workspace": "~/lance-ws",
+            "user": "lance",
+            "host_key_alias": "robot-vm.orchestrator",
+            "routes": [
+                {"host": "10.11.11.48"},
+                {"host": "10.11.11.15"},
+                {"host": "192.168.18.2", "via": "robot-mac"}
+            ],
+            "config_addresses": {
+                "ip.net1.mac_vm_eth": "ethernet",
+                "ip.net1.mac_vm_wifi": "wifi"
+            }
+        },
+        {
+            "id": "mochapanda",
+            "label": "mochapanda",
+            "role": "Backup robot computer (LattePanda Delta 3, Ubuntu).",
+            "workspace": "~/lance-ws",
+            "user": "lance",
+            "host_key_alias": "mochapanda.orchestrator",
+            "routes": [
+                {"host": "10.11.11.13"}
+            ],
+            "config_addresses": {"ip.net1.mochapanda": "ethernet"}
+        },
+        {
+            "id": "frappepanda",
+            "label": "frappepanda",
+            "role": "Backup robot computer (LattePanda Delta 3, Ubuntu).",
+            "workspace": "~/lance-ws",
+            "user": "lance",
+            "host_key_alias": "frappepanda.orchestrator",
+            "routes": [
+                {"host": "10.11.11.14"}
+            ],
+            "config_addresses": {"ip.net1.frappepanda": "ethernet"}
+        }
+    ]
+}
